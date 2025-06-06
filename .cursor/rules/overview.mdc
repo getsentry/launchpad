@@ -1,0 +1,31 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+# Background
+
+This app is used by Sentry (the error monitoring platform) to analyze pre-production artifacts (like iOS and Android builds) and determine the size of them, similar to Emerge Tools breakdown. For example for a given binary it will tell you which classes take up how much space on disk (and an estimate for download size). This app will act as a CLI utility that takes in a file path to the artifact that is to be analyzed, and then outputs a file with the results in a JSON format.
+
+# Existing legacy iOS code
+
+There is an existing project in `legacy/ios/sizeAnalysis/`. THIS IS CONSIDERED LEGACY CODE for the iOS size analysis project. When referencing this code, make sure to consider these rules:
+
+- Ignore all the S3 code, the new tool will only work on local input and output files.
+- Ignore any Capstone references. This code is no longer needed but hasn't been deleted from the repo yet. Not using this will simplify the new project.
+
+# New iOS code
+
+The new project will be purely in python. Create a project structure that you think makes sense following the Sentry python guidelines and modern python practices. Keep in mind that there will be both iOS and Android size analysis projects, so consider that when organizing code and what might be shared between them.
+
+# Python rules
+
+For the Python code make sure to follow all of Sentry's best practices, as well as modern Python best practices. Try to use types as much as possible. If standard repo setup is not present, feel free to configure it and add it to the repo since this is currently a bare setup.
+
+For the CLI, make sure to use the `click` library.
+
+For the Mach-O handling, use the `lief` library and follow best practices for that. Make sure to focus on performance since this process can take several minutes, and I'm hoping to have no performance regressions compared to the Swift version.
+
+# Testing
+
+Included is a `test/artifacts` directory which contains sample "clean room" apps that can be used for writing integration tests and validating the output of this tool. Always write new tests to validate behavior and functionality. Prefer to write integration tests using the sample apps instead of writing smaller unit tests or using mocks.
