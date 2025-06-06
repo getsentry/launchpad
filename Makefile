@@ -1,0 +1,96 @@
+.PHONY: help install install-dev test test-unit test-integration lint format type-check clean build check all ci
+
+# Default target
+help:  ## Show this help message
+	@echo "Available targets:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# Python and virtual environment setup
+PYTHON := python3
+VENV_DIR := venv
+PIP := $(VENV_DIR)/bin/pip
+PYTHON_VENV := $(VENV_DIR)/bin/python
+
+# Create virtual environment if it doesn't exist
+$(VENV_DIR):
+	$(PYTHON) -m venv $(VENV_DIR)
+	$(PIP) install --upgrade pip setuptools wheel
+
+install: $(VENV_DIR)  ## Install the package in development mode
+	$(PIP) install -e .
+
+install-dev: $(VENV_DIR)  ## Install development dependencies
+	$(PIP) install -e ".[dev]"
+	$(PIP) install -r requirements-dev.txt
+	$(VENV_DIR)/bin/pre-commit install
+
+# Testing targets
+test: test-unit test-integration  ## Run all tests
+
+test-unit:  ## Run unit tests only
+	$(PYTHON_VENV) -m pytest tests/unit/ -v --tb=short
+
+test-integration:  ## Run integration tests only
+	$(PYTHON_VENV) -m pytest tests/ -k "not unit" -v --tb=short
+
+test-verbose:  ## Run all tests with verbose output
+	$(PYTHON_VENV) -m pytest tests/ -v --tb=long
+
+test-coverage:  ## Run tests with coverage report
+	$(PYTHON_VENV) -m pytest tests/ --cov=app_size_analyzer --cov-report=html --cov-report=term-missing
+
+# Code quality targets
+lint:  ## Run linting checks
+	$(PYTHON_VENV) -m flake8 src/ tests/
+	$(PYTHON_VENV) -m isort --check-only src/ tests/
+	$(PYTHON_VENV) -m black --check src/ tests/
+
+format:  ## Format code with black and isort
+	$(PYTHON_VENV) -m isort src/ tests/
+	$(PYTHON_VENV) -m black src/ tests/
+
+type-check:  ## Run type checking with mypy
+	$(PYTHON_VENV) -m mypy src/app_size_analyzer
+
+# Build targets
+build: clean  ## Build the package
+	$(PYTHON_VENV) -m build
+
+build-wheel:  ## Build wheel only
+	$(PYTHON_VENV) -m build --wheel
+
+# Maintenance targets
+clean:  ## Clean build artifacts and cache files
+	rm -rf build/
+	rm -rf dist/
+	rm -rf *.egg-info/
+	rm -rf .pytest_cache/
+	rm -rf .mypy_cache/
+	rm -rf htmlcov/
+	rm -rf .coverage
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+
+clean-venv:  ## Remove virtual environment
+	rm -rf $(VENV_DIR)
+
+# Combined targets for CI
+check: lint type-check  ## Run all code quality checks
+
+ci: install-dev check test  ## Run full CI pipeline (install deps, check code quality, run tests)
+
+all: clean install-dev check test build  ## Run complete build pipeline
+
+# Development helpers
+dev-setup: install-dev  ## Set up development environment
+	@echo "Development environment ready!"
+	@echo "Activate with: source $(VENV_DIR)/bin/activate"
+
+run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments)
+	$(PYTHON_VENV) -m app_size_analyzer.cli $(ARGS)
+
+# Show current status
+status:  ## Show project status
+	@echo "Python version: $$($(PYTHON) --version)"
+	@echo "Virtual environment: $$(if [ -d $(VENV_DIR) ]; then echo 'exists'; else echo 'missing'; fi)"
+	@echo "Pre-commit hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"

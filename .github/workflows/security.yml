@@ -1,0 +1,62 @@
+name: Security
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches: [ main ]
+    paths:
+      - 'requirements-dev.txt'
+      - 'pyproject.toml'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit
+        pip install -e ".[dev]"
+        pip install -r requirements-dev.txt
+    
+    - name: Run Safety check for known vulnerabilities
+      run: |
+        safety check --json || true
+    
+    - name: Run Bandit security linter
+      run: |
+        bandit -r src/ -f json || true
+    
+    - name: Check for outdated dependencies
+      run: |
+        pip list --outdated --format=json
+    
+    - name: Run pip-audit for known vulnerabilities
+      run: |
+        pip install pip-audit
+        pip-audit --format=json || true
+
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v3
+      with:
+        fail-on-severity: moderate
