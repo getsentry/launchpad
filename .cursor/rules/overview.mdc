@@ -28,6 +28,6 @@ For the Mach-O handling, use the `lief` library and follow best practices for th
 
 # Testing
 
-The `test/artifacts` directory contains sample "clean room" apps that can be used for writing integration tests and validating the output of this tool.
+The `tests/artifacts` directory contains sample "clean room" apps that can be used for writing integration tests and validating the output of this tool.
 
 Make sure to write tests using `pytest`.
