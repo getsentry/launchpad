@@ -149,9 +149,6 @@ pytest
 # Run all tests
 pytest
 
-# Run with coverage
-pytest --cov=app_size_analyzer
-
 # Run specific test categories
 pytest tests/unit/
 pytest tests/integration/
