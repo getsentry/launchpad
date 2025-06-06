@@ -3,21 +3,21 @@
 from .results import (
     AnalysisResults,
     AppInfo,
-    FileAnalysis,
     BinaryAnalysis,
-    SwiftMetadata,
-    FileInfo,
     DuplicateFileGroup,
+    FileAnalysis,
+    FileInfo,
+    SwiftMetadata,
     SymbolInfo,
 )
 
 __all__ = [
     "AnalysisResults",
     "AppInfo",
-    "FileAnalysis", 
+    "FileAnalysis",
     "BinaryAnalysis",
     "SwiftMetadata",
     "FileInfo",
-    "DuplicateFileGroup", 
+    "DuplicateFileGroup",
     "SymbolInfo",
 ]

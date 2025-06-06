@@ -5,7 +5,7 @@ from __future__ import annotations
 import plistlib
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 import lief
 
@@ -34,7 +34,7 @@ logger = get_logger(__name__)
 
 class IOSAnalyzer:
     """Analyzer for iOS app bundles (.app directories or .ipa files)."""
-    
+
     def __init__(
         self,
         working_dir: Optional[Path] = None,
@@ -42,7 +42,7 @@ class IOSAnalyzer:
         skip_symbols: bool = False,
     ) -> None:
         """Initialize the iOS analyzer.
-        
+
         Args:
             working_dir: Directory for temporary files (None for system temp)
             skip_swift_metadata: Skip Swift metadata extraction for faster analysis
@@ -52,54 +52,61 @@ class IOSAnalyzer:
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
         self._temp_dirs: List[Path] = []
-    
+
     def analyze(self, input_path: Path) -> AnalysisResults:
         """Analyze an iOS app bundle.
-        
+
         Args:
             input_path: Path to .app directory, .ipa file, or zip archive
-            
+
         Returns:
             Complete analysis results
-            
+
         Raises:
             ValueError: If input is not a valid iOS app bundle
             RuntimeError: If analysis fails
         """
         logger.info(f"Starting iOS analysis of {input_path}")
-        
+
         try:
             # Prepare app bundle for analysis
             app_bundle_path = self._prepare_app_bundle(input_path)
-            
+
             # Extract basic app information
             app_info = self._extract_app_info(app_bundle_path)
             logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
-            
+
             # Analyze files in the bundle
             file_analysis = self._analyze_files(app_bundle_path)
-            logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
-            
+            logger.info(
+                f"Found {file_analysis.file_count} files, "
+                f"total size: {file_analysis.total_size} bytes"
+            )
+
             # Analyze the main executable binary
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
-            logger.info(f"Binary analysis complete, executable size: {binary_analysis.executable_size} bytes")
-            
+            logger.info(
+                f"Binary analysis complete, "
+                f"executable size: {binary_analysis.executable_size} bytes"
+            )
+
             return AnalysisResults(
                 app_info=app_info,
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
+                analysis_duration=None,  # Will be updated by caller
             )
-        
+
         finally:
             # Cleanup temporary directories
             self._cleanup()
-    
+
     def _prepare_app_bundle(self, input_path: Path) -> Path:
         """Prepare the app bundle for analysis, extracting if necessary.
-        
+
         Args:
             input_path: Input path (could be .app, .ipa, or .zip)
-            
+
         Returns:
             Path to the .app bundle directory
         """
@@ -107,38 +114,39 @@ class IOSAnalyzer:
             # Direct .app bundle
             logger.debug("Input is already an .app bundle")
             return input_path
-        
+
         # Need to extract archive
         logger.debug("Extracting archive to temporary directory")
         temp_dir = create_temp_directory("ios-analysis-")
         self._temp_dirs.append(temp_dir)
-        
+
         extract_archive(input_path, temp_dir)
         return find_app_bundle(temp_dir, platform="ios")
-    
+
     def _extract_app_info(self, app_bundle_path: Path) -> AppInfo:
         """Extract basic app information from Info.plist.
-        
+
         Args:
             app_bundle_path: Path to the .app bundle
-            
+
         Returns:
             App information
-            
+
         Raises:
             RuntimeError: If Info.plist cannot be read
         """
         info_plist_path = app_bundle_path / "Info.plist"
-        
+
         if not info_plist_path.exists():
             raise RuntimeError(f"Info.plist not found in {app_bundle_path}")
-        
+
         try:
             with open(info_plist_path, "rb") as f:
                 plist_data = plistlib.load(f)
-            
+
             return AppInfo(
-                name=plist_data.get("CFBundleDisplayName") or plist_data.get("CFBundleName", "Unknown"),
+                name=plist_data.get("CFBundleDisplayName")
+                or plist_data.get("CFBundleName", "Unknown"),
                 bundle_id=plist_data.get("CFBundleIdentifier", "unknown.bundle.id"),
                 version=plist_data.get("CFBundleShortVersionString", "Unknown"),
                 build=plist_data.get("CFBundleVersion", "Unknown"),
@@ -147,50 +155,50 @@ class IOSAnalyzer:
                 supported_platforms=plist_data.get("CFBundleSupportedPlatforms", []),
                 sdk_version=plist_data.get("DTSDKName"),
             )
-        
+
         except Exception as e:
             raise RuntimeError(f"Failed to parse Info.plist: {e}")
-    
+
     def _analyze_files(self, app_bundle_path: Path) -> FileAnalysis:
         """Analyze all files in the app bundle.
-        
+
         Args:
             app_bundle_path: Path to the .app bundle
-            
+
         Returns:
             File analysis results
         """
         logger.debug("Analyzing files in app bundle")
-        
+
         files: List[FileInfo] = []
         files_by_type: Dict[str, List[FileInfo]] = defaultdict(list)
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
         total_size = 0
-        
+
         # Walk through all files in the bundle
         for file_path in app_bundle_path.rglob("*"):
             if not file_path.is_file():
                 continue
-            
+
             relative_path = file_path.relative_to(app_bundle_path)
             file_size = get_file_size(file_path)
             file_type = file_path.suffix.lower().lstrip(".")
-            
+
             # Calculate hash for duplicate detection
             file_hash = calculate_file_hash(file_path, algorithm="md5")
-            
+
             file_info = FileInfo(
                 path=str(relative_path),
                 size=file_size,
                 file_type=file_type or "unknown",
                 hash_md5=file_hash,
             )
-            
+
             files.append(file_info)
             files_by_type[file_info.file_type].append(file_info)
             files_by_hash[file_hash].append(file_info)
             total_size += file_size
-        
+
         # Find duplicate files
         duplicate_groups = []
         for file_hash, file_list in files_by_hash.items():
@@ -198,19 +206,21 @@ class IOSAnalyzer:
                 # Calculate potential savings (all files except one)
                 total_file_size = sum(f.size for f in file_list)
                 savings = total_file_size - file_list[0].size
-                
+
                 if savings > 0:  # Only include if there are actual savings
-                    duplicate_groups.append(DuplicateFileGroup(
-                        files=file_list,
-                        potential_savings=savings,
-                    ))
-        
+                    duplicate_groups.append(
+                        DuplicateFileGroup(
+                            files=file_list,
+                            potential_savings=savings,
+                        )
+                    )
+
         # Sort files by size for largest files list
         largest_files = sorted(files, key=lambda f: f.size, reverse=True)[:20]
-        
+
         # Sort duplicate groups by potential savings
         duplicate_groups.sort(key=lambda g: g.potential_savings, reverse=True)
-        
+
         return FileAnalysis(
             total_size=total_size,
             file_count=len(files),
@@ -218,19 +228,19 @@ class IOSAnalyzer:
             duplicate_files=duplicate_groups,
             largest_files=largest_files,
         )
-    
+
     def _analyze_binary(self, app_bundle_path: Path, executable_name: str) -> BinaryAnalysis:
         """Analyze the main executable binary using LIEF.
-        
+
         Args:
             app_bundle_path: Path to the .app bundle
             executable_name: Name of the main executable
-            
+
         Returns:
             Binary analysis results
         """
         executable_path = app_bundle_path / executable_name
-        
+
         if not executable_path.exists():
             logger.warning(f"Executable not found: {executable_path}")
             return BinaryAnalysis(
@@ -241,33 +251,33 @@ class IOSAnalyzer:
                 swift_metadata=None,
                 sections={},
             )
-        
+
         logger.debug(f"Analyzing binary: {executable_path}")
-        
+
         try:
             # Parse the binary with LIEF
             binary = lief.parse(str(executable_path))
-            
+
             if binary is None:
                 raise RuntimeError("Failed to parse binary with LIEF")
-            
+
             executable_size = get_file_size(executable_path)
-            
+
             # Extract basic binary information
             architectures = self._extract_architectures(binary)
             linked_libraries = self._extract_linked_libraries(binary)
             sections = self._extract_sections(binary)
-            
+
             # Extract symbols if requested
             symbols = []
             if not self.skip_symbols:
                 symbols = self._extract_symbols(binary)
-            
+
             # Extract Swift metadata if requested
             swift_metadata = None
             if not self.skip_swift_metadata:
                 swift_metadata = self._extract_swift_metadata(binary)
-            
+
             return BinaryAnalysis(
                 executable_size=executable_size,
                 architectures=architectures,
@@ -276,7 +286,7 @@ class IOSAnalyzer:
                 swift_metadata=swift_metadata,
                 sections=sections,
             )
-        
+
         except Exception as e:
             logger.error(f"Failed to analyze binary: {e}")
             # Return partial results rather than failing completely
@@ -288,130 +298,132 @@ class IOSAnalyzer:
                 swift_metadata=None,
                 sections={},
             )
-    
+
     def _extract_architectures(self, binary: lief.Binary) -> List[str]:
         """Extract CPU architectures from the binary."""
         architectures = []
-        
-        if hasattr(binary, 'header') and hasattr(binary.header, 'cpu_type'):
+
+        if hasattr(binary, "header") and hasattr(binary.header, "cpu_type"):
             # Single architecture binary
             arch = self._cpu_type_to_string(binary.header.cpu_type)
             if arch:
                 architectures.append(arch)
-        elif hasattr(binary, 'fat_binaries'):
+        elif hasattr(binary, "fat_binaries"):
             # Fat binary with multiple architectures
             for fat_binary in binary.fat_binaries:
                 arch = self._cpu_type_to_string(fat_binary.header.cpu_type)
                 if arch:
                     architectures.append(arch)
-        
+
         return architectures or ["unknown"]
-    
+
     def _cpu_type_to_string(self, cpu_type: int) -> Optional[str]:
         """Convert LIEF CPU type to string representation."""
         # Common CPU types from Mach-O
         cpu_types = {
-            0x0000000c: "arm",      # ARM
-            0x0100000c: "arm64",    # ARM64
-            0x00000007: "x86",      # i386
-            0x01000007: "x86_64",   # x86_64
+            0x0000000C: "arm",  # ARM
+            0x0100000C: "arm64",  # ARM64
+            0x00000007: "x86",  # i386
+            0x01000007: "x86_64",  # x86_64
         }
         return cpu_types.get(cpu_type)
-    
+
     def _extract_linked_libraries(self, binary: lief.Binary) -> List[str]:
         """Extract linked dynamic libraries from the binary."""
         libraries = []
-        
-        if hasattr(binary, 'libraries'):
+
+        if hasattr(binary, "libraries"):
             for lib in binary.libraries:
-                if hasattr(lib, 'name'):
+                if hasattr(lib, "name"):
                     libraries.append(lib.name)
-        
+
         return libraries
-    
+
     def _extract_sections(self, binary: lief.Binary) -> Dict[str, int]:
         """Extract binary sections and their sizes."""
         sections = {}
-        
-        if hasattr(binary, 'sections'):
+
+        if hasattr(binary, "sections"):
             for section in binary.sections:
-                section_name = getattr(section, 'name', 'unknown')
-                section_size = getattr(section, 'size', 0)
+                section_name = getattr(section, "name", "unknown")
+                section_size = getattr(section, "size", 0)
                 sections[section_name] = section_size
-        
+
         return sections
-    
+
     def _extract_symbols(self, binary: lief.Binary) -> List[SymbolInfo]:
         """Extract symbol information from the binary."""
-        symbols = []
-        
-        if not hasattr(binary, 'symbols'):
+        symbols: List[SymbolInfo] = []
+
+        if not hasattr(binary, "symbols"):
             return symbols
-        
+
         for symbol in binary.symbols:
             try:
-                symbol_name = getattr(symbol, 'name', 'unknown')
-                symbol_size = getattr(symbol, 'size', 0)
-                symbol_type = getattr(symbol, 'type', lief.MachO.SYMBOL_TYPES.UNDEFINED)
-                
+                symbol_name = getattr(symbol, "name", "unknown")
+                symbol_size = getattr(symbol, "size", 0)
+                symbol_type = getattr(symbol, "type", "unknown")
+
                 # Try to determine the section
                 section_name = "unknown"
-                if hasattr(symbol, 'numberof_sections') and symbol.numberof_sections > 0:
-                    if hasattr(binary, 'sections') and len(binary.sections) > 0:
+                if hasattr(symbol, "numberof_sections") and symbol.numberof_sections > 0:
+                    if hasattr(binary, "sections") and len(binary.sections) > 0:
                         section_index = min(symbol.numberof_sections - 1, len(binary.sections) - 1)
                         section = binary.sections[section_index]
-                        section_name = getattr(section, 'name', 'unknown')
-                
-                symbols.append(SymbolInfo(
-                    name=symbol_name,
-                    mangled_name=symbol_name,  # LIEF doesn't demangle automatically
-                    size=symbol_size,
-                    section=section_name,
-                    symbol_type=str(symbol_type),
-                ))
-            
+                        section_name = getattr(section, "name", "unknown")
+
+                symbols.append(
+                    SymbolInfo(
+                        name=symbol_name,
+                        mangled_name=symbol_name,  # LIEF doesn't demangle automatically
+                        size=symbol_size,
+                        section=section_name,
+                        symbol_type=str(symbol_type),
+                    )
+                )
+
             except Exception as e:
                 logger.debug(f"Failed to process symbol: {e}")
                 continue
-        
+
         # Sort symbols by size (largest first)
         symbols.sort(key=lambda s: s.size, reverse=True)
         return symbols[:1000]  # Limit to top 1000 symbols to avoid huge outputs
-    
+
     def _extract_swift_metadata(self, binary: lief.Binary) -> Optional[SwiftMetadata]:
         """Extract Swift-specific metadata from the binary.
-        
+
         This is a simplified implementation. A full implementation would
         parse Swift metadata sections more thoroughly.
         """
         try:
             # Look for Swift-related sections
             swift_sections = []
-            if hasattr(binary, 'sections'):
+            if hasattr(binary, "sections"):
                 for section in binary.sections:
-                    section_name = getattr(section, 'name', '')
-                    if 'swift' in section_name.lower():
+                    section_name = getattr(section, "name", "")
+                    if "swift" in section_name.lower():
                         swift_sections.append(section)
-            
+
             if not swift_sections:
                 return None
-            
+
             # Calculate total Swift metadata size
-            total_metadata_size = sum(getattr(section, 'size', 0) for section in swift_sections)
-            
+            total_metadata_size = sum(getattr(section, "size", 0) for section in swift_sections)
+
             # For now, return basic metadata
             # In a full implementation, you would parse the actual Swift metadata structures
             return SwiftMetadata(
                 classes=[],  # Would be extracted from __swift5_types section
-                protocols=[],  # Would be extracted from __swift5_protos section  
+                protocols=[],  # Would be extracted from __swift5_protos section
                 extensions=[],  # Would be extracted from various Swift sections
                 total_metadata_size=total_metadata_size,
             )
-        
+
         except Exception as e:
             logger.debug(f"Failed to extract Swift metadata: {e}")
             return None
-    
+
     def _cleanup(self) -> None:
         """Clean up temporary directories."""
         for temp_dir in self._temp_dirs:

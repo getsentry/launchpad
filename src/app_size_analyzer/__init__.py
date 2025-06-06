@@ -4,11 +4,11 @@ __version__ = "1.0.0"
 __author__ = "Sentry Team"
 __email__ = "engineering@sentry.io"
 
-from .models.results import AnalysisResults, AppInfo, FileAnalysis, BinaryAnalysis
+from .models.results import AnalysisResults, AppInfo, BinaryAnalysis, FileAnalysis
 
 __all__ = [
     "AnalysisResults",
-    "AppInfo", 
+    "AppInfo",
     "FileAnalysis",
     "BinaryAnalysis",
 ]
