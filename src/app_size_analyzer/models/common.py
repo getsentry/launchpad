@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class FileInfo(BaseModel):
@@ -55,12 +55,8 @@ class FileAnalysis(BaseModel):
     files_by_type: Dict[str, List[FileInfo]] = Field(
         default_factory=dict, description="Files grouped by type/extension"
     )
-    duplicate_files: List[DuplicateFileGroup] = Field(
-        default_factory=list, description="Groups of duplicate files"
-    )
-    largest_files: List[FileInfo] = Field(
-        default_factory=list, description="Largest files in the bundle"
-    )
+    duplicate_files: List[DuplicateFileGroup] = Field(default_factory=list, description="Groups of duplicate files")
+    largest_files: List[FileInfo] = Field(default_factory=list, description="Largest files in the bundle")
 
     @property
     def total_duplicate_savings(self) -> int:
@@ -70,10 +66,7 @@ class FileAnalysis(BaseModel):
     @property
     def file_type_sizes(self) -> Dict[str, int]:
         """Total size by file type."""
-        return {
-            file_type: sum(file.size for file in files)
-            for file_type, files in self.files_by_type.items()
-        }
+        return {file_type: sum(file.size for file in files) for file_type, files in self.files_by_type.items()}
 
 
 class BaseAppInfo(BaseModel):
@@ -94,13 +87,9 @@ class BaseBinaryAnalysis(BaseModel):
 
     executable_size: int = Field(..., ge=0, description="Main executable size in bytes")
     architectures: List[str] = Field(..., description="CPU architectures")
-    linked_libraries: List[str] = Field(
-        default_factory=list, description="Linked dynamic libraries"
-    )
+    linked_libraries: List[str] = Field(default_factory=list, description="Linked dynamic libraries")
     symbols: List[SymbolInfo] = Field(default_factory=list, description="Symbol information")
-    sections: Dict[str, int] = Field(
-        default_factory=dict, description="Binary sections and their sizes"
-    )
+    sections: Dict[str, int] = Field(default_factory=dict, description="Binary sections and their sizes")
 
     @property
     def total_symbols_size(self) -> int:
@@ -115,9 +104,7 @@ class BaseAnalysisResults(BaseModel):
 
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
-    analysis_duration: Optional[float] = Field(
-        None, ge=0, description="Analysis duration in seconds"
-    )
+    analysis_duration: Optional[float] = Field(None, ge=0, description="Analysis duration in seconds")
 
     @property
     def total_size(self) -> int:

@@ -1,6 +1,5 @@
 """Unit tests for CLI functionality."""
 
-import pytest
 from click.testing import CliRunner
 
 from app_size_analyzer import __version__

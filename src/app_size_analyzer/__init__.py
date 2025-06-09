@@ -2,7 +2,7 @@
 
 __version__ = "0.0.1"
 
-from .models import AnalysisResults, AppInfo, FileAnalysis, BinaryAnalysis
+from .models import AnalysisResults, AppInfo, BinaryAnalysis, FileAnalysis
 
 __all__ = [
     "AnalysisResults",

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAppInfo, BaseBinaryAnalysis, BaseAnalysisResults
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 
 
 class SwiftMetadata(BaseModel):

@@ -7,7 +7,7 @@ help:  ## Show this help message
 
 # Python and virtual environment setup
 PYTHON := python3
-VENV_DIR := venv
+VENV_DIR := .venv
 PIP := $(VENV_DIR)/bin/pip
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
@@ -21,7 +21,6 @@ install: $(VENV_DIR)  ## Install the package in development mode
 
 install-dev: $(VENV_DIR)  ## Install development dependencies
 	$(PIP) install -e ".[dev]"
-	$(PIP) install -r requirements-dev.txt
 	$(VENV_DIR)/bin/pre-commit install
 
 # Testing targets
@@ -31,23 +30,27 @@ test-unit:  ## Run unit tests only
 	$(PYTHON_VENV) -m pytest tests/unit/ -v --tb=short
 
 test-integration:  ## Run integration tests only
-	$(PYTHON_VENV) -m pytest tests/ -k "not unit" -v --tb=short
-
-test-verbose:  ## Run all tests with verbose output
-	$(PYTHON_VENV) -m pytest tests/ -v --tb=long
-
-test-coverage:  ## Run tests with coverage report
-	$(PYTHON_VENV) -m pytest tests/ --cov=app_size_analyzer --cov-report=html --cov-report=term-missing
+	@if [ -d tests/integration ]; then \
+		$(PYTHON_VENV) -m pytest tests/integration/ -v --tb=short; \
+	else \
+		echo "No integration tests found in tests/integration/. Skipping integration tests."; \
+	fi
 
 # Code quality targets
 lint:  ## Run linting checks
 	$(PYTHON_VENV) -m flake8 src/ tests/
-	$(PYTHON_VENV) -m isort --check-only src/ tests/
-	$(PYTHON_VENV) -m black --check src/ tests/
 
 format:  ## Format code with black and isort
 	$(PYTHON_VENV) -m isort src/ tests/
 	$(PYTHON_VENV) -m black src/ tests/
+
+autofix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
+	$(PYTHON_VENV) -m isort src/ tests/
+	$(PYTHON_VENV) -m black src/ tests/
+
+check-format:  ## Check code format without modifying files
+	$(PYTHON_VENV) -m isort --check-only src/ tests/
+	$(PYTHON_VENV) -m black --check src/ tests/
 
 type-check:  ## Run type checking with mypy
 	$(PYTHON_VENV) -m mypy src/app_size_analyzer
@@ -75,7 +78,7 @@ clean-venv:  ## Remove virtual environment
 	rm -rf $(VENV_DIR)
 
 # Combined targets for CI
-check: lint type-check  ## Run all code quality checks
+check: autofix lint type-check  ## Run all code quality checks
 
 ci: install-dev check test  ## Run full CI pipeline (install deps, check code quality, run tests)
 

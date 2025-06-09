@@ -2,12 +2,11 @@
 
 import logging
 import sys
-from typing import Optional
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     """Setup logging configuration.
-    
+
     Args:
         verbose: Enable debug-level logging
         quiet: Suppress all logging except errors
@@ -18,16 +17,14 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
         level = logging.DEBUG
     else:
         level = logging.INFO
-    
+
     # Configure root logger
     logging.basicConfig(
         level=level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stderr)
-        ]
+        handlers=[logging.StreamHandler(sys.stderr)],
     )
-    
+
     # Set levels for third-party libraries
     if not verbose:
         logging.getLogger("lief").setLevel(logging.WARNING)

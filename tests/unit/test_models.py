@@ -1,7 +1,6 @@
 """Unit tests for data models."""
 
 import pytest
-from datetime import datetime
 
 from app_size_analyzer.models import (
     AnalysisResults,
@@ -10,8 +9,6 @@ from app_size_analyzer.models import (
     DuplicateFileGroup,
     FileAnalysis,
     FileInfo,
-    SwiftMetadata,
-    SymbolInfo,
 )
 
 
@@ -124,9 +121,7 @@ class TestAnalysisResults:
 
         binary_analysis = BinaryAnalysis(executable_size=1024, architectures=["arm64"])
 
-        results = AnalysisResults(
-            app_info=app_info, file_analysis=file_analysis, binary_analysis=binary_analysis
-        )
+        results = AnalysisResults(app_info=app_info, file_analysis=file_analysis, binary_analysis=binary_analysis)
 
         assert results.total_size == 2048
 
@@ -145,9 +140,7 @@ class TestAnalysisResults:
 
         binary_analysis = BinaryAnalysis(executable_size=512, architectures=["arm64"])
 
-        results = AnalysisResults(
-            app_info=app_info, file_analysis=file_analysis, binary_analysis=binary_analysis
-        )
+        results = AnalysisResults(app_info=app_info, file_analysis=file_analysis, binary_analysis=binary_analysis)
 
         data = results.to_dict()
 
