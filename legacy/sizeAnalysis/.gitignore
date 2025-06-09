@@ -1,9 +1,0 @@
-.DS_Store
-*.xcuserstate
-build
-*.xcbkptlist
-MyApp/MyApp.xcodeproj/xcshareddata/*
-xcuserdata
-xcuserdata/*
-.build/
-CLI/.build/
