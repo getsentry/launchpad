@@ -33,4 +33,3 @@ For the Mach-O handling, use the `lief` library and follow best practices for th
 Included is a `test/artifacts` directory which contains sample "clean room" apps that can be used for writing integration tests and validating the output of this tool. Always write new tests to validate behavior and functionality. Prefer to write integration tests using the sample apps instead of writing smaller unit tests or using mocks.
 
 Make sure to write tests using `pytest`.
-
