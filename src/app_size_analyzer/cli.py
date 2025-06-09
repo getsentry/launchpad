@@ -14,7 +14,7 @@ from rich.table import Table
 
 from . import __version__
 from .analyzers.ios import IOSAnalyzer
-from .models.results import AnalysisResults
+from .models import AnalysisResults
 from .utils.logging import setup_logging
 
 

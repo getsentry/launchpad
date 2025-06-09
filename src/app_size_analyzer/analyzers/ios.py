@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Set
 
 import lief
 
-from ..models.results import (
+from ..models import (
     AnalysisResults,
     AppInfo,
     BinaryAnalysis,
