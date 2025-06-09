@@ -1,3 +1,8 @@
+---
+description:
+globs: src/app_size_analyzer/**/*.py
+alwaysApply: false
+---
 # Cursor Rules for app-size-analyzer
 
 This is a Python CLI tool for analyzing iOS and Android app bundle sizes, similar to Emerge Tools.
@@ -12,10 +17,11 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 
 ### Python
 - Use Python 3.11+ with type hints
-- Follow PEP 8 and black formatting (line length 100)
+- Follow PEP 8 and black formatting (line length 120)
 - Use `pytest` for testing
 - Use `click` for CLI interface
 - Use `lief` for Mach-O binary analysis
+- Virtual environment managed via `.venv/`
 
 ### Code Quality
 - Always include type hints
@@ -36,8 +42,8 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 - Provide helpful error messages
 
 ### Dependencies
-- Core: `click`, `lief`, standard library
-- Development: `pytest`, `black`, `flake8`, `mypy`
+- Core: `click`, `lief`, `pydantic`, `rich`, standard library
+- Development: `pytest`, `black`, `flake8`, `mypy`, `isort`
 - No legacy dependencies (no Capstone, no S3)
 
 ### Debugging
@@ -45,12 +51,14 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 - Test with sample artifacts
 - Check performance for large binaries
 
-## Commands Available
+## Key Commands
 - `make help` - Show all available commands
-- `make test` - Run all tests
 - `make dev-setup` - Set up development environment
-- `make lint` - Run linting
-- `make format` - Format code
+- `make test` - Run all tests (`test-unit`, `test-integration` available separately)
+- `make check` - Run all code quality checks (lint + format + type-check)
+- `make ci` - Full CI pipeline
+- `make run-cli` - Run the CLI tool (use ARGS="..." for arguments)
+- `make clean` - Clean build artifacts
 
 ## When suggesting code:
 1. Always include proper type hints
