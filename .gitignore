@@ -20,7 +20,7 @@ env/
 *.swo
 
 # OS
-.DS_Store
+**/.DS_Store
 Thumbs.db
 
 # Temporary files
