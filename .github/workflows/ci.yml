@@ -42,17 +42,6 @@ jobs:
     - name: Run integration tests
       run: make test-integration
 
-    - name: Run tests with coverage
-      run: make test-coverage
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      if: matrix.python-version == '3.11'
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-
     - name: Test CLI installation and basic functionality
       run: |
         app-size-analyzer --help

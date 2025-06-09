@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-unit test-integration lint format type-check clean build check all ci
+.PHONY: help install install-dev test test-unit test-integration lint format autofix check-format type-check clean build build-wheel clean-venv check ci all dev-setup run-cli status
 
 # Default target
 help:  ## Show this help message
