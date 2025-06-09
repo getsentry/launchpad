@@ -76,18 +76,13 @@ def ios(
     """Analyze an iOS app bundle and generate a size report.
 
     INPUT_PATH can be:
-    - iOS .app bundle directory
-    - iOS .ipa file
-    - Zip archive containing an iOS app
+    - .xcarchive.zip file
     """
-    # Setup logging
     setup_logging(verbose=verbose, quiet=quiet)
 
-    # Validate arguments
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
 
-    # Validate that input looks like an iOS artifact
     _validate_ios_input(input_path)
 
     if not quiet:
@@ -97,7 +92,6 @@ def ios(
         console.print()
 
     try:
-        # Start analysis
         start_time = time.time()
 
         with Progress(
@@ -108,7 +102,6 @@ def ios(
         ) as progress:
             task = progress.add_task("Analyzing iOS app bundle...", total=None)
 
-            # Create iOS analyzer
             analyzer = IOSAnalyzer(
                 working_dir=working_dir,
                 skip_swift_metadata=skip_swift_metadata,
@@ -118,14 +111,11 @@ def ios(
 
             progress.update(task, description="Analysis complete!")
 
-        # Calculate analysis duration
         end_time = time.time()
         duration = end_time - start_time
 
-        # Update results with duration
         results = results.model_copy(update={"analysis_duration": duration})
 
-        # Output results
         if output_format == "json":
             _write_json_output(results, output, quiet)
         else:
@@ -170,24 +160,13 @@ def android(input_path: Path, output: Path) -> None:
 def _validate_ios_input(input_path: Path) -> None:
     """Validate that the input path looks like an iOS artifact."""
     suffix = input_path.suffix.lower()
+    valid_extensions = {".zip"}
 
-    # Check for obvious iOS file extensions
-    if suffix in {".app", ".ipa"}:
-        return
-
-    # Check for zip files (could contain iOS apps)
-    if suffix in {".zip"}:
-        return
-
-    # Check if it's a directory with .app extension
-    if input_path.is_dir() and input_path.suffix.lower() == ".app":
-        return
-
-    # If we can't determine, show a warning but don't fail
-    console.print(
-        f"[bold yellow]Warning:[/bold yellow] '{input_path}' doesn't look like a typical iOS artifact. "
-        "Expected .app, .ipa, or .zip file."
-    )
+    if suffix not in valid_extensions:
+        raise click.BadParameter(
+            f"'{input_path}' doesn't look like a typical iOS artifact. "
+            f"Expected one of: {', '.join(sorted(valid_extensions))}"
+        )
 
 
 def _write_json_output(results: AnalysisResults, output_path: Path, quiet: bool) -> None:

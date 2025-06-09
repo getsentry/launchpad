@@ -20,11 +20,11 @@ pip install -e ".[dev]"
 ### Analyze an iOS App
 
 ```bash
-# Analyze a .app bundle
+# Analyze a bundle
 app-size-analyzer ios MyApp.xcarchive.zip
 
-# Analyze an .ipa file with custom output location
-app-size-analyzer ios MyApp.ipa -o detailed-report.json
+# Analyze a bundle with custom output location
+app-size-analyzer ios MyApp.xcarchive.zip -o detailed-report.json
 
 # Skip expensive operations for faster analysis
 app-size-analyzer ios MyApp.xcarchive.zip --skip-swift-metadata --skip-symbols
