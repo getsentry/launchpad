@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from pydantic import BaseModel, ConfigDict
 
-from pydantic import BaseModel, Field, ConfigDict
-
-from .common import BaseAppInfo, BaseBinaryAnalysis, BaseAnalysisResults
-
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 
 # TODO: Implement Android-specific models when Android support is added
 
@@ -21,7 +18,6 @@ class AndroidMetadata(BaseModel):
     # permissions: List[str] = Field(default_factory=list, description="App permissions")
     # activities: List[str] = Field(default_factory=list, description="Android activities")
     # services: List[str] = Field(default_factory=list, description="Android services")
-    pass
 
 
 class AndroidAppInfo(BaseAppInfo):
@@ -33,7 +29,6 @@ class AndroidAppInfo(BaseAppInfo):
     # package_name: str = Field(..., description="Android package name")
     # min_sdk_version: int = Field(..., description="Minimum SDK version")
     # target_sdk_version: int = Field(..., description="Target SDK version")
-    pass
 
 
 class AndroidBinaryAnalysis(BaseBinaryAnalysis):
@@ -44,7 +39,6 @@ class AndroidBinaryAnalysis(BaseBinaryAnalysis):
     # Android-specific fields to be added:
     # dex_analysis: Optional[DexAnalysis] = Field(None, description="DEX file analysis")
     # native_libraries: List[str] = Field(default_factory=list, description="Native .so libraries")
-    pass
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):
@@ -55,4 +49,3 @@ class AndroidAnalysisResults(BaseAnalysisResults):
     # To be uncommented when Android models are implemented:
     # app_info: AndroidAppInfo = Field(..., description="Android app information")
     # binary_analysis: AndroidBinaryAnalysis = Field(..., description="Android binary analysis results")
-    pass

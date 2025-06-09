@@ -5,7 +5,7 @@ from __future__ import annotations
 import plistlib
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 import lief
 
@@ -78,15 +78,11 @@ class IOSAnalyzer:
 
             # Analyze files in the bundle
             file_analysis = self._analyze_files(app_bundle_path)
-            logger.info(
-                f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes"
-            )
+            logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
             # Analyze the main executable binary
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
-            logger.info(
-                f"Binary analysis complete, executable size: {binary_analysis.executable_size} bytes"
-            )
+            logger.info(f"Binary analysis complete, executable size: {binary_analysis.executable_size} bytes")
 
             return AnalysisResults(
                 app_info=app_info,
@@ -136,8 +132,7 @@ class IOSAnalyzer:
                 plist_data = plistlib.load(f)
 
             return AppInfo(
-                name=plist_data.get("CFBundleDisplayName")
-                or plist_data.get("CFBundleName", "Unknown"),
+                name=plist_data.get("CFBundleDisplayName") or plist_data.get("CFBundleName", "Unknown"),
                 bundle_id=plist_data.get("CFBundleIdentifier", "unknown.bundle.id"),
                 version=plist_data.get("CFBundleShortVersionString", "Unknown"),
                 build=plist_data.get("CFBundleVersion", "Unknown"),
@@ -341,7 +336,7 @@ class IOSAnalyzer:
 
     def _extract_symbols(self, binary: lief.Binary) -> List[SymbolInfo]:
         """Extract symbol information from the binary."""
-        symbols = []
+        symbols: List[SymbolInfo] = []
 
         if not hasattr(binary, "symbols"):
             return symbols
@@ -350,7 +345,7 @@ class IOSAnalyzer:
             try:
                 symbol_name = getattr(symbol, "name", "unknown")
                 symbol_size = getattr(symbol, "size", 0)
-                symbol_type = getattr(symbol, "type", lief.MachO.SYMBOL_TYPES.UNDEFINED)
+                symbol_type = getattr(symbol, "type", "UNDEFINED")
 
                 # Try to determine the section
                 section_name = "unknown"

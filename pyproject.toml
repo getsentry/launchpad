@@ -42,6 +42,11 @@ dev = [
     "flake8>=6.0.0",
     "mypy>=1.5.0",
     "pre-commit>=3.4.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
+    "safety>=2.3.0",
+    "bandit>=1.7.0",
+    "pip-audit>=2.6.0",
 ]
 
 [project.scripts]
@@ -63,13 +68,12 @@ include = [
 ]
 
 [tool.black]
-line-length = 100
+line-length = 120
 target-version = ["py311"]
-include = '\\.pyi?$'
 
 [tool.isort]
 profile = "black"
-line_length = 100
+line_length = 120
 known_first_party = ["app_size_analyzer"]
 
 [tool.mypy]
@@ -86,6 +90,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
+plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["lief.*"]

@@ -20,7 +20,7 @@ env/
 *.swo
 
 # OS
-.DS_Store
+**/.DS_Store
 Thumbs.db
 
 # Temporary files
@@ -30,5 +30,4 @@ Thumbs.db
 
 ios-analysis-report.json
 android-analysis-report.json
-
-
+legacy/ios/sizeAnalysis/.build/

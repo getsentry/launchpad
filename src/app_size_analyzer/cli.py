@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 import time
 from pathlib import Path
 from typing import Optional
@@ -16,7 +17,6 @@ from . import __version__
 from .analyzers.ios import IOSAnalyzer
 from .models import AnalysisResults
 from .utils.logging import setup_logging
-
 
 console = Console()
 
@@ -35,23 +35,21 @@ def cli(ctx: click.Context, version: bool) -> None:
 
 
 @cli.command()
-@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
+@click.argument("input_path", type=click.Path(exists=True, path_type=pathlib.Path), metavar="INPUT_PATH")
 @click.option(
     "-o",
     "--output",
-    type=click.Path(path_type=Path),
+    type=click.Path(path_type=pathlib.Path),
     default="ios-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
 )
 @click.option(
     "--working-dir",
-    type=click.Path(path_type=Path),
+    type=click.Path(path_type=pathlib.Path),
     help="Working directory for temporary files (default: system temp).",
 )
-@click.option(
-    "--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis."
-)
+@click.option("--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis.")
 @click.option("--skip-symbols", is_flag=True, help="Skip symbol extraction and analysis.")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress all output except errors.")
@@ -134,11 +132,11 @@ def ios(
 
 
 @cli.command()
-@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
+@click.argument("input_path", type=click.Path(exists=True, path_type=pathlib.Path), metavar="INPUT_PATH")
 @click.option(
     "-o",
     "--output",
-    type=click.Path(path_type=Path),
+    type=click.Path(path_type=pathlib.Path),
     default="android-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
@@ -224,9 +222,7 @@ def _print_table_output(results: AnalysisResults, quiet: bool) -> None:
         type_table.add_column("Percentage", style="green")
 
         total_size = file_analysis.total_size
-        for file_type, size in sorted(
-            file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True
-        )[
+        for file_type, size in sorted(file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True)[
             :10
         ]:  # Top 10 file types
             percentage = (size / total_size) * 100 if total_size > 0 else 0
@@ -242,9 +238,7 @@ def _print_summary(results: AnalysisResults) -> None:
 
     console.print("\n[bold]Summary:[/bold]")
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
-    console.print(
-        f"• Executable size: [cyan]{_format_bytes(binary_analysis.executable_size)}[/cyan]"
-    )
+    console.print(f"• Executable size: [cyan]{_format_bytes(binary_analysis.executable_size)}[/cyan]")
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
     console.print(f"• Architectures: [cyan]{', '.join(binary_analysis.architectures)}[/cyan]")
 
@@ -257,11 +251,12 @@ def _print_summary(results: AnalysisResults) -> None:
 
 def _format_bytes(size: int) -> str:
     """Format byte size in human-readable format."""
+    size_float = float(size)
     for unit in ["B", "KB", "MB", "GB"]:
-        if size < 1024.0:
-            return f"{size:.1f} {unit}"
-        size /= 1024.0
-    return f"{size:.1f} TB"
+        if size_float < 1024.0:
+            return f"{size_float:.1f} {unit}"
+        size_float /= 1024.0
+    return f"{size_float:.1f} TB"
 
 
 def main() -> None:

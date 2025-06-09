@@ -1,0 +1,129 @@
+{
+    "folders": [
+        {
+            "name": "app-size-analyzer",
+            "path": "."
+        }
+    ],
+    "settings": {
+        // Python Configuration
+        "python.pythonPath": "./venv/bin/python",
+        "python.defaultInterpreterPath": "./venv/bin/python",
+        
+        // Test Discovery and Configuration
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestArgs": [
+            "tests/"
+        ],
+        "python.testing.autoTestDiscoverOnSaveEnabled": true,
+        "python.testing.promptToConfigure": false,
+        
+        // Code Formatting
+        "python.formatting.provider": "black",
+        "python.formatting.blackArgs": [
+            "--line-length=100"
+        ],
+        
+        // Import Sorting
+        "python.sortImports.args": [
+            "--profile=black",
+            "--line-length=100"
+        ],
+        
+        // Linting
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.linting.mypyEnabled": true,
+        "python.linting.flake8Args": [
+            "--max-line-length=100",
+            "--extend-ignore=E203,W503"
+        ],
+        "python.linting.mypyArgs": [
+            "--strict",
+            "--show-error-codes"
+        ],
+        
+        // Auto-format on save
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        },
+        
+        // File associations and exclusions
+        "files.exclude": {
+            "**/__pycache__": true,
+            "**/.pytest_cache": true,
+            "**/.mypy_cache": true,
+            "**/htmlcov": true,
+            "**/*.pyc": true,
+            "**/.coverage": true,
+            "**/build": true,
+            "**/dist": true,
+            "**/*.egg-info": true
+        },
+        
+        // Terminal configuration
+        "terminal.integrated.env.linux": {
+            "PYTHONPATH": "${workspaceFolder}/src"
+        },
+        "terminal.integrated.env.osx": {
+            "PYTHONPATH": "${workspaceFolder}/src"
+        },
+        
+        // Editor settings for Python
+        "editor.rulers": [100],
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true,
+        
+        // Language-specific settings
+        "[python]": {
+            "editor.tabSize": 4,
+            "editor.insertSpaces": true,
+            "editor.formatOnSave": true,
+            "editor.codeActionsOnSave": {
+                "source.organizeImports": true
+            }
+        },
+        
+        // IntelliSense settings
+        "python.analysis.extraPaths": ["./src"],
+        "python.analysis.typeCheckingMode": "strict",
+        "python.analysis.autoImportCompletions": true,
+        
+        // Pytest discovery timeout
+        "python.testing.pytestPath": "./venv/bin/pytest"
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-python.python",
+            "ms-python.vscode-pylance",
+            "ms-python.flake8",
+            "ms-python.black-formatter",
+            "ms-python.isort",
+            "ms-python.mypy-type-checker",
+            "ryanluker.vscode-coverage-gutters",
+            "ms-vscode.makefile-tools",
+            "github.vscode-github-actions"
+        ]
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": [
+            {
+                "label": "Setup Development Environment",
+                "type": "shell",
+                "command": "make",
+                "args": ["dev-setup"],
+                "group": "build",
+                "presentation": {
+                    "echo": true,
+                    "reveal": "always",
+                    "focus": false,
+                    "panel": "shared"
+                },
+                "problemMatcher": []
+            }
+        ]
+    }
+}

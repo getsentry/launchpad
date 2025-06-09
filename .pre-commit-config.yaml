@@ -9,28 +9,30 @@ repos:
       - id: check-merge-conflict
       - id: debug-statements
 
-  - repo: https://github.com/psf/black
-    rev: 23.9.1
+  - repo: local
     hooks:
-      - id: black
-        language_version: python3.11
-        args: [--line-length=100]
+      - id: autofix
+        name: Auto-fix code (format with isort + black)
+        entry: make
+        args: [autofix]
+        language: system
+        types: [python]
+        pass_filenames: false
 
-  - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
-    hooks:
-      - id: isort
-        args: [--profile=black, --line-length=100]
+      - id: lint
+        name: Lint code (flake8)
+        entry: make
+        args: [lint]
+        language: system
+        types: [python]
+        pass_filenames: false
 
-  - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
-    hooks:
-      - id: flake8
-        args: [--max-line-length=100, --extend-ignore=E203,W503]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.5.1
+  - repo: local
     hooks:
       - id: mypy
-        additional_dependencies: [types-all]
-        args: [--strict, --ignore-missing-imports]
+        name: Type check with mypy
+        entry: make
+        args: [type-check]
+        language: system
+        types: [python]
+        pass_filenames: false
