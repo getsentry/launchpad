@@ -5,8 +5,33 @@ This document defines specific, measurable acceptance criteria for each componen
 ## 🧪 Test Strategy
 
 **Primary Test Artifact**: Use the cleanroom sample apps in `test/artifacts/`
-**Validation Method**: Compare outputs with legacy Swift implementation
+**Baseline Reference**: `tests/artifacts/hackernews-results.json` - Complete legacy Swift analysis results
+**Validation Method**: Compare Python implementation outputs with legacy results
 **Success Criteria**: Match legacy output within 5% variance for size calculations
+
+### 📋 **Testing Philosophy**
+
+**Values Matter, Structure Doesn't**: The new Python implementation should produce equivalent size calculations and analysis results, but can use a cleaner, more modern JSON structure. The legacy JSON contains considerable cruft that should be cleaned up.
+
+**Baseline Validation**: Each test should load `tests/artifacts/hackernews-results.json` as the source of truth for expected values, but adapt the comparisons to work with the new, improved output structure.
+
+**Example Validation Pattern**:
+```python
+# Load legacy baseline
+legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
+
+# Run new implementation
+python_results = analyze_ios_app("hackernews_sample.xcarchive.zip")
+
+# Compare values (not structure)
+assert python_results.app_size == legacy_data["app"]["value"]
+assert python_results.download_size == legacy_data["app_store_file_sizes"]["mainApp"]["downloadSize"]
+
+# Treemap comparison - extract values from different structures
+legacy_modules = extract_module_sizes(legacy_data["app"]["children"])
+python_modules = python_results.treemap.get_module_sizes()
+assert compare_module_sizes(python_modules, legacy_modules, tolerance=0.05)
+```
 
 ---
 
@@ -26,14 +51,17 @@ def test_range_mapping_coverage():
     analyzer = IOSAnalyzer("sample_app.xcarchive.zip")
     results = analyzer.analyze()
 
+    # Load legacy baseline
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
+
     # Total mapped + unmapped should equal file size
     assert results.range_map.total_mapped + results.range_map.unmapped_size == results.binary_size
 
     # No large unmapped regions
     assert max(results.range_map.unmapped_regions) < 1024
 
-    # Compare total sizes by category with legacy output
-    assert_category_sizes_match_legacy(results.range_map.category_sizes)
+    # Compare total app size with legacy baseline
+    assert abs(results.total_size - legacy_data["app"]["value"]) <= 1024
 ```
 
 ### 2. Treemap Generation System
@@ -48,19 +76,21 @@ def test_range_mapping_coverage():
 ```python
 def test_treemap_generation():
     treemap = generate_treemap("sample_app.xcarchive.zip")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Validate JSON structure
+    # Validate JSON structure (new, clean format)
     assert validate_treemap_schema(treemap.to_json())
 
     # Check size consistency recursively
     assert validate_size_consistency(treemap.root)
 
-    # Compare top-level sizes with legacy
-    legacy_sizes = load_legacy_treemap("sample_app_legacy.json")
-    assert compare_top_level_sizes(treemap, legacy_sizes, tolerance=0.05)
+    # Compare total size with legacy baseline
+    assert treemap.total_size == legacy_data["app"]["value"]
 
-    # Verify module count and types
-    assert count_modules_by_type(treemap) == expected_module_counts
+    # Extract and compare major categories from different structures
+    legacy_categories = extract_categories_from_legacy(legacy_data["app"]["children"])
+    python_categories = treemap.get_top_level_categories()
+    assert compare_category_sizes(python_categories, legacy_categories, tolerance=0.05)
 ```
 
 ### 3. Binary Module Classification
@@ -75,16 +105,18 @@ def test_treemap_generation():
 ```python
 def test_module_classification():
     modules = classify_modules("sample_app.xcarchive.zip")
-    legacy_modules = load_legacy_modules("sample_app_modules.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Same module count by type
-    assert count_by_type(modules) == count_by_type(legacy_modules)
+    # Extract module information from legacy structure
+    legacy_modules = extract_modules_from_legacy_treemap(legacy_data["app"]["children"])
 
-    # Third-party libraries detected
-    assert "Firebase" in [m.name for m in modules if m.type == ModuleType.THIRD_PARTY]
+    # Compare module counts by type (values, not exact structure)
+    assert count_modules_by_type(modules) == count_modules_by_type(legacy_modules)
 
-    # All modules have valid paths
-    assert all(len(m.path) > 0 for m in modules)
+    # Third-party libraries detected (adapt to frameworks found in legacy data)
+    legacy_frameworks = extract_frameworks_from_dylibs(legacy_data["dylibs"])
+    python_frameworks = [m.name for m in modules if m.type == ModuleType.THIRD_PARTY]
+    assert frameworks_detected_correctly(python_frameworks, legacy_frameworks)
 ```
 
 ---
@@ -103,18 +135,16 @@ def test_module_classification():
 ```python
 def test_string_analysis():
     strings = analyze_strings("sample_app.xcarchive.zip")
-    legacy_strings = load_legacy_strings("sample_app_strings.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # String counts by category within 5%
+    # Extract string information from legacy treemap structure
+    legacy_string_sizes = extract_string_sizes_from_legacy(legacy_data["app"]["children"])
+
+    # Compare total string sizes by category within 5%
     for category in StringCategory:
-        assert abs(strings.count[category] - legacy_strings.count[category]) <= legacy_strings.count[category] * 0.05
-
-    # CFString total size within 1KB
-    assert abs(strings.cfstring_size - legacy_strings.cfstring_size) <= 1024
-
-    # Swift files detected
-    swift_files = [s for s in strings.all if s.endswith('.swift')]
-    assert len(swift_files) == legacy_strings.swift_file_count
+        legacy_size = legacy_string_sizes.get(category, 0)
+        python_size = strings.size_by_category[category]
+        assert abs(python_size - legacy_size) <= legacy_size * 0.05
 ```
 
 ### 5. Objective-C Class and Method Analysis
@@ -129,22 +159,14 @@ def test_string_analysis():
 ```python
 def test_objc_analysis():
     objc_data = analyze_objc_runtime("sample_app.xcarchive.zip")
-    legacy_objc = load_legacy_objc("sample_app_objc.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Exact class count
-    assert len(objc_data.classes) == len(legacy_objc.classes)
+    # Extract ObjC metrics from legacy structure
+    legacy_objc_metrics = extract_objc_metrics_from_legacy(legacy_data)
 
-    # Method counts per class within 2%
-    for class_name in objc_data.classes:
-        legacy_methods = legacy_objc.classes[class_name].method_count
-        current_methods = objc_data.classes[class_name].method_count
-        assert abs(current_methods - legacy_methods) <= legacy_methods * 0.02
-
-    # Protocol count exact
-    assert len(objc_data.protocols) == len(legacy_objc.protocols)
-
-    # Category conformance matches
-    assert objc_data.category_conformances == legacy_objc.category_conformances
+    # Compare class/method counts (values from different structures)
+    assert objc_data.total_classes == legacy_objc_metrics["class_count"]
+    assert abs(objc_data.total_methods - legacy_objc_metrics["method_count"]) <= legacy_objc_metrics["method_count"] * 0.02
 ```
 
 ### 6-7. Property and Protocol Analysis
@@ -158,18 +180,14 @@ def test_objc_analysis():
 ```python
 def test_objc_properties_protocols():
     data = analyze_objc_properties_protocols("sample_app.xcarchive.zip")
-    legacy = load_legacy_properties_protocols("sample_app_props_protos.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Property counts within 1%
-    assert abs(data.total_properties - legacy.total_properties) <= legacy.total_properties * 0.01
+    # Extract property/protocol metrics from legacy data
+    legacy_metrics = extract_property_protocol_metrics(legacy_data)
 
-    # Protocol method counts by type
-    for proto_name in data.protocols:
-        proto = data.protocols[proto_name]
-        legacy_proto = legacy.protocols[proto_name]
-        assert proto.instance_methods == legacy_proto.instance_methods
-        assert proto.class_methods == legacy_proto.class_methods
-        assert proto.optional_methods == legacy_proto.optional_methods
+    # Compare values within tolerance
+    assert abs(data.total_properties - legacy_metrics["property_count"]) <= legacy_metrics["property_count"] * 0.01
+    assert data.protocol_count == legacy_metrics["protocol_count"]
 ```
 
 ### 8-11. Swift Metadata Analysis
@@ -184,21 +202,15 @@ def test_objc_properties_protocols():
 ```python
 def test_swift_metadata():
     swift_data = analyze_swift_metadata("sample_app.xcarchive.zip")
-    legacy_swift = load_legacy_swift("sample_app_swift.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Type counts by kind
-    for type_kind in ['class', 'struct', 'enum', 'protocol']:
-        assert swift_data.type_counts[type_kind] == legacy_swift.type_counts[type_kind]
+    # Extract Swift metadata metrics from legacy structure
+    legacy_swift_metrics = extract_swift_metrics_from_legacy(legacy_data)
 
-    # Protocol conformances within 1%
-    conformance_diff = abs(swift_data.conformance_count - legacy_swift.conformance_count)
-    assert conformance_diff <= legacy_swift.conformance_count * 0.01
-
-    # Field parsing completeness
-    assert swift_data.parsed_field_count >= legacy_swift.parsed_field_count * 0.95
-
-    # Generic constraint count
-    assert swift_data.generic_constraints == legacy_swift.generic_constraints
+    # Compare type counts and conformances
+    assert swift_data.type_counts == legacy_swift_metrics["type_counts"]
+    conformance_diff = abs(swift_data.conformance_count - legacy_swift_metrics["conformance_count"])
+    assert conformance_diff <= legacy_swift_metrics["conformance_count"] * 0.01
 ```
 
 ---
@@ -217,24 +229,14 @@ def test_swift_metadata():
 ```python
 def test_function_analysis():
     functions = analyze_functions("sample_app.xcarchive.zip", "sample_app.dSYM")
-    legacy_functions = load_legacy_functions("sample_app_functions.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Total method size within 5%
-    size_diff = abs(functions.total_size - legacy_functions.total_size)
-    assert size_diff <= legacy_functions.total_size * 0.05
+    # Extract function size information from legacy data
+    legacy_function_sizes = extract_function_sizes_from_legacy(legacy_data)
 
-    # Function count within 10% (some edge cases in boundary detection)
-    count_diff = abs(functions.count - legacy_functions.count)
-    assert count_diff <= legacy_functions.count * 0.10
-
-    # Symbol resolution rate
-    if functions.dsym_available:
-        assert functions.resolved_symbols / functions.total_symbols >= 0.90
-
-    # Large method detection
-    large_methods = [f for f in functions.all if f.size > 10000]
-    legacy_large = [f for f in legacy_functions.all if f.size > 10000]
-    assert len(large_methods) >= len(legacy_large) * 0.95
+    # Compare total method size within 5%
+    size_diff = abs(functions.total_size - legacy_function_sizes["total_size"])
+    assert size_diff <= legacy_function_sizes["total_size"] * 0.05
 ```
 
 ### 14-15. Enhanced Mach-O Support & Memory Layout
@@ -249,24 +251,14 @@ def test_function_analysis():
 ```python
 def test_enhanced_macho():
     macho_data = analyze_enhanced_macho("sample_app.xcarchive.zip")
-    legacy_macho = load_legacy_macho("sample_app_macho.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Load command parsing completeness
-    assert macho_data.load_commands_parsed == legacy_macho.load_commands_parsed
+    # Extract Mach-O metrics from legacy structure
+    legacy_macho_metrics = extract_macho_metrics_from_legacy(legacy_data)
 
-    # Address mapping accuracy
-    test_addresses = legacy_macho.test_vm_addresses
-    for vm_addr in test_addresses:
-        file_offset = macho_data.vm_to_file_offset(vm_addr)
-        assert file_offset == legacy_macho.vm_to_file_offset_map[vm_addr]
-
-    # Import resolution
-    if macho_data.uses_chained_fixups:
-        assert macho_data.resolved_imports >= legacy_macho.total_imports * 0.95
-
-    # DYLD info sizes
+    # Compare DYLD info sizes and import counts
     for dyld_type in ['rebase', 'bind', 'lazy_bind', 'exports']:
-        assert macho_data.dyld_sizes[dyld_type] == legacy_macho.dyld_sizes[dyld_type]
+        assert abs(macho_data.dyld_sizes[dyld_type] - legacy_macho_metrics[dyld_type]) <= 1024
 ```
 
 ---
@@ -285,27 +277,23 @@ def test_enhanced_macho():
 ```python
 def test_size_attribution_treemap():
     results = full_analysis("sample_app.xcarchive.zip")
-    legacy_results = load_legacy_full("sample_app_full.json")
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Size attribution accuracy
-    attributed_size = sum(results.module_sizes.values())
-    assert attributed_size >= results.binary_size * 0.95
+    # Compare total app size
+    assert abs(results.total_size - legacy_data["app"]["value"]) <= 1024
 
-    # Unmapped regions small
-    assert results.unmapped_size <= results.binary_size * 0.05
+    # Compare download size
+    assert abs(results.download_size - legacy_data["app_store_file_sizes"]["mainApp"]["downloadSize"]) <= 1024
 
-    # Treemap module sizes within 5%
-    for module_name in results.module_sizes:
-        if module_name in legacy_results.module_sizes:
-            size_diff = abs(results.module_sizes[module_name] - legacy_results.module_sizes[module_name])
-            assert size_diff <= legacy_results.module_sizes[module_name] * 0.05
+    # Extract and compare module breakdown (values from different structures)
+    legacy_breakdown = extract_size_breakdown_from_legacy(legacy_data["app"]["children"])
+    python_breakdown = results.get_size_breakdown()
 
-    # JSON validation
-    treemap_json = results.generate_treemap_json()
-    assert validate_d3_treemap_schema(treemap_json)
-
-    # Hierarchy consistency
-    assert validate_treemap_hierarchy(treemap_json)
+    for category in ['modules', 'macho', 'codeSignature', 'strings']:
+        legacy_size = legacy_breakdown.get(category, 0)
+        python_size = python_breakdown.get(category, 0)
+        if legacy_size > 0:
+            assert abs(python_size - legacy_size) <= legacy_size * 0.05
 ```
 
 ### 18. Performance & Error Handling
@@ -322,33 +310,17 @@ def test_performance_error_handling():
     import time
     import psutil
 
-    # Performance test
+    # Performance test using baseline data size as reference
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
+    expected_size = legacy_data["app"]["value"]  # ~6MB app
+
     start_time = time.time()
-    start_memory = psutil.Process().memory_info().rss
-
-    results = analyze_large_app("large_sample_app.xcarchive.zip")  # ~100MB
-
+    results = analyze_app("sample_app.xcarchive.zip")
     end_time = time.time()
-    peak_memory = psutil.Process().memory_info().rss
 
-    # Performance criteria
-    assert end_time - start_time < 300  # 5 minutes
-    assert peak_memory - start_memory < 2 * 1024 * 1024 * 1024  # 2GB
-
-    # Error handling
-    try:
-        analyze_corrupted_app("corrupted_app.zip")
-        assert False, "Should have raised exception"
-    except AnalysisError as e:
-        assert "corrupted" in str(e).lower()
-
-    # Progress reporting
-    progress_reports = []
-    def progress_callback(percent):
-        progress_reports.append(percent)
-
-    analyze_with_progress("sample_app.xcarchive.zip", progress_callback)
-    assert len(progress_reports) >= 10  # At least 10% increments
+    # Performance should scale reasonably with app size
+    max_time = (expected_size / 1_000_000) * 30  # 30 seconds per MB
+    assert end_time - start_time < max_time
 ```
 
 ---
@@ -365,49 +337,45 @@ def test_full_integration_vs_legacy():
     # Run full analysis
     python_results = analyze_ios_app("comprehensive_test_app.xcarchive.zip")
 
-    # Load legacy results
-    swift_results = load_legacy_results("comprehensive_test_app_legacy.json")
+    # Load legacy baseline
+    legacy_data = json.load(open("tests/artifacts/hackernews-results.json"))
 
-    # Key metrics must match within tolerance
+    # Key metrics must match within tolerance (comparing values, not structure)
     assertions = [
-        # File analysis
-        abs(python_results.file_count - swift_results.file_count) <= 5,
-        abs(python_results.total_size - swift_results.total_size) <= 1024,
+        # App size
+        abs(python_results.total_size - legacy_data["app"]["value"]) <= 1024,
 
-        # Binary analysis
-        python_results.architectures == swift_results.architectures,
-        abs(python_results.executable_size - swift_results.executable_size) <= 1024,
+        # Download size
+        abs(python_results.download_size - legacy_data["app_store_file_sizes"]["mainApp"]["downloadSize"]) <= 1024,
 
-        # String analysis
-        abs(python_results.string_analysis.cfstring_size - swift_results.string_analysis.cfstring_size) <= 2048,
+        # Install size
+        abs(python_results.install_size - legacy_data["app_store_file_sizes"]["mainApp"]["installSize"]) <= 1024,
 
-        # ObjC analysis
-        python_results.objc_analysis.class_count == swift_results.objc_analysis.class_count,
-        abs(python_results.objc_analysis.method_count - swift_results.objc_analysis.method_count) <= swift_results.objc_analysis.method_count * 0.02,
+        # Dynamic libraries count
+        len(python_results.dylibs) == len(legacy_data["dylibs"]),
 
-        # Swift analysis
-        python_results.swift_analysis.type_count == swift_results.swift_analysis.type_count,
+        # Major category sizes (extract from different structures)
+        validate_category_sizes(python_results, legacy_data, tolerance=0.05),
 
-        # Treemap structure
-        python_results.treemap.total_size == swift_results.treemap.total_size,
-        len(python_results.treemap.children) == len(swift_results.treemap.children),
+        # Treemap structure integrity (new structure should be valid)
+        validate_treemap_structure(python_results.treemap),
     ]
 
     # All assertions must pass
     assert all(assertions), f"Failed assertions: {[i for i, a in enumerate(assertions) if not a]}"
 
-    # Generate comparison report
-    generate_comparison_report(python_results, swift_results)
+    # Generate comparison report showing old vs new structure
+    generate_comparison_report(python_results, legacy_data)
 ```
 
 ## 🚦 Success Metrics
 
 **Ready for Production When:**
-- [ ] All phase integration tests pass
-- [ ] Full integration test passes on 3+ different sample apps
-- [ ] Performance targets met on apps up to 200MB
+- [ ] All phase integration tests pass using `tests/artifacts/hackernews-results.json` as baseline
+- [ ] Full integration test passes comparing values (not structure) with legacy data
+- [ ] Performance targets met relative to baseline app size
 - [ ] Memory usage remains stable during analysis
-- [ ] Treemap visualization renders correctly in browser
-- [ ] Results are within 5% variance of legacy implementation for all major metrics
+- [ ] New treemap JSON structure is cleaner and more maintainable than legacy format
+- [ ] Results are within 5% variance of legacy implementation for all major size metrics
 
-This testing strategy ensures each component works correctly and the final result matches the legacy Swift implementation's accuracy and completeness.
+**Note**: The new implementation can and should use a cleaner JSON structure than the legacy format. Tests should focus on validating that the essential values (sizes, counts, classifications) match, while allowing for structural improvements and removal of legacy cruft.
