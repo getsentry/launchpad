@@ -100,9 +100,7 @@ class RangeMappingBuilder:
                 # Categorize section based on name
                 tag = self._categorize_section(section_name)
 
-                range_map.add_range(
-                    file_offset, file_offset + section_size, tag, f"section_{section_name}"
-                )
+                range_map.add_range(file_offset, file_offset + section_size, tag, f"section_{section_name}")
 
             except Exception as e:
                 logger.debug(f"Failed to map section {section_name}: {e}")

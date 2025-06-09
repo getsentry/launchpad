@@ -144,9 +144,7 @@ class RangeMap(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     ranges: List[Range] = Field(default_factory=list, description="List of ranges in the map")
-    conflicts: List[RangeConflict] = Field(
-        default_factory=list, description="List of detected conflicts"
-    )
+    conflicts: List[RangeConflict] = Field(default_factory=list, description="List of detected conflicts")
     total_file_size: int = Field(default=0, ge=0, description="Total size of the file being mapped")
 
     def __init__(self, total_file_size: int = 0, **data: Any) -> None:
@@ -187,9 +185,7 @@ class RangeMap(BaseModel):
 
         # Check for gap before first range
         if sorted_ranges[0].start > 0:
-            unmapped_regions.append(
-                Range(0, sorted_ranges[0].start, BinaryTag.UNMAPPED, "before_first_range")
-            )
+            unmapped_regions.append(Range(0, sorted_ranges[0].start, BinaryTag.UNMAPPED, "before_first_range"))
 
         # Check for gaps between ranges
         for i in range(len(sorted_ranges) - 1):
@@ -197,22 +193,16 @@ class RangeMap(BaseModel):
             next_start = sorted_ranges[i + 1].start
 
             if current_end < next_start:
-                unmapped_regions.append(
-                    Range(current_end, next_start, BinaryTag.UNMAPPED, f"gap_{i}")
-                )
+                unmapped_regions.append(Range(current_end, next_start, BinaryTag.UNMAPPED, f"gap_{i}"))
 
         # Check for gap after last range
         last_end = sorted_ranges[-1].end
         if last_end < self.total_file_size:
-            unmapped_regions.append(
-                Range(last_end, self.total_file_size, BinaryTag.UNMAPPED, "after_last_range")
-            )
+            unmapped_regions.append(Range(last_end, self.total_file_size, BinaryTag.UNMAPPED, "after_last_range"))
 
         return unmapped_regions
 
-    def add_range(
-        self, start: int, end: int, tag: BinaryTag, description: Optional[str] = None
-    ) -> None:
+    def add_range(self, start: int, end: int, tag: BinaryTag, description: Optional[str] = None) -> None:
         """Add a range to the map, detecting conflicts."""
         if start < 0 or end <= start:
             raise ValueError(f"Invalid range: start={start}, end={end}")
@@ -273,7 +263,5 @@ class RangeMap(BaseModel):
             "conflict_count": len(self.conflicts),
             "total_conflict_size": self.total_conflict_size,
             "unmapped_region_count": len(self.get_unmapped_regions()),
-            "largest_unmapped_region": max(
-                (r.size for r in self.get_unmapped_regions()), default=0
-            ),
+            "largest_unmapped_region": max((r.size for r in self.get_unmapped_regions()), default=0),
         }

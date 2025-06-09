@@ -38,9 +38,7 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
 
     swift_metadata: Optional[SwiftMetadata] = Field(None, description="Swift-specific metadata")
     # Import here to avoid circular imports
-    range_map: Optional[object] = Field(
-        None, description="Range mapping for binary content categorization"
-    )
+    range_map: Optional[object] = Field(None, description="Range mapping for binary content categorization")
 
     @property
     def has_range_mapping(self) -> bool:
@@ -51,14 +49,14 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
     def unmapped_size(self) -> int:
         """Get size of unmapped regions, if range mapping is available."""
         if self.range_map and hasattr(self.range_map, "unmapped_size"):
-            return int(self.range_map.unmapped_size)  # type: ignore[attr-defined]
+            return int(self.range_map.unmapped_size)
         return 0
 
     @property
     def coverage_percentage(self) -> float:
         """Get coverage percentage, if range mapping is available."""
         if self.range_map and hasattr(self.range_map, "get_coverage_report"):
-            report = self.range_map.get_coverage_report()  # type: ignore[attr-defined]
+            report = self.range_map.get_coverage_report()
             return float(report.get("coverage_percentage", 0.0))
         return 0.0
 

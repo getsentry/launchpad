@@ -13,13 +13,9 @@ from ..models import (
     AnalysisResults,
     AppInfo,
     BinaryAnalysis,
-    BinaryTag,
     DuplicateFileGroup,
     FileAnalysis,
     FileInfo,
-    RangeMap,
-    SwiftMetadata,
-    SymbolInfo,
 )
 from ..utils.file_utils import (
     calculate_file_hash,
@@ -85,17 +81,11 @@ class IOSAnalyzer:
 
             # Analyze files in the bundle
             file_analysis = self._analyze_files(app_bundle_path)
-            logger.info(
-                f"Found {file_analysis.file_count} files, "
-                f"total size: {file_analysis.total_size} bytes"
-            )
+            logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
 
             # Analyze the main executable binary
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
-            logger.info(
-                f"Binary analysis complete, "
-                f"executable size: {binary_analysis.executable_size} bytes"
-            )
+            logger.info(f"Binary analysis complete, " f"executable size: {binary_analysis.executable_size} bytes")
 
             return AnalysisResults(
                 app_info=app_info,
@@ -145,8 +135,7 @@ class IOSAnalyzer:
                 plist_data = plistlib.load(f)
 
             return AppInfo(
-                name=plist_data.get("CFBundleDisplayName")
-                or plist_data.get("CFBundleName", "Unknown"),
+                name=plist_data.get("CFBundleDisplayName") or plist_data.get("CFBundleName", "Unknown"),
                 bundle_id=plist_data.get("CFBundleIdentifier", "unknown.bundle.id"),
                 version=plist_data.get("CFBundleShortVersionString", "Unknown"),
                 build=plist_data.get("CFBundleVersion", "Unknown"),

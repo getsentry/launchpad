@@ -15,9 +15,7 @@ class TestIOSRangeMapping:
     @pytest.fixture
     def sample_app_path(self) -> Path:
         """Path to the sample HackerNews app."""
-        return (
-            Path(__file__).parent.parent / "artifacts" / "HackerNews 2-12-25, 6.06 PM.xcarchive.zip"
-        )
+        return Path(__file__).parent.parent / "artifacts" / "HackerNews.xcarchive.zip"
 
     @pytest.fixture
     def legacy_baseline(self) -> dict:
@@ -46,9 +44,7 @@ class TestIOSRangeMapping:
         # Test 100% Binary Coverage - no unmapped regions > 1KB
         unmapped_regions = range_map.get_unmapped_regions()
         largest_unmapped = max((r.size for r in unmapped_regions), default=0)
-        assert (
-            largest_unmapped <= 1024
-        ), f"Largest unmapped region ({largest_unmapped} bytes) exceeds 1KB limit"
+        assert largest_unmapped <= 1024, f"Largest unmapped region ({largest_unmapped} bytes) exceeds 1KB limit"
 
         # Test Category Consistency - total mapped + unmapped should equal file size
         expected_size = range_map.total_mapped + range_map.unmapped_size
@@ -70,9 +66,7 @@ class TestIOSRangeMapping:
         # Compare total app size with legacy baseline (within 1KB tolerance)
         legacy_app_size = legacy_baseline["app"]["value"]
         size_diff = abs(results.total_size - legacy_app_size)
-        assert (
-            size_diff <= 1024
-        ), f"App size differs from legacy baseline by {size_diff} bytes (expected <= 1024)"
+        assert size_diff <= 1024, f"App size differs from legacy baseline by {size_diff} bytes (expected <= 1024)"
 
     def test_range_mapping_categories(self, sample_app_path: Path):
         """Test that range mapping properly categorizes binary content."""
@@ -188,16 +182,14 @@ class TestIOSRangeMapping:
         download_tolerance = max(1024, int(legacy_download_size * 0.05))
         download_diff = abs(results.download_size - legacy_download_size)
         assert download_diff <= download_tolerance, (
-            f"Download size differs from legacy by {download_diff} bytes "
-            f"(tolerance: {download_tolerance})"
+            f"Download size differs from legacy by {download_diff} bytes " f"(tolerance: {download_tolerance})"
         )
 
         # Install size should match closely (our estimate vs legacy)
         install_tolerance = max(1024, int(legacy_install_size * 0.05))
         install_diff = abs(results.install_size - legacy_install_size)
         assert install_diff <= install_tolerance, (
-            f"Install size differs from legacy by {install_diff} bytes "
-            f"(tolerance: {install_tolerance})"
+            f"Install size differs from legacy by {install_diff} bytes " f"(tolerance: {install_tolerance})"
         )
 
     def test_range_mapping_conflict_handling(self, sample_app_path: Path):
@@ -215,9 +207,7 @@ class TestIOSRangeMapping:
         for conflict in conflicts:
             assert conflict.overlap_size > 0, "Conflict overlap size should be positive"
             assert conflict.overlap_start < conflict.overlap_end, "Conflict range should be valid"
-            assert conflict.range1.overlaps(
-                conflict.range2
-            ), "Conflicting ranges should actually overlap"
+            assert conflict.range1.overlaps(conflict.range2), "Conflicting ranges should actually overlap"
 
         # Total conflict size should be reasonable (< 10% of file)
         total_conflict_size = sum(c.overlap_size for c in conflicts)
@@ -225,4 +215,4 @@ class TestIOSRangeMapping:
 
         assert (
             total_conflict_size <= max_acceptable_conflicts
-        ), f"Too many conflicts: {total_conflict_size} bytes ({(total_conflict_size/range_map.total_file_size)*100:.1f}%)"
+        ), f"Too many conflicts: {total_conflict_size} bytes ({(total_conflict_size/range_map.total_file_size)*100:.1f}%)"  # noqa: E501

@@ -77,9 +77,7 @@ class MachOParser:
                 section_name = "unknown"
                 if hasattr(symbol, "numberof_sections") and symbol.numberof_sections > 0:
                     if hasattr(self.binary, "sections") and len(self.binary.sections) > 0:
-                        section_index = min(
-                            symbol.numberof_sections - 1, len(self.binary.sections) - 1
-                        )
+                        section_index = min(symbol.numberof_sections - 1, len(self.binary.sections) - 1)
                         section = self.binary.sections[section_index]
                         section_name = getattr(section, "name", "unknown")
 
