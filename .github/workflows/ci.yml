@@ -12,59 +12,39 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Cache pip dependencies
       uses: actions/cache@v3
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'requirements-dev.txt') }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-pip-${{ matrix.python-version }}-
-    
+
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip setuptools wheel
-        pip install -e ".[dev]"
-        pip install -r requirements-dev.txt
-        pip install build pytest-cov
-    
-    - name: Lint with flake8
-      run: |
-        flake8 src/ tests/
-    
-    - name: Check formatting with black
-      run: |
-        black --check src/ tests/
-    
-    - name: Check import sorting with isort
-      run: |
-        isort --check-only src/ tests/
-    
-    - name: Type check with mypy
-      run: |
-        mypy src/app_size_analyzer
-    
+      run: make install-dev
+
+    - name: Run code quality checks
+      run: make check
+
     - name: Run unit tests
-      run: |
-        pytest tests/unit/ -v --tb=short
-    
+      run: make test-unit
+
     - name: Run integration tests
-      run: |
-        pytest tests/ -k "not unit" -v --tb=short
-    
+      run: make test-integration
+
     - name: Run tests with coverage
-      run: |
-        pytest tests/ --cov=app_size_analyzer --cov-report=xml --cov-report=term-missing
-    
+      run: make test-coverage
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       if: matrix.python-version == '3.11'
@@ -72,7 +52,7 @@ jobs:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
-    
+
     - name: Test CLI installation and basic functionality
       run: |
         app-size-analyzer --help
@@ -80,31 +60,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: test
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.11"
-    
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-    
+
+    - name: Install dependencies
+      run: make install-dev
+
     - name: Build package
-      run: |
-        python -m build
-    
+      run: make build
+
     - name: Verify build artifacts
       run: |
         ls -la dist/
         python -m pip install dist/*.whl
         app-size-analyzer --help
-    
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
