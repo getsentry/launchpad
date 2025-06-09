@@ -9,7 +9,7 @@ This app is used by Sentry (the error monitoring platform) to analyze pre-produc
 
 # Existing legacy iOS code
 
-There is an existing project in `legacy/sizeAnalysis/`. THIS IS CONSIDERED LEGACY CODE for the iOS size analysis project. When referencing this code, make sure to consider these rules:
+There is an existing project in `legacy/ios/sizeAnalysis/`. THIS IS CONSIDERED LEGACY CODE for the iOS size analysis project. When referencing this code, make sure to consider these rules:
 
 - Ignore all the S3 code, the new tool will only work on local input and output files.
 - Ignore any Capstone references. This code is no longer needed but hasn't been deleted from the repo yet. Not using this will simplify the new project.
@@ -28,6 +28,7 @@ For the Mach-O handling, use the `lief` library and follow best practices for th
 
 # Testing
 
-The `tests/artifacts` directory contains sample "clean room" apps that can be used for writing integration tests and validating the output of this tool.
+Included is a `test/artifacts` directory which contains sample "clean room" apps that can be used for writing integration tests and validating the output of this tool. Always write new tests to validate behavior and functionality. Prefer to write integration tests using the sample apps instead of writing smaller unit tests or using mocks.
 
 Make sure to write tests using `pytest`.
+
