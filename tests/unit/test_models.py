@@ -3,7 +3,7 @@
 
 import pytest
 
-from app_size_analyzer.models.results import (
+from app_size_analyzer.models import (
     AnalysisResults,
     AppInfo,
     BinaryAnalysis,

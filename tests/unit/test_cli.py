@@ -1,5 +1,6 @@
 """Unit tests for CLI functionality."""
 
+import pytest
 from click.testing import CliRunner
 
 from app_size_analyzer import __version__
@@ -24,15 +25,15 @@ class TestCLI:
 
         assert result.exit_code == 0
         assert "App Size Analyzer" in result.output
-        assert "analyze" in result.output
+        assert "ios" in result.output
 
     def test_analyze_help(self) -> None:
         """Test analyze command help."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["analyze", "--help"])
+        result = runner.invoke(cli, ["ios", "--help"])
 
         assert result.exit_code == 0
-        assert "Analyze an app bundle" in result.output
+        assert "Analyze an iOS app bundle" in result.output
         assert "INPUT_PATH" in result.output
 
     def test_analyze_missing_input(self) -> None:

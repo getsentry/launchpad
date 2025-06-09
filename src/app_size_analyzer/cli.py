@@ -14,8 +14,9 @@ from rich.table import Table
 
 from . import __version__
 from .analyzers.ios import IOSAnalyzer
-from .models.results import AnalysisResults
+from .models import AnalysisResults
 from .utils.logging import setup_logging
+
 
 console = Console()
 
@@ -39,7 +40,7 @@ def cli(ctx: click.Context, version: bool) -> None:
     "-o",
     "--output",
     type=click.Path(path_type=Path),
-    default="analysis-report.json",
+    default="ios-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
 )
@@ -47,11 +48,6 @@ def cli(ctx: click.Context, version: bool) -> None:
     "--working-dir",
     type=click.Path(path_type=Path),
     help="Working directory for temporary files (default: system temp).",
-)
-@click.option(
-    "--platform",
-    type=click.Choice(["ios", "android"], case_sensitive=False),
-    help="Target platform (auto-detected if not specified).",
 )
 @click.option(
     "--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis."
@@ -67,44 +63,35 @@ def cli(ctx: click.Context, version: bool) -> None:
     help="Output format for results.",
     show_default=True,
 )
-def analyze(
+def ios(
     input_path: Path,
     output: Path,
     working_dir: Optional[Path],
-    platform: Optional[str],
     skip_swift_metadata: bool,
     skip_symbols: bool,
     verbose: bool,
     quiet: bool,
     output_format: str,
 ) -> None:
-    """Analyze an app bundle and generate a size report.
+    """Analyze an iOS app bundle and generate a size report.
 
     INPUT_PATH can be:
-    - iOS .app bundle directory
-    - iOS .ipa file
-    - Android .apk file (future)
-    - Zip archive containing any of the above
+    - .xcarchive.zip file
     """
-    # Setup logging
     setup_logging(verbose=verbose, quiet=quiet)
 
-    # Validate arguments
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
 
-    # Auto-detect platform if not specified
-    detected_platform = platform or _detect_platform(input_path)
+    _validate_ios_input(input_path)
 
     if not quiet:
         console.print(f"[bold blue]App Size Analyzer v{__version__}[/bold blue]")
-        console.print(f"Analyzing: [cyan]{input_path}[/cyan]")
-        console.print(f"Platform: [green]{detected_platform.upper()}[/green]")
+        console.print(f"Analyzing iOS app: [cyan]{input_path}[/cyan]")
         console.print(f"Output: [cyan]{output}[/cyan]")
         console.print()
 
     try:
-        # Start analysis
         start_time = time.time()
 
         with Progress(
@@ -113,29 +100,22 @@ def analyze(
             console=console,
             disable=quiet,
         ) as progress:
-            task = progress.add_task("Analyzing app bundle...", total=None)
+            task = progress.add_task("Analyzing iOS app bundle...", total=None)
 
-            # Create analyzer based on platform
-            if detected_platform == "ios":
-                analyzer = IOSAnalyzer(
-                    working_dir=working_dir,
-                    skip_swift_metadata=skip_swift_metadata,
-                    skip_symbols=skip_symbols,
-                )
-                results = analyzer.analyze(input_path)
-            else:
-                raise click.ClickException(f"Platform '{detected_platform}' not yet supported")
+            analyzer = IOSAnalyzer(
+                working_dir=working_dir,
+                skip_swift_metadata=skip_swift_metadata,
+                skip_symbols=skip_symbols,
+            )
+            results = analyzer.analyze(input_path)
 
             progress.update(task, description="Analysis complete!")
 
-        # Calculate analysis duration
         end_time = time.time()
         duration = end_time - start_time
 
-        # Update results with duration
         results = results.model_copy(update={"analysis_duration": duration})
 
-        # Output results
         if output_format == "json":
             _write_json_output(results, output, quiet)
         else:
@@ -153,25 +133,39 @@ def analyze(
         raise click.Abort()
 
 
-def _detect_platform(input_path: Path) -> str:
-    """Auto-detect the platform based on file extension."""
+@cli.command()
+@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default="android-analysis-report.json",
+    help="Output path for the JSON analysis report.",
+    show_default=True,
+)
+def android(input_path: Path, output: Path) -> None:
+    """Analyze an Android app bundle and generate a size report.
+
+    INPUT_PATH can be:
+    - Android .apk file
+    - Android .aab file
+
+    [Coming Soon - Android analysis is not yet implemented]
+    """
+    console.print("[bold red]Android analysis is not yet implemented.[/bold red]")
+    console.print("This feature is coming soon!")
+    raise click.Abort()
+
+
+def _validate_ios_input(input_path: Path) -> None:
+    """Validate that the input path looks like an iOS artifact."""
     suffix = input_path.suffix.lower()
+    valid_extensions = {".zip"}
 
-    if suffix in {".app", ".ipa"}:
-        return "ios"
-    elif suffix in {".apk", ".aab"}:
-        return "android"
-    elif suffix in {".zip"}:
-        # For zip files, we'll need to peek inside or assume iOS for now
-        return "ios"
-    else:
-        # Check if it's a directory with .app extension
-        if input_path.is_dir() and input_path.suffix.lower() == ".app":
-            return "ios"
-
-        raise click.ClickException(
-            f"Cannot auto-detect platform for '{input_path}'. "
-            "Please specify --platform explicitly."
+    if suffix not in valid_extensions:
+        raise click.BadParameter(
+            f"'{input_path}' doesn't look like a typical iOS artifact. "
+            f"Expected one of: {', '.join(sorted(valid_extensions))}"
         )
 
 
@@ -263,12 +257,11 @@ def _print_summary(results: AnalysisResults) -> None:
 
 def _format_bytes(size: int) -> str:
     """Format byte size in human-readable format."""
-    size_float = float(size)
     for unit in ["B", "KB", "MB", "GB"]:
-        if size_float < 1024.0:
-            return f"{size_float:.1f} {unit}"
-        size_float /= 1024.0
-    return f"{size_float:.1f} TB"
+        if size < 1024.0:
+            return f"{size:.1f} {unit}"
+        size /= 1024.0
+    return f"{size:.1f} TB"
 
 
 def main() -> None:

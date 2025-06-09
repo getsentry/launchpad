@@ -1,23 +1,57 @@
 """Data models for app size analysis results."""
 
-from .results import (
-    AnalysisResults,
+# Import common models that are shared across platforms
+from .common import (
+    FileInfo,
+    DuplicateFileGroup,
+    SymbolInfo,
+    FileAnalysis,
+    BaseAppInfo,
+    BaseBinaryAnalysis,
+    BaseAnalysisResults,
+)
+
+# Import iOS-specific models
+from .ios import (
+    SwiftMetadata,
+    IOSAppInfo,
+    IOSBinaryAnalysis,
+    IOSAnalysisResults,
+    # Backwards compatibility aliases
     AppInfo,
     BinaryAnalysis,
-    DuplicateFileGroup,
-    FileAnalysis,
-    FileInfo,
-    SwiftMetadata,
-    SymbolInfo,
+    AnalysisResults,
+)
+
+# Import Android models (placeholders for now)
+from .android import (
+    AndroidMetadata,
+    AndroidAppInfo,
+    AndroidBinaryAnalysis,
+    AndroidAnalysisResults,
 )
 
 __all__ = [
-    "AnalysisResults",
-    "AppInfo",
-    "FileAnalysis",
-    "BinaryAnalysis",
-    "SwiftMetadata",
+    # Common models
     "FileInfo",
     "DuplicateFileGroup",
     "SymbolInfo",
+    "FileAnalysis",
+    "BaseAppInfo",
+    "BaseBinaryAnalysis",
+    "BaseAnalysisResults",
+    # iOS-specific models
+    "SwiftMetadata",
+    "IOSAppInfo",
+    "IOSBinaryAnalysis",
+    "IOSAnalysisResults",
+    # Backwards compatibility aliases (to be deprecated)
+    "AppInfo",
+    "BinaryAnalysis",
+    "AnalysisResults",
+    # Android models (placeholder)
+    "AndroidMetadata",
+    "AndroidAppInfo",
+    "AndroidBinaryAnalysis",
+    "AndroidAnalysisResults",
 ]

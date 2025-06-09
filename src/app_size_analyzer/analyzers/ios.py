@@ -5,11 +5,11 @@ from __future__ import annotations
 import plistlib
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import lief
 
-from ..models.results import (
+from ..models import (
     AnalysisResults,
     AppInfo,
     BinaryAnalysis,
@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 
 
 class IOSAnalyzer:
-    """Analyzer for iOS app bundles (.app directories or .ipa files)."""
+    """Analyzer for iOS app bundles (.xcarchive directories)."""
 
     def __init__(
         self,
@@ -57,7 +57,7 @@ class IOSAnalyzer:
         """Analyze an iOS app bundle.
 
         Args:
-            input_path: Path to .app directory, .ipa file, or zip archive
+            input_path: Path to zip archive
 
         Returns:
             Complete analysis results
@@ -79,26 +79,22 @@ class IOSAnalyzer:
             # Analyze files in the bundle
             file_analysis = self._analyze_files(app_bundle_path)
             logger.info(
-                f"Found {file_analysis.file_count} files, "
-                f"total size: {file_analysis.total_size} bytes"
+                f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes"
             )
 
             # Analyze the main executable binary
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
             logger.info(
-                f"Binary analysis complete, "
-                f"executable size: {binary_analysis.executable_size} bytes"
+                f"Binary analysis complete, executable size: {binary_analysis.executable_size} bytes"
             )
 
             return AnalysisResults(
                 app_info=app_info,
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
-                analysis_duration=None,  # Will be updated by caller
             )
 
         finally:
-            # Cleanup temporary directories
             self._cleanup()
 
     def _prepare_app_bundle(self, input_path: Path) -> Path:
@@ -110,12 +106,7 @@ class IOSAnalyzer:
         Returns:
             Path to the .app bundle directory
         """
-        if input_path.is_dir() and input_path.suffix.lower() == ".app":
-            # Direct .app bundle
-            logger.debug("Input is already an .app bundle")
-            return input_path
 
-        # Need to extract archive
         logger.debug("Extracting archive to temporary directory")
         temp_dir = create_temp_directory("ios-analysis-")
         self._temp_dirs.append(temp_dir)
@@ -255,7 +246,6 @@ class IOSAnalyzer:
         logger.debug(f"Analyzing binary: {executable_path}")
 
         try:
-            # Parse the binary with LIEF
             binary = lief.parse(str(executable_path))
 
             if binary is None:
@@ -263,7 +253,6 @@ class IOSAnalyzer:
 
             executable_size = get_file_size(executable_path)
 
-            # Extract basic binary information
             architectures = self._extract_architectures(binary)
             linked_libraries = self._extract_linked_libraries(binary)
             sections = self._extract_sections(binary)
@@ -289,7 +278,6 @@ class IOSAnalyzer:
 
         except Exception as e:
             logger.error(f"Failed to analyze binary: {e}")
-            # Return partial results rather than failing completely
             return BinaryAnalysis(
                 executable_size=get_file_size(executable_path),
                 architectures=[],
@@ -353,7 +341,7 @@ class IOSAnalyzer:
 
     def _extract_symbols(self, binary: lief.Binary) -> List[SymbolInfo]:
         """Extract symbol information from the binary."""
-        symbols: List[SymbolInfo] = []
+        symbols = []
 
         if not hasattr(binary, "symbols"):
             return symbols
@@ -362,7 +350,7 @@ class IOSAnalyzer:
             try:
                 symbol_name = getattr(symbol, "name", "unknown")
                 symbol_size = getattr(symbol, "size", 0)
-                symbol_type = getattr(symbol, "type", "unknown")
+                symbol_type = getattr(symbol, "type", lief.MachO.SYMBOL_TYPES.UNDEFINED)
 
                 # Try to determine the section
                 section_name = "unknown"
