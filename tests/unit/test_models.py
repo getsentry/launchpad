@@ -1,7 +1,7 @@
 """Unit tests for data models."""
 
-
 import pytest
+from datetime import datetime
 
 from app_size_analyzer.models import (
     AnalysisResults,
@@ -10,6 +10,8 @@ from app_size_analyzer.models import (
     DuplicateFileGroup,
     FileAnalysis,
     FileInfo,
+    SwiftMetadata,
+    SymbolInfo,
 )
 
 
