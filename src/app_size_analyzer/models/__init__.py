@@ -23,6 +23,7 @@ from .ios import (  # Backwards compatibility aliases
     IOSBinaryAnalysis,
     SwiftMetadata,
 )
+from .range_mapping import BinaryTag, Range, RangeConflict, RangeMap
 
 __all__ = [
     # Common models
@@ -47,4 +48,9 @@ __all__ = [
     "AndroidAppInfo",
     "AndroidBinaryAnalysis",
     "AndroidAnalysisResults",
+    # Range mapping models
+    "BinaryTag",
+    "Range",
+    "RangeConflict",
+    "RangeMap",
 ]

@@ -37,6 +37,30 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
     model_config = ConfigDict(frozen=True)
 
     swift_metadata: Optional[SwiftMetadata] = Field(None, description="Swift-specific metadata")
+    # Import here to avoid circular imports
+    range_map: Optional[object] = Field(
+        None, description="Range mapping for binary content categorization"
+    )
+
+    @property
+    def has_range_mapping(self) -> bool:
+        """Check if range mapping is available."""
+        return self.range_map is not None
+
+    @property
+    def unmapped_size(self) -> int:
+        """Get size of unmapped regions, if range mapping is available."""
+        if self.range_map and hasattr(self.range_map, "unmapped_size"):
+            return int(self.range_map.unmapped_size)  # type: ignore[attr-defined]
+        return 0
+
+    @property
+    def coverage_percentage(self) -> float:
+        """Get coverage percentage, if range mapping is available."""
+        if self.range_map and hasattr(self.range_map, "get_coverage_report"):
+            report = self.range_map.get_coverage_report()  # type: ignore[attr-defined]
+            return float(report.get("coverage_percentage", 0.0))
+        return 0.0
 
 
 class IOSAnalysisResults(BaseAnalysisResults):
@@ -46,6 +70,17 @@ class IOSAnalysisResults(BaseAnalysisResults):
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
+
+    @property
+    def download_size(self) -> int:
+        """Estimated download size (simplified calculation)."""
+        # This is a placeholder - full implementation would calculate based on compression
+        return int(self.total_size * 0.6)  # Rough estimate
+
+    @property
+    def install_size(self) -> int:
+        """Estimated install size."""
+        return self.total_size
 
 
 # Backwards compatibility aliases - can be removed once all references are updated
