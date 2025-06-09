@@ -1,4 +1,34 @@
-*.egg-info
+# Python
 *.pyc
-__pycache__\
-*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.temporary/
+
+ios-analysis-report.json
+android-analysis-report.json
+
+
