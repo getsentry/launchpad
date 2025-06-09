@@ -22,149 +22,119 @@ console = Console()
 
 
 @click.group(invoke_without_command=True)
-@click.option(
-    "--version", is_flag=True, help="Show version information and exit."
-)
+@click.option("--version", is_flag=True, help="Show version information and exit.")
 @click.pass_context
 def cli(ctx: click.Context, version: bool) -> None:
     """App Size Analyzer - Analyze iOS and Android app bundle sizes."""
     if version:
         click.echo(f"App Size Analyzer v{__version__}")
         ctx.exit()
-    
+
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
 
 @cli.command()
-@click.argument(
-    "input_path",
-    type=click.Path(exists=True, path_type=Path),
-    metavar="INPUT_PATH"
-)
+@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
 @click.option(
-    "-o", "--output",
+    "-o",
+    "--output",
     type=click.Path(path_type=Path),
-    default="analysis-report.json",
+    default="ios-analysis-report.json",
     help="Output path for the JSON analysis report.",
-    show_default=True
+    show_default=True,
 )
 @click.option(
     "--working-dir",
     type=click.Path(path_type=Path),
-    help="Working directory for temporary files (default: system temp)."
+    help="Working directory for temporary files (default: system temp).",
 )
 @click.option(
-    "--platform",
-    type=click.Choice(["ios", "android"], case_sensitive=False),
-    help="Target platform (auto-detected if not specified)."
+    "--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis."
 )
-@click.option(
-    "--skip-swift-metadata",
-    is_flag=True,
-    help="Skip Swift metadata parsing for faster analysis."
-)
-@click.option(
-    "--skip-symbols",
-    is_flag=True,
-    help="Skip symbol extraction and analysis."
-)
-@click.option(
-    "--verbose", "-v",
-    is_flag=True,
-    help="Enable verbose logging output."
-)
-@click.option(
-    "--quiet", "-q",
-    is_flag=True,
-    help="Suppress all output except errors."
-)
+@click.option("--skip-symbols", is_flag=True, help="Skip symbol extraction and analysis.")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress all output except errors.")
 @click.option(
     "--format",
     "output_format",
     type=click.Choice(["json", "table"], case_sensitive=False),
     default="json",
     help="Output format for results.",
-    show_default=True
+    show_default=True,
 )
-def analyze(
+def ios(
     input_path: Path,
     output: Path,
     working_dir: Optional[Path],
-    platform: Optional[str],
     skip_swift_metadata: bool,
     skip_symbols: bool,
     verbose: bool,
     quiet: bool,
     output_format: str,
 ) -> None:
-    """Analyze an app bundle and generate a size report.
-    
+    """Analyze an iOS app bundle and generate a size report.
+
     INPUT_PATH can be:
     - iOS .app bundle directory
-    - iOS .ipa file  
-    - Android .apk file (future)
-    - Zip archive containing any of the above
+    - iOS .ipa file
+    - Zip archive containing an iOS app
     """
     # Setup logging
     setup_logging(verbose=verbose, quiet=quiet)
-    
+
     # Validate arguments
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
-    
-    # Auto-detect platform if not specified
-    detected_platform = platform or _detect_platform(input_path)
-    
+
+    # Validate that input looks like an iOS artifact
+    _validate_ios_input(input_path)
+
     if not quiet:
         console.print(f"[bold blue]App Size Analyzer v{__version__}[/bold blue]")
-        console.print(f"Analyzing: [cyan]{input_path}[/cyan]")
-        console.print(f"Platform: [green]{detected_platform.upper()}[/green]")
+        console.print(f"Analyzing iOS app: [cyan]{input_path}[/cyan]")
         console.print(f"Output: [cyan]{output}[/cyan]")
         console.print()
-    
+
     try:
         # Start analysis
         start_time = time.time()
-        
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             console=console,
-            disable=quiet
+            disable=quiet,
         ) as progress:
-            task = progress.add_task("Analyzing app bundle...", total=None)
-            
-            # Create analyzer based on platform
-            if detected_platform == "ios":
-                analyzer = IOSAnalyzer(
-                    working_dir=working_dir,
-                    skip_swift_metadata=skip_swift_metadata,
-                    skip_symbols=skip_symbols,
-                )
-                results = analyzer.analyze(input_path)
-            else:
-                raise click.ClickException(f"Platform '{detected_platform}' not yet supported")
-            
+            task = progress.add_task("Analyzing iOS app bundle...", total=None)
+
+            # Create iOS analyzer
+            analyzer = IOSAnalyzer(
+                working_dir=working_dir,
+                skip_swift_metadata=skip_swift_metadata,
+                skip_symbols=skip_symbols,
+            )
+            results = analyzer.analyze(input_path)
+
             progress.update(task, description="Analysis complete!")
-        
+
         # Calculate analysis duration
         end_time = time.time()
         duration = end_time - start_time
-        
+
         # Update results with duration
         results = results.model_copy(update={"analysis_duration": duration})
-        
+
         # Output results
         if output_format == "json":
             _write_json_output(results, output, quiet)
         else:
             _print_table_output(results, quiet)
-        
+
         if not quiet:
             console.print(f"\n[bold green]✓[/bold green] Analysis completed in {duration:.2f}s")
             _print_summary(results)
-    
+
     except Exception as e:
         if verbose:
             console.print_exception()
@@ -173,37 +143,62 @@ def analyze(
         raise click.Abort()
 
 
-def _detect_platform(input_path: Path) -> str:
-    """Auto-detect the platform based on file extension."""
+@cli.command()
+@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    default="android-analysis-report.json",
+    help="Output path for the JSON analysis report.",
+    show_default=True,
+)
+def android(input_path: Path, output: Path) -> None:
+    """Analyze an Android app bundle and generate a size report.
+
+    INPUT_PATH can be:
+    - Android .apk file
+    - Android .aab file
+
+    [Coming Soon - Android analysis is not yet implemented]
+    """
+    console.print("[bold red]Android analysis is not yet implemented.[/bold red]")
+    console.print("This feature is coming soon!")
+    raise click.Abort()
+
+
+def _validate_ios_input(input_path: Path) -> None:
+    """Validate that the input path looks like an iOS artifact."""
     suffix = input_path.suffix.lower()
-    
+
+    # Check for obvious iOS file extensions
     if suffix in {".app", ".ipa"}:
-        return "ios"
-    elif suffix in {".apk", ".aab"}:
-        return "android"
-    elif suffix in {".zip"}:
-        # For zip files, we'll need to peek inside or assume iOS for now
-        return "ios"
-    else:
-        # Check if it's a directory with .app extension
-        if input_path.is_dir() and input_path.suffix.lower() == ".app":
-            return "ios"
-        
-        raise click.ClickException(
-            f"Cannot auto-detect platform for '{input_path}'. "
-            "Please specify --platform explicitly."
-        )
+        return
+
+    # Check for zip files (could contain iOS apps)
+    if suffix in {".zip"}:
+        return
+
+    # Check if it's a directory with .app extension
+    if input_path.is_dir() and input_path.suffix.lower() == ".app":
+        return
+
+    # If we can't determine, show a warning but don't fail
+    console.print(
+        f"[bold yellow]Warning:[/bold yellow] '{input_path}' doesn't look like a typical iOS artifact. "
+        "Expected .app, .ipa, or .zip file."
+    )
 
 
 def _write_json_output(results: AnalysisResults, output_path: Path, quiet: bool) -> None:
     """Write results to JSON file."""
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Write JSON with proper formatting
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results.to_dict(), f, indent=2, ensure_ascii=False)
-    
+
     if not quiet:
         console.print(f"[bold green]✓[/bold green] Results written to: [cyan]{output_path}[/cyan]")
 
@@ -212,56 +207,52 @@ def _print_table_output(results: AnalysisResults, quiet: bool) -> None:
     """Print results in table format to console."""
     if quiet:
         return
-    
+
     # App Info Table
     app_table = Table(title="App Information", show_header=True, header_style="bold magenta")
     app_table.add_column("Property", style="cyan")
     app_table.add_column("Value", style="white")
-    
+
     app_info = results.app_info
     app_table.add_row("Name", app_info.name)
     app_table.add_row("Bundle ID", app_info.bundle_id)
     app_table.add_row("Version", f"{app_info.version} ({app_info.build})")
     app_table.add_row("Min OS", app_info.minimum_os_version)
     app_table.add_row("Platforms", ", ".join(app_info.supported_platforms))
-    
+
     console.print(app_table)
     console.print()
-    
+
     # File Analysis Table
     file_table = Table(title="File Analysis", show_header=True, header_style="bold green")
     file_table.add_column("Metric", style="cyan")
     file_table.add_column("Value", style="white")
-    
+
     file_analysis = results.file_analysis
     file_table.add_row("Total Size", _format_bytes(file_analysis.total_size))
     file_table.add_row("File Count", str(file_analysis.file_count))
     file_table.add_row("Duplicate Files", str(len(file_analysis.duplicate_files)))
     file_table.add_row("Potential Savings", _format_bytes(file_analysis.total_duplicate_savings))
-    
+
     console.print(file_table)
     console.print()
-    
+
     # File Types Table
     if file_analysis.file_type_sizes:
         type_table = Table(title="File Types", show_header=True, header_style="bold yellow")
         type_table.add_column("Type", style="cyan")
         type_table.add_column("Size", style="white")
         type_table.add_column("Percentage", style="green")
-        
+
         total_size = file_analysis.total_size
         for file_type, size in sorted(
-            file_analysis.file_type_sizes.items(), 
-            key=lambda x: x[1], 
-            reverse=True
-        )[:10]:  # Top 10 file types
+            file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True
+        )[
+            :10
+        ]:  # Top 10 file types
             percentage = (size / total_size) * 100 if total_size > 0 else 0
-            type_table.add_row(
-                file_type or "unknown",
-                _format_bytes(size),
-                f"{percentage:.1f}%"
-            )
-        
+            type_table.add_row(file_type or "unknown", _format_bytes(size), f"{percentage:.1f}%")
+
         console.print(type_table)
 
 
@@ -269,13 +260,15 @@ def _print_summary(results: AnalysisResults) -> None:
     """Print a brief summary of the analysis."""
     file_analysis = results.file_analysis
     binary_analysis = results.binary_analysis
-    
+
     console.print("\n[bold]Summary:[/bold]")
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
-    console.print(f"• Executable size: [cyan]{_format_bytes(binary_analysis.executable_size)}[/cyan]")
+    console.print(
+        f"• Executable size: [cyan]{_format_bytes(binary_analysis.executable_size)}[/cyan]"
+    )
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
     console.print(f"• Architectures: [cyan]{', '.join(binary_analysis.architectures)}[/cyan]")
-    
+
     if file_analysis.duplicate_files:
         console.print(
             f"• Potential savings from duplicates: "
