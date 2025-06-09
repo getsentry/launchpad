@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+  launchpad:
+    build: .
+    ports:
+      - "127.0.0.1:1218:1218" # Bind to localhost only - no external access
+      - "127.0.0.1:1219:1219" # Bind to localhost only - no external access
+    environment:
+      - DEBUG=1
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DEFAULT_BROKERS=kafka:9093
+      - LOG_LEVEL=DEBUG
+      # Security settings for internal service
+      - LAUNCHPAD_HOST=0.0.0.0 # Inside container, but port binding restricts access
+      - REQUIRE_INTERNAL_AUTH=false # Disable for development
+      - ALLOWED_HOSTS=127.0.0.1,localhost,launchpad
+    depends_on:
+      - redis
+      - kafka
+    volumes:
+      - ./src:/app/src
+      - ./test/artifacts:/app/test/artifacts:ro
+    networks:
+      - launchpad-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - launchpad-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - launchpad-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - launchpad-network
+
+networks:
+  launchpad-network:
+    driver: bridge

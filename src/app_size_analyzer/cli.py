@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import pathlib
 import time
 from pathlib import Path
 from typing import Optional
@@ -35,18 +34,18 @@ def cli(ctx: click.Context, version: bool) -> None:
 
 
 @cli.command()
-@click.argument("input_path", type=click.Path(exists=True, path_type=pathlib.Path), metavar="INPUT_PATH")
+@click.argument("input_path", type=click.Path(exists=True), metavar="INPUT_PATH")
 @click.option(
     "-o",
     "--output",
-    type=click.Path(path_type=pathlib.Path),
+    type=click.Path(),
     default="ios-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
 )
 @click.option(
     "--working-dir",
-    type=click.Path(path_type=pathlib.Path),
+    type=click.Path(),
     help="Working directory for temporary files (default: system temp).",
 )
 @click.option("--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis.")
@@ -62,9 +61,9 @@ def cli(ctx: click.Context, version: bool) -> None:
     show_default=True,
 )
 def ios(
-    input_path: Path,
-    output: Path,
-    working_dir: Optional[Path],
+    input_path: str,
+    output: str,
+    working_dir: Optional[str],
     skip_swift_metadata: bool,
     skip_symbols: bool,
     verbose: bool,
@@ -81,12 +80,17 @@ def ios(
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
 
-    _validate_ios_input(input_path)
+    # Convert string paths to Path objects
+    input_path_obj = Path(input_path)
+    output_path_obj = Path(output)
+    working_dir_obj = Path(working_dir) if working_dir else None
+
+    _validate_ios_input(input_path_obj)
 
     if not quiet:
         console.print(f"[bold blue]App Size Analyzer v{__version__}[/bold blue]")
-        console.print(f"Analyzing iOS app: [cyan]{input_path}[/cyan]")
-        console.print(f"Output: [cyan]{output}[/cyan]")
+        console.print(f"Analyzing iOS app: [cyan]{input_path_obj}[/cyan]")
+        console.print(f"Output: [cyan]{output_path_obj}[/cyan]")
         console.print()
 
     try:
@@ -101,11 +105,11 @@ def ios(
             task = progress.add_task("Analyzing iOS app bundle...", total=None)
 
             analyzer = IOSAnalyzer(
-                working_dir=working_dir,
+                working_dir=working_dir_obj,
                 skip_swift_metadata=skip_swift_metadata,
                 skip_symbols=skip_symbols,
             )
-            results = analyzer.analyze(input_path)
+            results = analyzer.analyze(input_path_obj)
 
             progress.update(task, description="Analysis complete!")
 
@@ -115,7 +119,7 @@ def ios(
         results = results.model_copy(update={"analysis_duration": duration})
 
         if output_format == "json":
-            _write_json_output(results, output, quiet)
+            _write_json_output(results, output_path_obj, quiet)
         else:
             _print_table_output(results, quiet)
 
@@ -132,16 +136,16 @@ def ios(
 
 
 @cli.command()
-@click.argument("input_path", type=click.Path(exists=True, path_type=pathlib.Path), metavar="INPUT_PATH")
+@click.argument("input_path", type=click.Path(exists=True), metavar="INPUT_PATH")
 @click.option(
     "-o",
     "--output",
-    type=click.Path(path_type=pathlib.Path),
+    type=click.Path(),
     default="android-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
 )
-def android(input_path: Path, output: Path) -> None:
+def android(input_path: str, output: str) -> None:
     """Analyze an Android app bundle and generate a size report.
 
     INPUT_PATH can be:
@@ -163,6 +167,18 @@ def _validate_ios_input(input_path: Path) -> None:
     if suffix not in valid_extensions:
         raise click.BadParameter(
             f"'{input_path}' doesn't look like a typical iOS artifact. "
+            f"Expected one of: {', '.join(sorted(valid_extensions))}"
+        )
+
+
+def _validate_android_input(input_path: Path) -> None:
+    """Validate that the input path looks like an Android artifact."""
+    suffix = input_path.suffix.lower()
+    valid_extensions = {".apk", ".aab"}
+
+    if suffix not in valid_extensions:
+        raise click.BadParameter(
+            f"'{input_path}' doesn't look like a typical Android artifact. "
             f"Expected one of: {', '.join(sorted(valid_extensions))}"
         )
 
