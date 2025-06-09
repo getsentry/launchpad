@@ -7,6 +7,37 @@ on:
     branches: [ main ]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-3.11-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-3.11-
+
+    - name: Install dependencies
+      run: make install-dev
+
+    - name: Check code formatting
+      run: make check-format
+
+    - name: Run linting checks
+      run: make lint
+
+    - name: Run type checking
+      run: make type-check
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -33,9 +64,6 @@ jobs:
     - name: Install dependencies
       run: make install-dev
 
-    - name: Run code quality checks
-      run: make check
-
     - name: Run unit tests
       run: make test-unit
 
@@ -44,11 +72,11 @@ jobs:
 
     - name: Test CLI installation and basic functionality
       run: |
-        app-size-analyzer --help
+        make run-cli ARGS="--help"
 
   build:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [lint, test]
 
     steps:
     - name: Checkout code
