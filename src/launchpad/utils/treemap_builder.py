@@ -13,29 +13,173 @@ from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Platform-specific page sizes
-PLATFORM_PAGE_SIZES = {
-    "ios": 16 * 1024,  # 16KB for modern iOS devices
-    "android": 4 * 1024,  # 4KB for Android devices
-    "unknown": 4 * 1024,  # Default to 4KB
+
+class PageSizeConfig:
+    """Configuration for page alignment calculations across platforms and components."""
+
+    def __init__(
+        self,
+        default_page_size: int,
+        native_page_size: Optional[int] = None,
+        description: str = "custom",
+    ) -> None:
+        """Initialize page size configuration.
+
+        Args:
+            default_page_size: Page size for most file types (bytes)
+            native_page_size: Page size for native code/libraries (bytes), or None to use default
+            description: Human-readable description of this configuration
+        """
+        self.default_page_size = default_page_size
+        self.native_page_size = native_page_size or default_page_size
+        self.description = description
+
+    @classmethod
+    def ios_modern(cls) -> "PageSizeConfig":
+        """iOS configuration for modern devices (iOS 14+)."""
+        return cls(
+            default_page_size=16 * 1024,  # 16KB for all files
+            description="iOS modern (16KB pages)",
+        )
+
+    @classmethod
+    def android_legacy(cls) -> "PageSizeConfig":
+        """Android configuration for devices without 16KB page support."""
+        return cls(
+            default_page_size=4 * 1024,  # 4KB for all files
+            description="Android legacy (4KB pages)",
+        )
+
+    @classmethod
+    def android_mixed(cls) -> "PageSizeConfig":
+        """Android configuration for devices with mixed page size support.
+
+        Some Android devices support 16KB pages for native code but still use 4KB
+        for other components. This is common during the 16KB rollout phase.
+        """
+        return cls(
+            default_page_size=4 * 1024,  # 4KB for most files
+            native_page_size=16 * 1024,  # 16KB for native libraries
+            description="Android mixed (4KB default, 16KB native)",
+        )
+
+    @classmethod
+    def android_modern(cls) -> "PageSizeConfig":
+        """Android configuration for fully 16KB-enabled devices."""
+        return cls(
+            default_page_size=16 * 1024,  # 16KB for all files
+            description="Android modern (16KB pages)",
+        )
+
+    def get_page_size_for_file(self, file_info: FileInfo) -> int:
+        """Get appropriate page size for a specific file.
+
+        Args:
+            file_info: File information
+
+        Returns:
+            Page size in bytes for this file type
+        """
+        # Check if this is native code that might use different page alignment
+        if self._is_native_code(file_info):
+            return self.native_page_size
+        return self.default_page_size
+
+    def _is_native_code(self, file_info: FileInfo) -> bool:
+        """Check if a file is native code that might use different page alignment.
+
+        Args:
+            file_info: File information
+
+        Returns:
+            True if this file is likely native code
+        """
+        file_type = file_info.file_type.lower()
+        path_lower = file_info.path.lower()
+
+        # Native libraries and executables
+        if file_type in ["so", "dylib"]:
+            return True
+
+        # Framework executables
+        if ".framework" in path_lower and file_type == "":
+            return True
+
+        # Main executable (no extension)
+        if file_type == "" and "/" not in file_info.path:
+            return True
+
+        return False
+
+
+# Predefined page size configurations for common scenarios
+DEFAULT_PAGE_CONFIGS = {
+    "ios": PageSizeConfig.ios_modern(),
+    "android": PageSizeConfig.android_legacy(),  # Conservative default
+    "android-mixed": PageSizeConfig.android_mixed(),
+    "android-modern": PageSizeConfig.android_modern(),
+    "unknown": PageSizeConfig.android_legacy(),  # Conservative fallback
 }
 
 
 class TreemapBuilder:
-    """Builder for creating treemap structures from file analysis data."""
+    """Builder for creating treemap structures from file analysis data.
 
-    def __init__(self, app_name: str = "App", platform: str = "unknown", page_size: Optional[int] = None) -> None:
+    The TreemapBuilder supports flexible page size configuration to handle the complexity
+    of different platforms and the ongoing Android 16KB page size rollout.
+
+    Examples:
+        # iOS app (uses 16KB pages for all files)
+        builder = TreemapBuilder(app_name="MyApp", platform="ios")
+
+        # Android app on legacy device (4KB pages for all files)
+        builder = TreemapBuilder(app_name="MyApp", platform="android")
+
+        # Android app with mixed page support (4KB default, 16KB for native code)
+        mixed_config = PageSizeConfig.android_mixed()
+        builder = TreemapBuilder(app_name="MyApp", platform="android", page_config=mixed_config)
+
+        # Android app on fully 16KB-enabled device
+        modern_config = PageSizeConfig.android_modern()
+        builder = TreemapBuilder(app_name="MyApp", platform="android", page_config=modern_config)
+
+        # Custom page configuration for specific scenarios
+        custom_config = PageSizeConfig(
+            default_page_size=8 * 1024,   # 8KB for most files
+            native_page_size=16 * 1024,   # 16KB for native libraries
+            description="custom 8KB/16KB split"
+        )
+        builder = TreemapBuilder(app_name="MyApp", platform="custom", page_config=custom_config)
+    """
+
+    def __init__(
+        self,
+        app_name: str = "App",
+        platform: str = "unknown",
+        page_config: Optional[PageSizeConfig] = None,
+    ) -> None:
         """Initialize the treemap builder.
 
         Args:
             app_name: Name of the root app element
-            platform: Platform name (ios, android, etc.)
-            page_size: Override page size for alignment, or None to use platform default
+            platform: Platform name (ios, android, etc.) - used for default page config
+            page_config: Explicit page size configuration, or None to use platform default
         """
         self.app_name = app_name
         self.platform = platform
-        default_page_size = PLATFORM_PAGE_SIZES.get(platform, PLATFORM_PAGE_SIZES["unknown"])
-        self.page_size = page_size or default_page_size
+
+        # Use explicit page config or fall back to platform default
+        if page_config is not None:
+            self.page_config = page_config
+        else:
+            self.page_config = DEFAULT_PAGE_CONFIGS.get(platform, DEFAULT_PAGE_CONFIGS["unknown"])
+
+        logger.debug(f"Using page configuration: {self.page_config.description}")
+
+    @property
+    def page_size(self) -> int:
+        """Default page size for backward compatibility."""
+        return self.page_config.default_page_size
 
     def build_file_treemap(self, file_analysis: FileAnalysis) -> TreemapResults:
         """Build a treemap from file analysis results.
@@ -76,21 +220,25 @@ class TreemapBuilder:
             platform=self.platform,
         )
 
-    def _calculate_aligned_install_size(self, file_size: int) -> int:
-        """Calculate the actual install size considering platform page alignment.
+    def _calculate_aligned_install_size(self, file_info: FileInfo) -> int:
+        """Calculate the actual install size considering file-specific page alignment.
 
         Args:
-            file_size: Actual file content size in bytes
+            file_info: File information including size and type
 
         Returns:
-            Install size rounded up to nearest page boundary
+            Install size rounded up to nearest page boundary for this file type
         """
+        file_size = file_info.size
         if file_size == 0:
             return 0
 
+        # Get appropriate page size for this file
+        page_size = self.page_config.get_page_size_for_file(file_info)
+
         # Round up to nearest page boundary
         # Formula: ((size - 1) // page_size + 1) * page_size
-        return ((file_size - 1) // self.page_size + 1) * self.page_size
+        return ((file_size - 1) // page_size + 1) * page_size
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
         """Build hierarchical file structure from file analysis.
@@ -146,7 +294,7 @@ class TreemapBuilder:
             TreemapElement for the file
         """
         # Calculate platform-aligned install size and compressed download size
-        install_size = self._calculate_aligned_install_size(file_info.size)
+        install_size = self._calculate_aligned_install_size(file_info)
         download_size = self._estimate_download_size(file_info)
 
         # Build context-appropriate details
@@ -347,7 +495,7 @@ class TreemapBuilder:
                 category = treemap_type.value
 
                 # Use iOS page-aligned size for install calculations
-                install_size = self._calculate_aligned_install_size(file_info.size)
+                install_size = self._calculate_aligned_install_size(file_info)
                 download_size = self._estimate_download_size(file_info)
 
                 breakdown[category]["install"] += install_size
@@ -365,6 +513,9 @@ class TreemapBuilder:
         total_aligned_size = 0
         small_files_count = 0
 
+        # Track stats by page size for mixed configurations
+        page_size_stats: Dict[int, Dict[str, int]] = defaultdict(lambda: {"count": 0, "actual": 0, "aligned": 0})
+
         # Collect all files
         all_files: List[FileInfo] = []
         for files_by_type in file_analysis.files_by_type.values():
@@ -372,22 +523,46 @@ class TreemapBuilder:
 
         for file_info in all_files:
             actual_size = file_info.size
-            aligned_size = self._calculate_aligned_install_size(actual_size)
+            aligned_size = self._calculate_aligned_install_size(file_info)
+            page_size = self.page_config.get_page_size_for_file(file_info)
 
             total_actual_size += actual_size
             total_aligned_size += aligned_size
 
-            if actual_size < self.page_size:
+            # Track by page size
+            page_size_stats[page_size]["count"] += 1
+            page_size_stats[page_size]["actual"] += actual_size
+            page_size_stats[page_size]["aligned"] += aligned_size
+
+            if actual_size < page_size:
                 small_files_count += 1
 
         overhead = total_aligned_size - total_actual_size
         overhead_mb = overhead / 1024 / 1024
-        page_kb = self.page_size // 1024
 
+        # Log overall impact
         platform_name = self.platform.upper()
-        log_msg = f"{platform_name} page alignment ({page_kb}KB): +{overhead:,} bytes ({overhead_mb:.1f} MB) overhead"
-        logger.info(log_msg)
-        logger.info(f"Files smaller than {page_kb}KB: {small_files_count}/{len(all_files)} files")
+        overhead_msg = f"{platform_name} page alignment ({self.page_config.description}): "
+        overhead_msg += f"+{overhead:,} bytes ({overhead_mb:.1f} MB) overhead"
+        logger.info(overhead_msg)
+
+        # Log detailed breakdown for mixed configurations
+        if len(page_size_stats) > 1:
+            logger.info("Page size breakdown:")
+            for page_size, stats in sorted(page_size_stats.items()):
+                page_kb = page_size // 1024
+                page_overhead = stats["aligned"] - stats["actual"]
+                page_overhead_mb = page_overhead / 1024 / 1024
+                breakdown_msg = f"  {page_kb}KB pages: {stats['count']} files, "
+                breakdown_msg += f"+{page_overhead:,} bytes ({page_overhead_mb:.1f} MB)"
+                logger.info(breakdown_msg)
+
+        # Overall file size stats
+        default_page_kb = self.page_config.default_page_size // 1024
+        small_files_msg = f"Files smaller than default page size ({default_page_kb}KB): "
+        small_files_msg += f"{small_files_count}/{len(all_files)} files"
+        logger.info(small_files_msg)
+
         total_actual_mb = total_actual_size / 1024 / 1024
         total_aligned_mb = total_aligned_size / 1024 / 1024
         logger.info(f"Actual total: {total_actual_size:,} bytes ({total_actual_mb:.1f} MB)")
