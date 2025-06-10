@@ -2,8 +2,8 @@
 
 from click.testing import CliRunner
 
-from app_size_analyzer import __version__
-from app_size_analyzer.cli import cli
+from launchpad import __version__
+from launchpad.cli import cli
 
 
 class TestCLI:
@@ -23,7 +23,7 @@ class TestCLI:
         result = runner.invoke(cli, [])
 
         assert result.exit_code == 0
-        assert "App Size Analyzer" in result.output
+        assert "Launchpad" in result.output
         assert "ios" in result.output
 
     def test_analyze_help(self) -> None:
