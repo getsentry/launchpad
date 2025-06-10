@@ -38,11 +38,10 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     swift_metadata: Optional[SwiftMetadata] = Field(None, description="Swift-specific metadata")
-    # Import here to avoid circular imports
     range_map: Optional[RangeMap] = Field(
         None,
         description="Range mapping for binary content categorization",
-        exclude=True,  # Exclude from serialization - this is an implementation detail
+        exclude=True,
     )
 
     @property

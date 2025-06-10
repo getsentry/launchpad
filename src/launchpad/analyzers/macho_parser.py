@@ -217,10 +217,8 @@ class MachOParser:
 
             for section in self.binary.sections:
                 if hasattr(section, "name") and section.name == section_name:
-                    # Access the content property which returns a memoryview
                     if hasattr(section, "content"):
                         content = section.content
-                        # Convert memoryview to bytes
                         return bytes(content)
 
             logger.debug(f"Section {section_name} not found")
