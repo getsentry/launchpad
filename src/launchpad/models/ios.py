@@ -73,9 +73,7 @@ class IOSAnalysisResults(BaseAnalysisResults):
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
-    treemap: Optional[TreemapResults] = Field(
-        None, description="Hierarchical size analysis treemap"
-    )
+    treemap: Optional[TreemapResults] = Field(None, description="Hierarchical size analysis treemap")
 
     @property
     def download_size(self) -> int:

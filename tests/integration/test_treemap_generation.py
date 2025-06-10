@@ -176,7 +176,8 @@ class TestTreemapGeneration:
             assert leaf.is_leaf
             assert leaf.path is not None  # Files should have paths
             assert leaf.install_size > 0  # Files should have size
-            assert "fileType" in leaf.details  # Files should have type info
+            # Files should have basic details (no fileType - that's redundant with element_type)
+            assert "actualSize" in leaf.details or "alignedSize" in leaf.details
 
         # Verify total file count matches
         assert len(leaf_nodes) == treemap.file_count

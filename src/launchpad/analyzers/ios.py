@@ -88,10 +88,7 @@ class IOSAnalyzer:
 
             # Analyze files in the bundle
             file_analysis = self._analyze_files(app_bundle_path)
-            logger.info(
-                f"Found {file_analysis.file_count} files, "
-                f"total size: {file_analysis.total_size} bytes"
-            )
+            logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
 
             # Generate treemap if enabled
             treemap_results = None
@@ -101,10 +98,7 @@ class IOSAnalyzer:
 
             # Analyze the main executable binary
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
-            logger.info(
-                f"Binary analysis complete, "
-                f"executable size: {binary_analysis.executable_size} bytes"
-            )
+            logger.info(f"Binary analysis complete, " f"executable size: {binary_analysis.executable_size} bytes")
 
             # Calculate analysis duration
             analysis_duration = time.time() - start_time
@@ -159,8 +153,7 @@ class IOSAnalyzer:
                 plist_data = plistlib.load(f)
 
             return AppInfo(
-                name=plist_data.get("CFBundleDisplayName")
-                or plist_data.get("CFBundleName", "Unknown"),
+                name=plist_data.get("CFBundleDisplayName") or plist_data.get("CFBundleName", "Unknown"),
                 bundle_id=plist_data.get("CFBundleIdentifier", "unknown.bundle.id"),
                 version=plist_data.get("CFBundleShortVersionString", "Unknown"),
                 build=plist_data.get("CFBundleVersion", "Unknown"),
@@ -255,7 +248,7 @@ class IOSAnalyzer:
         """
         logger.debug("Generating treemap for file hierarchy")
 
-        treemap_builder = TreemapBuilder(app_name=app_info.name)
+        treemap_builder = TreemapBuilder(app_name=app_info.name, platform="ios")
         return treemap_builder.build_file_treemap(file_analysis)
 
     def _analyze_binary(self, app_bundle_path: Path, executable_name: str) -> BinaryAnalysis:

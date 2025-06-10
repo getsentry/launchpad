@@ -11,22 +11,41 @@ from pydantic import BaseModel, ConfigDict, Field
 class TreemapType(str, Enum):
     """Types of elements in the treemap for visualization."""
 
-    # File-based categories
+    # Generic file categories (cross-platform)
     FILES = "files"
     EXECUTABLES = "executables"
-    FRAMEWORKS = "frameworks"
     RESOURCES = "resources"
     ASSETS = "assets"
+    MANIFESTS = "manifests"
+    SIGNATURES = "signatures"
+
+    # iOS-specific categories
+    FRAMEWORKS = "frameworks"
     PLISTS = "plists"
 
-    # Binary analysis categories (for future use)
+    # Android-specific categories
+    DEX_FILES = "dex_files"
+    NATIVE_LIBRARIES = "native_libraries"
+    COMPILED_RESOURCES = "compiled_resources"
+
+    # Binary analysis categories (cross-platform)
     MODULES = "modules"
+    CLASSES = "classes"
+    METHODS = "methods"
     STRINGS = "strings"
+    SYMBOLS = "symbols"
+
+    # iOS binary categories
     DYLD = "dyld"
     MACHO = "macho"
     FUNCTION_STARTS = "function_starts"
     CODE_SIGNATURE = "code_signature"
     EXTERNAL_METHODS = "external_methods"
+
+    # Android binary categories
+    DEX_CLASSES = "dex_classes"
+    DEX_METHODS = "dex_methods"
+    NATIVE_CODE = "native_code"
 
     # Generic categories
     OTHER = "other"
@@ -41,12 +60,10 @@ class TreemapElement(BaseModel):
     name: str = Field(..., description="Display name of the element")
     install_size: int = Field(..., ge=0, description="Install size in bytes")
     download_size: int = Field(..., ge=0, description="Download size in bytes (compressed)")
-    element_type: Optional[TreemapType] = Field(
-        None, description="Type of element for visualization"
-    )
+    element_type: Optional[TreemapType] = Field(None, description="Type of element for visualization")
     path: Optional[str] = Field(None, description="File path (for leaf nodes)")
     children: List[TreemapElement] = Field(default_factory=list, description="Child elements")
-    details: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    details: Dict[str, Any] = Field(default_factory=dict, description="Platform and context-specific metadata")
 
     @property
     def is_leaf(self) -> bool:
@@ -62,12 +79,6 @@ class TreemapElement(BaseModel):
     def total_download_size(self) -> int:
         """Total download size including all children."""
         return self.download_size + sum(child.total_download_size for child in self.children)
-
-    def add_child(self, child: TreemapElement) -> None:
-        """Add a child element (creates a new TreemapElement since model is frozen)."""
-        # Since the model is frozen, we need to work around this differently
-        # This method is for convenience but won't actually modify the frozen model
-        raise NotImplementedError("Cannot modify frozen model. Use TreemapBuilder instead.")
 
     def to_json_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dictionary for visualization."""
@@ -105,12 +116,14 @@ class TreemapResults(BaseModel):
     category_breakdown: Dict[str, Dict[str, int]] = Field(
         default_factory=dict, description="Size breakdown by category"
     )
+    platform: str = Field(default="unknown", description="Platform (ios, android, etc.)")
 
     def to_json_dict(self) -> Dict[str, Any]:
         """Convert to JSON-serializable dictionary."""
         return {
             "app": self.root.to_json_dict(),
             "metadata": {
+                "platform": self.platform,
                 "totalInstallSize": self.total_install_size,
                 "totalDownloadSize": self.total_download_size,
                 "fileCount": self.file_count,

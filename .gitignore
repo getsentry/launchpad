@@ -30,4 +30,6 @@ Thumbs.db
 
 ios-analysis-report.json
 android-analysis-report.json
+hackernews_treemap.json
+*_treemap.json
 legacy/ios/sizeAnalysis/.build/
