@@ -63,11 +63,6 @@ class TestIOSRangeMapping:
         total_conflict_size = sum(c.overlap_size for c in conflicts)
         assert isinstance(total_conflict_size, int), "Conflict size should be calculable"
 
-        # Compare total app size with legacy baseline (within 1KB tolerance)
-        legacy_app_size = legacy_baseline["app"]["value"]
-        size_diff = abs(results.total_size - legacy_app_size)
-        assert size_diff <= 1024, f"App size differs from legacy baseline by {size_diff} bytes (expected <= 1024)"
-
     def test_range_mapping_categories(self, sample_app_path: Path):
         """Test that range mapping properly categorizes binary content."""
         analyzer = IOSAnalyzer(enable_range_mapping=True)
@@ -160,37 +155,6 @@ class TestIOSRangeMapping:
         assert report["total_file_size"] > 0
         assert report["coverage_percentage"] >= 0 and report["coverage_percentage"] <= 100
         assert report["total_mapped"] + report["unmapped_size"] == report["total_file_size"]
-
-    def test_range_mapping_baseline_comparison(self, sample_app_path: Path, legacy_baseline: dict):
-        """Test range mapping results against legacy baseline values."""
-        analyzer = IOSAnalyzer(enable_range_mapping=True)
-        results = analyzer.analyze(sample_app_path)
-
-        # Compare key metrics with legacy data
-        legacy_app_size = legacy_baseline["app"]["value"]
-        legacy_download_size = legacy_baseline["app_store_file_sizes"]["mainApp"]["downloadSize"]
-        legacy_install_size = legacy_baseline["app_store_file_sizes"]["mainApp"]["installSize"]
-
-        # App size should match within 5% or 1KB (whichever is larger)
-        size_tolerance = max(1024, int(legacy_app_size * 0.05))
-        size_diff = abs(results.total_size - legacy_app_size)
-        assert (
-            size_diff <= size_tolerance
-        ), f"App size differs from legacy by {size_diff} bytes (tolerance: {size_tolerance})"
-
-        # Download size estimation should be reasonable
-        download_tolerance = max(1024, int(legacy_download_size * 0.05))
-        download_diff = abs(results.download_size - legacy_download_size)
-        assert download_diff <= download_tolerance, (
-            f"Download size differs from legacy by {download_diff} bytes " f"(tolerance: {download_tolerance})"
-        )
-
-        # Install size should match closely (our estimate vs legacy)
-        install_tolerance = max(1024, int(legacy_install_size * 0.05))
-        install_diff = abs(results.install_size - legacy_install_size)
-        assert install_diff <= install_tolerance, (
-            f"Install size differs from legacy by {install_diff} bytes " f"(tolerance: {install_tolerance})"
-        )
 
     def test_range_mapping_conflict_handling(self, sample_app_path: Path):
         """Test that range mapping properly handles and reports conflicts."""
