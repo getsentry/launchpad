@@ -201,3 +201,126 @@ class MachOParser:
             0x01000007: "x86_64",  # x86_64
         }
         return cpu_types.get(cpu_type)
+
+    def get_section_content(self, section_name: str) -> bytes | None:
+        """Get raw bytes content of a specific section.
+
+        Args:
+            section_name: Name of the section to retrieve
+
+        Returns:
+            Raw bytes of the section content, or None if section not found
+        """
+        try:
+            if not hasattr(self.binary, "sections"):
+                return None
+
+            for section in self.binary.sections:
+                if hasattr(section, "name") and section.name == section_name:
+                    # Access the content property which returns a memoryview
+                    if hasattr(section, "content"):
+                        content = section.content
+                        # Convert memoryview to bytes
+                        return bytes(content)
+
+            logger.debug(f"Section {section_name} not found")
+            return None
+
+        except Exception as e:
+            logger.debug(f"Failed to get section content for {section_name}: {e}")
+            return None
+
+    def get_section_bytes_at_offset(self, section_name: str, offset: int, size: int) -> bytes | None:
+        """Get specific bytes from a section at a given offset.
+
+        Args:
+            section_name: Name of the section
+            offset: Offset within the section
+            size: Number of bytes to read
+
+        Returns:
+            Raw bytes at the specified offset, or None if not found
+        """
+        try:
+            content = self.get_section_content(section_name)
+            if content is None:
+                return None
+
+            if offset + size > len(content):
+                logger.warning(f"Requested range {offset}:{offset+size} exceeds section size {len(content)}")
+                return None
+
+            return content[offset : offset + size]
+
+        except Exception as e:
+            logger.debug(f"Failed to get section bytes at offset for {section_name}: {e}")
+            return None
+
+    def search_bytes_in_section(self, section_name: str, pattern: bytes) -> list[int]:
+        """Search for a byte pattern within a section.
+
+        Args:
+            section_name: Name of the section to search in
+            pattern: Byte pattern to search for
+
+        Returns:
+            List of offsets where the pattern was found
+        """
+        try:
+            content = self.get_section_content(section_name)
+            if content is None:
+                return []
+
+            offsets = []
+            start = 0
+            while True:
+                pos = content.find(pattern, start)
+                if pos == -1:
+                    break
+                offsets.append(pos)
+                start = pos + 1
+
+            return offsets
+
+        except Exception as e:
+            logger.debug(f"Failed to search bytes in section {section_name}: {e}")
+            return []
+
+    def extract_strings_from_section(self, section_name: str, min_length: int = 4) -> list[tuple[int, str]]:
+        """Extract ASCII strings from a section.
+
+        Args:
+            section_name: Name of the section (e.g., "__cstring")
+            min_length: Minimum string length to consider
+
+        Returns:
+            List of (offset, string) tuples
+        """
+        try:
+            content = self.get_section_content(section_name)
+            if content is None:
+                return []
+
+            strings = []
+            current_string = bytearray()
+            start_offset = 0
+
+            for i, byte in enumerate(content):
+                if 32 <= byte <= 126:  # Printable ASCII
+                    if not current_string:
+                        start_offset = i
+                    current_string.append(byte)
+                else:
+                    if len(current_string) >= min_length:
+                        strings.append((start_offset, current_string.decode("ascii")))
+                    current_string = bytearray()
+
+            # Handle string at end of section
+            if len(current_string) >= min_length:
+                strings.append((start_offset, current_string.decode("ascii")))
+
+            return strings
+
+        except Exception as e:
+            logger.debug(f"Failed to extract strings from section {section_name}: {e}")
+            return []
