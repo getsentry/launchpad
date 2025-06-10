@@ -47,7 +47,7 @@
         // Auto-format on save
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit"
+            "source.organizeImports": true
         },
 
         // File associations and exclusions
@@ -82,7 +82,7 @@
             "editor.insertSpaces": true,
             "editor.formatOnSave": true,
             "editor.codeActionsOnSave": {
-                "source.organizeImports": "explicit"
+                "source.organizeImports": true
             }
         },
 
