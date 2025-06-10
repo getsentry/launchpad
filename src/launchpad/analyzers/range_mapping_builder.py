@@ -333,7 +333,7 @@ class RangeMappingBuilder:
             if linkedit_start is None or linkedit_end is None:
                 return
 
-            # Find gaps within the LINKEDIT segment
+            # Find gaps within the LINKEDIT segment using partial splitting
             current_pos = linkedit_start
             linkedit_ranges = []
 
@@ -348,10 +348,14 @@ class RangeMappingBuilder:
             # Fill gaps between mapped ranges
             for range_item in linkedit_ranges:
                 if current_pos < range_item.start:
-                    # Gap found
+                    # Gap found, use partial splitting to avoid conflicts
                     gap_size = range_item.start - current_pos
                     range_map.add_range(
-                        current_pos, range_item.start, BinaryTag.DATA_SEGMENT, f"linkedit_gap_{gap_size}_bytes"
+                        current_pos,
+                        range_item.start,
+                        BinaryTag.DATA_SEGMENT,
+                        f"linkedit_gap_{gap_size}_bytes",
+                        allow_partial=True,  # Use partial splitting for gaps
                     )
                 current_pos = max(current_pos, range_item.end)
 
@@ -359,7 +363,11 @@ class RangeMappingBuilder:
             if current_pos < linkedit_end:
                 gap_size = linkedit_end - current_pos
                 range_map.add_range(
-                    current_pos, linkedit_end, BinaryTag.DATA_SEGMENT, f"linkedit_end_gap_{gap_size}_bytes"
+                    current_pos,
+                    linkedit_end,
+                    BinaryTag.DATA_SEGMENT,
+                    f"linkedit_end_gap_{gap_size}_bytes",
+                    allow_partial=True,  # Use partial splitting for end gaps
                 )
 
         except Exception as e:
@@ -375,7 +383,11 @@ class RangeMappingBuilder:
                 # Larger gaps might indicate missing structures that need specific mapping
                 if region.size <= 65536:  # 64KB threshold
                     range_map.add_range(
-                        region.start, region.end, BinaryTag.UNMAPPED, f"padding_gap_{region.size}_bytes"
+                        region.start,
+                        region.end,
+                        BinaryTag.UNMAPPED,
+                        f"padding_gap_{region.size}_bytes",
+                        allow_partial=True,  # Use partial splitting for padding gaps
                     )
                 else:
                     logger.warning(f"Large unmapped region: {region.size} bytes at offset {region.start}")

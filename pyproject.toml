@@ -47,6 +47,8 @@ dev = [
     "safety>=2.3.0",
     "bandit>=1.7.0",
     "pip-audit>=2.6.0",
+    "sortedcontainers>=2.4.0",
+    "sortedcontainers-stubs>=2.4.0",
 ]
 
 [project.scripts]
