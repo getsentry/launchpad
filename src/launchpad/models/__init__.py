@@ -3,6 +3,25 @@
 # Import common models that are shared across platforms
 # Import Android models (placeholders for now)
 from .android import AndroidAnalysisResults, AndroidAppInfo, AndroidBinaryAnalysis, AndroidMetadata
+
+# Import artifact models
+from .artifacts import (
+    AndroidSpecificArtifacts,
+    ArtifactCollection,
+    ArtifactType,
+    AssetCatalog,
+    BaseArtifact,
+    BinaryArtifact,
+    CompressionType,
+    FrameworkArtifact,
+    IOSSpecificArtifacts,
+    LocalizationArtifact,
+    MetadataArtifact,
+    PlatformSpecificArtifacts,
+    ResourceArtifact,
+    ResourceType,
+    SizeBreakdown,
+)
 from .common import (
     BaseAnalysisResults,
     BaseAppInfo,
@@ -33,6 +52,22 @@ __all__ = [
     "BaseAppInfo",
     "BaseBinaryAnalysis",
     "BaseAnalysisResults",
+    # Artifact models
+    "ArtifactType",
+    "CompressionType",
+    "ResourceType",
+    "BaseArtifact",
+    "BinaryArtifact",
+    "FrameworkArtifact",
+    "ResourceArtifact",
+    "LocalizationArtifact",
+    "MetadataArtifact",
+    "AssetCatalog",
+    "ArtifactCollection",
+    "SizeBreakdown",
+    "PlatformSpecificArtifacts",
+    "IOSSpecificArtifacts",
+    "AndroidSpecificArtifacts",
     # iOS-specific models
     "SwiftMetadata",
     "IOSAppInfo",
