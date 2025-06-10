@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 
 import pytest
-from app_size_analyzer.analyzers.ios import IOSAnalyzer
-from app_size_analyzer.models import BinaryTag
+
+from launchpad.analyzers.ios import IOSAnalyzer
+from launchpad.models import BinaryTag
 
 
 class TestIOSRangeMapping:

@@ -2,10 +2,10 @@
 
 from unittest.mock import Mock
 
-from app_size_analyzer.analyzers.ios import IOSAnalyzer
-from app_size_analyzer.analyzers.macho_parser import MachOParser
-from app_size_analyzer.analyzers.range_mapping_builder import RangeMappingBuilder
-from app_size_analyzer.models.range_mapping import BinaryTag
+from launchpad.analyzers.ios import IOSAnalyzer
+from launchpad.analyzers.macho_parser import MachOParser
+from launchpad.analyzers.range_mapping_builder import RangeMappingBuilder
+from launchpad.models.range_mapping import BinaryTag
 
 
 class TestIOSAnalyzerRangeMapping:
@@ -121,7 +121,7 @@ class TestIOSAnalyzerRangeMapping:
     def test_coverage_report_structure(self) -> None:
         """Test that coverage report has the expected structure."""
         # Create a simple range map for testing
-        from app_size_analyzer.models.range_mapping import RangeMap
+        from launchpad.models.range_mapping import RangeMap
 
         range_map = RangeMap(total_file_size=1000)
         range_map.add_range(0, 100, BinaryTag.HEADERS, "header")
