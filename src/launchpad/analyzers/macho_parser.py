@@ -21,7 +21,7 @@ class MachOParser:
 
     def extract_architectures(self) -> List[str]:
         """Extract CPU architectures from the binary."""
-        architectures = []
+        architectures: list[str] = []
 
         if hasattr(self.binary, "header") and hasattr(self.binary.header, "cpu_type"):
             # Single architecture binary
@@ -39,7 +39,7 @@ class MachOParser:
 
     def extract_linked_libraries(self) -> List[str]:
         """Extract linked dynamic libraries from the binary."""
-        libraries = []
+        libraries: list[str] = []
 
         if hasattr(self.binary, "libraries"):
             for lib in self.binary.libraries:
@@ -50,7 +50,7 @@ class MachOParser:
 
     def extract_sections(self) -> Dict[str, int]:
         """Extract binary sections and their sizes."""
-        sections = {}
+        sections: dict[str, int] = {}
 
         if hasattr(self.binary, "sections"):
             for section in self.binary.sections:

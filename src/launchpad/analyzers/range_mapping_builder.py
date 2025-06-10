@@ -118,6 +118,16 @@ class RangeMappingBuilder:
                         self._map_function_starts_command(range_map, command)
                     elif cmd_type == 0x1D:  # LC_CODE_SIGNATURE
                         self._map_code_signature_command(range_map, command)
+                    elif cmd_type == 0x29:  # LC_DATA_IN_CODE
+                        self._map_data_in_code_command(range_map, command)
+                    elif cmd_type == 0x2A:  # LC_DYLIB_CODE_SIGN_DRS
+                        self._map_dylib_code_sign_drs_command(range_map, command)
+                    elif cmd_type == 0x2B:  # LC_LINKER_OPTIMIZATION_HINT
+                        self._map_linker_optimization_hint_command(range_map, command)
+                    elif cmd_type == 0x32:  # LC_DYLD_EXPORTS_TRIE
+                        self._map_dyld_exports_trie_command(range_map, command)
+                    elif cmd_type == 0x33:  # LC_DYLD_CHAINED_FIXUPS
+                        self._map_dyld_chained_fixups_command(range_map, command)
 
                 except Exception as e:
                     logger.debug(f"Failed to process command {type(command).__name__}: {e}")
@@ -215,6 +225,71 @@ class RangeMappingBuilder:
                 )
         except Exception as e:
             logger.debug(f"Failed to map code signature command: {e}")
+
+    def _map_data_in_code_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map data-in-code information from LC_DATA_IN_CODE command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                range_map.add_range(
+                    command.data_offset,
+                    command.data_offset + command.data_size,
+                    BinaryTag.DEBUG_INFO,
+                    "data_in_code",
+                )
+        except Exception as e:
+            logger.debug(f"Failed to map data-in-code command: {e}")
+
+    def _map_dylib_code_sign_drs_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map code signature DRs from LC_DYLIB_CODE_SIGN_DRS command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                range_map.add_range(
+                    command.data_offset,
+                    command.data_offset + command.data_size,
+                    BinaryTag.CODE_SIGNATURE,
+                    "dylib_code_sign_drs",
+                )
+        except Exception as e:
+            logger.debug(f"Failed to map dylib code sign DRs command: {e}")
+
+    def _map_linker_optimization_hint_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map linker optimization hints from LC_LINKER_OPTIMIZATION_HINT command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                range_map.add_range(
+                    command.data_offset,
+                    command.data_offset + command.data_size,
+                    BinaryTag.DEBUG_INFO,
+                    "linker_optimization_hints",
+                )
+        except Exception as e:
+            logger.debug(f"Failed to map linker optimization hint command: {e}")
+
+    def _map_dyld_exports_trie_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map exports trie from LC_DYLD_EXPORTS_TRIE command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                range_map.add_range(
+                    command.data_offset,
+                    command.data_offset + command.data_size,
+                    BinaryTag.DYLD_EXPORTS,
+                    "dyld_exports_trie",
+                )
+        except Exception as e:
+            logger.debug(f"Failed to map exports trie command: {e}")
+
+    def _map_dyld_chained_fixups_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map chained fixups from LC_DYLD_CHAINED_FIXUPS command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                range_map.add_range(
+                    command.data_offset,
+                    command.data_offset + command.data_size,
+                    BinaryTag.DYLD_BIND,
+                    "dyld_chained_fixups",
+                )
+        except Exception as e:
+            logger.debug(f"Failed to map chained fixups command: {e}")
 
     def _map_segments_and_sections(self, range_map: RangeMap) -> None:
         """Map segments and sections."""
@@ -321,29 +396,69 @@ class RangeMappingBuilder:
             # Fill gaps between mapped ranges
             for range_item in linkedit_ranges:
                 if current_pos < range_item.start:
-                    # Gap found, use partial splitting to avoid conflicts
-                    logger.debug(f"Filling gap {range_item.start - current_pos} bytes at offset {current_pos}")
                     gap_size: int = range_item.start - current_pos
-                    range_map.add_range(
-                        current_pos,
-                        range_item.start,
-                        BinaryTag.DATA_SEGMENT,
-                        f"linkedit_gap_{gap_size}_bytes",
-                        allow_partial=True,  # Use partial splitting for gaps
-                    )
+
+                    if gap_size <= 1024:  # Small gaps (<=1KB) - likely padding/alignment
+                        logger.debug(f"Filling small gap {gap_size} bytes at offset {current_pos}")
+                        range_map.add_range(
+                            current_pos,
+                            range_item.start,
+                            BinaryTag.UNMAPPED,
+                            f"linkedit_padding_{gap_size}_bytes",
+                            allow_partial=True,
+                        )
+                    elif gap_size <= 65536:  # Medium gaps (1KB-64KB)
+                        logger.debug(f"Filling medium gap {gap_size} bytes at offset {current_pos}")
+                        range_map.add_range(
+                            current_pos,
+                            range_item.start,
+                            BinaryTag.DATA_SEGMENT,
+                            f"linkedit_data_{gap_size}_bytes",
+                            allow_partial=True,
+                        )
+                    else:  # Large gaps (>64KB) - warn but don't guess
+                        logger.warning(f"Large LINKEDIT gap detected: {gap_size} bytes at offset {current_pos}")
+                        range_map.add_range(
+                            current_pos,
+                            range_item.start,
+                            BinaryTag.DATA_SEGMENT,
+                            f"linkedit_large_gap_{gap_size}_bytes",
+                            allow_partial=True,
+                        )
+
                 current_pos = max(current_pos, range_item.end)
 
             # Fill any remaining gap at the end
             if current_pos < linkedit_end:
-                logger.debug(f"Filling gap {linkedit_end - current_pos} bytes at offset {current_pos}")
                 gap_size = linkedit_end - current_pos
-                range_map.add_range(
-                    current_pos,
-                    linkedit_end,
-                    BinaryTag.DATA_SEGMENT,
-                    f"linkedit_end_gap_{gap_size}_bytes",
-                    allow_partial=True,  # Use partial splitting for end gaps
-                )
+
+                if gap_size <= 1024:
+                    logger.debug(f"Filling end padding {gap_size} bytes at offset {current_pos}")
+                    range_map.add_range(
+                        current_pos,
+                        linkedit_end,
+                        BinaryTag.UNMAPPED,
+                        f"linkedit_end_padding_{gap_size}_bytes",
+                        allow_partial=True,
+                    )
+                elif gap_size <= 65536:
+                    logger.debug(f"Filling end data {gap_size} bytes at offset {current_pos}")
+                    range_map.add_range(
+                        current_pos,
+                        linkedit_end,
+                        BinaryTag.DATA_SEGMENT,
+                        f"linkedit_end_data_{gap_size}_bytes",
+                        allow_partial=True,
+                    )
+                else:
+                    logger.warning(f"Large LINKEDIT end gap: {gap_size} bytes at offset {current_pos}")
+                    range_map.add_range(
+                        current_pos,
+                        linkedit_end,
+                        BinaryTag.DATA_SEGMENT,
+                        f"linkedit_end_large_gap_{gap_size}_bytes",
+                        allow_partial=True,
+                    )
 
         except Exception as e:
             logger.debug(f"Failed to map linkedit gaps: {e}")
