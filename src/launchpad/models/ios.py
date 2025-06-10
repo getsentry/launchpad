@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .range_mapping import RangeMap
+from .treemap import TreemapResults
 
 
 class SwiftMetadata(BaseModel):
@@ -72,16 +73,23 @@ class IOSAnalysisResults(BaseAnalysisResults):
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
+    treemap: Optional[TreemapResults] = Field(
+        None, description="Hierarchical size analysis treemap"
+    )
 
     @property
     def download_size(self) -> int:
         """Estimated download size"""
-        return self.total_size  # TODO: Implement download size calculation
+        if self.treemap:
+            return self.treemap.total_download_size
+        return self.total_size  # Fallback to total size
 
     @property
     def install_size(self) -> int:
         """Estimated install size"""
-        return self.total_size  # TODO: Implement install size calculation
+        if self.treemap:
+            return self.treemap.total_install_size
+        return self.total_size  # Fallback to total size
 
 
 # Backwards compatibility aliases - can be removed once all references are updated

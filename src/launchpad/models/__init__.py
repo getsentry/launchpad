@@ -24,6 +24,7 @@ from .ios import (  # Backwards compatibility aliases
     SwiftMetadata,
 )
 from .range_mapping import BinaryTag, Range, RangeConflict, RangeMap
+from .treemap import TreemapElement, TreemapResults, TreemapType
 
 __all__ = [
     # Common models
@@ -53,4 +54,8 @@ __all__ = [
     "Range",
     "RangeConflict",
     "RangeMap",
+    # Treemap models
+    "TreemapType",
+    "TreemapElement",
+    "TreemapResults",
 ]

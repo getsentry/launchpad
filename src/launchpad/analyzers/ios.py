@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import plistlib
+import time
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -17,6 +18,7 @@ from ..models import (
     FileAnalysis,
     FileInfo,
 )
+from ..models.treemap import TreemapResults
 from ..utils.file_utils import (
     calculate_file_hash,
     cleanup_directory,
@@ -26,6 +28,7 @@ from ..utils.file_utils import (
     get_file_size,
 )
 from ..utils.logging import get_logger
+from ..utils.treemap_builder import TreemapBuilder
 from .macho_parser import MachOParser
 from .range_mapping_builder import RangeMappingBuilder
 
@@ -41,6 +44,7 @@ class IOSAnalyzer:
         skip_swift_metadata: bool = False,
         skip_symbols: bool = False,
         enable_range_mapping: bool = True,
+        enable_treemap: bool = True,
     ) -> None:
         """Initialize the iOS analyzer.
 
@@ -49,11 +53,13 @@ class IOSAnalyzer:
             skip_swift_metadata: Skip Swift metadata extraction for faster analysis
             skip_symbols: Skip symbol extraction for faster analysis
             enable_range_mapping: Enable range mapping for binary content categorization
+            enable_treemap: Enable treemap generation for hierarchical size analysis
         """
         self.working_dir = working_dir
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
         self.enable_range_mapping = enable_range_mapping
+        self.enable_treemap = enable_treemap
         self._temp_dirs: List[Path] = []
 
     def analyze(self, input_path: Path) -> AnalysisResults:
@@ -70,6 +76,7 @@ class IOSAnalyzer:
             RuntimeError: If analysis fails
         """
         logger.info(f"Starting iOS analysis of {input_path}")
+        start_time = time.time()
 
         try:
             # Prepare app bundle for analysis
@@ -81,16 +88,33 @@ class IOSAnalyzer:
 
             # Analyze files in the bundle
             file_analysis = self._analyze_files(app_bundle_path)
-            logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
+            logger.info(
+                f"Found {file_analysis.file_count} files, "
+                f"total size: {file_analysis.total_size} bytes"
+            )
+
+            # Generate treemap if enabled
+            treemap_results = None
+            if self.enable_treemap:
+                treemap_results = self._generate_treemap(app_info, file_analysis)
+                logger.info(f"Generated treemap with {treemap_results.file_count} files")
 
             # Analyze the main executable binary
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
-            logger.info(f"Binary analysis complete, " f"executable size: {binary_analysis.executable_size} bytes")
+            logger.info(
+                f"Binary analysis complete, "
+                f"executable size: {binary_analysis.executable_size} bytes"
+            )
+
+            # Calculate analysis duration
+            analysis_duration = time.time() - start_time
 
             return AnalysisResults(
                 app_info=app_info,
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
+                treemap=treemap_results,
+                analysis_duration=analysis_duration,
             )
 
         finally:
@@ -135,7 +159,8 @@ class IOSAnalyzer:
                 plist_data = plistlib.load(f)
 
             return AppInfo(
-                name=plist_data.get("CFBundleDisplayName") or plist_data.get("CFBundleName", "Unknown"),
+                name=plist_data.get("CFBundleDisplayName")
+                or plist_data.get("CFBundleName", "Unknown"),
                 bundle_id=plist_data.get("CFBundleIdentifier", "unknown.bundle.id"),
                 version=plist_data.get("CFBundleShortVersionString", "Unknown"),
                 build=plist_data.get("CFBundleVersion", "Unknown"),
@@ -217,6 +242,21 @@ class IOSAnalyzer:
             duplicate_files=duplicate_groups,
             largest_files=largest_files,
         )
+
+    def _generate_treemap(self, app_info: AppInfo, file_analysis: FileAnalysis) -> TreemapResults:
+        """Generate treemap for hierarchical size analysis.
+
+        Args:
+            app_info: App information
+            file_analysis: File analysis results
+
+        Returns:
+            Treemap results
+        """
+        logger.debug("Generating treemap for file hierarchy")
+
+        treemap_builder = TreemapBuilder(app_name=app_info.name)
+        return treemap_builder.build_file_treemap(file_analysis)
 
     def _analyze_binary(self, app_bundle_path: Path, executable_name: str) -> BinaryAnalysis:
         """Analyze the main executable binary using LIEF.
