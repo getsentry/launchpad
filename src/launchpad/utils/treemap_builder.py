@@ -157,6 +157,7 @@ class TreemapBuilder:
         app_name: str = "App",
         platform: str = "unknown",
         page_config: Optional[PageSizeConfig] = None,
+        download_compression_ratio: float = 0.75,
     ) -> None:
         """Initialize the treemap builder.
 
@@ -164,9 +165,11 @@ class TreemapBuilder:
             app_name: Name of the root app element
             platform: Platform name (ios, android, etc.) - used for default page config
             page_config: Explicit page size configuration, or None to use platform default
+            download_compression_ratio: Ratio of download size to install size (0.0-1.0)
         """
         self.app_name = app_name
         self.platform = platform
+        self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
 
         # Use explicit page config or fall back to platform default
         if page_config is not None:
@@ -175,6 +178,7 @@ class TreemapBuilder:
             self.page_config = DEFAULT_PAGE_CONFIGS.get(platform, DEFAULT_PAGE_CONFIGS["unknown"])
 
         logger.debug(f"Using page configuration: {self.page_config.description}")
+        logger.debug(f"Download compression ratio: {self.download_compression_ratio:.1%}")
 
     @property
     def page_size(self) -> int:
@@ -295,7 +299,7 @@ class TreemapBuilder:
         """
         # Calculate platform-aligned install size and compressed download size
         install_size = self._calculate_aligned_install_size(file_info)
-        download_size = self._estimate_download_size(file_info)
+        download_size = int(install_size * self.download_compression_ratio)
 
         # Build context-appropriate details
         details: Dict[str, object] = {
@@ -388,43 +392,6 @@ class TreemapBuilder:
             children=children,
         )
 
-    def _estimate_download_size(self, file_info: FileInfo) -> int:
-        """Estimate download size (compressed) for a file.
-
-        Args:
-            file_info: File information
-
-        Returns:
-            Estimated download size in bytes
-        """
-        # Compression ratios by file type (rough estimates)
-        compression_ratios = {
-            # Already compressed formats
-            "png": 1.0,
-            "jpg": 1.0,
-            "jpeg": 1.0,
-            "gif": 1.0,
-            "zip": 1.0,
-            "gz": 1.0,
-            # Text-based files (compress well)
-            "plist": 0.3,
-            "xml": 0.3,
-            "json": 0.3,
-            "txt": 0.4,
-            "strings": 0.4,
-            # Binary files (moderate compression)
-            "dylib": 0.7,
-            "framework": 0.7,
-            "": 0.8,  # Executable files (no extension)
-            # Other files
-            "nib": 0.6,
-            "storyboard": 0.4,
-            "car": 0.9,  # Asset catalogs are already optimized
-        }
-
-        ratio = compression_ratios.get(file_info.file_type.lower(), 0.6)  # Default 60% of original
-        return int(file_info.size * ratio)
-
     def _get_file_category(self, file_info: FileInfo) -> TreemapType:
         """Determine treemap type for a file.
 
@@ -494,9 +461,9 @@ class TreemapBuilder:
                 treemap_type = self._get_file_category(file_info)
                 category = treemap_type.value
 
-                # Use iOS page-aligned size for install calculations
+                # Use page-aligned size for install calculations
                 install_size = self._calculate_aligned_install_size(file_info)
-                download_size = self._estimate_download_size(file_info)
+                download_size = int(install_size * self.download_compression_ratio)
 
                 breakdown[category]["install"] += install_size
                 breakdown[category]["download"] += download_size
