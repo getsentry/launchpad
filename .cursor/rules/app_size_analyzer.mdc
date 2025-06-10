@@ -1,14 +1,14 @@
 ---
 description:
-globs: src/app_size_analyzer/**/*.py
+globs: src/launchpad/**/*.py
 alwaysApply: false
 ---
-# Cursor Rules for app-size-analyzer
+# Cursor Rules for launchpad
 
 This is a Python CLI tool for analyzing iOS and Android app bundle sizes, similar to Emerge Tools.
 
 ## Project Structure
-- `src/app_size_analyzer/` - Main package source code
+- `src/launchpad/` - Main package source code
 - `tests/` - Test files (pytest)
 - `tests/artifacts/` - Sample app bundles for testing
 - `legacy/` - Legacy Swift code (reference only, not to be used)

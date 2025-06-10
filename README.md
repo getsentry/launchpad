@@ -9,7 +9,7 @@ A CLI tool for analyzing iOS and Android app bundle sizes, providing detailed in
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd app-size-analyzer
+cd launchpad
 
 # Install in development mode
 pip install -e ".[dev]"
@@ -21,19 +21,19 @@ pip install -e ".[dev]"
 
 ```bash
 # Analyze a bundle
-app-size-analyzer ios MyApp.xcarchive.zip
+launchpad ios MyApp.xcarchive.zip
 
 # Analyze a bundle with custom output location
-app-size-analyzer ios MyApp.xcarchive.zip -o detailed-report.json
+launchpad ios MyApp.xcarchive.zip -o detailed-report.json
 
 # Skip expensive operations for faster analysis
-app-size-analyzer ios MyApp.xcarchive.zip --skip-swift-metadata --skip-symbols
+launchpad ios MyApp.xcarchive.zip --skip-swift-metadata --skip-symbols
 ```
 
 ### Command Line Options
 
 ```bash
-app-size-analyzer ios [OPTIONS] INPUT_PATH
+launchpad ios [OPTIONS] INPUT_PATH
 
 Options:
   -o, --output PATH           Output path for JSON report [default: analysis-report.json]
@@ -54,7 +54,7 @@ Options:
 ```bash
 # Clone and setup development environment
 git clone <repository-url>
-cd app-size-analyzer
+cd launchpad
 pip install -e ".[dev]"
 
 # Install pre-commit hooks

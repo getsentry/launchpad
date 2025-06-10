@@ -2,7 +2,7 @@
 
 import pytest
 
-from app_size_analyzer.models import (
+from launchpad.models import (
     AnalysisResults,
     AppInfo,
     BinaryAnalysis,

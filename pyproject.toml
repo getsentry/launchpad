@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "app-size-analyzer"
+name = "launchpad"
 version = "1.0.0"
 description = "CLI tool for analyzing iOS and Android app bundle sizes"
 readme = "README.md"
@@ -50,14 +50,14 @@ dev = [
 ]
 
 [project.scripts]
-app-size-analyzer = "app_size_analyzer.cli:main"
+launchpad = "launchpad.cli:main"
 
 [project.urls]
-Repository = "https://github.com/getsentry/app-size-analyzer"
-Issues = "https://github.com/getsentry/app-size-analyzer/issues"
+Repository = "https://github.com/getsentry/launchpad"
+Issues = "https://github.com/getsentry/launchpad/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/app_size_analyzer"]
+packages = ["src/launchpad"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -74,7 +74,7 @@ target-version = ["py311"]
 [tool.isort]
 profile = "black"
 line_length = 120
-known_first_party = ["app_size_analyzer"]
+known_first_party = ["launchpad"]
 
 [tool.mypy]
 python_version = "3.11"
