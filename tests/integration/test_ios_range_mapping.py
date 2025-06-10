@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any, Dict
 
 import pytest
 
@@ -18,13 +19,14 @@ class TestIOSRangeMapping:
         return Path(__file__).parent.parent / "artifacts" / "HackerNews.xcarchive.zip"
 
     @pytest.fixture
-    def legacy_baseline(self) -> dict:
+    def legacy_baseline(self) -> Dict[str, Any]:
         """Load the legacy baseline results for comparison."""
         baseline_path = Path(__file__).parent.parent / "artifacts" / "hackernews-results.json"
         with open(baseline_path, "r") as f:
-            return json.load(f)
+            data: Dict[str, Any] = json.load(f)
+            return data
 
-    def test_range_mapping_coverage(self, sample_app_path: Path, legacy_baseline: dict):
+    def test_range_mapping_coverage(self, sample_app_path: Path, legacy_baseline: Dict[str, Any]) -> None:
         """Test range mapping coverage meets acceptance criteria.
 
         Acceptance Criteria:
@@ -63,7 +65,7 @@ class TestIOSRangeMapping:
         total_conflict_size = sum(c.overlap_size for c in conflicts)
         assert isinstance(total_conflict_size, int), "Conflict size should be calculable"
 
-    def test_range_mapping_categories(self, sample_app_path: Path):
+    def test_range_mapping_categories(self, sample_app_path: Path) -> None:
         """Test that range mapping properly categorizes binary content."""
         analyzer = IOSAnalyzer(enable_range_mapping=True)
         results = analyzer.analyze(sample_app_path)
@@ -94,7 +96,7 @@ class TestIOSRangeMapping:
         # TEXT segment should be significant portion of the binary (at least 5%)
         assert text_percentage >= 5, f"TEXT segment only {text_percentage:.1f}% of binary"
 
-    def test_range_mapping_performance(self, sample_app_path: Path):
+    def test_range_mapping_performance(self, sample_app_path: Path) -> None:
         """Test that range mapping performance meets requirements."""
         import time
 
@@ -122,7 +124,7 @@ class TestIOSRangeMapping:
         assert results.binary_analysis.range_map is not None
         assert len(results.binary_analysis.range_map.ranges) > 0
 
-    def test_range_mapping_validation(self, sample_app_path: Path):
+    def test_range_mapping_validation(self, sample_app_path: Path) -> None:
         """Test range mapping validation methods."""
         analyzer = IOSAnalyzer(enable_range_mapping=True)
         results = analyzer.analyze(sample_app_path)
@@ -156,7 +158,7 @@ class TestIOSRangeMapping:
         assert report["coverage_percentage"] >= 0 and report["coverage_percentage"] <= 100
         assert report["total_mapped"] + report["unmapped_size"] == report["total_file_size"]
 
-    def test_range_mapping_conflict_handling(self, sample_app_path: Path):
+    def test_range_mapping_conflict_handling(self, sample_app_path: Path) -> None:
         """Test that range mapping properly handles and reports conflicts."""
         analyzer = IOSAnalyzer(enable_range_mapping=True)
         results = analyzer.analyze(sample_app_path)

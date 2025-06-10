@@ -7,6 +7,7 @@ from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
+from .range_mapping import RangeMap
 
 
 class SwiftMetadata(BaseModel):
@@ -38,7 +39,7 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
 
     swift_metadata: Optional[SwiftMetadata] = Field(None, description="Swift-specific metadata")
     # Import here to avoid circular imports
-    range_map: Optional[object] = Field(None, description="Range mapping for binary content categorization")
+    range_map: Optional[RangeMap] = Field(None, description="Range mapping for binary content categorization")
 
     @property
     def has_range_mapping(self) -> bool:
@@ -48,14 +49,14 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
     @property
     def unmapped_size(self) -> int:
         """Get size of unmapped regions, if range mapping is available."""
-        if self.range_map and hasattr(self.range_map, "unmapped_size"):
+        if self.range_map is not None:
             return int(self.range_map.unmapped_size)
         return 0
 
     @property
     def coverage_percentage(self) -> float:
         """Get coverage percentage, if range mapping is available."""
-        if self.range_map and hasattr(self.range_map, "get_coverage_report"):
+        if self.range_map is not None:
             report = self.range_map.get_coverage_report()
             return float(report.get("coverage_percentage", 0.0))
         return 0.0
