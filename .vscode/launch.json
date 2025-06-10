@@ -13,9 +13,9 @@
       "type": "swift",
       "request": "launch",
       "args": [],
-      "cwd": "${workspaceFolder:app-size-analyzer}/legacy/ios/sizeAnalysis/CLI",
+      "cwd": "${workspaceFolder:launchpad}/legacy/ios/sizeAnalysis/CLI",
       "name": "Release AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)",
-      "program": "${workspaceFolder:app-size-analyzer}/legacy/ios/sizeAnalysis/CLI/.build/release/AppSizeAnalyzer",
+      "program": "${workspaceFolder:launchpad}/legacy/ios/sizeAnalysis/CLI/.build/release/AppSizeAnalyzer",
       "preLaunchTask": "swift: Build Release AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)"
     },
     {
