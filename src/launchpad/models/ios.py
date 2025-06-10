@@ -76,14 +76,13 @@ class IOSAnalysisResults(BaseAnalysisResults):
 
     @property
     def download_size(self) -> int:
-        """Estimated download size (simplified calculation)."""
-        # This is a placeholder - full implementation would calculate based on compression
-        return int(self.total_size * 0.6)  # Rough estimate
+        """Estimated download size"""
+        return self.total_size  # TODO: Implement download size calculation
 
     @property
     def install_size(self) -> int:
-        """Estimated install size."""
-        return self.total_size
+        """Estimated install size"""
+        return self.total_size  # TODO: Implement install size calculation
 
 
 # Backwards compatibility aliases - can be removed once all references are updated

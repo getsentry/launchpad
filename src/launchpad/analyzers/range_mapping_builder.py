@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from ..models import BinaryTag, RangeMap
+from typing import Any
+
+from ..models import BinaryTag, Range, RangeMap
 from ..utils.logging import get_logger
 from .macho_parser import MachOParser
 
@@ -37,11 +39,7 @@ class RangeMappingBuilder:
             self._map_mach_o_header(range_map)
             self._map_load_commands(range_map)
             self._map_segments_and_sections(range_map)
-            self._map_dyld_info(range_map)
-            self._map_symbol_table(range_map)
-            self._map_string_table(range_map)
-            self._map_function_starts(range_map)
-            self._map_code_signature(range_map)
+            self._map_load_command_data(range_map)
 
             # Map any remaining LINKEDIT gaps that weren't captured by specific load commands
             self._map_linkedit_gaps(range_map)
@@ -79,25 +77,135 @@ class RangeMappingBuilder:
 
         for i, (cmd_size, command) in enumerate(commands):
             try:
-                if cmd_size > 0:
+                if cmd_size > 0 and current_offset + cmd_size <= self.file_size:
+                    # Get command name safely
+                    try:
+                        cmd_name = type(command).__name__
+                    except (AttributeError, TypeError):
+                        cmd_name = "unknown_error"
+
                     range_map.add_range(
                         current_offset,
                         current_offset + cmd_size,
                         BinaryTag.LOAD_COMMANDS,
-                        f"load_command_{i}_{type(command).__name__}",
+                        f"load_command_{i}_{cmd_name}",
                     )
                     current_offset += cmd_size
-            except Exception as e:
-                logger.debug(f"Failed to map load command {i}: {e}")
-                # Use a default size if we can't get the actual size
-                cmd_size = 16  # Minimum load command size
+                else:
+                    logger.error(
+                        f"Invalid load command {i}: size={cmd_size}, offset={current_offset}, size={self.file_size}"
+                    )
+            except (ValueError, AttributeError, TypeError) as e:
+                logger.error(f"Failed to map load command {i} at offset {current_offset}: {e}")
+                # Skip this command and continue
+
+    def _map_load_command_data(self, range_map: RangeMap) -> None:
+        """Map data referenced by load commands in a single pass."""
+        try:
+            commands = getattr(self.parser.binary, "commands", None)
+            if not commands:
+                return
+
+            for command in commands:
+                if not hasattr(command, "command"):
+                    continue
+
+                cmd_type = getattr(command, "command", 0)
+
+                # Dispatch to appropriate handler based on command type
+                if hasattr(command, "symbol_offset") and hasattr(command, "string_offset"):
+                    # LC_SYMTAB
+                    self._map_symtab_command(range_map, command)
+                elif cmd_type in [0x22, 0x80000022]:
+                    # LC_DYLD_INFO or LC_DYLD_INFO_ONLY
+                    self._map_dyld_info_command(range_map, command)
+                elif cmd_type == 0x26:
+                    # LC_FUNCTION_STARTS
+                    self._map_function_starts_command(range_map, command)
+                elif cmd_type == 0x1D:
+                    # LC_CODE_SIGNATURE
+                    self._map_code_signature_command(range_map, command)
+
+        except Exception as e:
+            logger.debug(f"Failed to map load command data: {e}")
+
+    def _map_symtab_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map symbol table and string table from LC_SYMTAB command."""
+        try:
+            # Map symbol table
+            symbol_offset = getattr(command, "symbol_offset", 0)
+            nb_symbols = getattr(command, "nb_symbols", 0)
+            if symbol_offset > 0 and nb_symbols > 0:
+                # Each symbol entry is typically 16 bytes (64-bit)
+                symbol_size = nb_symbols * 16
+                range_map.add_range(symbol_offset, symbol_offset + symbol_size, BinaryTag.DEBUG_INFO, "symbol_table")
+
+            # Map string table
+            string_offset = getattr(command, "string_offset", 0)
+            string_size = getattr(command, "string_size", 0)
+            if string_offset > 0 and string_size > 0:
+                range_map.add_range(string_offset, string_offset + string_size, BinaryTag.C_STRINGS, "string_table")
+        except Exception as e:
+            logger.debug(f"Failed to map symtab command: {e}")
+
+    def _map_dyld_info_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map DYLD info sections from LC_DYLD_INFO command."""
+        try:
+            # Map rebase info
+            rebase_off = getattr(command, "rebase_off", 0)
+            rebase_size = getattr(command, "rebase_size", 0)
+            if rebase_off > 0 and rebase_size > 0:
+                range_map.add_range(rebase_off, rebase_off + rebase_size, BinaryTag.DYLD_REBASE, "dyld_rebase_info")
+
+            # Map bind info
+            bind_off = getattr(command, "bind_off", 0)
+            bind_size = getattr(command, "bind_size", 0)
+            if bind_off > 0 and bind_size > 0:
+                range_map.add_range(bind_off, bind_off + bind_size, BinaryTag.DYLD_BIND, "dyld_bind_info")
+
+            # Map lazy bind info
+            lazy_bind_off = getattr(command, "lazy_bind_off", 0)
+            lazy_bind_size = getattr(command, "lazy_bind_size", 0)
+            if lazy_bind_off > 0 and lazy_bind_size > 0:
                 range_map.add_range(
-                    current_offset,
-                    current_offset + cmd_size,
-                    BinaryTag.LOAD_COMMANDS,
-                    f"load_command_{i}_estimated",
+                    lazy_bind_off,
+                    lazy_bind_off + lazy_bind_size,
+                    BinaryTag.DYLD_LAZY_BIND,
+                    "dyld_lazy_bind_info",
                 )
-                current_offset += cmd_size
+
+            # Map export info
+            export_off = getattr(command, "export_off", 0)
+            export_size = getattr(command, "export_size", 0)
+            if export_off > 0 and export_size > 0:
+                range_map.add_range(export_off, export_off + export_size, BinaryTag.DYLD_EXPORTS, "dyld_export_info")
+        except Exception as e:
+            logger.debug(f"Failed to map DYLD info command: {e}")
+
+    def _map_function_starts_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map function starts information from LC_FUNCTION_STARTS command."""
+        try:
+            data_offset = getattr(command, "data_offset", 0)
+            data_size = getattr(command, "data_size", 0)
+            if data_offset > 0 and data_size > 0:
+                range_map.add_range(
+                    data_offset,
+                    data_offset + data_size,
+                    BinaryTag.FUNCTION_STARTS,
+                    "function_starts",
+                )
+        except Exception as e:
+            logger.debug(f"Failed to map function starts command: {e}")
+
+    def _map_code_signature_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map code signature from LC_CODE_SIGNATURE command."""
+        try:
+            data_offset = getattr(command, "data_offset", 0)
+            data_size = getattr(command, "data_size", 0)
+            if data_offset > 0 and data_size > 0:
+                range_map.add_range(data_offset, data_offset + data_size, BinaryTag.CODE_SIGNATURE, "code_signature")
+        except Exception as e:
+            logger.debug(f"Failed to map code signature command: {e}")
 
     def _map_segments_and_sections(self, range_map: RangeMap) -> None:
         """Map segments and sections."""
@@ -138,46 +246,6 @@ class RangeMappingBuilder:
         except Exception as e:
             logger.debug(f"Failed to map linkedit data: {e}")
 
-    def _map_symbol_table(self, range_map: RangeMap) -> None:
-        """Map symbol table data."""
-        try:
-            # Look for LC_SYMTAB load command data
-            commands = getattr(self.parser.binary, "commands", None)
-            if commands:
-                for command in commands:
-                    if hasattr(command, "command") and hasattr(command, "symbol_offset"):
-                        # This is likely a symtab command
-                        symbol_offset = getattr(command, "symbol_offset", 0)
-                        nb_symbols = getattr(command, "nb_symbols", 0)
-
-                        if symbol_offset > 0 and nb_symbols > 0:
-                            # Each symbol entry is typically 16 bytes (64-bit)
-                            symbol_size = nb_symbols * 16
-                            range_map.add_range(
-                                symbol_offset, symbol_offset + symbol_size, BinaryTag.DEBUG_INFO, "symbol_table"
-                            )
-        except Exception as e:
-            logger.debug(f"Failed to map symbol table: {e}")
-
-    def _map_string_table(self, range_map: RangeMap) -> None:
-        """Map string table data."""
-        try:
-            # Look for LC_SYMTAB load command string data
-            commands = getattr(self.parser.binary, "commands", None)
-            if commands:
-                for command in commands:
-                    if hasattr(command, "command") and hasattr(command, "string_offset"):
-                        # This is likely a symtab command
-                        string_offset = getattr(command, "string_offset", 0)
-                        string_size = getattr(command, "string_size", 0)
-
-                        if string_offset > 0 and string_size > 0:
-                            range_map.add_range(
-                                string_offset, string_offset + string_size, BinaryTag.C_STRINGS, "string_table"
-                            )
-        except Exception as e:
-            logger.debug(f"Failed to map string table: {e}")
-
     def _categorize_section(self, section_name: str) -> BinaryTag:
         """Categorize a section based on its name."""
         name_lower = section_name.lower()
@@ -213,104 +281,6 @@ class RangeMappingBuilder:
         # Default to data segment
         return BinaryTag.DATA_SEGMENT
 
-    def _map_dyld_info(self, range_map: RangeMap) -> None:
-        """Map DYLD info sections if available."""
-        try:
-            # Look for LC_DYLD_INFO or LC_DYLD_INFO_ONLY commands
-            commands = getattr(self.parser.binary, "commands", None)
-            if commands:
-                for command in commands:
-                    if hasattr(command, "command"):
-                        cmd_type = getattr(command, "command", 0)
-
-                        # Check if this is a DYLD info command (LC_DYLD_INFO_ONLY = 0x80000022)
-                        if cmd_type in [0x22, 0x80000022]:
-                            # Map rebase info
-                            if hasattr(command, "rebase_off") and hasattr(command, "rebase_size"):
-                                rebase_off = getattr(command, "rebase_off", 0)
-                                rebase_size = getattr(command, "rebase_size", 0)
-                                if rebase_off > 0 and rebase_size > 0:
-                                    range_map.add_range(
-                                        rebase_off, rebase_off + rebase_size, BinaryTag.DYLD_REBASE, "dyld_rebase_info"
-                                    )
-
-                            # Map bind info
-                            if hasattr(command, "bind_off") and hasattr(command, "bind_size"):
-                                bind_off = getattr(command, "bind_off", 0)
-                                bind_size = getattr(command, "bind_size", 0)
-                                if bind_off > 0 and bind_size > 0:
-                                    range_map.add_range(
-                                        bind_off, bind_off + bind_size, BinaryTag.DYLD_BIND, "dyld_bind_info"
-                                    )
-
-                            # Map lazy bind info
-                            if hasattr(command, "lazy_bind_off") and hasattr(command, "lazy_bind_size"):
-                                lazy_bind_off = getattr(command, "lazy_bind_off", 0)
-                                lazy_bind_size = getattr(command, "lazy_bind_size", 0)
-                                if lazy_bind_off > 0 and lazy_bind_size > 0:
-                                    range_map.add_range(
-                                        lazy_bind_off,
-                                        lazy_bind_off + lazy_bind_size,
-                                        BinaryTag.DYLD_LAZY_BIND,
-                                        "dyld_lazy_bind_info",
-                                    )
-
-                            # Map export info
-                            if hasattr(command, "export_off") and hasattr(command, "export_size"):
-                                export_off = getattr(command, "export_off", 0)
-                                export_size = getattr(command, "export_size", 0)
-                                if export_off > 0 and export_size > 0:
-                                    range_map.add_range(
-                                        export_off, export_off + export_size, BinaryTag.DYLD_EXPORTS, "dyld_export_info"
-                                    )
-        except Exception as e:
-            logger.debug(f"Failed to map DYLD info: {e}")
-
-    def _map_function_starts(self, range_map: RangeMap) -> None:
-        """Map function starts information if available."""
-        try:
-            # Look for LC_FUNCTION_STARTS load command
-            if hasattr(self.parser.binary, "commands"):
-                for command in self.parser.binary.commands:
-                    if hasattr(command, "command"):
-                        cmd_type = getattr(command, "command", 0)
-
-                        # LC_FUNCTION_STARTS = 0x26
-                        if cmd_type == 0x26:
-                            if hasattr(command, "data_offset") and hasattr(command, "data_size"):
-                                data_offset = getattr(command, "data_offset", 0)
-                                data_size = getattr(command, "data_size", 0)
-                                if data_offset > 0 and data_size > 0:
-                                    range_map.add_range(
-                                        data_offset,
-                                        data_offset + data_size,
-                                        BinaryTag.FUNCTION_STARTS,
-                                        "function_starts",
-                                    )
-        except Exception as e:
-            logger.debug(f"Failed to map function starts: {e}")
-
-    def _map_code_signature(self, range_map: RangeMap) -> None:
-        """Map code signature if present."""
-        try:
-            # Look for LC_CODE_SIGNATURE load command
-            if hasattr(self.parser.binary, "commands"):
-                for command in self.parser.binary.commands:
-                    if hasattr(command, "command"):
-                        cmd_type = getattr(command, "command", 0)
-
-                        # LC_CODE_SIGNATURE = 0x1d
-                        if cmd_type == 0x1D:
-                            if hasattr(command, "data_offset") and hasattr(command, "data_size"):
-                                data_offset = getattr(command, "data_offset", 0)
-                                data_size = getattr(command, "data_size", 0)
-                                if data_offset > 0 and data_size > 0:
-                                    range_map.add_range(
-                                        data_offset, data_offset + data_size, BinaryTag.CODE_SIGNATURE, "code_signature"
-                                    )
-        except Exception as e:
-            logger.debug(f"Failed to map code signature: {e}")
-
     def _map_linkedit_gaps(self, range_map: RangeMap) -> None:
         """Map remaining gaps in the LINKEDIT segment that weren't captured by load commands."""
         try:
@@ -335,7 +305,7 @@ class RangeMappingBuilder:
 
             # Find gaps within the LINKEDIT segment using partial splitting
             current_pos = linkedit_start
-            linkedit_ranges = []
+            linkedit_ranges: list[Range] = []
 
             # Collect all ranges that fall within LINKEDIT
             for range_item in range_map.ranges:
