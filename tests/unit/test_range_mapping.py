@@ -1,7 +1,6 @@
 """Unit tests for the range mapping system."""
 
 import pytest
-
 from app_size_analyzer.models.range_mapping import BinaryTag, Range, RangeConflict, RangeMap
 
 

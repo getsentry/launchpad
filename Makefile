@@ -53,7 +53,7 @@ check-format:  ## Check code format without modifying files
 	$(PYTHON_VENV) -m black --check src/ tests/
 
 type-check:  ## Run type checking with mypy
-	$(PYTHON_VENV) -m mypy src/app_size_analyzer
+	$(PYTHON_VENV) -m mypy src
 
 # Build targets
 build: clean  ## Build the package
@@ -90,7 +90,7 @@ dev-setup: install-dev  ## Set up development environment
 	@echo "Activate with: source $(VENV_DIR)/bin/activate"
 
 run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments)
-	$(PYTHON_VENV) -m app_size_analyzer.cli $(ARGS)
+	$(PYTHON_VENV) -m launchpad.cli $(ARGS)
 
 # Show current status
 status:  ## Show project status

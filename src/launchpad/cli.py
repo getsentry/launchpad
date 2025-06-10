@@ -1,4 +1,4 @@
-"""Command-line interface for app size analyzer."""
+"""Command-line interface for launchpad."""
 
 from __future__ import annotations
 
@@ -25,9 +25,9 @@ console = Console()
 @click.option("--version", is_flag=True, help="Show version information and exit.")
 @click.pass_context
 def cli(ctx: click.Context, version: bool) -> None:
-    """App Size Analyzer - Analyze iOS and Android app bundle sizes."""
+    """Launchpad - Analyze iOS and Android app bundle sizes."""
     if version:
-        click.echo(f"App Size Analyzer v{__version__}")
+        click.echo(f"Launchpad v{__version__}")
         ctx.exit()
 
     if ctx.invoked_subcommand is None:
