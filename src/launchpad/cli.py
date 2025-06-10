@@ -61,6 +61,11 @@ def cli(ctx: click.Context, version: bool) -> None:
     help="Output format for results.",
     show_default=True,
 )
+@click.option(
+    "--treemap-only",
+    is_flag=True,
+    help="Output only treemap visualization JSON (D3.js compatible format).",
+)
 def ios(
     input_path: Path,
     output: Path,
@@ -70,6 +75,7 @@ def ios(
     verbose: bool,
     quiet: bool,
     output_format: str,
+    treemap_only: bool,
 ) -> None:
     """Analyze an iOS app bundle and generate a size report.
 
@@ -114,7 +120,9 @@ def ios(
 
         results = results.model_copy(update={"analysis_duration": duration})
 
-        if output_format == "json":
+        if treemap_only:
+            _write_treemap_output(results, output, quiet)
+        elif output_format == "json":
             _write_json_output(results, output, quiet)
         else:
             _print_table_output(results, quiet)
@@ -178,6 +186,36 @@ def _write_json_output(results: AnalysisResults, output_path: Path, quiet: bool)
 
     if not quiet:
         console.print(f"[bold green]✓[/bold green] Results written to: [cyan]{output_path}[/cyan]")
+
+
+def _write_treemap_output(results: AnalysisResults, output_path: Path, quiet: bool) -> None:
+    """Write treemap visualization JSON to file."""
+    if results.treemap is None:
+        raise click.ClickException("Treemap data not available - analysis may have failed")
+
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Generate visualization-ready JSON
+    treemap_json = results.treemap.to_json_dict()
+
+    # Write JSON with proper formatting
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(treemap_json, f, indent=2, ensure_ascii=False)
+
+    if not quiet:
+        console.print(f"[bold green]✓[/bold green] Treemap JSON written to: [cyan]{output_path}[/cyan]")
+        console.print("This JSON is compatible with D3.js treemap visualization libraries.")
+
+        # Show brief treemap stats
+        treemap = results.treemap
+        install_mb = treemap.total_install_size / 1024 / 1024
+        download_mb = treemap.total_download_size / 1024 / 1024
+        compression = (treemap.total_download_size / treemap.total_install_size) * 100
+
+        console.print(f"Install size: [cyan]{install_mb:.1f} MB[/cyan]")
+        console.print(f"Download size: [cyan]{download_mb:.1f} MB[/cyan] ({compression:.0f}% of install)")
+        console.print(f"Files analyzed: [cyan]{treemap.file_count:,}[/cyan]")
 
 
 def _print_table_output(results: AnalysisResults, quiet: bool) -> None:
