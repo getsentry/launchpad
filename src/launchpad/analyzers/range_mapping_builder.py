@@ -41,6 +41,9 @@ class RangeMappingBuilder:
             self._map_segments_and_sections(range_map)
             self._map_load_command_data(range_map)
 
+            # Parse Swift metadata with range mapping integration
+            self._map_swift_metadata(range_map)
+
             # Map any remaining LINKEDIT gaps that weren't captured by specific load commands
             self._map_linkedit_gaps(range_map)
 
@@ -151,7 +154,10 @@ class RangeMappingBuilder:
                 # Each symbol entry is typically 16 bytes (64-bit)
                 symbol_size = command.nb_symbols * 16
                 range_map.add_range(
-                    command.symbol_offset, command.symbol_offset + symbol_size, BinaryTag.DEBUG_INFO, "symbol_table"
+                    command.symbol_offset,
+                    command.symbol_offset + symbol_size,
+                    BinaryTag.DEBUG_INFO,
+                    "symbol_table",
                 )
 
             if command.string_offset > 0 and command.string_size > 0:
@@ -179,7 +185,10 @@ class RangeMappingBuilder:
 
             if hasattr(command, "bind_off") and command.bind_off > 0 and command.bind_size > 0:
                 range_map.add_range(
-                    command.bind_off, command.bind_off + command.bind_size, BinaryTag.DYLD_BIND, "dyld_bind_info"
+                    command.bind_off,
+                    command.bind_off + command.bind_size,
+                    BinaryTag.DYLD_BIND,
+                    "dyld_bind_info",
                 )
 
             if hasattr(command, "lazy_bind_off") and command.lazy_bind_off > 0 and command.lazy_bind_size > 0:
@@ -483,3 +492,22 @@ class RangeMappingBuilder:
                     logger.warning(f"Large unmapped region: {region.size} bytes at offset {region.start}")
         except Exception as e:
             logger.debug(f"Failed to map remaining gaps: {e}")
+
+    def _map_swift_metadata(self, range_map: RangeMap) -> None:
+        """Map Swift metadata sections using the comprehensive parser."""
+        try:
+            from .swift_metadata_parser import SwiftMetadataParser
+
+            # Create Swift metadata parser with range mapping integration
+            swift_parser = SwiftMetadataParser(self.parser, range_map)
+            metadata = swift_parser.parse_swift_metadata()
+
+            logger.debug(
+                f"Swift metadata parsing completed: "
+                f"{len(metadata.get('classes', []))} classes, "
+                f"{len(metadata.get('protocols', []))} protocols, "
+                f"{metadata.get('total_metadata_size', 0)} bytes total"
+            )
+
+        except Exception as e:
+            logger.debug(f"Failed to map Swift metadata: {e}")

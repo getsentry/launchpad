@@ -100,33 +100,22 @@ class MachOParser:
         return symbols[:limit]  # Limit to avoid huge outputs
 
     def extract_swift_metadata(self) -> Optional[SwiftMetadata]:
-        """Extract Swift-specific metadata from the binary.
-
-        This is a simplified implementation. A full implementation would
-        parse Swift metadata sections more thoroughly.
-        """
+        """Extract Swift-specific metadata from the binary using comprehensive parser."""
         try:
-            # Look for Swift-related sections
-            swift_sections = []
-            if hasattr(self.binary, "sections"):
-                for section in self.binary.sections:
-                    section_name = getattr(section, "name", "")
-                    if "swift" in section_name.lower():
-                        swift_sections.append(section)
+            # Use the new comprehensive Swift metadata parser
+            from .swift_metadata_parser import SwiftMetadataParser
 
-            if not swift_sections:
+            swift_parser = SwiftMetadataParser(self)
+            metadata = swift_parser.parse_swift_metadata()
+
+            if not metadata or metadata["total_metadata_size"] == 0:
                 return None
 
-            # Calculate total Swift metadata size
-            total_metadata_size = sum(getattr(section, "size", 0) for section in swift_sections)
-
-            # For now, return basic metadata
-            # In a full implementation, you would parse the actual Swift metadata structures
             return SwiftMetadata(
-                classes=[],  # Would be extracted from __swift5_types section
-                protocols=[],  # Would be extracted from __swift5_protos section
-                extensions=[],  # Would be extracted from various Swift sections
-                total_metadata_size=total_metadata_size,
+                classes=metadata.get("classes", []),
+                protocols=metadata.get("protocols", []),
+                extensions=metadata.get("extensions", []),
+                total_metadata_size=metadata.get("total_metadata_size", 0),
             )
 
         except Exception as e:
