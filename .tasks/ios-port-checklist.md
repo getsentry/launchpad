@@ -12,17 +12,17 @@ This checklist outlines the functionality that needs to be ported from the legac
 ## 🔲 Core Infrastructure Needed
 
 ### 1. **Range Mapping System**
-- [ ] `RangeMap` class for tracking file offset to content type mapping
-- [ ] `BinaryTag` enum system for categorizing binary content types:
-  - [ ] Strings (CFStrings, Swift file paths, method signatures, etc.)
-  - [ ] Headers
-  - [ ] External methods
-  - [ ] Code signature
-  - [ ] Function starts
-  - [ ] DYLD info (rebase, bind, lazy bind, exports, fixups)
-  - [ ] Binary modules/classes
-- [ ] Conflict detection and partial range handling
-- [ ] Red-black tree implementation for efficient range queries
+- [x] `RangeMap` class for tracking file offset to content type mapping
+- [x] `BinaryTag` enum system for categorizing binary content types:
+  - [x] Strings (CFStrings, Swift file paths, method signatures, etc.)
+  - [x] Headers
+  - [x] External methods
+  - [x] Code signature
+  - [x] Function starts
+  - [x] DYLD info (rebase, bind, lazy bind, exports, fixups)
+  - [x] Binary modules/classes
+- [x] Conflict detection and partial range handling
+- [x] Red-black tree implementation for efficient range queries
 
 ### 2. **Treemap Generation System**
 - [ ] `BinaryTreemapElement` class for hierarchical size breakdown
@@ -185,7 +185,7 @@ This checklist outlines the functionality that needs to be ported from the legac
 - [ ] Missing section handling
 - [ ] Invalid data structure handling
 
-## � Critical Data Structures to Implement
+## 🔲 Critical Data Structures to Implement
 
 ### Objective-C Runtime Structures (from `BinaryModels.swift`)
 - [ ] `ObjCClass` - Class metadata structure
@@ -212,7 +212,7 @@ This checklist outlines the functionality that needs to be ported from the legac
 - [ ] Custom load command parsing for DYLD info
 - [ ] Enhanced segment/section analysis
 
-## �📊 Expected Deliverables
+## 📊 Expected Deliverables
 
 After implementing all items:
 1. **Treemap JSON Output**: Hierarchical size breakdown suitable for visualization

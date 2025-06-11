@@ -6,16 +6,16 @@ import json
 import pathlib
 import time
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from launchpad.models.ios import IOSAnalysisResults
+
 from . import __version__
 from .analyzers.ios import IOSAnalyzer
-from .models import AnalysisResults
 from .utils.logging import setup_logging
 
 console = Console()
@@ -64,7 +64,7 @@ def cli(ctx: click.Context, version: bool) -> None:
 def ios(
     input_path: Path,
     output: Path,
-    working_dir: Optional[Path],
+    working_dir: Path | None,
     skip_swift_metadata: bool,
     skip_symbols: bool,
     verbose: bool,
@@ -167,7 +167,7 @@ def _validate_ios_input(input_path: Path) -> None:
         )
 
 
-def _write_json_output(results: AnalysisResults, output_path: Path, quiet: bool) -> None:
+def _write_json_output(results: IOSAnalysisResults, output_path: Path, quiet: bool) -> None:
     """Write results to JSON file."""
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -180,7 +180,7 @@ def _write_json_output(results: AnalysisResults, output_path: Path, quiet: bool)
         console.print(f"[bold green]✓[/bold green] Results written to: [cyan]{output_path}[/cyan]")
 
 
-def _print_table_output(results: AnalysisResults, quiet: bool) -> None:
+def _print_table_output(results: IOSAnalysisResults, quiet: bool) -> None:
     """Print results in table format to console."""
     if quiet:
         return
@@ -231,7 +231,7 @@ def _print_table_output(results: AnalysisResults, quiet: bool) -> None:
         console.print(type_table)
 
 
-def _print_summary(results: AnalysisResults) -> None:
+def _print_summary(results: IOSAnalysisResults) -> None:
     """Print a brief summary of the analysis."""
     file_analysis = results.file_analysis
     binary_analysis = results.binary_analysis

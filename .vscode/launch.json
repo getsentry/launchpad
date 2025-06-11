@@ -17,6 +17,57 @@
       "name": "Release AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)",
       "program": "${workspaceFolder:launchpad}/legacy/ios/sizeAnalysis/CLI/.build/release/AppSizeAnalyzer",
       "preLaunchTask": "swift: Build Release AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)"
+    },
+    {
+      "name": "Python: Debug Tests",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "${workspaceFolder}/tests",
+        "-v",
+        "-s"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Debug Current Test File",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "${file}",
+        "-v",
+        "-s"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "justMyCode": false
+    },
+    {
+      "name": "Python: Debug Current Test Method",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "${file}::${selectedText}",
+        "-v",
+        "-s"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "justMyCode": false
     }
   ]
 }

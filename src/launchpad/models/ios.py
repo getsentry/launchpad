@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
+from .range_mapping import RangeMap
 
 
 class SwiftMetadata(BaseModel):
@@ -28,15 +29,40 @@ class IOSAppInfo(BaseAppInfo):
     bundle_id: str = Field(..., description="Bundle identifier")
     minimum_os_version: str = Field(..., description="Minimum iOS version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
-    sdk_version: Optional[str] = Field(None, description="iOS SDK version used for build")
+    sdk_version: str | None = Field(None, description="iOS SDK version used for build")
 
 
 class IOSBinaryAnalysis(BaseBinaryAnalysis):
     """iOS-specific binary analysis results."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    swift_metadata: Optional[SwiftMetadata] = Field(None, description="Swift-specific metadata")
+    swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
+    range_map: RangeMap | None = Field(
+        None,
+        description="Range mapping for binary content categorization",
+        exclude=True,
+    )
+
+    @property
+    def has_range_mapping(self) -> bool:
+        """Check if range mapping is available."""
+        return self.range_map is not None
+
+    @property
+    def unmapped_size(self) -> int:
+        """Get size of unmapped regions, if range mapping is available."""
+        if self.range_map is not None:
+            return int(self.range_map.unmapped_size)
+        return 0
+
+    @property
+    def coverage_percentage(self) -> float:
+        """Get coverage percentage, if range mapping is available."""
+        if self.range_map is not None:
+            report = self.range_map.get_coverage_report()
+            return float(report.get("coverage_percentage", 0.0))
+        return 0.0
 
 
 class IOSAnalysisResults(BaseAnalysisResults):
@@ -47,8 +73,12 @@ class IOSAnalysisResults(BaseAnalysisResults):
     app_info: IOSAppInfo = Field(..., description="iOS app information")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
 
+    @property
+    def download_size(self) -> int:
+        """Estimated download size"""
+        return self.total_size  # TODO: Implement download size calculation
 
-# Backwards compatibility aliases - can be removed once all references are updated
-AppInfo = IOSAppInfo
-BinaryAnalysis = IOSBinaryAnalysis
-AnalysisResults = IOSAnalysisResults
+    @property
+    def install_size(self) -> int:
+        """Estimated install size"""
+        return self.total_size  # TODO: Implement install size calculation
