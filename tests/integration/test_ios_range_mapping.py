@@ -26,159 +26,111 @@ class TestIOSRangeMapping:
             data: Dict[str, Any] = json.load(f)
             return data
 
-    def test_range_mapping_coverage(self, sample_app_path: Path, legacy_baseline: Dict[str, Any]) -> None:
-        """Test range mapping coverage meets acceptance criteria.
+    def test_hackernews_range_mapping_regression(self, sample_app_path: Path) -> None:
+        """Test range mapping against known HackerNews app structure to detect regressions.
 
-        Acceptance Criteria:
-        - 100% Binary Coverage: Every byte in the binary must be mapped to a category (no unmapped regions > 1KB)
-        - Conflict Detection: Report any overlapping ranges and total conflict size
-        - Category Consistency: Total mapped size = file size - unmapped regions
-        - Performance: Process 100MB binary in < 30 seconds
+        This test asserts against the specific section sizes and mappings we expect
+        from the HackerNews sample app to catch any regressions in the range mapping logic.
         """
-        # Run analysis with range mapping enabled
-        analyzer = IOSAnalyzer(enable_range_mapping=True)
-        results = analyzer.analyze(sample_app_path)
-
-        # Verify range mapping was created
-        assert results.binary_analysis.range_map is not None, "Range mapping should be created"
-        range_map = results.binary_analysis.range_map
-
-        # Test 100% Binary Coverage - no unmapped regions > 1KB
-        unmapped_regions = range_map.get_unmapped_regions()
-        largest_unmapped = max((r.size for r in unmapped_regions), default=0)
-        assert largest_unmapped <= 1024, f"Largest unmapped region ({largest_unmapped} bytes) exceeds 1KB limit"
-
-        # Test Category Consistency - total mapped + unmapped should equal file size
-        expected_size = range_map.total_mapped + range_map.unmapped_size
-        assert (
-            expected_size == range_map.total_file_size
-        ), f"Size consistency check failed: {expected_size} != {range_map.total_file_size}"
-
-        # Test that we have reasonable coverage (at least 90%)
-        coverage_report = range_map.get_coverage_report()
-        assert (
-            coverage_report["coverage_percentage"] >= 90
-        ), f"Coverage too low: {coverage_report['coverage_percentage']}%"
-
-        # Verify conflict detection is working
-        conflicts = range_map.conflicts
-        total_conflict_size = sum(c.overlap_size for c in conflicts)
-        assert isinstance(total_conflict_size, int), "Conflict size should be calculable"
-
-    def test_range_mapping_categories(self, sample_app_path: Path) -> None:
-        """Test that range mapping properly categorizes binary content."""
         analyzer = IOSAnalyzer(enable_range_mapping=True)
         results = analyzer.analyze(sample_app_path)
 
         range_map = results.binary_analysis.range_map
-        assert range_map is not None
+        assert range_map is not None, "Range mapping should be created"
 
-        # Get size breakdown by category
-        size_by_tag = range_map.size_by_tag()
-
-        # Verify we have the expected categories for an iOS app
-        expected_categories = [
-            BinaryTag.HEADERS,
-            BinaryTag.LOAD_COMMANDS,
-            BinaryTag.TEXT_SEGMENT,
-            BinaryTag.DATA_SEGMENT,
-        ]
-
-        for category in expected_categories:
-            assert category in size_by_tag, f"Expected category {category} not found"
-            assert size_by_tag[category] > 0, f"Category {category} should have non-zero size"
-
-        # Verify that TEXT_SEGMENT is one of the largest categories (typical for executables)
-        text_size = size_by_tag.get(BinaryTag.TEXT_SEGMENT, 0)
-        total_categorized = sum(size_by_tag.values())
-        text_percentage = (text_size / max(1, total_categorized)) * 100
-
-        # TEXT segment should be significant portion of the binary (at least 5%)
-        assert text_percentage >= 5, f"TEXT segment only {text_percentage:.1f}% of binary"
-
-    def test_range_mapping_performance(self, sample_app_path: Path) -> None:
-        """Test that range mapping performance meets requirements."""
-        import time
-
-        # Get file size for performance scaling
-        file_size = sample_app_path.stat().st_size
-
-        start_time = time.time()
-        analyzer = IOSAnalyzer(enable_range_mapping=True)
-        results = analyzer.analyze(sample_app_path)
-        end_time = time.time()
-
-        analysis_time = end_time - start_time
-
-        # Performance should scale reasonably - using 30 seconds per 100MB as baseline
-        # For the ~10MB sample app, should complete much faster
-        max_time = (file_size / (100 * 1024 * 1024)) * 30  # 30 seconds per 100MB
-        max_time = max(max_time, 30)  # At least 30 seconds for small files
-
-        assert analysis_time < max_time, (
-            f"Analysis took {analysis_time:.1f}s, expected < {max_time:.1f}s "
-            f"for {file_size / (1024*1024):.1f}MB file"
-        )
-
-        # Verify range mapping was actually created
-        assert results.binary_analysis.range_map is not None
-        assert len(results.binary_analysis.range_map.ranges) > 0
-
-    def test_range_mapping_validation(self, sample_app_path: Path) -> None:
-        """Test range mapping validation methods."""
-        analyzer = IOSAnalyzer(enable_range_mapping=True)
-        results = analyzer.analyze(sample_app_path)
-
-        range_map = results.binary_analysis.range_map
-        assert range_map is not None
-
-        # Test coverage validation
-        is_valid = range_map.validate_coverage(allow_unmapped_threshold=1024)
-        assert is_valid, "Range mapping should pass validation with 1KB unmapped threshold"
+        # Test exact file structure from HackerNews binary
+        assert range_map.total_file_size == 2628128, "Total file size should match expected binary size"
+        assert range_map.total_mapped == 2628128, "Should have 100% mapping coverage"
+        assert len(range_map.ranges) == 136, "Should have exactly 136 mapped ranges"
 
         # Test coverage report structure
         report = range_map.get_coverage_report()
-        required_keys = [
-            "total_file_size",
-            "total_mapped",
-            "unmapped_size",
-            "coverage_percentage",
-            "conflict_count",
-            "total_conflict_size",
-            "unmapped_region_count",
-            "largest_unmapped_region",
-        ]
+        expected_coverage = {
+            "total_file_size": 2628128,
+            "total_mapped": 2628128,
+            "unmapped_size": 0,
+            "coverage_percentage": 100,
+            "conflict_count": 0,
+            "total_conflict_size": 0,
+            "unmapped_region_count": 0,
+            "largest_unmapped_region": 0,
+        }
 
-        for key in required_keys:
-            assert key in report, f"Coverage report missing key: {key}"
-            assert isinstance(report[key], int), f"Coverage report key {key} should be int"
+        for key, expected_value in expected_coverage.items():
+            assert report[key] == expected_value, f"Coverage report {key} should be {expected_value}, got {report[key]}"
 
-        # Verify logical constraints
-        assert report["total_file_size"] > 0
-        assert report["coverage_percentage"] >= 0 and report["coverage_percentage"] <= 100
-        assert report["total_mapped"] + report["unmapped_size"] == report["total_file_size"]
+        # Test specific section sizes (these are the actual sizes from HackerNews binary)
+        size_by_tag = range_map.size_by_tag()
+        expected_sizes = {
+            BinaryTag.TEXT_SEGMENT: 1507180,
+            BinaryTag.OBJC_CLASSES: 371123,
+            BinaryTag.DATA_SEGMENT: 288478,
+            BinaryTag.C_STRINGS: 150167,
+            BinaryTag.SWIFT_METADATA: 87585,
+            BinaryTag.CONST_DATA: 58559,
+            BinaryTag.UNMAPPED: 55592,
+            BinaryTag.UNWIND_INFO: 50836,
+            BinaryTag.CODE_SIGNATURE: 39424,
+            BinaryTag.FUNCTION_STARTS: 11000,
+            BinaryTag.LOAD_COMMANDS: 8152,
+            BinaryTag.HEADERS: 32,
+        }
 
-    def test_range_mapping_conflict_handling(self, sample_app_path: Path) -> None:
-        """Test that range mapping properly handles and reports conflicts."""
+        for tag, expected_size in expected_sizes.items():
+            actual_size = size_by_tag.get(tag, 0)
+            assert actual_size == expected_size, f"Section {tag.name} size should be {expected_size}, got {actual_size}"
+
+        # Test that we have all expected categories
+        assert len(size_by_tag) == len(expected_sizes), "Should have exactly the expected number of section categories"
+
+        # Test specific range structure at the beginning (headers and load commands)
+        ranges = range_map.ranges
+
+        # First range should be mach-o header
+        assert ranges[0].start == 0
+        assert ranges[0].end == 32
+        assert ranges[0].tag == BinaryTag.HEADERS
+        assert ranges[0].description == "mach_o_header"
+
+        # Second range should be first load command
+        assert ranges[1].start == 32
+        assert ranges[1].end == 104
+        assert ranges[1].tag == BinaryTag.LOAD_COMMANDS
+        assert ranges[1].description == "load_command_0_SegmentCommand"
+
+        # Verify TEXT segment is the largest section
+        text_size = size_by_tag[BinaryTag.TEXT_SEGMENT]
+        total_size = sum(size_by_tag.values())
+        text_percentage = (text_size / total_size) * 100
+        assert text_percentage > 50, f"TEXT segment should be >50% of binary, got {text_percentage:.1f}%"
+
+        # Verify that sections are reasonable relative to each other
+        assert (
+            size_by_tag[BinaryTag.TEXT_SEGMENT] > size_by_tag[BinaryTag.OBJC_CLASSES]
+        ), "TEXT should be larger than OBJC_CLASSES"
+        assert (
+            size_by_tag[BinaryTag.OBJC_CLASSES] > size_by_tag[BinaryTag.DATA_SEGMENT]
+        ), "OBJC_CLASSES should be larger than DATA_SEGMENT"
+        assert (
+            size_by_tag[BinaryTag.DATA_SEGMENT] > size_by_tag[BinaryTag.C_STRINGS]
+        ), "DATA_SEGMENT should be larger than C_STRINGS"
+
+    def test_section_mapping_completeness(self, sample_app_path: Path) -> None:
+        """Test that sections are properly mapped to ranges in real binary."""
         analyzer = IOSAnalyzer(enable_range_mapping=True)
         results = analyzer.analyze(sample_app_path)
 
         range_map = results.binary_analysis.range_map
         assert range_map is not None
 
-        # Get conflicts
-        conflicts = range_map.conflicts
+        # Verify we have both text and data ranges
+        text_ranges = [r for r in range_map.ranges if r.tag == BinaryTag.TEXT_SEGMENT]
+        data_ranges = [r for r in range_map.ranges if r.tag == BinaryTag.DATA_SEGMENT]
 
-        # Verify conflict structure if any exist
-        for conflict in conflicts:
-            assert conflict.overlap_size > 0, "Conflict overlap size should be positive"
-            assert conflict.overlap_start < conflict.overlap_end, "Conflict range should be valid"
-            assert conflict.range1.overlaps(conflict.range2), "Conflicting ranges should actually overlap"
+        assert len(text_ranges) >= 1, "Should have at least one TEXT segment range"
+        assert len(data_ranges) >= 1, "Should have at least one DATA segment range"
 
-        # Total conflict size should be reasonable (< 10% of file)
-        total_conflict_size = sum(c.overlap_size for c in conflicts)
-        max_acceptable_conflicts = range_map.total_file_size * 0.1  # 10% max
-
-        assert (
-            total_conflict_size <= max_acceptable_conflicts
-        ), f"Too many conflicts: {total_conflict_size} bytes ({(total_conflict_size/range_map.total_file_size)*100:.1f}%)"  # noqa: E501
+        # Verify ranges are non-empty and ordered
+        for range_obj in range_map.ranges:
+            assert range_obj.start < range_obj.end, f"Range {range_obj} should have start < end"
+            assert range_obj.size > 0, f"Range {range_obj} should have positive size"

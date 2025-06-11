@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,7 +29,7 @@ class IOSAppInfo(BaseAppInfo):
     bundle_id: str = Field(..., description="Bundle identifier")
     minimum_os_version: str = Field(..., description="Minimum iOS version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
-    sdk_version: Optional[str] = Field(None, description="iOS SDK version used for build")
+    sdk_version: str | None = Field(None, description="iOS SDK version used for build")
 
 
 class IOSBinaryAnalysis(BaseBinaryAnalysis):
@@ -37,8 +37,8 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    swift_metadata: Optional[SwiftMetadata] = Field(None, description="Swift-specific metadata")
-    range_map: Optional[RangeMap] = Field(
+    swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
+    range_map: RangeMap | None = Field(
         None,
         description="Range mapping for binary content categorization",
         exclude=True,
@@ -82,9 +82,3 @@ class IOSAnalysisResults(BaseAnalysisResults):
     def install_size(self) -> int:
         """Estimated install size"""
         return self.total_size  # TODO: Implement install size calculation
-
-
-# Backwards compatibility aliases - can be removed once all references are updated
-AppInfo = IOSAppInfo
-BinaryAnalysis = IOSBinaryAnalysis
-AnalysisResults = IOSAnalysisResults

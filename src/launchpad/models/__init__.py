@@ -14,15 +14,7 @@ from .common import (
 )
 
 # Import iOS-specific models
-from .ios import (  # Backwards compatibility aliases
-    AnalysisResults,
-    AppInfo,
-    BinaryAnalysis,
-    IOSAnalysisResults,
-    IOSAppInfo,
-    IOSBinaryAnalysis,
-    SwiftMetadata,
-)
+from .ios import IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis, SwiftMetadata  # Backwards compatibility aliases
 from .range_mapping import BinaryTag, Range, RangeConflict, RangeMap
 
 __all__ = [
@@ -39,10 +31,6 @@ __all__ = [
     "IOSAppInfo",
     "IOSBinaryAnalysis",
     "IOSAnalysisResults",
-    # Backwards compatibility aliases (to be deprecated)
-    "AppInfo",
-    "BinaryAnalysis",
-    "AnalysisResults",
     # Android models (placeholder)
     "AndroidMetadata",
     "AndroidAppInfo",

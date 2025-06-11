@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,7 +16,7 @@ class FileInfo(BaseModel):
     path: str = Field(..., description="Relative path within the bundle")
     size: int = Field(..., ge=0, description="File size in bytes")
     file_type: str = Field(..., description="File extension/type")
-    hash_md5: Optional[str] = Field(None, description="MD5 hash of file contents")
+    hash_md5: str | None = Field(None, description="MD5 hash of file contents")
 
 
 class DuplicateFileGroup(BaseModel):
@@ -39,7 +39,7 @@ class SymbolInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(..., description="Symbol name")
-    mangled_name: Optional[str] = Field(None, description="Mangled symbol name")
+    mangled_name: str | None = Field(None, description="Mangled symbol name")
     size: int = Field(..., ge=0, description="Symbol size in bytes")
     section: str = Field(..., description="Binary section containing the symbol")
     symbol_type: str = Field(..., description="Type of symbol (function, data, etc.)")
@@ -88,13 +88,7 @@ class BaseBinaryAnalysis(BaseModel):
     executable_size: int = Field(..., ge=0, description="Main executable size in bytes")
     architectures: List[str] = Field(..., description="CPU architectures")
     linked_libraries: List[str] = Field(default_factory=list, description="Linked dynamic libraries")
-    symbols: List[SymbolInfo] = Field(default_factory=list, description="Symbol information")
     sections: Dict[str, int] = Field(default_factory=dict, description="Binary sections and their sizes")
-
-    @property
-    def total_symbols_size(self) -> int:
-        """Total size of all symbols."""
-        return sum(symbol.size for symbol in self.symbols)
 
 
 class BaseAnalysisResults(BaseModel):
@@ -104,7 +98,7 @@ class BaseAnalysisResults(BaseModel):
 
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
-    analysis_duration: Optional[float] = Field(None, ge=0, description="Analysis duration in seconds")
+    analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
 
     @property
     def total_size(self) -> int:

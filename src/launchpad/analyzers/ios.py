@@ -3,20 +3,16 @@
 from __future__ import annotations
 
 import plistlib
+import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import lief
 
-from ..models import (
-    AnalysisResults,
-    AppInfo,
-    BinaryAnalysis,
-    DuplicateFileGroup,
-    FileAnalysis,
-    FileInfo,
-)
+from launchpad.models.ios import IOSAnalysisResults, IOSAppInfo
+
+from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSBinaryAnalysis
 from ..utils.file_utils import (
     calculate_file_hash,
     cleanup_directory,
@@ -37,7 +33,7 @@ class IOSAnalyzer:
 
     def __init__(
         self,
-        working_dir: Optional[Path] = None,
+        working_dir: Path | None = None,
         skip_swift_metadata: bool = False,
         skip_symbols: bool = False,
         enable_range_mapping: bool = True,
@@ -56,7 +52,7 @@ class IOSAnalyzer:
         self.enable_range_mapping = enable_range_mapping
         self._temp_dirs: List[Path] = []
 
-    def analyze(self, input_path: Path) -> AnalysisResults:
+    def analyze(self, input_path: Path) -> IOSAnalysisResults:
         """Analyze an iOS app bundle.
 
         Args:
@@ -70,6 +66,8 @@ class IOSAnalyzer:
             RuntimeError: If analysis fails
         """
         logger.info(f"Starting iOS analysis of {input_path}")
+
+        analysis_start_time = time.time()
 
         try:
             # Prepare app bundle for analysis
@@ -87,10 +85,11 @@ class IOSAnalyzer:
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
             logger.info(f"Binary analysis complete, " f"executable size: {binary_analysis.executable_size} bytes")
 
-            return AnalysisResults(
+            return IOSAnalysisResults(
                 app_info=app_info,
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
+                analysis_duration=time.time() - analysis_start_time,
             )
 
         finally:
@@ -113,7 +112,7 @@ class IOSAnalyzer:
         extract_archive(input_path, temp_dir)
         return find_app_bundle(temp_dir, platform="ios")
 
-    def _extract_app_info(self, app_bundle_path: Path) -> AppInfo:
+    def _extract_app_info(self, app_bundle_path: Path) -> IOSAppInfo:
         """Extract basic app information from Info.plist.
 
         Args:
@@ -134,7 +133,7 @@ class IOSAnalyzer:
             with open(info_plist_path, "rb") as f:
                 plist_data = plistlib.load(f)
 
-            return AppInfo(
+            return IOSAppInfo(
                 name=plist_data.get("CFBundleDisplayName") or plist_data.get("CFBundleName", "Unknown"),
                 bundle_id=plist_data.get("CFBundleIdentifier", "unknown.bundle.id"),
                 version=plist_data.get("CFBundleShortVersionString", "Unknown"),
@@ -189,7 +188,7 @@ class IOSAnalyzer:
             total_size += file_size
 
         # Find duplicate files
-        duplicate_groups = []
+        duplicate_groups: List[DuplicateFileGroup] = []
         for file_hash, file_list in files_by_hash.items():
             if len(file_list) > 1:
                 # Calculate potential savings (all files except one)
@@ -218,7 +217,7 @@ class IOSAnalyzer:
             largest_files=largest_files,
         )
 
-    def _analyze_binary(self, app_bundle_path: Path, executable_name: str) -> BinaryAnalysis:
+    def _analyze_binary(self, app_bundle_path: Path, executable_name: str) -> IOSBinaryAnalysis:
         """Analyze the main executable binary using LIEF.
 
         Args:
@@ -232,7 +231,7 @@ class IOSAnalyzer:
 
         if not executable_path.exists():
             logger.warning(f"Executable not found: {executable_path}")
-            return BinaryAnalysis(
+            return IOSBinaryAnalysis(
                 executable_size=0,
                 architectures=[],
                 linked_libraries=[],
@@ -245,11 +244,12 @@ class IOSAnalyzer:
         logger.debug(f"Analyzing binary: {executable_path}")
 
         try:
-            binary = lief.parse(str(executable_path))
+            fat_binary = lief.MachO.parse(str(executable_path))
 
-            if binary is None:
+            if fat_binary is None or fat_binary.size == 0:
                 raise RuntimeError("Failed to parse binary with LIEF")
 
+            binary = fat_binary.at(0)
             executable_size = get_file_size(executable_path)
 
             # Create parser for this binary
@@ -260,15 +260,11 @@ class IOSAnalyzer:
             linked_libraries = parser.extract_linked_libraries()
             sections = parser.extract_sections()
 
-            # Extract symbols if requested
-            symbols = []
-            if not self.skip_symbols:
-                symbols = parser.extract_symbols()
-
             # Extract Swift metadata if requested
+            # TODO: Implement Swift metadata extraction
             swift_metadata = None
-            if not self.skip_swift_metadata:
-                swift_metadata = parser.extract_swift_metadata()
+            # if not self.skip_swift_metadata:
+            #     swift_metadata = parser.extract_swift_metadata()
 
             # Create range mapping if enabled
             range_map = None
@@ -276,11 +272,10 @@ class IOSAnalyzer:
                 range_builder = RangeMappingBuilder(parser, executable_size)
                 range_map = range_builder.build_range_mapping()
 
-            return BinaryAnalysis(
+            return IOSBinaryAnalysis(
                 executable_size=executable_size,
                 architectures=architectures,
                 linked_libraries=linked_libraries,
-                symbols=symbols,
                 swift_metadata=swift_metadata,
                 sections=sections,
                 range_map=range_map,
@@ -288,11 +283,10 @@ class IOSAnalyzer:
 
         except Exception as e:
             logger.error(f"Failed to analyze binary: {e}")
-            return BinaryAnalysis(
+            return IOSBinaryAnalysis(
                 executable_size=get_file_size(executable_path),
                 architectures=[],
                 linked_libraries=[],
-                symbols=[],
                 swift_metadata=None,
                 sections={},
                 range_map=None,

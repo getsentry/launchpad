@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 from sortedcontainers import SortedList
@@ -66,7 +66,7 @@ class Range:
     start: int
     end: int  # exclusive
     tag: BinaryTag
-    description: Optional[str] = None
+    description: str | None = None
 
     def __post_init__(self) -> None:
         """Validate range invariants."""
@@ -88,7 +88,7 @@ class Range:
         """Check if the range contains the given offset."""
         return self.start <= offset < self.end
 
-    def intersect(self, other: Range) -> Optional[Range]:
+    def intersect(self, other: Range) -> Range | None:
         """Return the intersection of this range with another, or None if no overlap."""
         if not self.overlaps(other):
             return None
@@ -120,7 +120,7 @@ class RangeConflict(BaseModel):
     overlap_size: int = Field(..., ge=0)
 
     @classmethod
-    def from_ranges(cls, range1: Range, range2: Range) -> Optional[RangeConflict]:
+    def from_ranges(cls, range1: Range, range2: Range) -> RangeConflict | None:
         """Create a conflict from two overlapping ranges."""
         if not range1.overlaps(range2):
             return None
@@ -199,9 +199,9 @@ class RangeMap:
         start: int,
         end: int,
         tag: BinaryTag,
-        description: Optional[str] = None,
+        description: str | None = None,
         allow_partial: bool = False,
-        conflict_notifier: Optional[Callable[[Range], None]] = None,
+        conflict_notifier: Callable[[Range], None] | None = None,
     ) -> None:
         """Add a range to the map, with sophisticated conflict handling.
 
@@ -268,7 +268,7 @@ class RangeMap:
         self,
         new_range: Range,
         overlapping_ranges: List[Range],
-        conflict_notifier: Optional[Callable[[Range], None]],
+        conflict_notifier: Callable[[Range], None] | None,
     ) -> None:
         """Add range with partial splitting to handle overlaps (like legacy Swift code)."""
 
@@ -311,7 +311,7 @@ class RangeMap:
         self,
         new_range: Range,
         overlapping_ranges: List[Range],
-        conflict_notifier: Optional[Callable[[Range], None]],
+        conflict_notifier: Callable[[Range], None] | None,
     ) -> None:
         """Add range with conflict detection but no splitting."""
         # Record conflicts but don't split
