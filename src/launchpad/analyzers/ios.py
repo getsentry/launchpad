@@ -13,6 +13,8 @@ import lief
 from launchpad.models.ios import IOSAnalysisResults, IOSAppInfo
 
 from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSBinaryAnalysis
+from ..parsers.ios.macho_parser import MachOParser
+from ..parsers.ios.range_mapping_builder import RangeMappingBuilder
 from ..utils.file_utils import (
     calculate_file_hash,
     cleanup_directory,
@@ -22,8 +24,6 @@ from ..utils.file_utils import (
     get_file_size,
 )
 from ..utils.logging import get_logger
-from .macho_parser import MachOParser
-from .range_mapping_builder import RangeMappingBuilder
 
 logger = get_logger(__name__)
 

@@ -174,8 +174,6 @@ def android(
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
 
-    _validate_android_input(input_path)
-
     if not quiet:
         console.print(f"[bold blue]App Size Analyzer v{__version__}[/bold blue]")
         console.print(f"Analyzing Android app: [cyan]{input_path}[/cyan]")
@@ -286,7 +284,7 @@ def _validate_ios_input(input_path: Path) -> None:
         )
 
 
-def _write_json_output(results: IOSAnalysisResults, output_path: Path, quiet: bool) -> None:
+def _write_json_output(results: IOSAnalysisResults | AndroidAnalysisResults, output_path: Path, quiet: bool) -> None:
     """Write results to JSON file."""
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)

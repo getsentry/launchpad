@@ -6,8 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, List, Optional, Sequence
 
-# TODO
-from launchpad.parsers.android_binary.android_binary_parser import AndroidBinaryParser
+from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
 
 from ..resources.binary import BinaryResourceTable
 from .manifest import AndroidApplication, AndroidManifest

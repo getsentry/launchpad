@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from launchpad.parsers.android_binary.android_binary_parser import AndroidBinaryParser
-from launchpad.parsers.android_binary.types import ResourceTablePackage, ResourceTableType, TypedValue
+from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
+from launchpad.parsers.android.types import ResourceTablePackage, ResourceTableType, TypedValue
 
 # Default package id for app package is 0x7f
 DEFAULT_PACKAGE_ID = 0x7F

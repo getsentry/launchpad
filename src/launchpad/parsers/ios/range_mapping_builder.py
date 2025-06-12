@@ -6,8 +6,8 @@ from typing import Any
 
 import lief
 
-from ..models import BinaryTag, RangeMap
-from ..utils.logging import get_logger
+from ...models import BinaryTag, RangeMap
+from ...utils.logging import get_logger
 from .macho_parser import MachOParser
 
 logger = get_logger(__name__)
