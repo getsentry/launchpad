@@ -10,12 +10,15 @@ from typing import Dict, List
 import lief
 
 from ..artifacts import ZippedXCArchive
-from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis
-from launchpad.models.ios import IOSAnalysisResults, IOSAppInfo
-from launchpad.models.treemap import TreemapResults
-from launchpad.utils.treemap_builder import TreemapBuilder
-
-from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSBinaryAnalysis
+from ..models import (
+    DuplicateFileGroup,
+    FileAnalysis,
+    FileInfo,
+    IOSAnalysisResults,
+    IOSAppInfo,
+    IOSBinaryAnalysis,
+    TreemapResults,
+)
 from ..parsers.ios.macho_parser import MachOParser
 from ..parsers.ios.range_mapping_builder import RangeMappingBuilder
 from ..utils.file_utils import (
@@ -23,6 +26,7 @@ from ..utils.file_utils import (
     get_file_size,
 )
 from ..utils.logging import get_logger
+from ..utils.treemap_builder import TreemapBuilder
 
 logger = get_logger(__name__)
 
@@ -97,8 +101,8 @@ class IOSAnalyzer:
             file_analysis=file_analysis,
             binary_analysis=binary_analysis,
             analysis_duration=time.time() - analysis_start_time,
-        treemap=treemap_results,
-            )
+            treemap=treemap_results,
+        )
 
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> IOSAppInfo:
         """Extract basic app information from Info.plist.
