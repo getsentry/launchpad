@@ -17,7 +17,6 @@ from rich.table import Table
 from . import __version__
 from .analyzers.android import AndroidAnalyzer
 from .analyzers.ios import IOSAnalyzer
-from .artifacts.android.apk import APK
 from .models import AndroidAnalysisResults, IOSAnalysisResults
 from .service import run_service
 from .utils.logging import setup_logging
@@ -191,11 +190,7 @@ def android(
         ) as progress:
             task = progress.add_task("Analyzing Android app bundle...", total=None)
 
-            # Read APK file
-            with open(input_path, "rb") as f:
-                apk = APK(f.read())
-
-            analyzer = AndroidAnalyzer(apk)
+            analyzer = AndroidAnalyzer(input_path)
             results = analyzer.analyze()
 
             progress.update(task, description="Analysis complete!")
