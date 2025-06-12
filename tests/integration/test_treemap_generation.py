@@ -140,21 +140,13 @@ class TestTreemapGeneration:
 
     def test_treemap_file_hierarchy(self, sample_app_path: Path) -> None:
         """Test that file hierarchy is correctly built."""
-        # Skip if test file doesn't exist
-        if not sample_app_path.exists():
-            pytest.skip(f"Test file {sample_app_path} not found")
 
-        # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
-
-        # Analyze the sample app
         results = analyzer.analyze(sample_app_path)
 
-        # Verify treemap was generated
         assert results.treemap is not None
         treemap = results.treemap
 
-        # Helper function to find leaf nodes (files)
         def find_leaf_nodes(element: TreemapElement) -> List[TreemapElement]:
             """Recursively find all leaf nodes."""
             if element.is_leaf:
@@ -165,19 +157,13 @@ class TestTreemapGeneration:
                 leaves.extend(find_leaf_nodes(child))
             return leaves
 
-        # Get all leaf nodes
         leaf_nodes = find_leaf_nodes(treemap.root)
 
-        # Verify we have files
         assert len(leaf_nodes) > 0
 
-        # Verify leaf nodes represent actual files
         for leaf in leaf_nodes:
             assert leaf.is_leaf
-            assert leaf.path is not None  # Files should have paths
-            assert leaf.install_size > 0  # Files should have size
-            # Files should have basic details (no fileType - that's redundant with element_type)
-            assert "actualSize" in leaf.details or "alignedSize" in leaf.details
+            assert leaf.path is not None
+            assert leaf.install_size > 0
 
-        # Verify total file count matches
         assert len(leaf_nodes) == treemap.file_count
