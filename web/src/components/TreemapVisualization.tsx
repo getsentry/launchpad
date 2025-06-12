@@ -111,6 +111,19 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         label: {
           show: true,
           formatter: '{b}',
+          position: 'inside',
+          fontSize: 12,
+          fontWeight: 'bold',
+        },
+        upperLabel: {
+          show: true,
+          height: 30,
+          fontSize: 14,
+          fontWeight: 'bold',
+          color: '#fff',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          borderRadius: 3,
+          padding: [4, 8],
         },
         itemStyle: {
           borderColor: '#fff',
@@ -118,29 +131,91 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         },
         levels: [
           {
+            // Root level - always show labels for top-level categories
             itemStyle: {
               borderColor: '#777',
               borderWidth: 0,
               gapWidth: 1,
             },
+            upperLabel: {
+              show: true,
+              height: 35,
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#fff',
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              borderRadius: 4,
+              padding: [6, 10],
+            },
+            label: {
+              show: true,
+              position: 'inside',
+              fontSize: 14,
+              fontWeight: 'bold',
+              color: '#333',
+            },
           },
           {
+            // First level - category groups (always visible labels)
             itemStyle: {
               borderColor: '#555',
-              borderWidth: 5,
-              gapWidth: 1,
+              borderWidth: 3,
+              gapWidth: 2,
+            },
+            upperLabel: {
+              show: true,
+              height: 28,
+              fontSize: 14,
+              fontWeight: 'bold',
+              color: '#fff',
+              backgroundColor: 'rgba(0,0,0,0.75)',
+              borderRadius: 3,
+              padding: [4, 8],
+            },
+            label: {
+              show: true,
+              position: 'inside',
+              fontSize: 13,
+              fontWeight: 'bold',
+              color: '#333',
             },
             emphasis: {
               itemStyle: {
                 borderColor: '#ddd',
+                borderWidth: 4,
+              },
+              upperLabel: {
+                backgroundColor: 'rgba(0,0,0,0.9)',
               },
             },
           },
           {
+            // Second level - individual files
             itemStyle: {
               borderColor: '#333',
-              borderWidth: 5,
+              borderWidth: 2,
               gapWidth: 1,
+            },
+            upperLabel: {
+              show: true,
+              height: 24,
+              fontSize: 12,
+              fontWeight: 'normal',
+              color: '#fff',
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              borderRadius: 2,
+              padding: [2, 6],
+            },
+            label: {
+              show: true,
+              position: 'inside',
+              fontSize: 11,
+              color: '#333',
+            },
+            emphasis: {
+              itemStyle: {
+                borderColor: '#999',
+              },
             },
           },
         ],
