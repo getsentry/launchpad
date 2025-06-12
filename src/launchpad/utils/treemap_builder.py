@@ -36,7 +36,6 @@ class TreemapBuilder:
         self.platform = platform
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
 
-        # Use explicit page config or fall back to platform default
         if page_config is not None:
             self.page_config = page_config
         else:
