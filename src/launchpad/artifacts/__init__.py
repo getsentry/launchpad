@@ -3,6 +3,7 @@ from .android.manifest.axml import AxmlUtils, BinaryXmlParser
 from .android.manifest.manifest import AndroidManifest
 from .android.resources.binary import BinaryResourceTable
 from .artifact import AndroidArtifact, Artifact
+from .ios.zipped_xcarchive import ZippedXCArchive
 from .providers.zip_provider import ZipProvider
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "BinaryResourceTable",
     "BinaryXmlParser",
     "ZipProvider",
+    "ZippedXCArchive",
 ]

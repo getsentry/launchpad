@@ -3,88 +3,11 @@
 import hashlib
 import shutil
 import tempfile
-import zipfile
 from pathlib import Path
 
 from .logging import get_logger
 
 logger = get_logger(__name__)
-
-
-def extract_archive(archive_path: Path, destination: Path) -> None:
-    """Extract an archive to the destination directory.
-
-    Args:
-        archive_path: Path to the archive file
-        destination: Destination directory for extraction
-
-    Raises:
-        ValueError: If archive format is not supported
-        RuntimeError: If extraction fails
-    """
-    destination.mkdir(parents=True, exist_ok=True)
-
-    suffix = archive_path.suffix.lower()
-
-    if suffix == ".zip" or suffix == ".ipa":
-        _extract_zip(archive_path, destination)
-    else:
-        raise ValueError(f"Unsupported archive format: {suffix}")
-
-
-def _extract_zip(archive_path: Path, destination: Path) -> None:
-    """Extract a ZIP archive using Python's zipfile module."""
-    try:
-        with zipfile.ZipFile(archive_path, "r") as zip_ref:
-            zip_ref.extractall(destination)
-        logger.debug(f"Extracted {archive_path} to {destination}")
-    except zipfile.BadZipFile as e:
-        raise RuntimeError(f"Invalid ZIP archive: {e}")
-    except Exception as e:
-        raise RuntimeError(f"Failed to extract archive: {e}")
-
-
-def find_app_bundle(directory: Path, platform: str = "ios") -> Path:
-    """Find an app bundle in the given directory.
-
-    Args:
-        directory: Directory to search in
-        platform: Target platform ("ios" or "android")
-
-    Returns:
-        Path to the found app bundle
-
-    Raises:
-        FileNotFoundError: If no app bundle is found
-    """
-    if platform == "ios":
-        return _find_ios_app_bundle(directory)
-    elif platform == "android":
-        return _find_android_app_bundle(directory)
-    else:
-        raise ValueError(f"Unsupported platform: {platform}")
-
-
-def _find_ios_app_bundle(directory: Path) -> Path:
-    """Find an iOS .app bundle in the directory tree."""
-    # Look for .app directories
-    for item in directory.rglob("*.app"):
-        if item.is_dir():
-            logger.debug(f"Found iOS app bundle: {item}")
-            return item
-
-    raise FileNotFoundError(f"No .app bundle found in {directory}")
-
-
-def _find_android_app_bundle(directory: Path) -> Path:
-    """Find an Android .apk file in the directory tree."""
-    # Look for .apk files
-    for item in directory.rglob("*.apk"):
-        if item.is_file():
-            logger.debug(f"Found Android app bundle: {item}")
-            return item
-
-    raise FileNotFoundError(f"No .apk file found in {directory}")
 
 
 def calculate_file_hash(file_path: Path, algorithm: str = "md5") -> str:
