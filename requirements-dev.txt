@@ -3,9 +3,11 @@ devservices>=1.2.0
 # Main dependencies (sync with pyproject.toml)
 aiohttp>=3.8.0
 click>=8.1.0
+confluent-kafka>=2.3.0
 lief>=0.14.0
 pydantic>=2.0.0
 rich>=13.0.0
+sentry-arroyo==2.22.0
 typing-extensions>=4.8.0
 
 # Development dependencies
