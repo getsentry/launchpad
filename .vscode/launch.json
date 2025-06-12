@@ -1,4 +1,5 @@
 {
+  "version": "0.2.0",
   "configurations": [
     {
       "type": "swift",
@@ -20,8 +21,9 @@
     },
     {
       "name": "Python: Debug Tests",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
       "module": "pytest",
       "args": [
         "${workspaceFolder}/tests",
@@ -37,8 +39,9 @@
     },
     {
       "name": "Python: Debug Current Test File",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
       "module": "pytest",
       "args": [
         "${file}",
@@ -54,8 +57,9 @@
     },
     {
       "name": "Python: Debug Current Test Method",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
       "module": "pytest",
       "args": [
         "${file}::${selectedText}",
