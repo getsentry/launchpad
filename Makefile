@@ -92,6 +92,39 @@ dev-setup: install-dev  ## Set up development environment
 run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments)
 	$(PYTHON_VENV) -m launchpad.cli $(ARGS)
 
+
+
+test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
+	$(PYTHON_VENV) scripts/test_kafka.py --message-type ios --count 1
+
+test-kafka-multiple:  ## Send multiple test messages to Kafka
+	$(PYTHON_VENV) scripts/test_kafka.py --message-type ios --count 5 --interval 2
+
+test-service-integration:  ## Run full integration test with devservices
+	@echo "Starting Kafka services via devservices..."
+	@devservices up
+	@echo "Waiting for Kafka to be ready..."
+	@sleep 10
+	@echo "Starting Launchpad server in background..."
+	@set -e; \
+	$(PYTHON_VENV) -m launchpad.cli serve --verbose & \
+	LAUNCHPAD_PID=$$!; \
+	echo "Launchpad started with PID: $$LAUNCHPAD_PID"; \
+	sleep 5; \
+	echo "Sending test messages..."; \
+	$(PYTHON_VENV) scripts/test_kafka.py --count 3 --interval 1; \
+	sleep 5; \
+	echo "Stopping Launchpad gracefully..."; \
+	kill -TERM $$LAUNCHPAD_PID 2>/dev/null && echo "SIGTERM sent" || echo "Process not found"; \
+	sleep 8; \
+	if kill -0 $$LAUNCHPAD_PID 2>/dev/null; then \
+		echo "Process still running, sending SIGKILL..."; \
+		kill -KILL $$LAUNCHPAD_PID 2>/dev/null || true; \
+		sleep 2; \
+	fi; \
+	echo "Stopping devservices..."; \
+	devservices down
+
 # Show current status
 status:  ## Show project status
 	@echo "Python version: $$($(PYTHON) --version)"
