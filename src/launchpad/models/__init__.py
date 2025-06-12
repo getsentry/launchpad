@@ -40,4 +40,8 @@ __all__ = [
     "Range",
     "RangeConflict",
     "RangeMap",
+    # Treemap models
+    "TreemapType",
+    "TreemapElement",
+    "TreemapResults",
 ]

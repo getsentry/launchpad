@@ -25,11 +25,11 @@ This checklist outlines the functionality that needs to be ported from the legac
 - [x] Red-black tree implementation for efficient range queries
 
 ### 2. **Treemap Generation System**
-- [ ] `BinaryTreemapElement` class for hierarchical size breakdown
-- [ ] `TreemapType` enum for visualization categories
-- [ ] Hierarchical path building for modules/classes/methods
-- [ ] JSON serialization for treemap visualization
-- [ ] Size aggregation and unmapped size handling
+- [x] `BinaryTreemapElement` class for hierarchical size breakdown (implemented as `TreemapElement`)
+- [x] `TreemapType` enum for visualization categories
+- [ ] Hierarchical path building for modules/classes/methods (only file-based hierarchy implemented)
+- [x] JSON serialization for treemap visualization
+- [x] Size aggregation and unmapped size handling
 
 ### 3. **Binary Module Classification**
 - [ ] `BinaryModule` and `ModuleType` classes
@@ -155,15 +155,15 @@ This checklist outlines the functionality that needs to be ported from the legac
 ### 16. **Size Attribution System**
 - [ ] Accurate size attribution to modules/classes/methods
 - [ ] Overlap detection and resolution
-- [ ] Unmapped region identification
-- [ ] Size aggregation by category
+- [x] Unmapped region identification
+- [x] Size aggregation by category
 
 ### 17. **Treemap Generation**
-- [ ] Hierarchical tree building from analysis results
-- [ ] Module grouping (Feature, Service, UI, etc.)
+- [x] Hierarchical tree building from analysis results (file-based only, not binary analysis)
+- [ ] Module grouping (Feature, Service, UI, etc.) - only file type categorization implemented
 - [ ] Size-based filtering and hiding small elements
-- [ ] JSON output format for visualization
-- [ ] Metadata and detail information inclusion
+- [x] JSON output format for visualization
+- [x] Metadata and detail information inclusion
 
 ### 18. **Performance Optimizations**
 - [ ] Efficient memory usage for large binaries

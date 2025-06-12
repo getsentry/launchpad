@@ -11,6 +11,8 @@ from typing import Dict, List
 import lief
 
 from launchpad.models.ios import IOSAnalysisResults, IOSAppInfo
+from launchpad.models.treemap import TreemapResults
+from launchpad.utils.treemap_builder import TreemapBuilder
 
 from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSBinaryAnalysis
 from ..parsers.ios.macho_parser import MachOParser
@@ -37,6 +39,7 @@ class IOSAnalyzer:
         skip_swift_metadata: bool = False,
         skip_symbols: bool = False,
         enable_range_mapping: bool = True,
+        enable_treemap: bool = True,
     ) -> None:
         """Initialize the iOS analyzer.
 
@@ -45,11 +48,13 @@ class IOSAnalyzer:
             skip_swift_metadata: Skip Swift metadata extraction for faster analysis
             skip_symbols: Skip symbol extraction for faster analysis
             enable_range_mapping: Enable range mapping for binary content categorization
+            enable_treemap: Enable treemap generation for hierarchical size analysis
         """
         self.working_dir = working_dir
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
         self.enable_range_mapping = enable_range_mapping
+        self.enable_treemap = enable_treemap
         self._temp_dirs: List[Path] = []
 
     def analyze(self, input_path: Path) -> IOSAnalysisResults:
@@ -81,6 +86,12 @@ class IOSAnalyzer:
             file_analysis = self._analyze_files(app_bundle_path)
             logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
 
+            # Generate treemap if enabled
+            treemap_results = None
+            if self.enable_treemap:
+                treemap_results = self._generate_treemap(app_info, file_analysis)
+                logger.info(f"Generated treemap with {treemap_results.file_count} files")
+
             # Analyze the main executable binary
             binary_analysis = self._analyze_binary(app_bundle_path, app_info.executable)
             logger.info(f"Binary analysis complete, " f"executable size: {binary_analysis.executable_size} bytes")
@@ -90,6 +101,7 @@ class IOSAnalyzer:
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
                 analysis_duration=time.time() - analysis_start_time,
+                treemap=treemap_results,
             )
 
         finally:
@@ -217,6 +229,14 @@ class IOSAnalyzer:
             largest_files=largest_files,
         )
 
+    def _generate_treemap(self, app_info: IOSAppInfo, file_analysis: FileAnalysis) -> TreemapResults:
+        """Generate treemap for hierarchical size analysis."""
+        logger.debug("Generating treemap for file hierarchy")
+
+        # TODO: implement the compression ratio
+        treemap_builder = TreemapBuilder(app_name=app_info.name, platform="ios", download_compression_ratio=0.75)
+        return treemap_builder.build_file_treemap(file_analysis)
+
     def _analyze_binary(self, app_bundle_path: Path, executable_name: str) -> IOSBinaryAnalysis:
         """Analyze the main executable binary using LIEF.
 
@@ -235,9 +255,8 @@ class IOSAnalyzer:
                 executable_size=0,
                 architectures=[],
                 linked_libraries=[],
-                symbols=[],
-                swift_metadata=None,
                 sections={},
+                swift_metadata=None,
                 range_map=None,
             )
 
@@ -276,8 +295,8 @@ class IOSAnalyzer:
                 executable_size=executable_size,
                 architectures=architectures,
                 linked_libraries=linked_libraries,
-                swift_metadata=swift_metadata,
                 sections=sections,
+                swift_metadata=swift_metadata,
                 range_map=range_map,
             )
 
@@ -287,8 +306,8 @@ class IOSAnalyzer:
                 executable_size=get_file_size(executable_path),
                 architectures=[],
                 linked_libraries=[],
-                swift_metadata=None,
                 sections={},
+                swift_metadata=None,
                 range_map=None,
             )
 

@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
 from .range_mapping import RangeMap
+from .treemap import TreemapResults
 
 
 class SwiftMetadata(BaseModel):
@@ -74,13 +75,18 @@ class IOSAnalysisResults(BaseAnalysisResults):
     app_info: IOSAppInfo = Field(..., description="iOS app information")
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
+    treemap: TreemapResults | None = Field(None, description="Hierarchical size analysis treemap")
 
     @property
     def download_size(self) -> int:
         """Estimated download size"""
+        if self.treemap:
+            return self.treemap.total_download_size
         return self.file_analysis.total_size  # TODO: Implement download size calculation
 
     @property
     def install_size(self) -> int:
         """Estimated install size"""
+        if self.treemap:
+            return self.treemap.total_install_size
         return self.file_analysis.total_size  # TODO: Implement install size calculation
