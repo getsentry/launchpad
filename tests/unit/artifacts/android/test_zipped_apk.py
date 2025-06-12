@@ -10,7 +10,7 @@ from launchpad.artifacts.android.zipped_apk import ZippedAPK
 @pytest.fixture
 def test_zipped_apk_path() -> Path:
     """Get path to test APK file."""
-    return Path("tests/_fixtures/android/zipped_apk.apk")
+    return Path("tests/_fixtures/android/zipped_apk.zip")
 
 
 @pytest.fixture
