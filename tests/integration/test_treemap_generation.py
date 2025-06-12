@@ -16,7 +16,7 @@ class TestTreemapGeneration:
     @pytest.fixture
     def sample_app_path(self) -> Path:
         """Path to sample iOS app for testing."""
-        return Path(__file__).parent.parent / "artifacts" / "HackerNews.xcarchive.zip"
+        return Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
 
     def test_treemap_generation_basic(self, sample_app_path: Path) -> None:
         """Test basic treemap generation functionality."""
