@@ -45,9 +45,5 @@ USER app
 # Expose ports
 EXPOSE 2218
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:2218/health || exit 1
-
 # Default command
 CMD ["launchpad", "serve"]
