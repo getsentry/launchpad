@@ -34,21 +34,19 @@ class LaunchpadServer:
 
     def __init__(
         self,
-        host: str = "0.0.0.0",
-        port: int = 2218,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
         config: Optional[Dict[str, Any]] = None,
         setup_logging: bool = True,
     ) -> None:
-        self.host = host
-        self.port = port
         self.app: Application | None = None
         self._shutdown_event = asyncio.Event()
         self.config = config or get_server_config()
 
-        # Update host/port from parameters if provided
-        if host != "0.0.0.0":
+        # Override config with explicit parameters if provided
+        if host is not None:
             self.config["host"] = host
-        if port != 2218:
+        if port is not None:
             self.config["port"] = port
 
         self.host = self.config["host"]
