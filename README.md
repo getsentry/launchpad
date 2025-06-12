@@ -1,46 +1,81 @@
-# App Size Analyzer
+# Launchpad
 
-A CLI tool for analyzing iOS and Android app bundle sizes, providing detailed insights into file composition, binary structure, and optimization opportunities.
+A microservice for analyzing iOS and Android apps.
 
 ## Installation
 
-### From Source
+### Development Setup
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+git clone https://github.com/getsentry/launchpad.git
 cd launchpad
-
-# Install in development mode
-pip install -e ".[dev]"
+make dev-setup
 ```
 
-## Quick Start
+### Using DevServices
+
+DevServices provides shared Kafka infrastructure used by multiple Sentry services:
+
+```bash
+# Start shared dependencies (Kafka)
+devservices up
+
+# In another terminal, start the service
+launchpad serve
+
+# Or run integration tests
+make test-service-integration
+
+# Stop shared dependencies
+devservices down
+```
+
+## Usage
+
+### Service Endpoints
+
+### Analyze an Android App
+
+```bash
+
+# Analyze an APK
+launchpad android app.apk
+
+# Analyze an apk with a custom output location
+launchpad android app.apk -o detailed-report.json
+```
 
 ### Analyze an iOS App
+- `GET /health` - Basic health check
+- `GET /ready` - Readiness check
+
+### Testing Kafka Integration
 
 ```bash
-# Analyze a bundle
-launchpad ios MyApp.xcarchive.zip
+# Send a test message to Kafka
+make test-kafka-message
 
-# Analyze a bundle with custom output location
-launchpad ios MyApp.xcarchive.zip -o detailed-report.json
-
-# Skip expensive operations for faster analysis
-launchpad ios MyApp.xcarchive.zip --skip-swift-metadata --skip-symbols
+# Send multiple test messages
+make test-kafka-multiple
 ```
 
-### Command Line Options
+### CLI Analysis (Development)
 
 ```bash
-launchpad ios [OPTIONS] INPUT_PATH
+# Direct iOS analysis
+launchpad ios path/to/app.xcarchive.zip
+# Custom output location
+launchpad ios path/to/app.xcarchive.zip -o my-report.json
+
+# Skip time-consuming analysis for faster results
+launchpad ios path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
 
 Options:
   -o, --output PATH           Output path for JSON report [default: analysis-report.json]
   --working-dir PATH          Working directory for temporary files
-  --platform [ios|android]   Target platform (auto-detected if not specified)
-  --skip-swift-metadata       Skip Swift metadata parsing
-  --skip-symbols              Skip symbol extraction
+  --platform [ios|android]    Target platform (auto-detected if not specified)
+  --skip-swift-metadata       [iOS] Skip Swift metadata parsing
+  --skip-symbols              [iOS] Skip symbol extraction
   --format [json|table]       Output format [default: json]
   -v, --verbose               Enable verbose logging
   -q, --quiet                 Suppress all output except errors
@@ -49,52 +84,68 @@ Options:
 
 ## Development
 
-### Setup
+### Service Development
 
 ```bash
-# Clone and setup development environment
-git clone <repository-url>
-cd launchpad
-pip install -e ".[dev]"
-
-# Install pre-commit hooks
-pre-commit install
-```
-
-### Code Quality
-
-This project uses several tools to maintain code quality:
-
-- **Black**: Code formatting
-- **isort**: Import sorting
-- **mypy**: Static type checking
-- **flake8**: Linting
-- **pytest**: Testing
-
-Run all checks:
-
-```bash
-# Format code
-black src tests
-isort src tests
-
-# Type checking
-mypy src
-
-# Linting
-flake8 src tests
-
-# Tests
-pytest
+# Development with shared infrastructure (recommended)
+devservices up                  # Start Kafka via devservices
+launchpad serve
 ```
 
 ### Testing
 
 ```bash
-# Run all tests
-pytest
+# All tests (unit + integration)
+make test
 
-# Run specific test categories
-pytest tests/unit/
-pytest tests/integration/
+# Unit tests only
+make test-unit
+
+# Integration tests only
+make test-integration
+
+# Integration test with devservices
+make test-service-integration
+
+# Integration test with standalone setup
+make test-integration-standalone
 ```
+
+### Code Quality
+
+```bash
+# Format code
+make format
+
+# Lint and type check
+make lint
+
+# All quality checks (format + lint + type-check)
+make check
+
+# Full CI pipeline
+make ci
+```
+
+## Configuration
+
+### Environment Variables
+
+- `LAUNCHPAD_HOST` - Server host (default: 0.0.0.0)
+- `LAUNCHPAD_PORT` - Server port (default: 2218)
+- `KAFKA_BOOTSTRAP_SERVERS` - Kafka bootstrap servers (default: localhost:9092)
+- `KAFKA_GROUP_ID` - Kafka consumer group ID (default: launchpad-consumer)
+- `KAFKA_TOPICS` - Comma-separated list of topics (default: launchpad-events)
+
+### Topic Management
+
+The service automatically creates required Kafka topics on startup with sensible defaults:
+
+- **Topic**: `launchpad-events`
+- **Partitions**: 1
+- **Replication Factor**: 1
+- **Retention**: 7 days
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

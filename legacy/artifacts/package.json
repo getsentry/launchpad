@@ -1,0 +1,33 @@
+{
+  "name": "@emerge/package-artifacts-oss",
+  "version": "1.0.0",
+  "description": "Future open source Artifact implementations",
+  "main": "index.ts",
+  "types": "index.ts",
+  "scripts": {
+    "lint": "npx eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0",
+    "lint:ci": "npx --max-old-space-size=6000 eslint . --ext .ts,.tsx --max-warnings=0",
+    "lintfix": "npx eslint . --ext .js,.jsx,.ts,.tsx --max-warnings=0 --fix",
+    "test:ci": "export $(grep -v '^#' ../../env/.ci_test.env | xargs) && mocha --exit --timeout 10000 --import=tsx 'test/**/*.test.ts'",
+    "test": "export $(grep -v '^#' ../../env/.local_test.env | xargs) && mocha --exit --timeout 10000 --import=tsx 'test/**/*.test.ts'",
+    "test-file": "export $(grep -v '^#' ../../env/.local_test.env | xargs) && mocha --exit --timeout 10000 --import=tsx"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.348.0",
+    "@types/lodash": "^4.17.6",
+    "@types/mocha": "^9.1.1",
+    "@typescript-eslint/eslint-plugin": "^5.19.0",
+    "@typescript-eslint/parser": "^5.19.0",
+    "mocha": "^9.2.2",
+    "tsx": "^4.7.0"
+  },
+  "dependencies": {
+    "asn1js": "^3.0.6",
+    "jszip": "^3.9.1",
+    "lodash": "^4.17.21",
+    "long": "^5.2.0",
+    "pkijs": "^3.2.5",
+    "protobufjs": "^6.11.2",
+    "simple-plist": "^1.3.1"
+  }
+}

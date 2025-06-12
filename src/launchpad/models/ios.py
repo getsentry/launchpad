@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
 from .range_mapping import RangeMap
 from .treemap import TreemapResults
 
@@ -27,6 +27,7 @@ class IOSAppInfo(BaseAppInfo):
 
     model_config = ConfigDict(frozen=True)
 
+    executable: str = Field(..., description="Main executable name")
     bundle_id: str = Field(..., description="Bundle identifier")
     minimum_os_version: str = Field(..., description="Minimum iOS version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
@@ -72,6 +73,7 @@ class IOSAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
+    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
     treemap: TreemapResults | None = Field(None, description="Hierarchical size analysis treemap")
 
@@ -80,11 +82,11 @@ class IOSAnalysisResults(BaseAnalysisResults):
         """Estimated download size"""
         if self.treemap:
             return self.treemap.total_download_size
-        return self.total_size  # Fallback to total size
+        return self.file_analysis.total_size  # TODO: Implement download size calculation
 
     @property
     def install_size(self) -> int:
         """Estimated install size"""
         if self.treemap:
             return self.treemap.total_install_size
-        return self.total_size  # Fallback to total size
+        return self.file_analysis.total_size  # TODO: Implement install size calculation
