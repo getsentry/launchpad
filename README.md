@@ -10,6 +10,7 @@ A microservice for analyzing iOS and Android apps.
 git clone https://github.com/getsentry/launchpad.git
 cd launchpad
 make dev-setup
+devenv sync
 ```
 
 ### Using DevServices
