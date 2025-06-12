@@ -208,7 +208,11 @@ class KafkaConsumer:
         self.topics = topics
         self.group_id = group_id
         # Ensure bootstrap_servers is always a string
-        self.bootstrap_servers: str = bootstrap_servers or os.getenv("KAFKA_BOOTSTRAP_SERVERS") or "localhost:9092"
+        self.bootstrap_servers: str = bootstrap_servers or os.getenv(
+            "KAFKA_BOOTSTRAP_SERVERS"
+        )  # type: ignore[assignment]
+        if not self.bootstrap_servers:
+            raise ValueError("KAFKA_BOOTSTRAP_SERVERS environment variable must be set")
         self.message_handler = message_handler
         self._processor: Optional[StreamProcessor[KafkaPayload]] = None
         self._shutdown_requested = False
@@ -312,8 +316,12 @@ class KafkaConsumer:
 
 def get_kafka_config() -> Dict[str, Any]:
     """Get Kafka configuration from environment."""
+    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
+    if not bootstrap_servers:
+        raise ValueError("KAFKA_BOOTSTRAP_SERVERS environment variable must be set")
+
     return {
-        "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS") or "localhost:9092",
+        "bootstrap_servers": bootstrap_servers,
         "group_id": os.getenv("KAFKA_GROUP_ID", "launchpad-consumer"),
         "topics": os.getenv("KAFKA_TOPICS", "launchpad-events").split(","),
     }

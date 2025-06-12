@@ -1,3 +1,5 @@
+devservices>=1.2.0
+
 # Main dependencies (sync with pyproject.toml)
 aiohttp>=3.8.0
 click>=8.1.0

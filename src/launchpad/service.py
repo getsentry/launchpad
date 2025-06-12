@@ -54,6 +54,8 @@ class LaunchpadService:
             # TODO: Route message to appropriate handler based on message type
             message_type = payload.get("type", "unknown")
 
+            # TODO: !! ensure we utilize proper parallelism.
+            # Right now, each analysis job will block the entire Kafka consumer until it completes
             if message_type == "analyze_ios":
                 self._handle_ios_analysis_sync(payload)
             elif message_type == "analyze_android":
