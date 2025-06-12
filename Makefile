@@ -56,7 +56,8 @@ type-check:  ## Run type checking with mypy
 	$(PYTHON_VENV) -m mypy src
 
 # Build targets
-build: clean  ## Build the package
+build: clean $(VENV_DIR)  ## Build the package
+	$(PIP) install build
 	$(PYTHON_VENV) -m build
 
 build-wheel:  ## Build wheel only

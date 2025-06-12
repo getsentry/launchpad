@@ -30,22 +30,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-3.11-
 
-      # - name: Install devenv
-      #   run: |
-      #     curl https://raw.githubusercontent.com/getsentry/devenv/main/install-devenv.sh > install-devenv.sh
-      #     bash install-devenv.sh
-
-      # - name: Devenv sync
-      #   run: ~/.local/share/sentry-devenv/bin/devenv sync
-
       - name: Install dependencies
         run: make install-dev
-
-      # - name: Create virtual environment
-      #   run: python -m venv .venv
-
-      # - name: Install dependencies
-      #   run: .venv/bin/pip install -r requirements-dev.txt
 
       - name: Check code formatting
         run: make check-format
@@ -78,14 +64,6 @@ jobs:
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
-
-      # - name: Install devenv
-      #   run: |
-      #     curl https://raw.githubusercontent.com/getsentry/devenv/main/install-devenv.sh > install-devenv.sh
-      #     bash install-devenv.sh
-
-      # - name: Install dependencies
-      #   run: devenv sync
 
       - name: Install dependencies
         run: make install-dev
