@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { TreemapResults } from '../types/treemap';
+import { detectDataFormat, convertLegacyToTreemap, validateTreemapData } from '../utils/dataConverter';
 
 interface FileUploadProps {
   onDataLoad: (data: TreemapResults) => void;
@@ -19,16 +20,40 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
     setIsLoading(true);
     try {
       const text = await file.text();
-      const data = JSON.parse(text) as TreemapResults;
+      const rawData = JSON.parse(text);
 
-      // Basic validation
-      if (!data.root || typeof data.total_install_size !== 'number') {
-        throw new Error('Invalid treemap data format');
+      // Detect the data format
+      const format = detectDataFormat(rawData);
+
+      let treemapData: TreemapResults;
+
+      if (format === 'treemap') {
+        // Validate TreemapResults format
+        const validation = validateTreemapData(rawData);
+        if (!validation.isValid) {
+          throw new Error(`Invalid TreemapResults format: ${validation.error}`);
+        }
+        treemapData = rawData as TreemapResults;
+      } else if (format === 'legacy') {
+        // Convert legacy format to TreemapResults
+        console.log('Converting legacy analysis format to treemap format...');
+        treemapData = convertLegacyToTreemap(rawData);
+      } else {
+        throw new Error(
+          'Unsupported file format. Expected either:\n' +
+          '1. TreemapResults format (from treemap.py models)\n' +
+          '2. Legacy iOS analysis format\n\n' +
+          'Please check that your JSON file matches one of these formats.'
+        );
       }
 
-      onDataLoad(data);
+      onDataLoad(treemapData);
     } catch (err) {
-      onError(`Error loading file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      if (err instanceof SyntaxError) {
+        onError('Invalid JSON file. Please check that the file contains valid JSON.');
+      } else {
+        onError(`Error loading file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -41,8 +66,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
       if (!response.ok) {
         throw new Error('Failed to load sample data');
       }
-      const data = await response.json() as TreemapResults;
-      onDataLoad(data);
+      const rawData = await response.json();
+
+      // The sample data is in legacy format, so convert it
+      const treemapData = convertLegacyToTreemap(rawData);
+      onDataLoad(treemapData);
     } catch (err) {
       onError(`Error loading sample data: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
@@ -106,17 +134,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
             <div>
               <div>Loading...</div>
               <div style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
-                Parsing treemap data...
+                Parsing and converting data...
               </div>
             </div>
           ) : (
             <div>
               <div style={{ fontSize: '24px', marginBottom: '10px' }}>📁</div>
               <div style={{ fontSize: '18px', marginBottom: '10px' }}>
-                Drop a treemap JSON file here or click to select
+                Drop a JSON file here or click to select
               </div>
               <div style={{ fontSize: '14px', color: '#666' }}>
-                Supports JSON files exported from the launchpad size analysis tool
+                Supports TreemapResults format and legacy iOS analysis files
               </div>
             </div>
           )}
