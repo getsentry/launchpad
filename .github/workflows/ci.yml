@@ -39,7 +39,13 @@ jobs:
       #   run: ~/.local/share/sentry-devenv/bin/devenv sync
 
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: make install-dev
+
+      # - name: Create virtual environment
+      #   run: python -m venv .venv
+
+      # - name: Install dependencies
+      #   run: .venv/bin/pip install -r requirements-dev.txt
 
       - name: Check code formatting
         run: make check-format
@@ -81,8 +87,11 @@ jobs:
       # - name: Install dependencies
       #   run: devenv sync
 
+      - name: Create virtual environment
+        run: python -m venv .venv
+
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: .venv/bin/pip install -r requirements-dev.txt
 
       - name: Run unit tests
         run: make test-unit
@@ -107,8 +116,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Create virtual environment
+        run: python -m venv .venv
+
       - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+        run: .venv/bin/pip install -r requirements-dev.txt
 
       - name: Build package
         run: make build
@@ -116,8 +128,8 @@ jobs:
       - name: Verify build artifacts
         run: |
           ls -la dist/
-          python -m pip install dist/*.whl
-          launchpad --help
+          .venv/bin/python -m pip install dist/*.whl
+          .venv/bin/launchpad --help
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

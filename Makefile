@@ -10,6 +10,11 @@ VENV_DIR := .venv
 PIP := $(VENV_DIR)/bin/pip
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
+# Just used for CI
+install-dev: $(VENV_DIR)  ## Install development dependencies
+	$(PIP) install -e ".[dev]"
+	$(VENV_DIR)/bin/pre-commit install
+
 test: test-unit test-integration
 
 test-unit:
