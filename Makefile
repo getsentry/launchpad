@@ -20,7 +20,8 @@ $(VENV_DIR):
 
 # Just used for CI
 install-dev: $(VENV_DIR)  ## Install development dependencies
-	$(PIP) install -e ".[dev]"
+	$(PIP) install -r requirements-dev.txt
+	$(PIP) install -e .
 	$(VENV_DIR)/bin/pre-commit install
 
 test: test-unit test-integration
