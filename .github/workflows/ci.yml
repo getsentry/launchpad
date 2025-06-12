@@ -30,16 +30,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-3.11-
 
-      - name: Install devenv
-        run: |
-          curl https://raw.githubusercontent.com/getsentry/devenv/main/install-devenv.sh > install-devenv.sh
-          bash install-devenv.sh
+      # - name: Install devenv
+      #   run: |
+      #     curl https://raw.githubusercontent.com/getsentry/devenv/main/install-devenv.sh > install-devenv.sh
+      #     bash install-devenv.sh
 
-      - name: Devenv sync
-        run: ~/.local/share/sentry-devenv/bin/devenv sync
+      # - name: Devenv sync
+      #   run: ~/.local/share/sentry-devenv/bin/devenv sync
 
-      - name: Direnv activate
-        run: ~/.local/share/sentry-devenv/bin/direnv reload
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
 
       - name: Check code formatting
         run: make check-format
@@ -73,8 +73,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
+      # - name: Install devenv
+      #   run: |
+      #     curl https://raw.githubusercontent.com/getsentry/devenv/main/install-devenv.sh > install-devenv.sh
+      #     bash install-devenv.sh
+
+      # - name: Install dependencies
+      #   run: devenv sync
+
       - name: Install dependencies
-        run: devenv sync
+        run: pip install -r requirements-dev.txt
 
       - name: Run unit tests
         run: make test-unit
@@ -100,7 +108,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: devenv sync
+        run: pip install -r requirements-dev.txt
 
       - name: Build package
         run: make build
