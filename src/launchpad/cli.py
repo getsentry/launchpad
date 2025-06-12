@@ -17,9 +17,9 @@ from rich.table import Table
 from . import __version__
 from .analyzers.android import AndroidAnalyzer
 from .analyzers.ios import IOSAnalyzer
-from .service import run_service
 from .artifacts.android.apk import APK
 from .models import AndroidAnalysisResults, IOSAnalysisResults
+from .service import run_service
 from .utils.logging import setup_logging
 
 console = Console()
