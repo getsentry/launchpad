@@ -10,6 +10,14 @@ VENV_DIR := .venv
 PIP := $(VENV_DIR)/bin/pip
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
+# # Create virtual environment
+$(VENV_DIR):
+	python -m venv $(VENV_DIR)
+# Create virtual environment if it doesn't exist
+# $(VENV_DIR):
+# 	$(PYTHON) -m venv $(VENV_DIR)
+# 	$(PIP) install --upgrade pip setuptools wheel
+
 # Just used for CI
 install-dev: $(VENV_DIR)  ## Install development dependencies
 	$(PIP) install -e ".[dev]"

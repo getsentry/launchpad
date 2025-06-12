@@ -87,11 +87,8 @@ jobs:
       # - name: Install dependencies
       #   run: devenv sync
 
-      - name: Create virtual environment
-        run: python -m venv .venv
-
       - name: Install dependencies
-        run: .venv/bin/pip install -r requirements-dev.txt
+        run: make install-dev
 
       - name: Run unit tests
         run: make test-unit
@@ -116,11 +113,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Create virtual environment
-        run: python -m venv .venv
-
       - name: Install dependencies
-        run: .venv/bin/pip install -r requirements-dev.txt
+        run: make install-dev
 
       - name: Build package
         run: make build
