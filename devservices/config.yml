@@ -1,0 +1,54 @@
+# Ignored by docker compose, used by devservices
+x-sentry-service-config:
+  version: 0.1
+  service_name: launchpad
+  dependencies:
+    kafka:
+      description: Shared instance of kafka used by sentry services
+      remote:
+        repo_name: sentry-shared-kafka
+        branch: main
+        repo_link: https://github.com/getsentry/sentry-shared-kafka.git
+    launchpad:
+      description: Service that powers preprod artifact analysis
+  modes:
+    default: [kafka]
+    containerized: [kafka, launchpad]
+
+services:
+  launchpad:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - 127.0.0.1:2218:2218 # Bind to localhost only - no external access
+    command:
+      - launchpad
+      - serve
+      - --verbose
+    healthcheck:
+      test: curl -f http://localhost:2218/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    environment:
+      PYTHONUNBUFFERED: 1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      KAFKA_GROUP_ID: launchpad-devservices
+      KAFKA_TOPICS: launchpad-events
+      LAUNCHPAD_HOST: "0.0.0.0" # Inside container, but port binding restricts access
+      LAUNCHPAD_PORT: "2218"
+    platform: linux/amd64
+    extra_hosts:
+      host.docker.internal: host-gateway
+    networks:
+      - devservices
+    labels:
+      - orchestrator=devservices
+    restart: unless-stopped
+
+networks:
+  devservices:
+    name: devservices
+    external: true
