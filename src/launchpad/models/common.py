@@ -77,7 +77,6 @@ class BaseAppInfo(BaseModel):
     name: str = Field(..., description="App display name")
     version: str = Field(..., description="App version")
     build: str = Field(..., description="Build number")
-    executable: str = Field(..., description="Main executable name")
 
 
 class BaseBinaryAnalysis(BaseModel):
@@ -96,14 +95,9 @@ class BaseAnalysisResults(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
+    file_analysis: Optional[FileAnalysis] = Field(None, description="File-level analysis results")
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
-
-    @property
-    def total_size(self) -> int:
-        """Total app bundle size."""
-        return self.file_analysis.total_size
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with serializable datetime."""

@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
 from .range_mapping import RangeMap
 
 
@@ -26,6 +26,7 @@ class IOSAppInfo(BaseAppInfo):
 
     model_config = ConfigDict(frozen=True)
 
+    executable: str = Field(..., description="Main executable name")
     bundle_id: str = Field(..., description="Bundle identifier")
     minimum_os_version: str = Field(..., description="Minimum iOS version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
@@ -71,14 +72,15 @@ class IOSAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
+    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
 
     @property
     def download_size(self) -> int:
         """Estimated download size"""
-        return self.total_size  # TODO: Implement download size calculation
+        return self.file_analysis.total_size  # TODO: Implement download size calculation
 
     @property
     def install_size(self) -> int:
         """Estimated install size"""
-        return self.total_size  # TODO: Implement install size calculation
+        return self.file_analysis.total_size  # TODO: Implement install size calculation

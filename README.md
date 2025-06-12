@@ -34,6 +34,18 @@ devservices down
 
 ### Service Endpoints
 
+### Analyze an Android App
+
+```bash
+
+# Analyze an APK
+launchpad android app.apk
+
+# Analyze an apk with a custom output location
+launchpad android app.apk -o detailed-report.json
+```
+
+### Analyze an iOS App
 - `GET /health` - Basic health check
 - `GET /ready` - Readiness check
 
@@ -52,12 +64,22 @@ make test-kafka-multiple
 ```bash
 # Direct iOS analysis
 launchpad ios path/to/app.xcarchive.zip
-
 # Custom output location
 launchpad ios path/to/app.xcarchive.zip -o my-report.json
 
 # Skip time-consuming analysis for faster results
 launchpad ios path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
+
+Options:
+  -o, --output PATH           Output path for JSON report [default: analysis-report.json]
+  --working-dir PATH          Working directory for temporary files
+  --platform [ios|android]    Target platform (auto-detected if not specified)
+  --skip-swift-metadata       [iOS] Skip Swift metadata parsing
+  --skip-symbols              [iOS] Skip symbol extraction
+  --format [json|table]       Output format [default: json]
+  -v, --verbose               Enable verbose logging
+  -q, --quiet                 Suppress all output except errors
+  --help                      Show this message and exit
 ```
 
 ## Development
