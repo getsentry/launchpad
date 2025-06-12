@@ -241,7 +241,8 @@ class IOSAnalyzer:
         """
         logger.debug("Generating treemap for file hierarchy")
 
-        treemap_builder = TreemapBuilder(app_name=app_info.name, platform="ios")
+        # TODO: implement the compression ratio
+        treemap_builder = TreemapBuilder(app_name=app_info.name, platform="ios", download_compression_ratio=0.75)
         return treemap_builder.build_file_treemap(file_analysis)
 
     def _analyze_binary(self, app_bundle_path: Path, executable_name: str) -> IOSBinaryAnalysis:
