@@ -1,3 +1,5 @@
+from typing import Any
+
 from .android.manifest.manifest import AndroidManifest
 from .android.resources.binary import BinaryResourceTable
 
@@ -18,4 +20,12 @@ class AndroidArtifact(Artifact):
 
     def get_resource_tables(self) -> list[BinaryResourceTable]:
         """Get the resource tables from the artifact."""
+        raise NotImplementedError("Not implemented")
+
+
+class IOSArtifact(Artifact):
+    """Protocol defining the interface for iOS artifacts."""
+
+    def get_plist(self) -> dict[str, Any]:
+        """Get the plist from the artifact."""
         raise NotImplementedError("Not implemented")
