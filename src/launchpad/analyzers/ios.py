@@ -230,15 +230,7 @@ class IOSAnalyzer:
         )
 
     def _generate_treemap(self, app_info: IOSAppInfo, file_analysis: FileAnalysis) -> TreemapResults:
-        """Generate treemap for hierarchical size analysis.
-
-        Args:
-            app_info: App information
-            file_analysis: File analysis results
-
-        Returns:
-            Treemap results
-        """
+        """Generate treemap for hierarchical size analysis."""
         logger.debug("Generating treemap for file hierarchy")
 
         # TODO: implement the compression ratio
