@@ -81,30 +81,6 @@ class TreemapElement(BaseModel):
         """Total download size including all children."""
         return self.download_size + sum(child.total_download_size for child in self.children)
 
-    def to_json_dict(self) -> Dict[str, Any]:
-        """Convert to JSON-serializable dictionary for visualization."""
-        result: Dict[str, Any] = {
-            "name": self.name,
-            "value": self.install_size,  # Primary size for visualization
-            "downloadSize": self.download_size,
-            "installSize": self.install_size,
-            "isDirectory": self.is_directory,
-        }
-
-        if self.element_type:
-            result["type"] = self.element_type.value
-
-        if self.path:
-            result["path"] = self.path
-
-        if self.details:
-            result["details"] = self.details
-
-        if self.children:
-            result["children"] = [child.to_json_dict() for child in self.children]
-
-        return result
-
 
 class TreemapResults(BaseModel):
     """Complete treemap analysis results."""
@@ -119,16 +95,3 @@ class TreemapResults(BaseModel):
         default_factory=dict, description="Size breakdown by category"
     )
     platform: str = Field(default="unknown", description="Platform (ios, android, etc.)")
-
-    def to_json_dict(self) -> Dict[str, Any]:
-        """Convert to JSON-serializable dictionary."""
-        return {
-            "app": self.root.to_json_dict(),
-            "metadata": {
-                "platform": self.platform,
-                "totalInstallSize": self.total_install_size,
-                "totalDownloadSize": self.total_download_size,
-                "fileCount": self.file_count,
-                "categoryBreakdown": self.category_breakdown,
-            },
-        }
