@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -60,8 +60,9 @@ class TreemapElement(BaseModel):
     name: str = Field(..., description="Display name of the element")
     install_size: int = Field(..., ge=0, description="Install size in bytes")
     download_size: int = Field(..., ge=0, description="Download size in bytes (compressed)")
-    element_type: Optional[TreemapType] = Field(None, description="Type of element for visualization")
-    path: Optional[str] = Field(None, description="File path (for leaf nodes)")
+    element_type: TreemapType | None = Field(None, description="Type of element for visualization")
+    path: str | None = Field(None, description="File or directory path")
+    is_directory: bool = Field(False, description="Whether this element represents a directory")
     children: List[TreemapElement] = Field(default_factory=list, description="Child elements")
     details: Dict[str, Any] = Field(default_factory=dict, description="Platform and context-specific metadata")
 
@@ -87,6 +88,7 @@ class TreemapElement(BaseModel):
             "value": self.install_size,  # Primary size for visualization
             "downloadSize": self.download_size,
             "installSize": self.install_size,
+            "isDirectory": self.is_directory,
         }
 
         if self.element_type:

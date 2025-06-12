@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import TreemapElement, TreemapResults, TreemapType
@@ -22,7 +22,7 @@ class TreemapBuilder:
         app_name: str,
         platform: str,
         download_compression_ratio: float,
-        filesystem_block_size: Optional[int] = None,
+        filesystem_block_size: int | None = None,
     ) -> None:
         """Initialize the treemap builder.
 
@@ -57,6 +57,7 @@ class TreemapBuilder:
             download_size=0,  # Will be calculated from children
             element_type=None,
             path=None,
+            is_directory=True,  # Root app element is treated as a directory
             children=children,
         )
 
@@ -143,6 +144,7 @@ class TreemapBuilder:
             download_size=download_size,
             element_type=self._get_file_category(file_info),
             path=file_info.path,
+            is_directory=False,
             details=details,
         )
 
@@ -201,14 +203,42 @@ class TreemapBuilder:
             subdir_element = self._create_directory_element(subdir_name, subdir_files)
             children.append(subdir_element)
 
+        # Determine the directory path by finding the common path prefix from the files
+        directory_path = self._determine_directory_path(dir_name, files)
+
         return TreemapElement(
             name=dir_name,
             install_size=0,  # Directory itself has no size
             download_size=0,  # Directory itself has no size
             element_type=self._get_directory_type(dir_name),
-            path=None,  # Directories don't have file paths
+            path=directory_path,
+            is_directory=True,
             children=children,
         )
+
+    def _determine_directory_path(self, dir_name: str, files: List[FileInfo]) -> str | None:
+        """Determine the directory path from the files it contains."""
+        if not files:
+            return None
+
+        # Find the first occurrence of dir_name in any file path
+        for file_info in files:
+            path_obj = Path(file_info.path)
+
+            # Look for the directory name in the path parts
+            for i, part in enumerate(path_obj.parts):
+                if part == dir_name:
+                    # Reconstruct the directory path up to and including this part
+                    directory_parts = path_obj.parts[: i + 1]
+                    return str(Path(*directory_parts))
+
+        # Fallback: if dir_name is the first part of any path, use it directly
+        for file_info in files:
+            path_obj = Path(file_info.path)
+            if len(path_obj.parts) > 0 and path_obj.parts[0] == dir_name:
+                return dir_name
+
+        return dir_name
 
     def _get_file_category(self, file_info: FileInfo) -> TreemapType:
         """Determine treemap type for a file."""
@@ -236,7 +266,7 @@ class TreemapBuilder:
 
         return TreemapType.FILES
 
-    def _get_directory_type(self, directory_name: str) -> Optional[TreemapType]:
+    def _get_directory_type(self, directory_name: str) -> TreemapType | None:
         """Determine treemap type for a directory."""
         name_lower = directory_name.lower()
 

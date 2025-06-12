@@ -15,13 +15,17 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 
 ## Development Guidelines
 
+### Makefile
+- Use our [Makefile](mdc:Makefile) as much as possible when interacting with our repo, e.g. for building and testing
+
 ### Python
-- Use Python 3.11+ with type hints
+- Use modern Python 3.11+ with type hints
 - Follow PEP 8 and black formatting (line length 120)
 - Use `pytest` for testing
 - Use `click` for CLI interface
 - Use `lief` for Mach-O binary analysis
 - Virtual environment managed via `.venv/`
+- Use `| None` instead of `Optional`
 
 ### Code Quality
 - Always include type hints
