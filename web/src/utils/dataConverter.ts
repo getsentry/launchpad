@@ -55,22 +55,47 @@ const FILE_TYPE_TO_TREEMAP_TYPE: Record<string, TreemapType> = {
 };
 
 export function detectDataFormat(data: unknown): 'treemap' | 'legacy' | 'unknown' {
+  console.log('detectDataFormat called with data type:', typeof data);
+
   if (typeof data !== 'object' || data === null) {
+    console.log('detectDataFormat: data is not an object or is null');
     return 'unknown';
   }
 
   const obj = data as Record<string, unknown>;
+  console.log('detectDataFormat: object keys:', Object.keys(obj));
 
   // Check for TreemapResults format
-  if ('root' in obj && 'total_install_size' in obj && 'total_download_size' in obj) {
+  const hasRoot = 'root' in obj;
+  const hasTotalInstallSize = 'total_install_size' in obj;
+  const hasTotalDownloadSize = 'total_download_size' in obj;
+
+  console.log('TreemapResults format check:', {
+    hasRoot,
+    hasTotalInstallSize,
+    hasTotalDownloadSize
+  });
+
+  if (hasRoot && hasTotalInstallSize && hasTotalDownloadSize) {
+    console.log('detectDataFormat: detected as treemap format');
     return 'treemap';
   }
 
   // Check for legacy format
-  if ('file_analysis' in obj && 'app_info' in obj) {
+  const hasFileAnalysis = 'file_analysis' in obj;
+  const hasAppInfo = 'app_info' in obj;
+
+  console.log('Legacy format check:', {
+    hasFileAnalysis,
+    hasAppInfo
+  });
+
+  if (hasFileAnalysis && hasAppInfo) {
+    console.log('detectDataFormat: detected as legacy format');
     return 'legacy';
   }
 
+  console.log('detectDataFormat: format unknown');
   return 'unknown';
 }
 
@@ -190,27 +215,83 @@ function formatFileType(fileType: string): string {
 }
 
 export function validateTreemapData(data: unknown): { isValid: boolean; error?: string } {
+  console.log('validateTreemapData called');
+
   if (typeof data !== 'object' || data === null) {
     return { isValid: false, error: 'Data must be an object' };
   }
 
   const obj = data as Record<string, unknown>;
+  console.log('Validating TreemapResults with keys:', Object.keys(obj));
 
   if (!('root' in obj)) {
     return { isValid: false, error: 'Missing "root" property' };
   }
 
+  if (typeof obj.root !== 'object' || obj.root === null) {
+    return { isValid: false, error: '"root" property must be an object' };
+  }
+
+  const root = obj.root as Record<string, unknown>;
+  console.log('Root object keys:', Object.keys(root));
+
   if (typeof obj.total_install_size !== 'number') {
-    return { isValid: false, error: 'Missing or invalid "total_install_size" property' };
+    return {
+      isValid: false,
+      error: `Missing or invalid "total_install_size" property. Got: ${typeof obj.total_install_size} (${obj.total_install_size})`
+    };
   }
 
   if (typeof obj.total_download_size !== 'number') {
-    return { isValid: false, error: 'Missing or invalid "total_download_size" property' };
+    return {
+      isValid: false,
+      error: `Missing or invalid "total_download_size" property. Got: ${typeof obj.total_download_size} (${obj.total_download_size})`
+    };
   }
 
   if (typeof obj.file_count !== 'number') {
-    return { isValid: false, error: 'Missing or invalid "file_count" property' };
+    return {
+      isValid: false,
+      error: `Missing or invalid "file_count" property. Got: ${typeof obj.file_count} (${obj.file_count})`
+    };
   }
 
+  // Validate root element structure
+  if (typeof root.name !== 'string') {
+    return {
+      isValid: false,
+      error: `Root element missing or invalid "name" property. Got: ${typeof root.name}`
+    };
+  }
+
+  if (typeof root.install_size !== 'number') {
+    return {
+      isValid: false,
+      error: `Root element missing or invalid "install_size" property. Got: ${typeof root.install_size}`
+    };
+  }
+
+  if (typeof root.download_size !== 'number') {
+    return {
+      isValid: false,
+      error: `Root element missing or invalid "download_size" property. Got: ${typeof root.download_size}`
+    };
+  }
+
+  if (typeof root.is_directory !== 'boolean') {
+    return {
+      isValid: false,
+      error: `Root element missing or invalid "is_directory" property. Got: ${typeof root.is_directory}`
+    };
+  }
+
+  if (!Array.isArray(root.children)) {
+    return {
+      isValid: false,
+      error: `Root element missing or invalid "children" property. Got: ${typeof root.children}`
+    };
+  }
+
+  console.log('TreemapResults validation passed');
   return { isValid: true };
 }

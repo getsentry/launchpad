@@ -22,14 +22,20 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
       const text = await file.text();
       const rawData = JSON.parse(text);
 
+      // Debug logging
+      console.log('Raw data keys:', Object.keys(rawData));
+      console.log('Raw data sample:', JSON.stringify(rawData, null, 2).substring(0, 1000) + '...');
+
       // Detect the data format
       const format = detectDataFormat(rawData);
+      console.log('Detected format:', format);
 
       let treemapData: TreemapResults;
 
       if (format === 'treemap') {
         // Validate TreemapResults format
         const validation = validateTreemapData(rawData);
+        console.log('TreemapResults validation:', validation);
         if (!validation.isValid) {
           throw new Error(`Invalid TreemapResults format: ${validation.error}`);
         }
@@ -38,12 +44,27 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
         // Convert legacy format to TreemapResults
         console.log('Converting legacy analysis format to treemap format...');
         treemapData = convertLegacyToTreemap(rawData);
+        console.log('Converted treemap data:', {
+          total_install_size: treemapData.total_install_size,
+          file_count: treemapData.file_count,
+          platform: treemapData.platform,
+          root_children_count: treemapData.root.children.length
+        });
       } else {
+        console.error('Unknown format detected. Raw data structure:', {
+          keys: Object.keys(rawData),
+          hasRoot: 'root' in rawData,
+          hasFileAnalysis: 'file_analysis' in rawData,
+          hasAppInfo: 'app_info' in rawData,
+          hasTotalInstallSize: 'total_install_size' in rawData,
+          hasTotalDownloadSize: 'total_download_size' in rawData
+        });
         throw new Error(
           'Unsupported file format. Expected either:\n' +
           '1. TreemapResults format (from treemap.py models)\n' +
           '2. Legacy iOS analysis format\n\n' +
-          'Please check that your JSON file matches one of these formats.'
+          'Please check that your JSON file matches one of these formats.\n' +
+          `Detected keys: ${Object.keys(rawData).join(', ')}`
         );
       }
 
@@ -52,6 +73,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
       if (err instanceof SyntaxError) {
         onError('Invalid JSON file. Please check that the file contains valid JSON.');
       } else {
+        console.error('File loading error:', err);
         onError(`Error loading file: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     } finally {
