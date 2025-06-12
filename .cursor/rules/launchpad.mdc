@@ -26,6 +26,7 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 - Use `lief` for Mach-O binary analysis
 - Virtual environment managed via `.venv/`
 - Use `| None` instead of `Optional`
+- When writing comments try to keep them short and informative
 
 ### Code Quality
 - Always include type hints
@@ -36,7 +37,8 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 ### Testing
 - Unit tests in `tests/unit/`
 - Integration tests in `tests/integration/`
-- Use sample artifacts from `tests/artifacts/`
+- Use sample artifacts from `tests/_fixtures/`
+- Prefer to write integration tests using test fixtures over unit tests with mocking. Try to avoid mocking as much as possible.
 - Prefer pytest fixtures for setup
 
 ### CLI Development
