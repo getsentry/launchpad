@@ -16,12 +16,12 @@ class TestIOSRangeMapping:
     @pytest.fixture
     def sample_app_path(self) -> Path:
         """Path to the sample HackerNews app."""
-        return Path(__file__).parent.parent / "artifacts" / "HackerNews.xcarchive.zip"
+        return Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
 
     @pytest.fixture
     def legacy_baseline(self) -> Dict[str, Any]:
         """Load the legacy baseline results for comparison."""
-        baseline_path = Path(__file__).parent.parent / "artifacts" / "hackernews-results.json"
+        baseline_path = Path("tests/_fixtures/ios/hackernews-results.json")
         with open(baseline_path, "r") as f:
             data: Dict[str, Any] = json.load(f)
             return data
