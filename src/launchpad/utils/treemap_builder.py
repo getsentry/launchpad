@@ -22,33 +22,28 @@ class TreemapBuilder:
         app_name: str,
         platform: str,
         download_compression_ratio: float,
-        page_config: Optional[PageSizeConfig] = None,
+        filesystem_block_size: Optional[int] = None,
     ) -> None:
         """Initialize the treemap builder.
 
         Args:
             app_name: Name of the root app element
-            platform: Platform name (ios, android, etc.) - used for default page config
-            page_config: Explicit page size configuration, or None to use platform default
+            platform: Platform name (ios, android, etc.)
             download_compression_ratio: Ratio of download size to install size (0.0-1.0)
+            filesystem_block_size: Filesystem block size in bytes, or None to use platform default
         """
         self.app_name = app_name
         self.platform = platform
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
 
-        if page_config is not None:
-            self.page_config = page_config
+        # Set filesystem block size based on platform
+        if filesystem_block_size is not None:
+            self.filesystem_block_size = filesystem_block_size
         else:
-            # TODO: use the page size specified in the Mach-O binary
-            self.page_config = DEFAULT_PAGE_CONFIGS.get(platform, DEFAULT_PAGE_CONFIGS["unknown"])
+            self.filesystem_block_size = FILESYSTEM_BLOCK_SIZES.get(platform, 4 * 1024)
 
-        logger.debug(f"Using page configuration: {self.page_config.description}")
+        logger.debug(f"Using filesystem block size: {self.filesystem_block_size} bytes")
         logger.debug(f"Download compression ratio: {self.download_compression_ratio:.1%}")
-
-    @property
-    def page_size(self) -> int:
-        """Default page size for backward compatibility."""
-        return self.page_config.default_page_size
 
     def build_file_treemap(self, file_analysis: FileAnalysis) -> TreemapResults:
         """Build a treemap from file analysis results."""
@@ -77,24 +72,21 @@ class TreemapBuilder:
         )
 
     def _calculate_aligned_install_size(self, file_info: FileInfo) -> int:
-        """Calculate the actual install size considering file-specific page alignment.
+        """Calculate the actual install size considering filesystem block alignment.
 
         Args:
             file_info: File information including size and type
 
         Returns:
-            Install size rounded up to nearest page boundary for this file type
+            Install size rounded up to nearest filesystem block boundary
         """
         file_size = file_info.size
         if file_size == 0:
             return 0
 
-        # Get appropriate page size for this file
-        page_size = self.page_config.get_page_size_for_file(file_info)
-
-        # Round up to nearest page boundary
-        # Formula: ((size - 1) // page_size + 1) * page_size
-        return ((file_size - 1) // page_size + 1) * page_size
+        # Round up to nearest filesystem block boundary
+        # Formula: ((size - 1) // block_size + 1) * block_size
+        return ((file_size - 1) // self.filesystem_block_size + 1) * self.filesystem_block_size
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
         """Build hierarchical file structure from file analysis."""
@@ -261,12 +253,12 @@ class TreemapBuilder:
         """Calculate size breakdown by category."""
         breakdown: Dict[str, Dict[str, int]] = defaultdict(lambda: {"install": 0, "download": 0})
 
-        for file_type, files in file_analysis.files_by_type.items():
+        for files in file_analysis.files_by_type.values():
             for file_info in files:
                 treemap_type = self._get_file_category(file_info)
                 category = treemap_type.value
 
-                # Use page-aligned size for install calculations
+                # Use filesystem block-aligned size for install calculations
                 install_size = self._calculate_aligned_install_size(file_info)
                 download_size = int(install_size * self.download_compression_ratio)
 
@@ -276,108 +268,8 @@ class TreemapBuilder:
         return dict(breakdown)
 
 
-class PageSizeConfig:
-    """Configuration for page alignment calculations across platforms and components."""
-
-    def __init__(
-        self,
-        default_page_size: int,
-        native_page_size: Optional[int] = None,
-        description: str = "custom",
-    ) -> None:
-        """Initialize page size configuration.
-
-        Args:
-            default_page_size: Page size for most file types (bytes)
-            native_page_size: Page size for native code/libraries (bytes), or None to use default
-            description: Human-readable description of this configuration
-        """
-        self.default_page_size = default_page_size
-        self.native_page_size = native_page_size or default_page_size
-        self.description = description
-
-    @classmethod
-    def ios_modern(cls) -> "PageSizeConfig":
-        """iOS configuration for modern devices (iOS 14+)."""
-        return cls(
-            default_page_size=16 * 1024,  # 16KB for all files
-            description="iOS modern (16KB pages)",
-        )
-
-    @classmethod
-    def android_legacy(cls) -> "PageSizeConfig":
-        """Android configuration for devices without 16KB page support."""
-        return cls(
-            default_page_size=4 * 1024,  # 4KB for all files
-            description="Android legacy (4KB pages)",
-        )
-
-    @classmethod
-    def android_mixed(cls) -> "PageSizeConfig":
-        """Android configuration for devices with mixed page size support.
-
-        Some Android devices support 16KB pages for native code but still use 4KB
-        for other components. This is common during the 16KB rollout phase.
-        """
-        return cls(
-            default_page_size=4 * 1024,  # 4KB for most files
-            native_page_size=16 * 1024,  # 16KB for native libraries
-            description="Android mixed (4KB default, 16KB native)",
-        )
-
-    @classmethod
-    def android_modern(cls) -> "PageSizeConfig":
-        """Android configuration for fully 16KB-enabled devices."""
-        return cls(
-            default_page_size=16 * 1024,  # 16KB for all files
-            description="Android modern (16KB pages)",
-        )
-
-    def get_page_size_for_file(self, file_info: FileInfo) -> int:
-        """Get appropriate page size for a specific file.
-
-        Args:
-            file_info: File information
-
-        Returns:
-            Page size in bytes for this file type
-        """
-        # Check if this is native code that might use different page alignment
-        if self._is_native_code(file_info):
-            return self.native_page_size
-        return self.default_page_size
-
-    def _is_native_code(self, file_info: FileInfo) -> bool:
-        """Check if a file is native code that might use different page alignment.
-
-        Args:
-            file_info: File information
-
-        Returns:
-            True if this file is likely native code
-        """
-        file_type = file_info.file_type.lower()
-        path_lower = file_info.path.lower()
-
-        # Native libraries and executables
-        if file_type in ["so", "dylib"]:
-            return True
-
-        # Framework executables
-        if ".framework" in path_lower and file_type == "":
-            return True
-
-        # Main executable (no extension)
-        if file_type == "" and "/" not in file_info.path:
-            return True
-
-        return False
-
-
-DEFAULT_PAGE_CONFIGS = {
-    "ios": PageSizeConfig.ios_modern(),
-    "android": PageSizeConfig.android_legacy(),  # Conservative default
-    "android-mixed": PageSizeConfig.android_mixed(),
-    "android-modern": PageSizeConfig.android_modern(),
-    "unknown": PageSizeConfig.android_legacy(),  # Conservative fallback
+# Platform-specific filesystem block sizes (in bytes)
+FILESYSTEM_BLOCK_SIZES = {
+    "ios": 4 * 1024,  # iOS uses 4KB filesystem blocks
+    "android": 4 * 1024,  # Android typically uses 4KB as well
 }
