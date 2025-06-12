@@ -100,8 +100,12 @@ jobs:
       - name: Verify build artifacts
         run: |
           ls -la dist/
-          .venv/bin/python -m pip install dist/*.whl
-          .venv/bin/launchpad --help
+          # Create a fresh venv for testing the wheel installation
+          python -m venv test-venv
+          test-venv/bin/pip install dist/*.whl
+          # Install dependencies that the package needs
+          test-venv/bin/pip install -r requirements.txt
+          test-venv/bin/launchpad --help
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
