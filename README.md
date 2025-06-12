@@ -9,9 +9,11 @@ A microservice for analyzing iOS and Android apps.
 ```bash
 git clone https://github.com/getsentry/launchpad.git
 cd launchpad
-make dev-setup
 devenv sync
+
 ```
+
+If you don't have devenv installed, [follow these instructions](https://github.com/getsentry/devenv#install).
 
 ### Using DevServices
 
@@ -47,6 +49,12 @@ launchpad android app.apk -o detailed-report.json
 ```
 
 ### Analyze an iOS App
+
+- `GET /health` - Basic health check
+- `GET /ready` - Readiness check
+
+### Testing Kafka Integration
+
 - `GET /health` - Basic health check
 - `GET /ready` - Readiness check
 
