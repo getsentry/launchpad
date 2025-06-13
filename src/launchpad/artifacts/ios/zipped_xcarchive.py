@@ -12,13 +12,7 @@ logger = logging.getLogger(__name__)
 class ZippedXCArchive(IOSArtifact):
     """A zipped XCArchive file."""
 
-    def __init__(self, content: bytes, working_dir: Path | None = None) -> None:
-        """Initialize the XCArchive.
-
-        Args:
-            content: The raw bytes of the zip file
-            working_dir: Optional working directory for extraction
-        """
+    def __init__(self, content: bytes) -> None:
         super().__init__(content)
         self._zip_provider = ZipProvider(content)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()

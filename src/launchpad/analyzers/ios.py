@@ -69,7 +69,7 @@ class IOSAnalyzer:
         analysis_start_time = time.time()
 
         with open(input_path, "rb") as f:
-            xcarchive = ZippedXCArchive(f.read(), self.working_dir)
+            xcarchive = ZippedXCArchive(f.read())
 
         app_info = self._extract_app_info(xcarchive)
         logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
