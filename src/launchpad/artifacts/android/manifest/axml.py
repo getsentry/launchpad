@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Sequence
 
 from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
 
@@ -19,8 +19,8 @@ class XmlAttribute:
     """Represents an XML attribute in binary format."""
 
     name: str
-    value: Optional[str]
-    typed_value: Optional[Any] = None
+    value: str | None
+    typed_value: Any | None = None
 
 
 @dataclass
@@ -43,7 +43,7 @@ class BinaryXmlParser:
         """
         self.buffer = buffer
 
-    def parse_xml(self) -> Optional[XmlNode]:
+    def parse_xml(self) -> XmlNode | None:
         """Parse the binary XML into a tree of nodes.
 
         Returns:
@@ -191,7 +191,7 @@ class AxmlUtils:
     @staticmethod
     def get_optional_attr_value(
         attributes: Sequence[XmlAttribute], name: str, binary_res_tables: List[BinaryResourceTable]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get optional attribute value, resolving resource references if needed.
 
         Args:
@@ -268,9 +268,7 @@ class AxmlUtils:
         return value
 
     @staticmethod
-    def get_resource_from_binary_resource_files(
-        value: str, binary_res_tables: List[BinaryResourceTable]
-    ) -> Optional[str]:
+    def get_resource_from_binary_resource_files(value: str, binary_res_tables: List[BinaryResourceTable]) -> str | None:
         """Get resource value from binary resource tables.
 
         Args:

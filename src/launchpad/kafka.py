@@ -96,9 +96,9 @@ class LaunchpadMessage:
         topic: str,
         partition: int,
         offset: int,
-        key: Optional[bytes],
+        key: bytes | None,
         value: bytes,
-        timestamp: Optional[float] = None,
+        timestamp: float | None = None,
     ) -> None:
         self.topic = topic
         self.partition = partition
@@ -123,7 +123,7 @@ class LaunchpadMessage:
 class MessageProcessingStrategy(ProcessingStrategy[KafkaPayload]):
     """Strategy to process Kafka messages."""
 
-    def __init__(self, message_handler: Optional[Callable[[LaunchpadMessage], Any]] = None) -> None:
+    def __init__(self, message_handler: Callable[[LaunchpadMessage], Any] | None = None) -> None:
         self.message_handler = message_handler
 
     def poll(self) -> None:
@@ -175,7 +175,7 @@ class MessageProcessingStrategy(ProcessingStrategy[KafkaPayload]):
     def terminate(self) -> None:
         pass
 
-    def join(self, timeout: Optional[float] = None) -> None:
+    def join(self, timeout: float | None = None) -> None:
         pass
 
 
@@ -202,7 +202,7 @@ class KafkaConsumer:
         self,
         topics: List[str],
         group_id: str,
-        bootstrap_servers: Optional[str] = None,
+        bootstrap_servers: str | None = None,
         message_handler: Optional[Callable[[LaunchpadMessage], Any]] = None,
     ) -> None:
         self.topics = topics
@@ -214,7 +214,7 @@ class KafkaConsumer:
         if not self.bootstrap_servers:
             raise ValueError("KAFKA_BOOTSTRAP_SERVERS environment variable must be set")
         self.message_handler = message_handler
-        self._processor: Optional[StreamProcessor[KafkaPayload]] = None
+        self._processor: StreamProcessor[KafkaPayload] | None = None
         self._shutdown_requested = False
 
         logger.info(f"Initialized Arroyo Kafka consumer for topics: {topics}")

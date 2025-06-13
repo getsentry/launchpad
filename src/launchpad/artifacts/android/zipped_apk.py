@@ -1,5 +1,3 @@
-from typing import Optional
-
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .apk import APK
@@ -11,7 +9,7 @@ class ZippedAPK(AndroidArtifact):
         super().__init__(content)
         self._zip_provider = ZipProvider(content)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
-        self._primary_apk: Optional[APK] = None
+        self._primary_apk: APK | None = None
 
     def get_manifest(self) -> AndroidManifest:
         return self.get_primary_apk().get_manifest()

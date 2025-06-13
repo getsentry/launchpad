@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
@@ -34,9 +34,9 @@ class LaunchpadServer:
 
     def __init__(
         self,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        config: Optional[Dict[str, Any]] = None,
+        host: str | None = None,
+        port: int | None = None,
+        config: Dict[str, Any] | None = None,
         setup_logging: bool = True,
     ) -> None:
         self.app: Application | None = None

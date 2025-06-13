@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 
 # https://android.googlesource.com/platform/frameworks/base/+/56a2301/include/androidfw/ResourceTypes.h
@@ -133,10 +133,10 @@ class XmlAttribute:
 
     name: str
     node_type: NodeType
-    namespace_uri: Optional[str]
+    namespace_uri: str | None
     node_name: str
     typed_value: TypedValue
-    value: Optional[str]
+    value: str | None
 
 
 @dataclass
@@ -147,7 +147,7 @@ class XmlCData:
     child_nodes: List["XmlNode"]
     node_type: NodeType
     node_name: str
-    data: Optional[str]
+    data: str | None
     typed_value: TypedValue
 
 
@@ -158,8 +158,8 @@ class XmlNode:
     node_type: NodeType
     attributes: List[XmlAttribute]
     child_nodes: List[Union["XmlNode", XmlCData]]
-    node_name: Optional[str] = None
-    namespace_uri: Optional[str] = None
+    node_name: str | None = None
+    namespace_uri: str | None = None
 
 
 @dataclass
@@ -180,7 +180,7 @@ class ResourceTableEntry:
     id: int
     key: str
     parent_entry: int
-    value: Optional[TypedValue]
+    value: TypedValue | None
     values: Dict[int, TypedValue]
 
 

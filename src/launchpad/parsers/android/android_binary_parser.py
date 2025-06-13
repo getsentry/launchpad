@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from ..buffer_wrapper import BufferWrapper
 from .types import (
@@ -30,10 +30,10 @@ class AndroidBinaryParser:
         self.buffer_wrapper = BufferWrapper(buffer)
         self.strings: List[str] = []
         self.resources: List[int] = []
-        self.document: Optional[XmlNode] = None
-        self.parent: Optional[XmlNode] = None
+        self.document: XmlNode | None = None
+        self.parent: XmlNode | None = None
         self.stack: List[XmlNode] = []
-        self.string_pool: Optional[StringPool] = None
+        self.string_pool: StringPool | None = None
         self.packages: List[ResourceTablePackage] = []
 
     def read_chunk_header(self) -> ChunkHeader:
@@ -327,7 +327,7 @@ class AndroidBinaryParser:
         key = keys_string_pool.strings[key_index]
 
         parent_entry = 0
-        value: Optional[TypedValue] = None
+        value: TypedValue | None = None
         values: Dict[int, TypedValue] = {}
 
         if (flags & EntryFlags.COMPLEX) != 0:

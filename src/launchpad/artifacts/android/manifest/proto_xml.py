@@ -1,9 +1,7 @@
-"""Utilities for parsing Android protobuf XML format."""
-
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, List, Optional, Sequence
+from typing import Any, Callable, List, Sequence
 
 from ..resources.proto import ProtobufResourceTable
 from ..resources.protos.Resources_pb2 import XmlAttribute, XmlElement  # type: ignore[attr-defined]
@@ -133,11 +131,11 @@ class ProtoXmlUtils:
     @staticmethod
     def _parse_module_element(
         module_element: XmlElement,
-        application: Optional[AndroidApplication],
-        split: Optional[str],
+        application: AndroidApplication | None,
+        split: str | None,
         is_feature_split: bool,
         proto_res_tables: List[ProtobufResourceTable],
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Parse module element from manifest."""
         module_attributes = module_element.attribute
         is_instant = ProtoXmlUtils.optional_attr_value_by_name(module_attributes, "instant", proto_res_tables) == "true"
@@ -218,7 +216,7 @@ class ProtoXmlUtils:
         proto_res_tables: List[ProtobufResourceTable],
         name: str,
         resource_id: int,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get optional attribute value with fallback to resource ID.
 
         Args:
@@ -245,7 +243,7 @@ class ProtoXmlUtils:
         attributes: Sequence[XmlAttribute],
         name: str,
         proto_res_tables: List[ProtobufResourceTable],
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get optional attribute value by name.
 
         Args:
@@ -287,7 +285,7 @@ class ProtoXmlUtils:
         attributes: Sequence[XmlAttribute],
         resource_id: int,
         proto_res_tables: List[ProtobufResourceTable],
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get optional attribute value by resource ID.
 
         Args:
@@ -307,7 +305,7 @@ class ProtoXmlUtils:
         attributes: Sequence[XmlAttribute],
         proto_res_tables: List[ProtobufResourceTable],
         attr_filter: Callable[[XmlAttribute], bool],
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get optional attribute value using a filter function.
 
         Args:
@@ -366,9 +364,7 @@ class ProtoXmlUtils:
         return str(value)
 
     @staticmethod
-    def _get_resource_by_key_from_proto_resource_files(
-        key: str, res_tables: List[ProtobufResourceTable]
-    ) -> Optional[str]:
+    def _get_resource_by_key_from_proto_resource_files(key: str, res_tables: List[ProtobufResourceTable]) -> str | None:
         """Get resource value by key from protobuf resource tables.
 
         Args:
@@ -391,7 +387,7 @@ class ProtoXmlUtils:
     @staticmethod
     def _get_resource_by_id_from_proto_resource_files(
         id_val: int, res_tables: List[ProtobufResourceTable]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get resource value by ID from protobuf resource tables.
 
         Args:

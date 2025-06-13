@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from .protos.Resources_pb2 import Type  # type: ignore[attr-defined]
 from .protos.Resources_pb2 import Entry, Package  # type: ignore[attr-defined]
@@ -21,7 +20,7 @@ class ProtobufResourceTable(ResourceTable):
         """Convert a resource ID string (e.g. 'resourceId:0x7f010001') to an integer."""
         return int(value.replace("resourceId:", ""), 16)
 
-    def get_value_by_key(self, key: str, locale: Optional[str] = None) -> Optional[str]:
+    def get_value_by_key(self, key: str, locale: str | None = None) -> str | None:
         """Get a resource value by its key and optional locale."""
         type_name = "string"
         trimmed_key = key
@@ -46,12 +45,12 @@ class ProtobufResourceTable(ResourceTable):
 
         return self._get_default_value_from_entry(entry)
 
-    def get_value_by_string_id(self, string_id: str) -> Optional[str]:
+    def get_value_by_string_id(self, string_id: str) -> str | None:
         """Get a resource value by its string ID (e.g. 'resourceId:0x7f010001')."""
         int_id = self.resource_id_from_string(string_id)
         return self.get_value_by_id(int_id)
 
-    def get_value_by_id(self, id_val: int) -> Optional[str]:
+    def get_value_by_id(self, id_val: int) -> str | None:
         """Get a resource value by its integer ID."""
         # Type ID is the T elements of 0xPPTTEEEE
         type_id = (id_val >> 16) & 0xFF
@@ -69,14 +68,14 @@ class ProtobufResourceTable(ResourceTable):
 
         return self._get_default_value_from_entry(entry)
 
-    def _get_application_package(self) -> Optional[Package]:
+    def _get_application_package(self) -> Package | None:
         """Get the application's resource package (package ID 0x7f)."""
         return next(
             (pkg for pkg in self.pb_resource_table.package if pkg.package_id.id == DEFAULT_PACKAGE_ID),
             None,
         )
 
-    def _get_types_by_name(self, type_name: str) -> Optional[Type]:
+    def _get_types_by_name(self, type_name: str) -> Type | None:
         """Get resource type by name."""
         resource_package = self._get_application_package()
         if not resource_package:
@@ -89,7 +88,7 @@ class ProtobufResourceTable(ResourceTable):
             return None
         return types
 
-    def _get_types_by_id(self, id_val: int) -> Optional[Type]:
+    def _get_types_by_id(self, id_val: int) -> Type | None:
         """Get resource type by ID."""
         resource_package = self._get_application_package()
         if not resource_package:
@@ -102,7 +101,7 @@ class ProtobufResourceTable(ResourceTable):
             return None
         return types
 
-    def _get_default_value_from_entry(self, entry: Entry) -> Optional[str]:
+    def _get_default_value_from_entry(self, entry: Entry) -> str | None:
         """Get the default string value from an entry."""
 
         # Default entry value is the first config value with no locale
