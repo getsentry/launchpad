@@ -7,8 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
-from ..models.common import FileAnalysis, FileInfo
-from ..models.treemap import TreemapElement, TreemapResults, TreemapType
+from ..models import FileAnalysis, FileInfo, Range, RangeMap, TreemapElement, TreemapResults, TreemapType
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -70,6 +69,69 @@ class TreemapBuilder:
             file_count=file_analysis.file_count,
             category_breakdown=category_breakdown,
             platform=self.platform,
+        )
+
+    def build_binary_treemap(self, range_map: RangeMap, name: str) -> TreemapElement:
+        """Build a treemap element from binary range mapping.
+
+        Args:
+            range_map: Range mapping for binary content
+            name: Name of the binary
+
+        Returns:
+            Treemap element representing the binary sections
+        """
+        # Group ranges by tag
+        ranges_by_tag: Dict[str, List[Range]] = {}
+        for range_obj in range_map.ranges:
+            tag = range_obj.tag.value
+            if tag not in ranges_by_tag:
+                ranges_by_tag[tag] = []
+            ranges_by_tag[tag].append(range_obj)
+
+        # Create child elements for each tag
+        children: List[TreemapElement] = []
+        for tag, ranges in ranges_by_tag.items():
+            total_size = sum(r.size for r in ranges)
+            children.append(
+                TreemapElement(
+                    name=tag,
+                    install_size=total_size,
+                    download_size=total_size,  # Binary sections don't compress
+                    element_type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_directory=False,
+                    children=[],
+                    details={"tag": tag},
+                )
+            )
+
+        # Add unmapped regions if any
+        if range_map.unmapped_size > 0:
+            children.append(
+                TreemapElement(
+                    name="Unmapped",
+                    install_size=int(range_map.unmapped_size),
+                    download_size=int(range_map.unmapped_size),
+                    element_type=TreemapType.UNMAPPED,
+                    path=None,
+                    is_directory=False,
+                    children=[],
+                    details={},
+                )
+            )
+
+        # Create root element
+        total_size = sum(child.install_size for child in children)
+        return TreemapElement(
+            name=name,
+            install_size=total_size,
+            download_size=total_size,
+            element_type=TreemapType.EXECUTABLES,
+            path=None,
+            is_directory=True,
+            children=children,
+            details={},
         )
 
     def _calculate_aligned_install_size(self, file_info: FileInfo) -> int:

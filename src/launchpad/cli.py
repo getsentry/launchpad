@@ -375,15 +375,20 @@ def _print_ios_summary(results: IOSAnalysisResults) -> None:
 
     console.print("\n[bold]Summary:[/bold]")
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
-    console.print(f"• Executable size: [cyan]{_format_bytes(binary_analysis.executable_size)}[/cyan]")
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
-    console.print(f"• Architectures: [cyan]{', '.join(binary_analysis.architectures)}[/cyan]")
 
     if file_analysis.duplicate_files:
         console.print(
             f"• Potential savings from duplicates: "
             f"[yellow]{_format_bytes(file_analysis.total_duplicate_savings)}[/yellow]"
         )
+
+    if binary_analysis:
+        for binary in binary_analysis:
+            console.print(f"\nExecutable Size: {binary.executable_size / 1024 / 1024:.1f} MB")
+            console.print(f"Architectures: {', '.join(binary.architectures)}")
+            console.print(f"Linked Libraries: {len(binary.linked_libraries)}")
+            console.print(f"Sections: {len(binary.sections)}")
 
 
 def _format_bytes(size: int) -> str:

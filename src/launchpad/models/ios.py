@@ -73,8 +73,12 @@ class IOSAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
-    binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
     treemap: TreemapResults | None = Field(None, description="Hierarchical size analysis treemap")
+    binary_analysis: List[IOSBinaryAnalysis] = Field(
+        default_factory=list,
+        description="iOS binary analysis results",
+        exclude=True,
+    )
 
     @property
     def download_size(self) -> int:

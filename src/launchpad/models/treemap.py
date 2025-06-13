@@ -47,6 +47,9 @@ class TreemapType(str, Enum):
     DEX_METHODS = "dex_methods"
     NATIVE_CODE = "native_code"
 
+    # Binary section categories
+    BINARY = "binary"
+
     # Generic categories
     OTHER = "other"
     UNMAPPED = "unmapped"
@@ -55,7 +58,7 @@ class TreemapType(str, Enum):
 class TreemapElement(BaseModel):
     """Hierarchical element in the treemap for size visualization."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     name: str = Field(..., description="Display name of the element")
     install_size: int = Field(..., ge=0, description="Install size in bytes")
@@ -85,7 +88,7 @@ class TreemapElement(BaseModel):
 class TreemapResults(BaseModel):
     """Complete treemap analysis results."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     root: TreemapElement = Field(..., description="Root element of the treemap")
     total_install_size: int = Field(..., ge=0, description="Total install size")
