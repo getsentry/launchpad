@@ -72,6 +72,24 @@
         "PYTHONPATH": "${workspaceFolder}/src"
       },
       "justMyCode": false
+    },
+    {
+      "name": "Python: Debug iOS CLI",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "launchpad.cli",
+      "args": [
+        "ios",
+        "--verbose",
+        "tests/_fixtures/ios/HackerNews.xcarchive.zip"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "justMyCode": false
     }
   ]
 }

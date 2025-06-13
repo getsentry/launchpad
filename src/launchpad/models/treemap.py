@@ -47,6 +47,9 @@ class TreemapType(str, Enum):
     DEX_METHODS = "dex_methods"
     NATIVE_CODE = "native_code"
 
+    # Binary section categories
+    BINARY = "binary"
+
     # Generic categories
     OTHER = "other"
     UNMAPPED = "unmapped"

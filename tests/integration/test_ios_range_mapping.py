@@ -37,7 +37,9 @@ class TestIOSRangeMapping:
         artifact = ArtifactFactory.from_path(sample_app_path)
         results = analyzer.analyze(cast(IOSArtifact, artifact))
 
-        range_map = results.binary_analysis.range_map
+        # Get the first binary analysis result since we know there's only one binary
+        binary_analysis = results.binary_analysis[0]
+        range_map = binary_analysis.range_map
         assert range_map is not None, "Range mapping should be created"
 
         # Test exact file structure from HackerNews binary
@@ -88,7 +90,9 @@ class TestIOSRangeMapping:
         artifact = ArtifactFactory.from_path(sample_app_path)
         results = analyzer.analyze(cast(IOSArtifact, artifact))
 
-        range_map = results.binary_analysis.range_map
+        # Get the first binary analysis result since we know there's only one binary
+        binary_analysis = results.binary_analysis[0]
+        range_map = binary_analysis.range_map
         assert range_map is not None
 
         # Verify we have both text and data ranges

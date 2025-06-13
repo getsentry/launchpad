@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .range_mapping import RangeMap
 from .treemap import TreemapResults
 
@@ -73,9 +73,12 @@ class IOSAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
-    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
-    binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
     treemap: TreemapResults | None = Field(None, description="Hierarchical size analysis treemap")
+    binary_analysis: List[IOSBinaryAnalysis] = Field(
+        default_factory=list,
+        description="iOS binary analysis results",
+        exclude=True,
+    )
 
     @property
     def download_size(self) -> int:

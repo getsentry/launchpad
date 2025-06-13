@@ -30,7 +30,7 @@ class MachOParser:
         """Extract binary sections and their sizes."""
         return {str(section.name): section.size for section in self.binary.sections}
 
-    def get_swift_sections(self) -> List[lief.Section]:
+    def extract_swift_sections(self) -> List[lief.Section]:
         """Get Swift sections from the binary."""
         return [section for section in self.binary.sections if "swift" in str(section.name).lower()]
 
@@ -53,7 +53,33 @@ class MachOParser:
         }
         return cpu_types.get(cpu_type)
 
-    def get_section_content(self, section_name: str) -> bytes | None:
+    def get_section_bytes_at_offset(self, section_name: str, offset: int, size: int) -> bytes | None:
+        """Get specific bytes from a section at a given offset.
+
+        Args:
+            section_name: Name of the section
+            offset: Offset within the section
+            size: Number of bytes to read
+
+        Returns:
+            Raw bytes at the specified offset, or None if not found
+        """
+        try:
+            content = self.get_section_bytes(section_name)
+            if content is None:
+                return None
+
+            if offset + size > len(content):
+                logger.warning(f"Requested range {offset}:{offset+size} exceeds section size {len(content)}")
+                return None
+
+            return content[offset : offset + size]
+
+        except Exception as e:
+            logger.debug(f"Failed to get section bytes at offset for {section_name}: {e}")
+            return None
+
+    def get_section_bytes(self, section_name: str) -> bytes | None:
         """Get raw bytes content of a specific section.
 
         Args:
@@ -77,30 +103,4 @@ class MachOParser:
 
         except Exception as e:
             logger.debug(f"Failed to get section content for {section_name}: {e}")
-            return None
-
-    def get_section_bytes_at_offset(self, section_name: str, offset: int, size: int) -> bytes | None:
-        """Get specific bytes from a section at a given offset.
-
-        Args:
-            section_name: Name of the section
-            offset: Offset within the section
-            size: Number of bytes to read
-
-        Returns:
-            Raw bytes at the specified offset, or None if not found
-        """
-        try:
-            content = self.get_section_content(section_name)
-            if content is None:
-                return None
-
-            if offset + size > len(content):
-                logger.warning(f"Requested range {offset}:{offset+size} exceeds section size {len(content)}")
-                return None
-
-            return content[offset : offset + size]
-
-        except Exception as e:
-            logger.debug(f"Failed to get section bytes at offset for {section_name}: {e}")
             return None
