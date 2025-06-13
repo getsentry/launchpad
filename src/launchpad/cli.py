@@ -39,18 +39,18 @@ def cli(ctx: click.Context, version: bool) -> None:
 
 
 @cli.command()
-@click.argument("input_path", type=click.Path(exists=True), metavar="INPUT_PATH")
+@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
 @click.option(
     "-o",
     "--output",
-    type=click.Path(),
+    type=click.Path(path_type=Path),
     default="ios-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
 )
 @click.option(
     "--working-dir",
-    type=click.Path(),
+    type=click.Path(path_type=Path),
     help="Working directory for temporary files (default: system temp).",
 )
 @click.option("--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis.")
@@ -137,11 +137,11 @@ def ios(
 
 
 @cli.command()
-@click.argument("input_path", type=click.Path(exists=True), metavar="INPUT_PATH")
+@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
 @click.option(
     "-o",
     "--output",
-    type=click.Path(),
+    type=click.Path(path_type=Path),
     default="android-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
