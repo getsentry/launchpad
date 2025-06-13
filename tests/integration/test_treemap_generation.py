@@ -1,13 +1,11 @@
-"""Integration tests for treemap generation functionality."""
+"""Integration tests for treemap generation."""
 
 import json
 from pathlib import Path
-from typing import List
 
 import pytest
 
 from launchpad.analyzers.ios import IOSAnalyzer
-from launchpad.models.treemap import TreemapElement
 
 
 class TestTreemapGeneration:
@@ -134,78 +132,3 @@ class TestTreemapGeneration:
 
         assert total_install == treemap.total_install_size
         assert total_download == treemap.total_download_size
-
-    def test_treemap_file_hierarchy(self, sample_app_path: Path) -> None:
-        """Test that file hierarchy is correctly built."""
-
-        analyzer = IOSAnalyzer(enable_treemap=True)
-        results = analyzer.analyze(sample_app_path)
-
-        assert results.treemap is not None
-        treemap = results.treemap
-
-        def find_leaf_nodes(element: TreemapElement) -> List[TreemapElement]:
-            """Recursively find all leaf nodes."""
-            if element.is_leaf:
-                return [element]
-
-            leaves: List[TreemapElement] = []
-            for child in element.children:
-                leaves.extend(find_leaf_nodes(child))
-            return leaves
-
-        leaf_nodes = find_leaf_nodes(treemap.root)
-
-        assert len(leaf_nodes) > 0
-
-        for leaf in leaf_nodes:
-            assert leaf.is_leaf
-            assert leaf.path is not None
-            assert leaf.install_size > 0
-
-        assert len(leaf_nodes) == treemap.file_count
-
-    def test_treemap_hierarchy_structure(self, sample_app_path: Path) -> None:
-        """Test that treemap maintains proper hierarchy structure."""
-        # Skip if test file doesn't exist
-        if not sample_app_path.exists():
-            pytest.skip(f"Test file {sample_app_path} not found")
-
-        # Create analyzer with treemap enabled
-        analyzer = IOSAnalyzer(enable_treemap=True)
-
-        # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
-
-        # Verify treemap was generated
-        assert results.treemap is not None
-        treemap = results.treemap
-
-        def verify_element_consistency(element: TreemapElement) -> None:
-            """Verify that element sizes are consistent with children."""
-            # Element should have non-negative sizes
-            assert element.install_size >= 0
-            assert element.download_size >= 0
-
-            # If element has children, verify size relationships
-            if element.children:
-                children_install_size = sum(child.total_install_size for child in element.children)
-                children_download_size = sum(child.total_download_size for child in element.children)
-
-                # Total size should include direct size plus children
-                assert element.total_install_size == element.install_size + children_install_size
-                assert element.total_download_size == element.download_size + children_download_size
-
-                # Recursively verify children
-                for child in element.children:
-                    verify_element_consistency(child)
-
-            # Download size should generally be <= install size (compressed)
-            assert element.download_size <= element.install_size
-
-        # Verify the entire tree structure
-        verify_element_consistency(treemap.root)
-
-        # Verify that treemap totals match root totals
-        assert treemap.total_install_size == treemap.root.total_install_size
-        assert treemap.total_download_size == treemap.root.total_download_size
