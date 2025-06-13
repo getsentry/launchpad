@@ -203,7 +203,7 @@ class TreemapBuilder:
         for files_by_type in file_analysis.files_by_type.values():
             all_files.extend(files_by_type)
 
-        # Group files by their directory structure
+        # Group files by their full directory structure
         directory_map: Dict[str, List[FileInfo]] = defaultdict(list)
         root_files: List[FileInfo] = []
 
@@ -213,9 +213,9 @@ class TreemapBuilder:
                 # Root level file
                 root_files.append(file_info)
             else:
-                # File in subdirectory - group by first directory
-                first_dir = path_obj.parts[0]
-                directory_map[first_dir].append(file_info)
+                # File in subdirectory - group by full directory path
+                dir_path = str(path_obj.parent)
+                directory_map[dir_path].append(file_info)
 
         elements: List[TreemapElement] = []
 
@@ -224,52 +224,104 @@ class TreemapBuilder:
             element = self._create_file_element(file_info, file_info.path)
             elements.append(element)
 
-        # Add directories with their contents
-        for dir_name, files in directory_map.items():
-            dir_element = self._create_directory_element(dir_name, files)
+        # Create a map of all directories and their files
+        dir_structure: Dict[str, List[FileInfo]] = defaultdict(list)
+
+        # First pass: organize all files into their respective directories
+        for dir_path, files in directory_map.items():
+            path_obj = Path(dir_path)
+            current_dir = dir_path
+
+            # Add files to their immediate directory
+            dir_structure[current_dir].extend(files)
+
+            # Add to parent directories
+            while len(path_obj.parts) > 1:
+                parent = str(path_obj.parent)
+                dir_structure[parent].extend(files)
+                current_dir = parent
+                path_obj = path_obj.parent
+
+        # Get all unique directory paths
+        all_dirs: set[str] = set()
+        for dir_path in directory_map.keys():
+            path_obj = Path(dir_path)
+            # Add all parent directories
+            current = path_obj
+            while len(current.parts) > 0:
+                all_dirs.add(str(current))
+                current = current.parent
+
+        logger.debug(f"Found directories: {sorted(all_dirs)}")
+
+        # Second pass: build the directory hierarchy
+        def build_directory(dir_path: str) -> TreemapElement:
+            dir_name = os.path.basename(dir_path)
+            files = dir_structure[dir_path]
+
+            # Group files by subdirectory
+            subdirs: Dict[str, List[FileInfo]] = defaultdict(list)
+            direct_files: List[FileInfo] = []
+
+            for file_info in files:
+                path_obj = Path(file_info.path)
+                if str(path_obj.parent) == dir_path:
+                    direct_files.append(file_info)
+                else:
+                    # File is in a subdirectory
+                    subdir = str(path_obj.parent)
+                    subdirs[subdir].append(file_info)
+
+            # Create child elements
+            children: List[TreemapElement] = []
+
+            # Add direct files
+            for file_info in direct_files:
+                filename = os.path.basename(file_info.path)
+                element = self._create_file_element(file_info, filename)
+                children.append(element)
+
+            # Add subdirectories
+            for subdir_path, _ in subdirs.items():
+                subdir_element = build_directory(subdir_path)
+                children.append(subdir_element)
+
+            return TreemapElement(
+                name=dir_name,
+                install_size=0,  # Directory itself has no size
+                download_size=0,  # Directory itself has no size
+                element_type=self._get_directory_type(dir_name),
+                path=dir_path,
+                is_directory=True,
+                children=children,
+            )
+
+        # Build top-level directories
+        top_level_dirs: set[str] = {d for d in all_dirs if len(Path(d).parts) == 1}
+        logger.debug(f"Top level directories: {sorted(top_level_dirs)}")
+
+        for dir_path in sorted(top_level_dirs):
+            dir_element = build_directory(dir_path)
             elements.append(dir_element)
 
         return elements
 
     def _create_directory_element(self, dir_name: str, files: List[FileInfo]) -> TreemapElement:
         """Create a TreemapElement for a directory containing files."""
-
         # Group files by subdirectory within this directory
         subdirs: Dict[str, List[FileInfo]] = defaultdict(list)
         direct_files: List[FileInfo] = []
 
         for file_info in files:
             path_obj = Path(file_info.path)
+            parent_path = str(path_obj.parent)
 
-            # Find the relative path from current directory
-            relative_parts: List[str] = []
-            found_current_dir = False
-
-            for i, part in enumerate(path_obj.parts):
-                if part == dir_name and not found_current_dir:
-                    # Found our current directory, get the parts after it
-                    relative_parts = list(path_obj.parts[i + 1 :])
-                    found_current_dir = True
-                    break
-
-            # If we didn't find the current directory in the path, check if this file
-            # is at the root level where the directory name is the first part
-            if not found_current_dir:
-                if len(path_obj.parts) > 0 and path_obj.parts[0] == dir_name:
-                    relative_parts = list(path_obj.parts[1:])
-                else:
-                    # This file doesn't belong in this directory, skip it
-                    continue
-
-            if len(relative_parts) == 0:
-                logger.warning(f"File {file_info.path} has no relative parts")
-                continue
-            elif len(relative_parts) == 1:
-                # Direct file in this directory
+            # If this file is directly in the current directory
+            if os.path.basename(parent_path) == dir_name:
                 direct_files.append(file_info)
             else:
-                # File in subdirectory
-                subdir = relative_parts[0]
+                # File is in a subdirectory
+                subdir = os.path.basename(parent_path)
                 subdirs[subdir].append(file_info)
 
         # Create child elements
@@ -359,8 +411,12 @@ class TreemapBuilder:
             return TreemapType.ASSETS
         elif ".lproj" in name_lower:
             return TreemapType.RESOURCES
+        elif name_lower == "frameworks":
+            return TreemapType.FRAMEWORKS
+        elif name_lower == "plugins":
+            return TreemapType.MODULES
 
-        return None  # Generic directory
+        return TreemapType.FILES  # Default to FILES instead of None
 
     def _calculate_category_breakdown(self, file_analysis: FileAnalysis) -> Dict[str, Dict[str, int]]:
         """Calculate size breakdown by category."""
