@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { TreemapResults } from '../types/treemap';
-import { detectDataFormat, convertLegacyToTreemap, validateTreemapData } from '../utils/dataConverter';
+import { convertFileAnalysisToTreemap, detectDataFormat, validateTreemapData } from '../utils/dataConverter';
 
 interface FileUploadProps {
   onDataLoad: (data: TreemapResults) => void;
@@ -26,49 +26,58 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
       console.log('Raw data keys:', Object.keys(rawData));
       console.log('Raw data sample:', JSON.stringify(rawData, null, 2).substring(0, 1000) + '...');
 
-      // Detect the data format
-      const format = detectDataFormat(rawData);
-      console.log('Detected format:', format);
-
-      let treemapData: TreemapResults;
-
-      if (format === 'treemap') {
+      // Check if the data has a treemap property
+      if ('treemap' in rawData) {
         // Validate TreemapResults format
-        const validation = validateTreemapData(rawData);
+        const validation = validateTreemapData(rawData.treemap);
         console.log('TreemapResults validation:', validation);
         if (!validation.isValid) {
           throw new Error(`Invalid TreemapResults format: ${validation.error}`);
         }
-        treemapData = rawData as TreemapResults;
-      } else if (format === 'legacy') {
-        // Convert legacy format to TreemapResults
-        console.log('Converting legacy analysis format to treemap format...');
-        treemapData = convertLegacyToTreemap(rawData);
-        console.log('Converted treemap data:', {
-          total_install_size: treemapData.total_install_size,
-          file_count: treemapData.file_count,
-          platform: treemapData.platform,
-          root_children_count: treemapData.root.children.length
-        });
+        onDataLoad(rawData.treemap);
       } else {
-        console.error('Unknown format detected. Raw data structure:', {
-          keys: Object.keys(rawData),
-          hasRoot: 'root' in rawData,
-          hasFileAnalysis: 'file_analysis' in rawData,
-          hasAppInfo: 'app_info' in rawData,
-          hasTotalInstallSize: 'total_install_size' in rawData,
-          hasTotalDownloadSize: 'total_download_size' in rawData
-        });
-        throw new Error(
-          'Unsupported file format. Expected either:\n' +
-          '1. TreemapResults format (from treemap.py models)\n' +
-          '2. Legacy iOS analysis format\n\n' +
-          'Please check that your JSON file matches one of these formats.\n' +
-          `Detected keys: ${Object.keys(rawData).join(', ')}`
-        );
-      }
+        // Detect the data format for file analysis support
+        const format = detectDataFormat(rawData);
+        console.log('Detected format:', format);
 
-      onDataLoad(treemapData);
+        if (format === 'treemap') {
+          // Validate TreemapResults format
+          const validation = validateTreemapData(rawData);
+          console.log('TreemapResults validation:', validation);
+          if (!validation.isValid) {
+            throw new Error(`Invalid TreemapResults format: ${validation.error}`);
+          }
+          onDataLoad(rawData);
+        } else if (format === 'file_analysis') {
+          // Convert file analysis format to TreemapResults
+          console.log('Converting file analysis format to treemap format...');
+          const treemapData = convertFileAnalysisToTreemap(rawData);
+          console.log('Converted treemap data:', {
+            total_install_size: treemapData.total_install_size,
+            file_count: treemapData.file_count,
+            platform: treemapData.platform,
+            root_children_count: treemapData.root.children.length
+          });
+          onDataLoad(treemapData);
+        } else {
+          console.error('Unknown format detected. Raw data structure:', {
+            keys: Object.keys(rawData),
+            hasRoot: 'root' in rawData,
+            hasFileAnalysis: 'file_analysis' in rawData,
+            hasAppInfo: 'app_info' in rawData,
+            hasTotalInstallSize: 'total_install_size' in rawData,
+            hasTotalDownloadSize: 'total_download_size' in rawData
+          });
+          throw new Error(
+            'Unsupported file format. Expected either:\n' +
+            '1. JSON with "treemap" property containing TreemapResults\n' +
+            '2. Direct TreemapResults format\n' +
+            '3. File analysis format\n\n' +
+            'Please check that your JSON file matches one of these formats.\n' +
+            `Detected keys: ${Object.keys(rawData).join(', ')}`
+          );
+        }
+      }
     } catch (err) {
       if (err instanceof SyntaxError) {
         onError('Invalid JSON file. Please check that the file contains valid JSON.');
@@ -90,8 +99,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
       }
       const rawData = await response.json();
 
-      // The sample data is in legacy format, so convert it
-      const treemapData = convertLegacyToTreemap(rawData);
+      // The sample data is in file analysis format, so convert it
+      const treemapData = convertFileAnalysisToTreemap(rawData);
       onDataLoad(treemapData);
     } catch (err) {
       onError(`Error loading sample data: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -166,7 +175,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onDataLoad, onError }) =
                 Drop a JSON file here or click to select
               </div>
               <div style={{ fontSize: '14px', color: '#666' }}>
-                Supports TreemapResults format and legacy iOS analysis files
+                Supports TreemapResults format and file analysis files
               </div>
             </div>
           )}
