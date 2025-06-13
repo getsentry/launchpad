@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
-
-# TODO: Implement Android-specific models when Android support is added
+from .common import BaseAnalysisResults, BaseAppInfo
 
 
 class AndroidMetadata(BaseModel):
@@ -26,19 +24,7 @@ class AndroidAppInfo(BaseAppInfo):
     model_config = ConfigDict(frozen=True)
 
     # Android-specific fields to be added:
-    # package_name: str = Field(..., description="Android package name")
-    # min_sdk_version: int = Field(..., description="Minimum SDK version")
-    # target_sdk_version: int = Field(..., description="Target SDK version")
-
-
-class AndroidBinaryAnalysis(BaseBinaryAnalysis):
-    """Android-specific binary analysis results."""
-
-    model_config = ConfigDict(frozen=True)
-
-    # Android-specific fields to be added:
-    # dex_analysis: Optional[DexAnalysis] = Field(None, description="DEX file analysis")
-    # native_libraries: List[str] = Field(default_factory=list, description="Native .so libraries")
+    package_name: str = Field(..., description="Android package name")
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):
@@ -46,6 +32,4 @@ class AndroidAnalysisResults(BaseAnalysisResults):
 
     model_config = ConfigDict(frozen=True)
 
-    # To be uncommented when Android models are implemented:
-    # app_info: AndroidAppInfo = Field(..., description="Android app information")
-    # binary_analysis: AndroidBinaryAnalysis = Field(..., description="Android binary analysis results")
+    app_info: AndroidAppInfo = Field(..., description="Android app information")

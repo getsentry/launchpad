@@ -25,29 +25,10 @@ classifiers = [
     "Topic :: System :: Archiving",
 ]
 requires-python = ">=3.11"
-dependencies = [
-    "click>=8.1.0",
-    "lief>=0.14.0",
-    "pydantic>=2.0.0",
-    "rich>=13.0.0",
-    "typing-extensions>=4.8.0",
-]
+dynamic = ["dependencies"]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-mock>=3.11.0",
-    "black>=23.0.0",
-    "isort>=5.12.0",
-    "flake8>=6.0.0",
-    "mypy>=1.5.0",
-    "pre-commit>=3.4.0",
-    "build>=1.0.0",
-    "twine>=4.0.0",
-    "safety>=2.3.0",
-    "bandit>=1.7.0",
-    "pip-audit>=2.6.0",
-]
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 [project.scripts]
 launchpad = "launchpad.cli:main"
@@ -94,6 +75,10 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["lief.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["confluent_kafka.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

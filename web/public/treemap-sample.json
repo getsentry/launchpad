@@ -1,0 +1,139 @@
+{
+  "root": {
+    "name": "Sample App",
+    "install_size": 8454690,
+    "download_size": 6763752,
+    "element_type": null,
+    "path": null,
+    "is_directory": true,
+    "children": [
+      {
+        "name": "Executables & Binaries",
+        "install_size": 2982472,
+        "download_size": 2385978,
+        "element_type": "executables",
+        "path": null,
+        "is_directory": true,
+        "children": [
+          {
+            "name": "HackerNews",
+            "install_size": 2628128,
+            "download_size": 2102502,
+            "element_type": "executables",
+            "path": "HackerNews",
+            "is_directory": false,
+            "children": [],
+            "details": {
+              "file_type": "unknown",
+              "hash_md5": "9be613d41e87fc737691d6eae65ef868"
+            }
+          },
+          {
+            "name": "Common",
+            "install_size": 188992,
+            "download_size": 151194,
+            "element_type": "executables",
+            "path": "Frameworks/Common.framework/Common",
+            "is_directory": false,
+            "children": [],
+            "details": {
+              "file_type": "unknown",
+              "hash_md5": "03b50a5c46df571c54cd680b90d471df"
+            }
+          }
+        ],
+        "details": {
+          "file_count": 11,
+          "file_type_category": "unknown"
+        }
+      },
+      {
+        "name": "Asset Catalogs",
+        "install_size": 4809008,
+        "download_size": 3847206,
+        "element_type": "compiled_resources",
+        "path": null,
+        "is_directory": true,
+        "children": [
+          {
+            "name": "Assets.car",
+            "install_size": 4785504,
+            "download_size": 3828403,
+            "element_type": "compiled_resources",
+            "path": "Assets.car",
+            "is_directory": false,
+            "children": [],
+            "details": {
+              "file_type": "car",
+              "hash_md5": "1b9f45846c27187e515a7453de0b44e2"
+            }
+          }
+        ],
+        "details": {
+          "file_count": 2,
+          "file_type_category": "car"
+        }
+      },
+      {
+        "name": "Fonts",
+        "install_size": 446756,
+        "download_size": 357405,
+        "element_type": "resources",
+        "path": null,
+        "is_directory": true,
+        "children": [
+          {
+            "name": "ibm_plex_sans_medium.ttf",
+            "install_size": 177104,
+            "download_size": 141683,
+            "element_type": "resources",
+            "path": "Fonts_Fonts.bundle/ibm_plex_sans_medium.ttf",
+            "is_directory": false,
+            "children": [],
+            "details": {
+              "file_type": "ttf",
+              "hash_md5": "361336a2ed1908c5cd8dec2e10aa71a2"
+            }
+          }
+        ],
+        "details": {
+          "file_count": 3,
+          "file_type_category": "ttf"
+        }
+      }
+    ],
+    "details": {
+      "app_version": "3.6",
+      "app_build": "1",
+      "bundle_id": "com.emergetools.hackernews",
+      "executable_size": 2628128
+    }
+  },
+  "total_install_size": 8454690,
+  "total_download_size": 6763752,
+  "file_count": 29,
+  "category_breakdown": {
+    "executables": {
+      "unknown": 2982472
+    },
+    "compiled_resources": {
+      "car": 4809008
+    },
+    "resources": {
+      "ttf": 446756
+    },
+    "assets": {
+      "png": 25048
+    },
+    "plists": {
+      "plist": 6769
+    },
+    "signatures": {
+      "mobileprovision": 75596
+    },
+    "manifests": {
+      "xcprivacy": 2108
+    }
+  },
+  "platform": "ios"
+}

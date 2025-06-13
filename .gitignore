@@ -30,4 +30,9 @@ Thumbs.db
 
 ios-analysis-report.json
 android-analysis-report.json
+*_treemap.json
+*_treemap_cli.json
 legacy/ios/sizeAnalysis/.build/
+
+# in case the user is installing devenv for the first time
+install-devenv.sh
