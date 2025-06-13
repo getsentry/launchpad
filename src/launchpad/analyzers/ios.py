@@ -78,11 +78,11 @@ class IOSAnalyzer:
             # Get basic app info
             app_info = self._extract_app_info(xcarchive)
 
-            binary_analysis: List[IOSBinaryAnalysis] = []
-
             # Analyze files and build treemap
             file_analysis = self._analyze_files(xcarchive)
             treemap = None
+            binary_analysis: List[IOSBinaryAnalysis] = []
+
             if self.enable_treemap:
                 treemap_builder = TreemapBuilder(
                     app_name=app_info.name,
@@ -93,44 +93,24 @@ class IOSAnalyzer:
 
                 # If range mapping is enabled, add binary section details to treemap
                 if self.enable_range_mapping:
-                    executable_name = xcarchive.get_plist().get("CFBundleExecutable", "Unknown")
-                    executable_path = xcarchive.get_app_bundle_path() / executable_name
-                    if executable_path.exists():
-                        try:
-                            fat_binary = lief.MachO.parse(str(executable_path))
-                            if fat_binary is not None and fat_binary.size > 0:
-                                binary = fat_binary.at(0)
-                                parser = MachOParser(binary)
-                                executable_size = get_file_size(executable_path)
-                                range_builder = RangeMappingBuilder(parser, executable_size)
-                                range_map = range_builder.build_range_mapping()
-                                binary_analysis.append(
-                                    IOSBinaryAnalysis(
-                                        executable_size=executable_size,
-                                        architectures=parser.extract_architectures(),
-                                        linked_libraries=parser.extract_linked_libraries(),
-                                        sections=parser.extract_sections(),
-                                        swift_metadata=None,  # TODO: Implement Swift metadata extraction
-                                        range_map=range_map,
-                                    )
-                                )
-                                binary_treemap = treemap_builder.build_binary_treemap(
-                                    range_map,
-                                    app_info.name,
-                                )
-                                # Find and replace the existing binary node
-                                for i, child in enumerate(treemap.root.children):
-                                    if child.name == executable_name and (
-                                        child.element_type == TreemapType.EXECUTABLES
-                                        or child.element_type == TreemapType.FILES
-                                    ):
-                                        treemap.root.children[i] = binary_treemap
-                                        break
-                                else:
-                                    # If no matching node found, append as a new child
-                                    treemap.root.children.append(binary_treemap)
-                        except Exception as e:
-                            logger.warning(f"Failed to build binary treemap: {e}")
+                    binary_analysis_result = self._analyze_binary(xcarchive)
+                    if binary_analysis_result.range_map is not None:
+                        binary_analysis.append(binary_analysis_result)
+                        binary_treemap = treemap_builder.build_binary_treemap(
+                            binary_analysis_result.range_map,
+                            app_info.name,
+                        )
+                        # Find and replace the existing binary node
+                        executable_name = xcarchive.get_plist().get("CFBundleExecutable", "Unknown")
+                        for i, child in enumerate(treemap.root.children):
+                            if child.name == executable_name and (
+                                child.element_type == TreemapType.EXECUTABLES or child.element_type == TreemapType.FILES
+                            ):
+                                treemap.root.children[i] = binary_treemap
+                                break
+                        else:
+                            # If no matching node found, append as a new child
+                            treemap.root.children.append(binary_treemap)
 
             # Build results
             results = IOSAnalysisResults(
