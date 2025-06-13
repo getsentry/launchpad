@@ -55,7 +55,7 @@ class APK(AndroidArtifact):
         self._manifest = AxmlUtils.binary_xml_to_android_manifest(manifest_buffer, binary_res_tables)
         return self._manifest
 
-    def get_resource_tables(self) -> list[BinaryResourceTable]:
+    def get_resource_tables(self) -> list[BinaryResourceTable]:  # type: ignore[override]
         """Get the resource tables from the artifact.
 
         Returns:
