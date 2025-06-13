@@ -8,6 +8,7 @@ import logging
 import os
 import time
 from pathlib import Path
+from typing import cast
 
 import click
 from rich.console import Console
@@ -17,6 +18,7 @@ from rich.table import Table
 from . import __version__
 from .analyzers.android import AndroidAnalyzer
 from .analyzers.ios import IOSAnalyzer
+from .artifacts import AndroidArtifact, ArtifactFactory, IOSArtifact
 from .models import AndroidAnalysisResults, IOSAnalysisResults
 from .service import run_service
 from .utils.logging import setup_logging
@@ -109,7 +111,8 @@ def ios(
                 skip_swift_metadata=skip_swift_metadata,
                 skip_symbols=skip_symbols,
             )
-            results = analyzer.analyze(input_path)
+            artifact = ArtifactFactory.from_path(input_path)
+            results = analyzer.analyze(cast(IOSArtifact, artifact))
 
             progress.update(task, description="Analysis complete!")
 
@@ -190,8 +193,9 @@ def android(
         ) as progress:
             task = progress.add_task("Analyzing Android app bundle...", total=None)
 
-            analyzer = AndroidAnalyzer(input_path)
-            results = analyzer.analyze()
+            analyzer = AndroidAnalyzer()
+            artifact = ArtifactFactory.from_path(input_path)
+            results = analyzer.analyze(cast(AndroidArtifact, artifact))
 
             progress.update(task, description="Analysis complete!")
 
