@@ -1,4 +1,4 @@
-from devenv.lib import config, venv
+from devenv.lib import config, venv, fs
 
 def main(context: dict[str, str]) -> int:
     reporoot = context["reporoot"]
@@ -11,5 +11,6 @@ def main(context: dict[str, str]) -> int:
     print(f"syncing venv with {requirements}...")
     venv.sync(reporoot, venv_dir, requirements, editable_paths, bins)
 
-    return 0
+    fs.ensure_symlink("../../config/hooks/post-merge", f"{reporoot}/.git/hooks/post-merge")
 
+    return 0
