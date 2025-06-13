@@ -1,7 +1,7 @@
 from typing import Any
 
 from .android.manifest.manifest import AndroidManifest
-from .android.resources.binary import BinaryResourceTable
+from .android.resources.resource_table import ResourceTable
 
 
 class Artifact:
@@ -18,7 +18,7 @@ class AndroidArtifact(Artifact):
         """Get the Android manifest information."""
         raise NotImplementedError("Not implemented")
 
-    def get_resource_tables(self) -> list[BinaryResourceTable]:
+    def get_resource_tables(self) -> list[ResourceTable]:
         """Get the resource tables from the artifact."""
         raise NotImplementedError("Not implemented")
 

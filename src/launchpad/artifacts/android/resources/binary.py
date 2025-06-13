@@ -1,24 +1,9 @@
-from dataclasses import dataclass
 from typing import List, Optional
 
 from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
 from launchpad.parsers.android.types import ResourceTablePackage, ResourceTableType, TypedValue
 
-# Default package id for app package is 0x7f
-DEFAULT_PACKAGE_ID = 0x7F
-
-
-@dataclass(frozen=True)
-class ResourceTable:
-    """Interface for resource table implementations."""
-
-    def get_value_by_key(self, key: str, locale: Optional[str] = None) -> Optional[str]:
-        """Get a resource value by its key and optional locale."""
-        raise NotImplementedError()
-
-    def get_value_by_id(self, id_val: int) -> Optional[str]:
-        """Get a resource value by its ID."""
-        raise NotImplementedError()
+from .resource_table import DEFAULT_PACKAGE_ID, ResourceTable
 
 
 class BinaryResourceTable(ResourceTable):
