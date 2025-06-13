@@ -111,9 +111,9 @@ class IOSAnalyzer:
         results = IOSAnalysisResults(
             app_info=app_info,
             file_analysis=file_analysis,
+            binary_analysis=binary_analysis,
             treemap=treemap,
             analysis_duration=time.time() - start_time,
-            binary_analysis=binary_analysis,
         )
 
         logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")

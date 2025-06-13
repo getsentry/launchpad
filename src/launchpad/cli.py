@@ -374,6 +374,7 @@ def _print_ios_summary(results: IOSAnalysisResults) -> None:
     binary_analysis = results.binary_analysis
 
     console.print("\n[bold]Summary:[/bold]")
+    console.print(f"• App name: [cyan]{results.app_info.name}[/cyan]")
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
 
