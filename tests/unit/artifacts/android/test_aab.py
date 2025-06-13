@@ -24,7 +24,6 @@ class TestAAB:
 
         assert manifest["version_code"] == "13"
         assert manifest["version_name"] == "1.0.2"
-        print(manifest["application"])
         assert manifest["application"]["label"] == "Hacker News"
         assert manifest["application"]["icon_path"] == "res/mipmap-anydpi-v26/ic_launcher.xml"
         assert manifest["package_name"] == "com.emergetools.hackernews"

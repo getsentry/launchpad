@@ -4,6 +4,7 @@ from zipfile import ZipFile
 
 from .android.aab import AAB
 from .android.apk import APK
+from .android.zipped_aab import ZippedAAB
 from .android.zipped_apk import ZippedAPK
 from .artifact import Artifact
 from .ios.zipped_xcarchive import ZippedXCArchive
@@ -43,6 +44,10 @@ class ArtifactFactory:
                 apk_files = [f for f in zip_file.namelist() if f.endswith(".apk")]
                 if len(apk_files) == 1:
                     return ZippedAPK(content)
+
+                aab_files = [f for f in zip_file.namelist() if f.endswith(".aab")]
+                if len(aab_files) == 1:
+                    return ZippedAAB(content)
 
                 # Check if zip contains base/manifest/AndroidManifest.xml (AAB)
                 manifest_files = [f for f in zip_file.namelist() if f.endswith("base/manifest/AndroidManifest.xml")]
