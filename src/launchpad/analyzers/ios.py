@@ -61,21 +61,24 @@ class IOSAnalyzer:
         """Analyze an iOS app bundle.
 
         Args:
-            input_path: Path to the .xcarchive.zip file
+            input_path: Path to zip archive
 
         Returns:
             Analysis results including file sizes, binary analysis, and treemap
         """
-        start_time = time.time()
-        logger.info(f"Analyzing iOS app: {input_path}")
+        logger.info(f"Starting iOS analysis of {input_path}")
+        analysis_start_time = time.time()
 
         with open(input_path, "rb") as f:
             xcarchive = ZippedXCArchive(f.read(), self.working_dir)
         self._temp_dirs.append(xcarchive.extract_dir)
 
         app_info = self._extract_app_info(xcarchive)
+        logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
 
         file_analysis = self._analyze_files(xcarchive)
+        logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
+
         treemap = None
         binary_analysis: List[IOSBinaryAnalysis] = []
 
@@ -83,7 +86,7 @@ class IOSAnalyzer:
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
-                download_compression_ratio=0.8,  # iOS apps typically compress to ~80%
+                download_compression_ratio=0.8,  # TODO: implement this
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
@@ -112,8 +115,8 @@ class IOSAnalyzer:
             app_info=app_info,
             file_analysis=file_analysis,
             binary_analysis=binary_analysis,
+            analysis_duration=time.time() - analysis_start_time,
             treemap=treemap,
-            analysis_duration=time.time() - start_time,
         )
 
         logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")
@@ -131,7 +134,7 @@ class IOSAnalyzer:
         plist = xcarchive.get_plist()
         return IOSAppInfo(
             name=plist.get("CFBundleName", "Unknown"),
-            bundle_id=plist.get("CFBundleIdentifier", "Unknown"),
+            bundle_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
             version=plist.get("CFBundleShortVersionString", "Unknown"),
             build=plist.get("CFBundleVersion", "Unknown"),
             executable=plist.get("CFBundleExecutable", "Unknown"),
