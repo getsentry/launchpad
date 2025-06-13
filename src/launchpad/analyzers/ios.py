@@ -54,7 +54,6 @@ class IOSAnalyzer:
         self.skip_symbols = skip_symbols
         self.enable_range_mapping = enable_range_mapping
         self.enable_treemap = enable_treemap
-        self._temp_dirs: List[Path] = []
         self.binary_analysis: IOSBinaryAnalysis | None = None
 
     def analyze(self, input_path: Path) -> IOSAnalysisResults:
@@ -71,7 +70,6 @@ class IOSAnalyzer:
 
         with open(input_path, "rb") as f:
             xcarchive = ZippedXCArchive(f.read(), self.working_dir)
-        self._temp_dirs.append(xcarchive.extract_dir)
 
         app_info = self._extract_app_info(xcarchive)
         logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")

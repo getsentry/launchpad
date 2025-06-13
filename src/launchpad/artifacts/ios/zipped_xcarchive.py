@@ -25,11 +25,6 @@ class ZippedXCArchive(IOSArtifact):
         self._app_bundle_path: Optional[Path] = None
         self._plist: Optional[dict[str, Any]] = None
 
-    @property
-    def extract_dir(self) -> Path:
-        """Get the directory where the archive was extracted."""
-        return self._extract_dir
-
     def get_plist(self) -> dict[str, Any]:
         """Get the Info.plist contents."""
         if self._plist is not None:
