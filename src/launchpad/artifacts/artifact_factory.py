@@ -2,6 +2,7 @@ from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
 
+from .android.aab import AAB
 from .android.apk import APK
 from .android.zipped_apk import ZippedAPK
 from .artifact import Artifact
@@ -43,14 +44,22 @@ class ArtifactFactory:
                 if len(apk_files) == 1:
                     return ZippedAPK(content)
 
+                # Check if zip contains base/manifest/AndroidManifest.xml (AAB)
+                manifest_files = [f for f in zip_file.namelist() if f.endswith("base/manifest/AndroidManifest.xml")]
+                if manifest_files:
+                    return AAB(content)
+
                 # Check if zip contains AndroidManifest.xml (APK)
                 manifest_files = [f for f in zip_file.namelist() if f.endswith("AndroidManifest.xml")]
                 if manifest_files:
                     return APK(content)
 
-        # Check if it's a direct APK by looking for AndroidManifest.xml (APK)
+        # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations
         try:
             with ZipFile(BytesIO(content)) as zip_file:
+                if any(f.endswith("base/manifest/AndroidManifest.xml") for f in zip_file.namelist()):
+                    return AAB(content)
+
                 if any(f.endswith("AndroidManifest.xml") for f in zip_file.namelist()):
                     return APK(content)
         except Exception:
