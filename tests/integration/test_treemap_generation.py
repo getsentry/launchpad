@@ -2,11 +2,12 @@
 
 import json
 from pathlib import Path
-from typing import List
+from typing import List, cast
 
 import pytest
 
 from launchpad.analyzers.ios import IOSAnalyzer
+from launchpad.artifacts import ArtifactFactory, IOSArtifact
 from launchpad.models.treemap import TreemapElement
 
 
@@ -26,9 +27,10 @@ class TestTreemapGeneration:
 
         # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
+        artifact = ArtifactFactory.from_path(sample_app_path)
 
         # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None
@@ -55,9 +57,10 @@ class TestTreemapGeneration:
 
         # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
+        artifact = ArtifactFactory.from_path(sample_app_path)
 
         # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None
@@ -108,9 +111,10 @@ class TestTreemapGeneration:
 
         # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
+        artifact = ArtifactFactory.from_path(sample_app_path)
 
         # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None
@@ -139,7 +143,10 @@ class TestTreemapGeneration:
         """Test that file hierarchy is correctly built."""
 
         analyzer = IOSAnalyzer(enable_treemap=True)
-        results = analyzer.analyze(sample_app_path)
+        artifact = ArtifactFactory.from_path(sample_app_path)
+
+        # Analyze the sample app
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         assert results.treemap is not None
         treemap = results.treemap
@@ -173,9 +180,10 @@ class TestTreemapGeneration:
 
         # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
+        artifact = ArtifactFactory.from_path(sample_app_path)
 
         # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None

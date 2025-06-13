@@ -12,7 +12,9 @@ If no path is provided, it defaults to the HackerNews test artifact.
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import cast
+
+from launchpad.artifacts.artifact import ArtifactFactory, IOSArtifact
 
 # Add src to path so we can import launchpad modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -26,7 +28,8 @@ def analyze_range_mapping(app_path: Path) -> None:
     print("=" * 50)
 
     analyzer = IOSAnalyzer(enable_range_mapping=True)
-    results = analyzer.analyze(app_path)
+    artifact = ArtifactFactory.from_path(app_path)
+    results = analyzer.analyze(cast(IOSArtifact, artifact))
 
     if not results.binary_analysis.range_map:
         print("ERROR: No range mapping was created!")

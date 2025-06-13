@@ -9,6 +9,8 @@ from typing import Dict, List
 
 import lief
 
+from launchpad.artifacts.artifact import IOSArtifact
+
 from ..artifacts import ZippedXCArchive
 from ..models import (
     DuplicateFileGroup,
@@ -58,11 +60,11 @@ class IOSAnalyzer:
         self.enable_treemap = enable_treemap
         self._temp_dirs: List[Path] = []
 
-    def analyze(self, input_path: Path) -> IOSAnalysisResults:
+    def analyze(self, artifact: IOSArtifact) -> IOSAnalysisResults:
         """Analyze an iOS app bundle.
 
         Args:
-            input_path: Path to zip archive
+            artifact: IOSArtifact to analyze
 
         Returns:
             Complete analysis results
@@ -71,12 +73,10 @@ class IOSAnalyzer:
             ValueError: If input is not a valid iOS app bundle
             RuntimeError: If analysis fails
         """
-        logger.info(f"Starting iOS analysis of {input_path}")
+        if not isinstance(artifact, ZippedXCArchive):
+            raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
 
         analysis_start_time = time.time()
-
-        # TODO: Add vaildation to ensure is xcarchive (or support other formats)
-        artifact = ZippedXCArchive(input_path.read_bytes())
 
         # Extract basic app information
         app_info = self._extract_app_info(artifact)
