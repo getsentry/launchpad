@@ -10,7 +10,6 @@ A microservice for analyzing iOS and Android apps.
 git clone https://github.com/getsentry/launchpad.git
 cd launchpad
 devenv sync
-
 ```
 
 If you don't have devenv installed, [follow these instructions](https://github.com/getsentry/devenv#install).
@@ -37,21 +36,21 @@ devservices down
 
 ### Service Endpoints
 
+- `GET /health` - Basic health check
+- `GET /ready` - Readiness check
+
 ### Analyze an Android App
 
 ```bash
 
-# Analyze an APK
+# Analyze an APK, AAB or Zip containing a single APK or AAB
 launchpad android app.apk
+launchpad android app.aab
+launchpad android zipped_aab.zip
 
 # Analyze an apk with a custom output location
 launchpad android app.apk -o detailed-report.json
 ```
-
-### Analyze an iOS App
-
-- `GET /health` - Basic health check
-- `GET /ready` - Readiness check
 
 ### Testing Kafka Integration
 
@@ -73,6 +72,8 @@ make test-kafka-multiple
 ```bash
 # Direct iOS analysis
 launchpad ios path/to/app.xcarchive.zip
+# Direct Android analysis
+launchpad android path/to/app.apk
 # Custom output location
 launchpad ios path/to/app.xcarchive.zip -o my-report.json
 

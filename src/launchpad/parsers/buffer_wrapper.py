@@ -6,7 +6,6 @@ import logging
 import struct
 import types
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +22,9 @@ class DebugLogContext:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[types.TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
     ) -> None:
         """Exit debug group."""
         logger.debug("=== End %s ===", self.name)
@@ -314,7 +313,7 @@ class BufferWrapper:
         self.cursor = end + 1
         return val
 
-    def maybe_read_string_null_terminated(self) -> Optional[str]:
+    def maybe_read_string_null_terminated(self) -> str | None:
         """Read null-terminated string if it exists.
 
         Returns:

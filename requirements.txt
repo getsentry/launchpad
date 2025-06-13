@@ -19,3 +19,6 @@ sentry-arroyo==2.22.0
 sortedcontainers>=2.4.0
 bandit>=1.7.0
 pip-audit>=2.6.0
+google-api-core==2.25.1
+google-api-python-client==2.172.0
+protobuf==5.29.5

@@ -2,10 +2,13 @@
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
 from launchpad.analyzers.ios import IOSAnalyzer
+from launchpad.artifacts.artifact import IOSArtifact
+from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.models.treemap import TreemapElement
 
 
@@ -19,15 +22,11 @@ class TestTreemapGeneration:
 
     def test_treemap_generation_basic(self, sample_app_path: Path) -> None:
         """Test basic treemap generation functionality."""
-        # Skip if test file doesn't exist
-        if not sample_app_path.exists():
-            pytest.skip(f"Test file {sample_app_path} not found")
 
-        # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
+        artifact = ArtifactFactory.from_path(sample_app_path)
 
-        # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None
@@ -48,15 +47,11 @@ class TestTreemapGeneration:
 
     def test_treemap_json_serialization(self, sample_app_path: Path) -> None:
         """Test that treemap can be serialized to JSON."""
-        # Skip if test file doesn't exist
-        if not sample_app_path.exists():
-            pytest.skip(f"Test file {sample_app_path} not found")
 
-        # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
+        artifact = ArtifactFactory.from_path(sample_app_path)
 
-        # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None
@@ -101,15 +96,11 @@ class TestTreemapGeneration:
 
     def test_treemap_matches_reference(self, sample_app_path: Path) -> None:
         """Test that treemap structure matches reference report."""
-        # Skip if test file doesn't exist
-        if not sample_app_path.exists():
-            pytest.skip(f"Test file {sample_app_path} not found")
 
-        # Create analyzer with treemap enabled
         analyzer = IOSAnalyzer(enable_treemap=True)
+        artifact = ArtifactFactory.from_path(sample_app_path)
 
-        # Analyze the sample app
-        results = analyzer.analyze(sample_app_path)
+        results = analyzer.analyze(cast(IOSArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None

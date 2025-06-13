@@ -9,6 +9,8 @@ from typing import Dict, List
 
 import lief
 
+from launchpad.artifacts.artifact import IOSArtifact
+
 from ..artifacts import ZippedXCArchive
 from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis
 from ..parsers.ios.macho_parser import MachOParser
@@ -47,25 +49,25 @@ class IOSAnalyzer:
         self.enable_treemap = enable_treemap
         self.binary_analysis: IOSBinaryAnalysis | None = None
 
-    def analyze(self, input_path: Path) -> IOSAnalysisResults:
+    def analyze(self, artifact: IOSArtifact) -> IOSAnalysisResults:
         """Analyze an iOS app bundle.
 
         Args:
-            input_path: Path to zip archive
+            artifact: IOSArtifact to analyze
 
         Returns:
             Analysis results including file sizes, binary analysis, and treemap
         """
-        logger.info(f"Starting iOS analysis of {input_path}")
+        if not isinstance(artifact, ZippedXCArchive):
+            raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
+
         analysis_start_time = time.time()
 
-        with open(input_path, "rb") as f:
-            xcarchive = ZippedXCArchive(f.read())
-
-        app_info = self._extract_app_info(xcarchive)
+        # Extract basic app information
+        app_info = self._extract_app_info(artifact)
         logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
 
-        file_analysis = self._analyze_files(xcarchive)
+        file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
 
         treemap = None
@@ -76,8 +78,8 @@ class IOSAnalyzer:
             # Collect all binaries first if range mapping is enabled
             if self.enable_range_mapping:
                 # Analyze main executable
-                main_executable = xcarchive.get_plist().get("CFBundleExecutable", "Unknown")
-                app_bundle_path = xcarchive.get_app_bundle_path()
+                main_executable = artifact.get_plist().get("CFBundleExecutable", "Unknown")
+                app_bundle_path = artifact.get_app_bundle_path()
                 main_binary_path = app_bundle_path / main_executable
                 main_binary = self._analyze_binary(main_binary_path, skip_swift_metadata=self.skip_swift_metadata)
                 if main_binary.range_map is not None:

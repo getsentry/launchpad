@@ -1,6 +1,6 @@
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 from zipfile import ZipFile
 
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
@@ -19,7 +19,7 @@ class ZipProvider:
             content: Raw bytes of the zip file
         """
         self.content = content
-        self._zip: Optional[ZipFile] = None
+        self._zip: ZipFile | None = None
         self._temp_dirs: List[Path] = []
 
     def get_zip(self) -> ZipFile:

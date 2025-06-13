@@ -2,7 +2,7 @@
 
 # Import common models that are shared across platforms
 # Import Android models (placeholders for now)
-from .android import AndroidAnalysisResults, AndroidAppInfo, AndroidMetadata
+from .android import AndroidAnalysisResults, AndroidAppInfo
 from .common import (
     BaseAnalysisResults,
     BaseAppInfo,
@@ -37,8 +37,7 @@ __all__ = [
     "IOSAppInfo",
     "IOSBinaryAnalysis",
     "IOSAnalysisResults",
-    # Android models (placeholder)
-    "AndroidMetadata",
+    # Android models
     "AndroidAppInfo",
     "AndroidAnalysisResults",
     # Range mapping models

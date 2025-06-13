@@ -1,7 +1,7 @@
 import logging
 import plistlib
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from ..artifact import IOSArtifact
 from ..providers.zip_provider import ZipProvider
@@ -16,8 +16,8 @@ class ZippedXCArchive(IOSArtifact):
         super().__init__(content)
         self._zip_provider = ZipProvider(content)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
-        self._app_bundle_path: Optional[Path] = None
-        self._plist: Optional[dict[str, Any]] = None
+        self._app_bundle_path: Path | None = None
+        self._plist: dict[str, Any] | None = None
 
     def get_plist(self) -> dict[str, Any]:
         """Get the Info.plist contents."""
