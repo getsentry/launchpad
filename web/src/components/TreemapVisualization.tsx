@@ -1,7 +1,7 @@
-import React from 'react';
 import ReactECharts from 'echarts-for-react';
+import React from 'react';
+import type { EChartsTreemapData, TreemapElement, TreemapResults } from '../types/treemap';
 import { TreemapType } from '../types/treemap';
-import type { TreemapElement, TreemapResults, EChartsTreemapData } from '../types/treemap';
 
 interface TreemapVisualizationProps {
   data: TreemapResults;
@@ -51,16 +51,22 @@ function convertToEChartsData(
   sizeMode: 'install' | 'download'
 ): EChartsTreemapData {
   const size = sizeMode === 'install' ? element.install_size : element.download_size;
+  const color = element.element_type ? TYPE_COLORS[element.element_type] : TYPE_COLORS[TreemapType.OTHER];
 
   const data: EChartsTreemapData = {
     name: element.name,
     value: size,
     itemStyle: {
-      color: element.element_type ? TYPE_COLORS[element.element_type] : TYPE_COLORS[TreemapType.OTHER],
+      color: color,
     },
     label: {
       show: true,
       position: 'inside',
+    },
+    upperLabel: {
+      show: true,
+      backgroundColor: color,
+      color: '#000',
     },
   };
 
@@ -115,16 +121,6 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
           fontSize: 12,
           fontWeight: 'bold',
         },
-        upperLabel: {
-          show: true,
-          height: 30,
-          fontSize: 14,
-          fontWeight: 'bold',
-          color: '#fff',
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          borderRadius: 3,
-          padding: [4, 8],
-        },
         itemStyle: {
           borderColor: '#fff',
           borderWidth: 2,
@@ -142,8 +138,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               height: 35,
               fontSize: 16,
               fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: 'rgba(0,0,0,0.8)',
+              color: '#000',
               borderRadius: 4,
               padding: [6, 10],
             },
@@ -167,8 +162,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               height: 28,
               fontSize: 14,
               fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: 'rgba(0,0,0,0.75)',
+              color: '#000',
               borderRadius: 3,
               padding: [4, 8],
             },
@@ -184,9 +178,6 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
                 borderColor: '#ddd',
                 borderWidth: 4,
               },
-              upperLabel: {
-                backgroundColor: 'rgba(0,0,0,0.9)',
-              },
             },
           },
           {
@@ -201,8 +192,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               height: 24,
               fontSize: 12,
               fontWeight: 'normal',
-              color: '#fff',
-              backgroundColor: 'rgba(0,0,0,0.6)',
+              color: '#000',
               borderRadius: 2,
               padding: [2, 6],
             },

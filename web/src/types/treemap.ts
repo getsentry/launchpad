@@ -89,4 +89,9 @@ export interface EChartsTreemapData {
     show?: boolean;
     position?: string;
   };
+  upperLabel?: {
+    show?: boolean;
+    backgroundColor?: string;
+    color?: string;
+  };
 }

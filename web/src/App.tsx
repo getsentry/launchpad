@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import './App.css';
 import FileUpload from './components/FileUpload';
 import TreemapVisualization from './components/TreemapVisualization';
@@ -48,7 +48,7 @@ function App() {
         </p>
       </header>
 
-      <main style={{ padding: '0 20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <main style={{ padding: '0 20px', margin: '0 auto' }}>
         {error && (
           <div style={{
             backgroundColor: '#f8d7da',
@@ -119,9 +119,9 @@ function App() {
             {/* Treemap Visualization */}
             <div style={{
               backgroundColor: 'white',
-              borderRadius: '8px',
               border: '1px solid #dee2e6',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              margin: '0 -20px'
             }}>
               <TreemapVisualization data={treemapData} sizeMode={sizeMode} />
             </div>
