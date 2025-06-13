@@ -1,5 +1,3 @@
-from typing import Optional
-
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .aab import AAB
@@ -11,7 +9,7 @@ class ZippedAAB(AndroidArtifact):
         super().__init__(content)
         self._zip_provider = ZipProvider(content)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
-        self._aab: Optional[AAB] = None
+        self._aab: AAB | None = None
 
     def get_manifest(self) -> AndroidManifest:
         return self.get_aab().get_manifest()

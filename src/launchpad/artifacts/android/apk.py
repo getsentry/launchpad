@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
@@ -25,8 +24,8 @@ class APK(AndroidArtifact):
         """
         super().__init__(content)
         self._zip_provider = ZipProvider(content)
-        self._manifest: Optional[AndroidManifest] = None
-        self._resource_table: Optional[BinaryResourceTable] = None
+        self._manifest: AndroidManifest | None = None
+        self._resource_table: BinaryResourceTable | None = None
 
     def get_manifest(self) -> AndroidManifest:
         """Get the Android manifest information.

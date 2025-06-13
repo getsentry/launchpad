@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
 from launchpad.parsers.android.types import ResourceTablePackage, ResourceTableType, TypedValue
@@ -19,7 +19,7 @@ class BinaryResourceTable(ResourceTable):
         """Convert a resource ID string (e.g. 'resourceId:0x7f010001') to an integer."""
         return int(value.replace("resourceId:", ""), 16)
 
-    def get_value_by_key(self, key: str, locale: Optional[str] = None) -> Optional[str]:
+    def get_value_by_key(self, key: str, locale: str | None = None) -> str | None:
         """Get a resource value by its key and optional locale."""
         app_package = self._get_application_package()
         if not app_package:
@@ -49,12 +49,12 @@ class BinaryResourceTable(ResourceTable):
 
         return self._resolve_value(entry.value)
 
-    def get_value_by_string_id(self, string_id: str) -> Optional[str]:
+    def get_value_by_string_id(self, string_id: str) -> str | None:
         """Get a resource value by its string ID (e.g. 'resourceId:0x7f010001')."""
         int_id = self.resource_id_from_string(string_id)
         return self.get_value_by_id(int_id)
 
-    def get_value_by_id(self, id_val: int) -> Optional[str]:
+    def get_value_by_id(self, id_val: int) -> str | None:
         """Get a resource value by its integer ID."""
         type_id = (id_val >> 16) & 0xFF
         types = self._get_types_by_id(type_id)
@@ -77,7 +77,7 @@ class BinaryResourceTable(ResourceTable):
 
         return self._resolve_value(entry.value)
 
-    def _get_application_package(self) -> Optional[ResourceTablePackage]:
+    def _get_application_package(self) -> ResourceTablePackage | None:
         """Get the application's resource package (package ID 0x7f)."""
         return next(
             (pkg for pkg in self.binary_parser.packages if pkg.id == DEFAULT_PACKAGE_ID),
@@ -97,7 +97,7 @@ class BinaryResourceTable(ResourceTable):
             return []
         return types
 
-    def _resolve_value(self, value: TypedValue) -> Optional[str]:
+    def _resolve_value(self, value: TypedValue) -> str | None:
         """Resolve a typed value to its string representation."""
         if value.type == "string":
             return str(value.value)
