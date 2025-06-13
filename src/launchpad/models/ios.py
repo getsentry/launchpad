@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .range_mapping import RangeMap
+from .treemap import TreemapResults
 
 
 class SwiftMetadata(BaseModel):
@@ -26,10 +27,11 @@ class IOSAppInfo(BaseAppInfo):
 
     model_config = ConfigDict(frozen=True)
 
+    executable: str = Field(..., description="Main executable name")
     bundle_id: str = Field(..., description="Bundle identifier")
     minimum_os_version: str = Field(..., description="Minimum iOS version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
-    sdk_version: Optional[str] = Field(None, description="iOS SDK version used for build")
+    sdk_version: str | None = Field(None, description="iOS SDK version used for build")
 
 
 class IOSBinaryAnalysis(BaseBinaryAnalysis):
@@ -37,8 +39,8 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    swift_metadata: Optional[SwiftMetadata] = Field(None, description="Swift-specific metadata")
-    range_map: Optional[RangeMap] = Field(
+    swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
+    range_map: RangeMap | None = Field(
         None,
         description="Range mapping for binary content categorization",
         exclude=True,
@@ -72,19 +74,18 @@ class IOSAnalysisResults(BaseAnalysisResults):
 
     app_info: IOSAppInfo = Field(..., description="iOS app information")
     binary_analysis: IOSBinaryAnalysis = Field(..., description="iOS binary analysis results")
+    treemap: TreemapResults | None = Field(None, description="Hierarchical size analysis treemap")
 
     @property
     def download_size(self) -> int:
         """Estimated download size"""
-        return self.total_size  # TODO: Implement download size calculation
+        if self.treemap:
+            return self.treemap.total_download_size
+        return self.file_analysis.total_size  # TODO: Implement download size calculation
 
     @property
     def install_size(self) -> int:
         """Estimated install size"""
-        return self.total_size  # TODO: Implement install size calculation
-
-
-# Backwards compatibility aliases - can be removed once all references are updated
-AppInfo = IOSAppInfo
-BinaryAnalysis = IOSBinaryAnalysis
-AnalysisResults = IOSAnalysisResults
+        if self.treemap:
+            return self.treemap.total_install_size
+        return self.file_analysis.total_size  # TODO: Implement install size calculation

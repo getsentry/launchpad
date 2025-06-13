@@ -3,9 +3,9 @@
 from unittest.mock import Mock
 
 from launchpad.analyzers.ios import IOSAnalyzer
-from launchpad.analyzers.macho_parser import MachOParser
-from launchpad.analyzers.range_mapping_builder import RangeMappingBuilder
 from launchpad.models.range_mapping import BinaryTag
+from launchpad.parsers.ios.macho_parser import MachOParser
+from launchpad.parsers.ios.range_mapping_builder import RangeMappingBuilder
 
 
 class TestIOSAnalyzerRangeMapping:

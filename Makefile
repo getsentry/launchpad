@@ -1,32 +1,32 @@
-.PHONY: help install install-dev test test-unit test-integration lint format autofix check-format type-check clean build build-wheel clean-venv check ci all dev-setup run-cli status
+.PHONY: help test test-unit test-integration lint format autofix check-format type-check clean build build-wheel clean-venv check ci all run-cli status
 
 # Default target
-help:  ## Show this help message
+help:
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # Python and virtual environment setup
-PYTHON := python3
 VENV_DIR := .venv
 PIP := $(VENV_DIR)/bin/pip
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
-# Create virtual environment if it doesn't exist
+# # Create virtual environment
 $(VENV_DIR):
-	$(PYTHON) -m venv $(VENV_DIR)
-	$(PIP) install --upgrade pip setuptools wheel
+	python -m venv $(VENV_DIR)
+# Create virtual environment if it doesn't exist
+# $(VENV_DIR):
+# 	$(PYTHON) -m venv $(VENV_DIR)
+# 	$(PIP) install --upgrade pip setuptools wheel
 
-install: $(VENV_DIR)  ## Install the package in development mode
-	$(PIP) install -e .
-
+# Just used for CI
 install-dev: $(VENV_DIR)  ## Install development dependencies
-	$(PIP) install -e ".[dev]"
+	$(PIP) install -r requirements-dev.txt
+	$(PIP) install -e .
 	$(VENV_DIR)/bin/pre-commit install
 
-# Testing targets
-test: test-unit test-integration  ## Run all tests
+test: test-unit test-integration
 
-test-unit:  ## Run unit tests only
+test-unit:
 	$(PYTHON_VENV) -m pytest tests/unit/ -v --tb=short
 
 test-integration:  ## Run integration tests only
@@ -56,14 +56,15 @@ type-check:  ## Run type checking with mypy
 	$(PYTHON_VENV) -m mypy src
 
 # Build targets
-build: clean  ## Build the package
+build: clean $(VENV_DIR)  ## Build the package
+	$(PIP) install build
 	$(PYTHON_VENV) -m build
 
 build-wheel:  ## Build wheel only
 	$(PYTHON_VENV) -m build --wheel
 
 # Maintenance targets
-clean:  ## Clean build artifacts and cache files
+clean:
 	rm -rf build/
 	rm -rf dist/
 	rm -rf *.egg-info/
@@ -73,27 +74,53 @@ clean:  ## Clean build artifacts and cache files
 	rm -rf .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
-
-clean-venv:  ## Remove virtual environment
 	rm -rf $(VENV_DIR)
 
 # Combined targets for CI
-check: autofix lint type-check  ## Run all code quality checks
+check: autofix lint type-check
 
-ci: install-dev check test  ## Run full CI pipeline (install deps, check code quality, run tests)
+ci: install-dev check test
 
-all: clean install-dev check test build  ## Run complete build pipeline
-
-# Development helpers
-dev-setup: install-dev  ## Set up development environment
-	@echo "Development environment ready!"
-	@echo "Activate with: source $(VENV_DIR)/bin/activate"
+all: clean install-dev check test build
 
 run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments)
 	$(PYTHON_VENV) -m launchpad.cli $(ARGS)
 
+
+
+test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
+	$(PYTHON_VENV) scripts/test_kafka.py --message-type ios --count 1
+
+test-kafka-multiple:  ## Send multiple test messages to Kafka
+	$(PYTHON_VENV) scripts/test_kafka.py --message-type ios --count 5 --interval 2
+
+test-service-integration:  ## Run full integration test with devservices
+	@echo "Starting Kafka services via devservices..."
+	@devservices up
+	@echo "Waiting for Kafka to be ready..."
+	@sleep 10
+	@echo "Starting Launchpad server in background..."
+	@set -e; \
+	$(PYTHON_VENV) -m launchpad.cli serve --verbose & \
+	LAUNCHPAD_PID=$$!; \
+	echo "Launchpad started with PID: $$LAUNCHPAD_PID"; \
+	sleep 5; \
+	echo "Sending test messages..."; \
+	$(PYTHON_VENV) scripts/test_kafka.py --count 3 --interval 1; \
+	sleep 5; \
+	echo "Stopping Launchpad gracefully..."; \
+	kill -TERM $$LAUNCHPAD_PID 2>/dev/null && echo "SIGTERM sent" || echo "Process not found"; \
+	sleep 8; \
+	if kill -0 $$LAUNCHPAD_PID 2>/dev/null; then \
+		echo "Process still running, sending SIGKILL..."; \
+		kill -KILL $$LAUNCHPAD_PID 2>/dev/null || true; \
+		sleep 2; \
+	fi; \
+	echo "Stopping devservices..."; \
+	devservices down
+
 # Show current status
-status:  ## Show project status
+status:
 	@echo "Python version: $$($(PYTHON) --version)"
 	@echo "Virtual environment: $$(if [ -d $(VENV_DIR) ]; then echo 'exists'; else echo 'missing'; fi)"
 	@echo "Pre-commit hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"
