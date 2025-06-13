@@ -83,10 +83,12 @@ ci: install-dev check test
 
 all: clean install-dev check test build
 
-run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments)
-	$(PYTHON_VENV) -m launchpad.cli $(ARGS)
-
-
+run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments, DEBUG=1 to run with debugger)
+	@if [ "$(DEBUG)" = "1" ]; then \
+		$(PYTHON_VENV) -m debugpy --listen 5678 --wait-for-client -m launchpad.cli $(ARGS); \
+	else \
+		$(PYTHON_VENV) -m launchpad.cli $(ARGS); \
+	fi
 
 test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
 	$(PYTHON_VENV) scripts/test_kafka.py --message-type ios --count 1
