@@ -64,7 +64,6 @@ class IOSAnalyzer:
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
 
         analysis_start_time = time.time()
-        self.artifact = artifact  # Store for use in _find_binaries
 
         # Extract basic app information
         app_info = self._extract_app_info(artifact)
@@ -81,7 +80,7 @@ class IOSAnalyzer:
             app_bundle_path = artifact.get_app_bundle_path()
 
             # First find all binaries
-            binaries = self._find_binaries(app_bundle_path)
+            binaries = self._find_binaries(app_bundle_path, artifact)
             logger.info(f"Found {len(binaries)} binaries to analyze")
 
             # Then analyze them all
@@ -250,11 +249,12 @@ class IOSAnalyzer:
             largest_files=largest_files,
         )
 
-    def _find_binaries(self, app_bundle_path: Path) -> List[tuple[Path, str]]:
+    def _find_binaries(self, app_bundle_path: Path, artifact: IOSArtifact) -> List[tuple[Path, str]]:
         """Find all binaries in the app bundle.
 
         Args:
             app_bundle_path: Path to the app bundle
+            artifact: The iOS artifact being analyzed
 
         Returns:
             List of tuples containing (binary_path, binary_name, skip_swift_metadata)
@@ -262,7 +262,7 @@ class IOSAnalyzer:
         binaries: List[tuple[Path, str]] = []
 
         # Find main executable
-        main_executable = self.artifact.get_plist().get("CFBundleExecutable")
+        main_executable = artifact.get_plist().get("CFBundleExecutable")
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
         main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
