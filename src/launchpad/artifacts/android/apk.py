@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from zipfile import ZipInfo
 
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
@@ -79,3 +80,12 @@ class APK(AndroidArtifact):
         arsc_buffer = zip_file.read(arsc_file)
         self._resource_table = BinaryResourceTable(arsc_buffer)
         return [self._resource_table]
+
+    def get_file_infos(self) -> list[ZipInfo]:
+        """Get all files from the APK with their sizes.
+
+        Returns:
+            Dictionary mapping file paths to their sizes in bytes
+        """
+        zip_file = self._zip_provider.get_zip()
+        return zip_file.infolist()

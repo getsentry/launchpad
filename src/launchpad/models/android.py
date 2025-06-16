@@ -1,5 +1,7 @@
 from pydantic import ConfigDict, Field
 
+from launchpad.models.treemap import TreemapResults
+
 from .common import BaseAnalysisResults, BaseAppInfo
 
 
@@ -14,3 +16,4 @@ class AndroidAnalysisResults(BaseAnalysisResults):
 
     model_config = ConfigDict(frozen=True)
     app_info: AndroidAppInfo = Field(..., description="Android app information")
+    treemap_results: TreemapResults = Field(..., description="Hierarchical size analysis treemap")
