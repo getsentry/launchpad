@@ -14,15 +14,8 @@ import lief
 from launchpad.artifacts.artifact import IOSArtifact
 
 from ..artifacts import ZippedXCArchive
-from ..models import (
-    DuplicateFileGroup,
-    FileAnalysis,
-    FileInfo,
-    IOSAnalysisResults,
-    IOSAppInfo,
-    IOSBinaryAnalysis,
-    SwiftMetadata,
-)
+from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis
+from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.ios.macho_parser import MachOParser
 from ..parsers.ios.range_mapping_builder import RangeMappingBuilder
 from ..utils.file_utils import calculate_file_hash, get_file_size
@@ -57,7 +50,6 @@ class IOSAnalyzer:
         self.skip_symbols = skip_symbols
         self.skip_range_mapping = skip_range_mapping
         self.skip_treemap = skip_treemap
-        self.binary_analysis: IOSBinaryAnalysis | None = None
 
     def analyze(self, artifact: IOSArtifact) -> IOSAnalysisResults:
         """Analyze an iOS app bundle.
@@ -95,12 +87,11 @@ class IOSAnalyzer:
             # Then analyze them all
             for binary_path, binary_name in binaries:
                 try:
+                    logger.info(f"Analyzing binary {binary_name} at {binary_path}")
                     binary = self._analyze_binary(binary_path)
                     if binary.range_map is not None:
                         binary_analysis.append(binary)
-                        # Convert to path relative to app bundle root
-                        relative_path = binary_path.relative_to(app_bundle_path)
-                        binary_analysis_map[str(relative_path)] = binary
+                        binary_analysis_map[str(binary_path.relative_to(app_bundle_path))] = binary
                 except Exception as e:
                     logger.warning(f"Failed to analyze binary at {binary_path}: {e}")
 
@@ -109,7 +100,6 @@ class IOSAnalyzer:
                 platform="ios",
                 download_compression_ratio=0.8,  # TODO: implement this
                 binary_analysis_map=binary_analysis_map,
-                app_bundle_path=str(app_bundle_path),
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
@@ -157,21 +147,21 @@ class IOSAnalyzer:
         try:
             result = subprocess.run(["file", str(file_path)], capture_output=True, text=True, check=True)
             # Extract just the file type description after the colon
-            file_type = result.stdout.split(":", 1)[1].strip()
+            file_type = result.stdout.split(":", 1)[1].strip().lower()
             logger.debug(f"Detected file type for {file_path}: {file_type}")
 
             # Normalize common file types
-            if "Mach-O" in file_type:
+            if "mach-o" in file_type:
                 return "macho"
-            elif "executable" in file_type.lower():
+            elif "executable" in file_type:
                 return "executable"
-            elif "text" in file_type.lower():
+            elif "text" in file_type:
                 return "text"
-            elif "directory" in file_type.lower():
+            elif "directory" in file_type:
                 return "directory"
-            elif "symbolic link" in file_type.lower():
+            elif "symbolic link" in file_type:
                 return "symlink"
-            elif "empty" in file_type.lower():
+            elif "empty" in file_type:
                 return "empty"
 
             return file_type
@@ -222,6 +212,7 @@ class IOSAnalyzer:
                 size=file_size,
                 file_type=file_type or "unknown",
                 hash_md5=file_hash,
+                treemap_type=FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.FILES),
             )
 
             files.append(file_info)
@@ -349,14 +340,8 @@ class IOSAnalyzer:
         # Extract Swift metadata if enabled
         swift_metadata = None
         if not skip_swift_metadata:
-            swift_sections = parser.extract_swift_sections()
-            if swift_sections:
-                swift_metadata = SwiftMetadata(
-                    classes=[],
-                    protocols=[],
-                    extensions=[],
-                    total_metadata_size=sum(s.size for s in swift_sections),
-                )
+            # TODO: Implement Swift metadata extraction
+            logger.warning("Swift metadata extraction is not implemented")
 
         # Build range mapping for binary content
         range_map = None

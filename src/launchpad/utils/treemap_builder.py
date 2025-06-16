@@ -24,7 +24,6 @@ class TreemapBuilder:
         download_compression_ratio: float,
         filesystem_block_size: int | None = None,
         binary_analysis_map: Dict[str, IOSBinaryAnalysis] | None = None,
-        app_bundle_path: str | None = None,
     ) -> None:
         """Initialize the treemap builder.
 
@@ -34,13 +33,11 @@ class TreemapBuilder:
             download_compression_ratio: Ratio of download size to install size (0.0-1.0)
             filesystem_block_size: Filesystem block size in bytes, or None to use platform default
             binary_analysis_map: Optional mapping of binary names to their analysis results
-            app_bundle_path: Base path of the app bundle for resolving relative paths
         """
         self.app_name = app_name
         self.platform = platform
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
         self.binary_analysis_map = binary_analysis_map or {}
-        self.app_bundle_path = app_bundle_path
 
         if filesystem_block_size is not None:
             self.filesystem_block_size = filesystem_block_size
@@ -106,7 +103,7 @@ class TreemapBuilder:
             name=display_name,
             install_size=install_size,
             download_size=download_size,
-            element_type=self._get_file_category(file_info),
+            element_type=file_info.treemap_type,
             path=file_info.path,
             is_directory=False,
             details=details,
@@ -371,36 +368,19 @@ class TreemapBuilder:
 
         return dir_name
 
-    def _get_file_category(self, file_info: FileInfo) -> TreemapType:
-        """Determine treemap type for a file."""
-        file_type = file_info.file_type.lower()
-        path = file_info.path.lower()
+    def _has_extension(self, path: Path, extensions: list[str]) -> bool:
+        """Check if a path has any of the given extensions.
 
-        # App extensions
-        if ".appex" in path:
-            return TreemapType.EXTENSIONS
+        Args:
+            path: Path to check
+            extensions: List of extensions to check for (with or without leading dot)
 
-        # Executable files (no extension typically)
-        if file_type == "" and "/" not in file_info.path and "." not in os.path.basename(file_info.path):
-            return TreemapType.EXECUTABLES
-
-        # Framework files
-        if ".framework" in path:
-            return TreemapType.FRAMEWORKS
-
-        # Plist files
-        if file_type == "plist":
-            return TreemapType.PLISTS
-
-        # Asset files
-        if file_type in ["png", "jpg", "jpeg", "gif", "pdf", "car"]:
-            return TreemapType.ASSETS
-
-        # Resource files
-        if file_type in ["nib", "storyboard", "strings", "lproj"]:
-            return TreemapType.RESOURCES
-
-        return TreemapType.FILES
+        Returns:
+            True if the path has any of the given extensions
+        """
+        # Normalize extensions to include leading dot
+        normalized_extensions = [ext if ext.startswith(".") else f".{ext}" for ext in extensions]
+        return path.suffix.lower() in normalized_extensions
 
     def _get_directory_type(self, directory_name: str) -> TreemapType | None:
         """Determine treemap type for a directory."""
@@ -427,7 +407,7 @@ class TreemapBuilder:
 
         for files in file_analysis.files_by_type.values():
             for file_info in files:
-                treemap_type = self._get_file_category(file_info)
+                treemap_type = file_info.treemap_type
                 category = treemap_type.value
 
                 # Use filesystem block-aligned size for install calculations

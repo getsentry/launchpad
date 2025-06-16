@@ -56,6 +56,30 @@ class TreemapType(str, Enum):
     UNMAPPED = "unmapped"
 
 
+# Mapping from file types to TreemapType
+FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
+    # Binary types
+    "macho": TreemapType.EXECUTABLES,
+    "executable": TreemapType.EXECUTABLES,
+    # Asset types
+    "png": TreemapType.ASSETS,
+    "jpg": TreemapType.ASSETS,
+    "jpeg": TreemapType.ASSETS,
+    "gif": TreemapType.ASSETS,
+    "pdf": TreemapType.ASSETS,
+    "car": TreemapType.ASSETS,
+    # Resource types
+    "nib": TreemapType.RESOURCES,
+    "storyboard": TreemapType.RESOURCES,
+    "strings": TreemapType.RESOURCES,
+    "lproj": TreemapType.RESOURCES,
+    # Other types
+    "plist": TreemapType.PLISTS,
+    "framework": TreemapType.FRAMEWORKS,
+    "appex": TreemapType.EXTENSIONS,
+}
+
+
 class TreemapElement(BaseModel):
     """Hierarchical element in the treemap for size visualization."""
 

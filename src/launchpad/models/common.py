@@ -7,16 +7,19 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .treemap import TreemapType
+
 
 class FileInfo(BaseModel):
-    """Information about a single file in the app bundle."""
+    """Information about a single file."""
 
     model_config = ConfigDict(frozen=True)
 
-    path: str = Field(..., description="Relative path within the bundle")
+    path: str = Field(..., description="Relative path to the file")
     size: int = Field(..., ge=0, description="File size in bytes")
-    file_type: str = Field(..., description="File extension/type")
-    hash_md5: str | None = Field(None, description="MD5 hash of file contents")
+    file_type: str = Field(..., description="File type/extension")
+    hash_md5: str = Field(..., description="MD5 hash of file contents")
+    treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
 
 
 class DuplicateFileGroup(BaseModel):
