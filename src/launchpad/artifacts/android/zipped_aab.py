@@ -1,6 +1,7 @@
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .aab import AAB
+from .apk import APK
 from .manifest.manifest import AndroidManifest
 
 
@@ -24,3 +25,6 @@ class ZippedAAB(AndroidArtifact):
                 return self._aab
 
         raise FileNotFoundError(f"No AAB found in {self._extract_dir}")
+
+    def get_primary_apks(self) -> list[APK]:
+        return self.get_aab().get_primary_apks()
