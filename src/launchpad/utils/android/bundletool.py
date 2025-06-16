@@ -41,6 +41,7 @@ class Bundletool:
         """
         if bundletool_path is None:
             try:
+                # TODO: Ensure packaged in docker image when productionizing
                 result = subprocess.run(
                     ["which", "bundletool"],
                     capture_output=True,
@@ -117,24 +118,20 @@ class Bundletool:
         build_apks_command = ["build-apks", f"--bundle={bundle_path}", f"--output={temp_apks_path}"]
 
         # Create a temporary file for the device spec JSON
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as temp_file:
             json.dump(device_spec.model_dump(by_alias=True), temp_file)
             temp_device_spec_path = temp_file.name
 
-        try:
-            self._run_command(build_apks_command)
+        self._run_command(build_apks_command)
 
-            # Extract APKs for the specified device
-            extract_command = [
-                "extract-apks",
-                f"--apks={temp_apks_path}",
-                f"--output-dir={output_dir}",
-                f"--device-spec={temp_device_spec_path}",
-            ]
-            self._run_command(extract_command)
-        finally:
-            # Clean up the temporary file
-            Path(temp_device_spec_path).unlink(missing_ok=True)
+        # Extract APKs for the specified device
+        extract_command = [
+            "extract-apks",
+            f"--apks={temp_apks_path}",
+            f"--output-dir={output_dir}",
+            f"--device-spec={temp_device_spec_path}",
+        ]
+        self._run_command(extract_command)
 
 
 class DeviceSpec(BaseModel):
