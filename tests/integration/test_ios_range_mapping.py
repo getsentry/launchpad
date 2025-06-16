@@ -43,21 +43,21 @@ class TestIOSRangeMapping:
         assert range_map is not None, "Range mapping should be created"
 
         # Test exact file structure from HackerNews binary
-        assert range_map.total_file_size == 2628128, "Total file size should match expected binary size"
-        assert range_map.total_mapped == 2536160
-        assert len(range_map.ranges) == 119, "Should have exactly 136 mapped ranges"
+        assert range_map.total_file_size == 3152944
+        assert range_map.total_mapped == 3076062
+        assert len(range_map.ranges) == 121
 
         # Test coverage report structure
         report = range_map.get_coverage_report()
         expected_coverage = {
-            "total_file_size": 2628128,
-            "total_mapped": 2536160,
-            "unmapped_size": 91968,
-            "coverage_percentage": 96,
+            "total_file_size": 3152944,
+            "total_mapped": 3076062,
+            "unmapped_size": 76882,
+            "coverage_percentage": 97,
             "conflict_count": 0,
             "total_conflict_size": 0,
-            "unmapped_region_count": 18,
-            "largest_unmapped_region": 36376,
+            "unmapped_region_count": 14,
+            "largest_unmapped_region": 39616,
         }
 
         for key, expected_value in expected_coverage.items():
@@ -66,17 +66,17 @@ class TestIOSRangeMapping:
         # Test specific section sizes (these are the actual sizes from HackerNews binary)
         size_by_tag = range_map.size_by_tag()
         expected_sizes = {
-            BinaryTag.TEXT_SEGMENT: 1507180,
-            BinaryTag.OBJC_CLASSES: 371123,
-            BinaryTag.DATA_SEGMENT: 102838,
-            BinaryTag.C_STRINGS: 150167,
-            BinaryTag.SWIFT_METADATA: 87585,
-            BinaryTag.CONST_DATA: 58559,
+            BinaryTag.TEXT_SEGMENT: 1842548,
+            BinaryTag.OBJC_CLASSES: 430336,
+            BinaryTag.DATA_SEGMENT: 114666,
+            BinaryTag.C_STRINGS: 197007,
+            BinaryTag.SWIFT_METADATA: 114830,
+            BinaryTag.CONST_DATA: 79511,
             BinaryTag.UNMAPPED: 0,
-            BinaryTag.UNWIND_INFO: 50836,
-            BinaryTag.CODE_SIGNATURE: 39424,
-            BinaryTag.FUNCTION_STARTS: 11000,
-            BinaryTag.LOAD_COMMANDS: 8152,
+            BinaryTag.UNWIND_INFO: 59076,
+            BinaryTag.CODE_SIGNATURE: 43488,
+            BinaryTag.FUNCTION_STARTS: 13584,
+            BinaryTag.LOAD_COMMANDS: 8312,
             BinaryTag.HEADERS: 32,
         }
 
