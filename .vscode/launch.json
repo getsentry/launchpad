@@ -2,24 +2,6 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "swift",
-      "request": "launch",
-      "args": [],
-      "cwd": "${workspaceFolder:launchpad}/legacy/ios/sizeAnalysis/CLI",
-      "name": "Debug AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)",
-      "program": "${workspaceFolder:launchpad}/legacy/ios/sizeAnalysis/CLI/.build/debug/AppSizeAnalyzer",
-      "preLaunchTask": "swift: Build Debug AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)"
-    },
-    {
-      "type": "swift",
-      "request": "launch",
-      "args": [],
-      "cwd": "${workspaceFolder:launchpad}/legacy/ios/sizeAnalysis/CLI",
-      "name": "Release AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)",
-      "program": "${workspaceFolder:launchpad}/legacy/ios/sizeAnalysis/CLI/.build/release/AppSizeAnalyzer",
-      "preLaunchTask": "swift: Build Release AppSizeAnalyzer (legacy/ios/sizeAnalysis/CLI)"
-    },
-    {
       "name": "Python: Debug Tests",
       "type": "debugpy",
       "request": "launch",
