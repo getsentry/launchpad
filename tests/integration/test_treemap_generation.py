@@ -185,13 +185,13 @@ class TestTreemapGeneration:
         # Verify PlugIns directory
         plugins = find_node_by_path(treemap.root, "PlugIns")
         assert plugins is not None
-        assert plugins.element_type == "modules"
+        assert plugins.element_type == "extensions"
         assert plugins.is_directory is True
 
         # Verify HomeWidget extension
         widget = find_node_by_path(treemap.root, "PlugIns/HackerNewsHomeWidgetExtension.appex")
         assert widget is not None
-        assert widget.element_type == "files"
+        assert widget.element_type == "extensions"
         assert widget.is_directory is True
 
         # Verify widget binary
@@ -199,9 +199,9 @@ class TestTreemapGeneration:
             treemap.root, "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension"
         )
         assert widget_binary is not None
-        assert widget_binary.install_size == 155648
-        assert widget_binary.download_size == 124518
-        assert widget_binary.element_type == "files"
+        assert widget_binary.install_size == 152288
+        assert widget_binary.download_size == 152288
+        assert widget_binary.element_type == "executables"
 
         # Verify Assets.car
         assets = find_node_by_path(treemap.root, "Assets.car")
@@ -211,15 +211,14 @@ class TestTreemapGeneration:
         assert assets.element_type == "assets"
 
         # Verify category breakdown
-        assert treemap.category_breakdown == {
-            "files": {"install": 4489216, "download": 3591368},
-            "frameworks": {"install": 327680, "download": 262137},
-            "assets": {"install": 4841472, "download": 3873176},
-            "plists": {"install": 16384, "download": 13104},
-        }
+        assert treemap.category_breakdown["files"] == {"install": 122880, "download": 98298}
+        assert treemap.category_breakdown["assets"] == {"install": 4841472, "download": 3873176}
+        assert treemap.category_breakdown["plists"] == {"install": 28672, "download": 22932}
+        assert treemap.category_breakdown["executables"] == {"download": 2886859, "install": 3608576}
+        assert treemap.category_breakdown["fonts"] == {"download": 858520, "install": 1073152}
 
         # Verify totals
-        assert treemap.total_install_size == 13129568
-        assert treemap.total_download_size == 11881908
+        assert treemap.total_install_size == 13278496
+        assert treemap.total_download_size == 12061966
         assert treemap.file_count == 32
         assert treemap.platform == "ios"
