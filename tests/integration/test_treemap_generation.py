@@ -123,19 +123,19 @@ class TestTreemapGeneration:
         # Verify main executable
         main_exe = find_node_by_path(treemap.root, "HackerNews")
         assert main_exe is not None
-        assert main_exe.install_size == 2628128
-        assert main_exe.download_size == 2628128
+        assert main_exe.install_size == 3152944
+        assert main_exe.download_size == 3152944
         assert main_exe.element_type == "executables"
         assert main_exe.is_directory is True
 
         # Verify main executable sections
         main_exe_sections = {child.name: child for child in main_exe.children}
         assert "text_segment" in main_exe_sections
-        assert main_exe_sections["text_segment"].install_size == 1507180
+        assert main_exe_sections["text_segment"].install_size == 1842548
         assert "objc_classes" in main_exe_sections
-        assert main_exe_sections["objc_classes"].install_size == 371123
+        assert main_exe_sections["objc_classes"].install_size == 430336
         assert "data_segment" in main_exe_sections
-        assert main_exe_sections["data_segment"].install_size == 102838
+        assert main_exe_sections["data_segment"].install_size == 114666
 
         # Verify Frameworks directory
         frameworks = find_node_by_path(treemap.root, "Frameworks")
@@ -165,8 +165,8 @@ class TestTreemapGeneration:
         # Verify Common binary
         common_binary = find_node_by_path(treemap.root, "Frameworks/Common.framework/Common")
         assert common_binary is not None
-        assert common_binary.install_size == 188992
-        assert common_binary.download_size == 188992
+        assert common_binary.install_size == 189840
+        assert common_binary.download_size == 189840
         assert common_binary.element_type == "executables"
 
         # Verify Reaper framework
@@ -212,14 +212,14 @@ class TestTreemapGeneration:
 
         # Verify category breakdown
         assert treemap.category_breakdown == {
-            "files": {"install": 3346432, "download": 2677141},
+            "files": {"install": 4489216, "download": 3591368},
             "frameworks": {"install": 327680, "download": 262137},
             "assets": {"install": 4841472, "download": 3873176},
             "plists": {"install": 16384, "download": 13104},
         }
 
         # Verify totals
-        assert treemap.total_install_size == 11459744
-        assert treemap.total_download_size == 10335784
-        assert treemap.file_count == 29
+        assert treemap.total_install_size == 13129568
+        assert treemap.total_download_size == 11881908
+        assert treemap.file_count == 32
         assert treemap.platform == "ios"
