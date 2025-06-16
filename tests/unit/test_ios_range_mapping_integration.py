@@ -14,12 +14,12 @@ class TestIOSAnalyzerRangeMapping:
     def test_range_mapping_enabled_by_default(self) -> None:
         """Test that range mapping is enabled by default."""
         analyzer = IOSAnalyzer()
-        assert analyzer.enable_range_mapping is True
+        assert analyzer.skip_range_mapping is False
 
     def test_range_mapping_can_be_disabled(self) -> None:
         """Test that range mapping can be disabled."""
-        analyzer = IOSAnalyzer(enable_range_mapping=False)
-        assert analyzer.enable_range_mapping is False
+        analyzer = IOSAnalyzer(skip_range_mapping=True)
+        assert analyzer.skip_range_mapping is True
 
     def test_range_mapping_creation(self) -> None:
         """Test that range mapping is created during binary analysis."""

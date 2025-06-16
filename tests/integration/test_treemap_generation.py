@@ -23,7 +23,7 @@ class TestTreemapGeneration:
     def test_treemap_generation_basic(self, sample_app_path: Path) -> None:
         """Test basic treemap generation functionality."""
 
-        analyzer = IOSAnalyzer(enable_treemap=True)
+        analyzer = IOSAnalyzer(skip_treemap=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
 
         results = analyzer.analyze(cast(IOSArtifact, artifact))
@@ -48,7 +48,7 @@ class TestTreemapGeneration:
     def test_treemap_json_serialization(self, sample_app_path: Path) -> None:
         """Test that treemap can be serialized to JSON."""
 
-        analyzer = IOSAnalyzer(enable_treemap=True)
+        analyzer = IOSAnalyzer(skip_treemap=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
 
         results = analyzer.analyze(cast(IOSArtifact, artifact))
@@ -97,7 +97,7 @@ class TestTreemapGeneration:
     def test_treemap_matches_reference(self, sample_app_path: Path) -> None:
         """Test that treemap structure matches reference report."""
 
-        analyzer = IOSAnalyzer(enable_treemap=True)
+        analyzer = IOSAnalyzer(skip_treemap=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
 
         results = analyzer.analyze(cast(IOSArtifact, artifact))
