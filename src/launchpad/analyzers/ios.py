@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -13,7 +14,15 @@ import lief
 from launchpad.artifacts.artifact import IOSArtifact
 
 from ..artifacts import ZippedXCArchive
-from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis
+from ..models import (
+    DuplicateFileGroup,
+    FileAnalysis,
+    FileInfo,
+    IOSAnalysisResults,
+    IOSAppInfo,
+    IOSBinaryAnalysis,
+    SwiftMetadata,
+)
 from ..parsers.ios.macho_parser import MachOParser
 from ..parsers.ios.range_mapping_builder import RangeMappingBuilder
 from ..utils.file_utils import calculate_file_hash, get_file_size
@@ -63,6 +72,7 @@ class IOSAnalyzer:
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
 
         analysis_start_time = time.time()
+        self.artifact = artifact  # Store for use in _find_binaries
 
         # Extract basic app information
         app_info = self._extract_app_info(artifact)
@@ -75,35 +85,31 @@ class IOSAnalyzer:
         binary_analysis: List[IOSBinaryAnalysis] = []
         binary_analysis_map: Dict[str, IOSBinaryAnalysis] = {}
 
-        if not self.skip_treemap:
-            # Collect all binaries first if range mapping is enabled
-            if not self.skip_range_mapping:
-                # Analyze main executable
-                main_executable = artifact.get_plist().get("CFBundleExecutable")
-                if main_executable is None:
-                    raise RuntimeError("CFBundleExecutable not found in Info.plist")
-                app_bundle_path = artifact.get_app_bundle_path()
-                main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
-                main_binary = self._analyze_binary(main_binary_path, skip_swift_metadata=self.skip_swift_metadata)
-                if main_binary.range_map is not None:
-                    binary_analysis.append(main_binary)
-                    binary_analysis_map[main_executable] = main_binary
+        if not self.skip_treemap and not self.skip_range_mapping:
+            app_bundle_path = artifact.get_app_bundle_path()
 
-                # Analyze frameworks
-                for framework_path in app_bundle_path.rglob("*.framework"):
-                    if framework_path.is_dir():
-                        framework_name = framework_path.stem
-                        framework_binary_path = framework_path / framework_name
-                        framework_binary = self._analyze_binary(framework_binary_path, skip_swift_metadata=True)
-                        if framework_binary.range_map is not None:
-                            binary_analysis.append(framework_binary)
-                            binary_analysis_map[framework_name] = framework_binary
+            # First find all binaries
+            binaries = self._find_binaries(app_bundle_path)
+            logger.info(f"Found {len(binaries)} binaries to analyze")
+
+            # Then analyze them all
+            for binary_path, binary_name in binaries:
+                try:
+                    binary = self._analyze_binary(binary_path)
+                    if binary.range_map is not None:
+                        binary_analysis.append(binary)
+                        # Convert to path relative to app bundle root
+                        relative_path = binary_path.relative_to(app_bundle_path)
+                        binary_analysis_map[str(relative_path)] = binary
+                except Exception as e:
+                    logger.warning(f"Failed to analyze binary at {binary_path}: {e}")
 
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
                 download_compression_ratio=0.8,  # TODO: implement this
                 binary_analysis_map=binary_analysis_map,
+                app_bundle_path=str(app_bundle_path),
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
@@ -139,6 +145,43 @@ class IOSAnalyzer:
             sdk_version=plist.get("DTSDKName"),
         )
 
+    def _detect_file_type(self, file_path: Path) -> str:
+        """Detect file type using the file command.
+
+        Args:
+            file_path: Path to the file to analyze
+
+        Returns:
+            File type string from file command output, normalized to common types
+        """
+        try:
+            result = subprocess.run(["file", str(file_path)], capture_output=True, text=True, check=True)
+            # Extract just the file type description after the colon
+            file_type = result.stdout.split(":", 1)[1].strip()
+            logger.debug(f"Detected file type for {file_path}: {file_type}")
+
+            # Normalize common file types
+            if "Mach-O" in file_type:
+                return "macho"
+            elif "executable" in file_type.lower():
+                return "executable"
+            elif "text" in file_type.lower():
+                return "text"
+            elif "directory" in file_type.lower():
+                return "directory"
+            elif "symbolic link" in file_type.lower():
+                return "symlink"
+            elif "empty" in file_type.lower():
+                return "empty"
+
+            return file_type
+        except subprocess.CalledProcessError as e:
+            logger.warning(f"Failed to detect file type for {file_path}: {e}")
+            return "unknown"
+        except Exception as e:
+            logger.warning(f"Unexpected error detecting file type for {file_path}: {e}")
+            return "unknown"
+
     def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
         """Analyze all files in the app bundle.
 
@@ -163,7 +206,13 @@ class IOSAnalyzer:
 
             relative_path = file_path.relative_to(app_bundle_path)
             file_size = get_file_size(file_path)
+
+            # Get file type from extension first
             file_type = file_path.suffix.lower().lstrip(".")
+
+            # If no extension or unknown type, use file command
+            if not file_type or file_type == "unknown":
+                file_type = self._detect_file_type(file_path)
 
             # Calculate hash for duplicate detection
             file_hash = calculate_file_hash(file_path, algorithm="md5")
@@ -210,6 +259,54 @@ class IOSAnalyzer:
             largest_files=largest_files,
         )
 
+    def _find_binaries(self, app_bundle_path: Path) -> List[tuple[Path, str]]:
+        """Find all binaries in the app bundle.
+
+        Args:
+            app_bundle_path: Path to the app bundle
+
+        Returns:
+            List of tuples containing (binary_path, binary_name, skip_swift_metadata)
+        """
+        binaries: List[tuple[Path, str]] = []
+
+        # Find main executable
+        main_executable = self.artifact.get_plist().get("CFBundleExecutable")
+        if main_executable is None:
+            raise RuntimeError("CFBundleExecutable not found in Info.plist")
+        main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
+        binaries.append((main_binary_path, main_executable))  # Don't skip Swift metadata for main binary
+
+        # Find framework binaries
+        for framework_path in app_bundle_path.rglob("*.framework"):
+            if framework_path.is_dir():
+                framework_name = framework_path.stem
+                framework_binary_path = framework_path / framework_name
+                binaries.append((framework_binary_path, framework_name))  # Skip Swift metadata for frameworks
+
+        # Find app extension binaries
+        for extension_path in app_bundle_path.rglob("*.appex"):
+            if extension_path.is_dir():
+                extension_plist_path = extension_path / "Info.plist"
+                if extension_plist_path.exists():
+                    try:
+                        import plistlib
+
+                        with open(extension_plist_path, "rb") as f:
+                            extension_plist = plistlib.load(f)
+                        extension_executable = extension_plist.get("CFBundleExecutable")
+                        if extension_executable:
+                            extension_binary_path = extension_path / extension_executable
+                            # Use the full extension name as the key to avoid conflicts
+                            extension_name = f"{extension_path.stem}/{extension_executable}"
+                            binaries.append(
+                                (extension_binary_path, extension_name)
+                            )  # Skip Swift metadata for extensions
+                    except Exception as e:
+                        logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
+
+        return binaries
+
     def _analyze_binary(self, binary_path: Path, skip_swift_metadata: bool = False) -> IOSBinaryAnalysis:
         """Analyze a binary file using LIEF.
 
@@ -249,13 +346,19 @@ class IOSAnalyzer:
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
 
-        # Extract Swift metadata if requested
+        # Extract Swift metadata if enabled
         swift_metadata = None
         if not skip_swift_metadata:
-            # TODO: Implement Swift metadata extraction
-            pass
+            swift_sections = parser.extract_swift_sections()
+            if swift_sections:
+                swift_metadata = SwiftMetadata(
+                    classes=[],
+                    protocols=[],
+                    extensions=[],
+                    total_metadata_size=sum(s.size for s in swift_sections),
+                )
 
-        # Create range mapping if enabled
+        # Build range mapping for binary content
         range_map = None
         if not self.skip_range_mapping:
             range_builder = RangeMappingBuilder(parser, executable_size)

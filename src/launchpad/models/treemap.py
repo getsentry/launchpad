@@ -22,6 +22,7 @@ class TreemapType(str, Enum):
     # iOS-specific categories
     FRAMEWORKS = "frameworks"
     PLISTS = "plists"
+    EXTENSIONS = "extensions"  # App extensions and plugins
 
     # Android-specific categories
     DEX_FILES = "dex_files"
