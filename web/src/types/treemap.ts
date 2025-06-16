@@ -75,7 +75,7 @@ export interface TreemapResults {
   /** Size breakdown by category */
   category_breakdown: Record<string, Record<string, number>>;
   /** Platform (ios, android, etc.) */
-  platform: string;
+  platform: "ios" | "android";
 }
 
 export interface EChartsTreemapData {

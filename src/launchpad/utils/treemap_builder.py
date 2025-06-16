@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Literal
 
 from ..models import FileAnalysis, FileInfo, MachOBinaryAnalysis, Range, RangeMap, TreemapElement, TreemapResults
 from ..models.treemap import TreemapType
@@ -20,7 +20,7 @@ class TreemapBuilder:
     def __init__(
         self,
         app_name: str,
-        platform: str,
+        platform: Literal["ios", "android"],
         download_compression_ratio: float,
         filesystem_block_size: int | None = None,
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
