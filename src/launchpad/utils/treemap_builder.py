@@ -7,16 +7,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
-from ..models import (
-    FileAnalysis,
-    FileInfo,
-    IOSBinaryAnalysis,
-    Range,
-    RangeMap,
-    TreemapElement,
-    TreemapResults,
-    TreemapType,
-)
+from ..models import FileAnalysis, FileInfo, IOSBinaryAnalysis, Range, RangeMap, TreemapElement, TreemapResults
+from ..models.treemap import TreemapType
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -47,7 +39,6 @@ class TreemapBuilder:
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
         self.binary_analysis_map = binary_analysis_map or {}
 
-        # Set filesystem block size based on platform
         if filesystem_block_size is not None:
             self.filesystem_block_size = filesystem_block_size
         else:
@@ -85,13 +76,16 @@ class TreemapBuilder:
 
     def _create_file_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
         """Create a TreemapElement for a single file."""
-        # Check if this is a binary we have analysis for
-        binary_name = os.path.basename(file_info.path)
-        if binary_name in self.binary_analysis_map:
-            binary_analysis = self.binary_analysis_map[binary_name]
-            if binary_analysis.range_map is not None:
-                # Create a binary treemap with sections
-                return self.build_binary_treemap(binary_analysis.range_map, binary_name, file_info.path)
+        if file_info.file_type == "macho":
+            if file_info.path in self.binary_analysis_map:
+                binary_analysis = self.binary_analysis_map[file_info.path]
+                if binary_analysis.range_map is not None:
+                    # Create a binary treemap with sections
+                    return self.build_binary_treemap(binary_analysis.range_map, display_name, file_info.path)
+                else:
+                    logger.warning(f"Binary {file_info.path} found but has no range mapping")
+            else:
+                logger.warning(f"Binary {file_info.path} found but not in binary analysis map")
 
         # Calculate platform-aligned install size and compressed download size
         install_size = self._calculate_aligned_install_size(file_info)
@@ -109,7 +103,7 @@ class TreemapBuilder:
             name=display_name,
             install_size=install_size,
             download_size=download_size,
-            element_type=self._get_file_category(file_info),
+            element_type=file_info.treemap_type,
             path=file_info.path,
             is_directory=False,
             details=details,
@@ -193,7 +187,6 @@ class TreemapBuilder:
             return 0
 
         # Round up to nearest filesystem block boundary
-        # Formula: ((size - 1) // block_size + 1) * block_size
         return ((file_size - 1) // self.filesystem_block_size + 1) * self.filesystem_block_size
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
@@ -375,37 +368,27 @@ class TreemapBuilder:
 
         return dir_name
 
-    def _get_file_category(self, file_info: FileInfo) -> TreemapType:
-        """Determine treemap type for a file."""
-        file_type = file_info.file_type.lower()
+    def _has_extension(self, path: Path, extensions: list[str]) -> bool:
+        """Check if a path has any of the given extensions.
 
-        # Executable files (no extension typically)
-        if file_type == "" and "/" not in file_info.path and "." not in os.path.basename(file_info.path):
-            return TreemapType.EXECUTABLES
+        Args:
+            path: Path to check
+            extensions: List of extensions to check for (with or without leading dot)
 
-        # Framework files
-        if ".framework" in file_info.path:
-            return TreemapType.FRAMEWORKS
-
-        # Plist files
-        if file_type == "plist":
-            return TreemapType.PLISTS
-
-        # Asset files
-        if file_type in ["png", "jpg", "jpeg", "gif", "pdf", "car"]:
-            return TreemapType.ASSETS
-
-        # Resource files
-        if file_type in ["nib", "storyboard", "strings", "lproj"]:
-            return TreemapType.RESOURCES
-
-        return TreemapType.FILES
+        Returns:
+            True if the path has any of the given extensions
+        """
+        # Normalize extensions to include leading dot
+        normalized_extensions = [ext if ext.startswith(".") else f".{ext}" for ext in extensions]
+        return path.suffix.lower() in normalized_extensions
 
     def _get_directory_type(self, directory_name: str) -> TreemapType | None:
         """Determine treemap type for a directory."""
         name_lower = directory_name.lower()
 
-        if ".framework" in name_lower:
+        if ".appex" in name_lower:
+            return TreemapType.EXTENSIONS
+        elif ".framework" in name_lower:
             return TreemapType.FRAMEWORKS
         elif name_lower in ["assets", "images"]:
             return TreemapType.ASSETS
@@ -414,7 +397,7 @@ class TreemapBuilder:
         elif name_lower == "frameworks":
             return TreemapType.FRAMEWORKS
         elif name_lower == "plugins":
-            return TreemapType.MODULES
+            return TreemapType.EXTENSIONS
 
         return TreemapType.FILES  # Default to FILES instead of None
 
@@ -424,7 +407,7 @@ class TreemapBuilder:
 
         for files in file_analysis.files_by_type.values():
             for file_info in files:
-                treemap_type = self._get_file_category(file_info)
+                treemap_type = file_info.treemap_type
                 category = treemap_type.value
 
                 # Use filesystem block-aligned size for install calculations
