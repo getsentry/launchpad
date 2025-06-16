@@ -1,0 +1,21 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    entrypoint: bash
+    args:
+      - "-euxc"
+      - |
+        docker buildx create --use
+        docker buildx build \
+            --load \
+            -t us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:latest \
+            -t us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:$COMMIT_SHA \
+            --build-arg launchpad_VERSION_SHA=$COMMIT_SHA \
+            --cache-to 'type=registry,ref=us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:cache,mode=max' \
+            --cache-from 'type=registry,ref=us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:cache' \
+            .
+        if [ "$BRANCH_NAME" = "main" ]; then
+          docker push --all-tags us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend
+        fi
+
+timeout: 3600s
+logsBucket: "gs://sentryio-cloudbuild-logs/launchpad/"
