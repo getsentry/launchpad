@@ -46,7 +46,6 @@ jobs:
             --cache-from type=registry,ref=ghcr.io/getsentry/launchpad:buildcache \
             --cache-from type=registry,ref=ghcr.io/getsentry/launchpad:latest \
             --tag ghcr.io/getsentry/launchpad:${{ github.sha }} \
-            --target application \
             "${args[@]}" \
             .
 
