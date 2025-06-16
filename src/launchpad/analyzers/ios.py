@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -30,8 +31,8 @@ class IOSAnalyzer:
         working_dir: Path | None = None,
         skip_swift_metadata: bool = False,
         skip_symbols: bool = False,
-        enable_range_mapping: bool = True,
-        enable_treemap: bool = True,
+        skip_range_mapping: bool = False,
+        skip_treemap: bool = False,
     ) -> None:
         """Initialize the iOS analyzer.
 
@@ -39,14 +40,14 @@ class IOSAnalyzer:
             working_dir: Directory for temporary files (None for system temp)
             skip_swift_metadata: Skip Swift metadata extraction for faster analysis
             skip_symbols: Skip symbol extraction for faster analysis
-            enable_range_mapping: Enable range mapping for binary content categorization
-            enable_treemap: Enable treemap generation for hierarchical size analysis
+            skip_range_mapping: Skip range mapping for binary content categorization
+            skip_treemap: Skip treemap generation for hierarchical size analysis
         """
         self.working_dir = working_dir
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
-        self.enable_range_mapping = enable_range_mapping
-        self.enable_treemap = enable_treemap
+        self.skip_range_mapping = skip_range_mapping
+        self.skip_treemap = skip_treemap
         self.binary_analysis: IOSBinaryAnalysis | None = None
 
     def analyze(self, artifact: IOSArtifact) -> IOSAnalysisResults:
@@ -74,13 +75,15 @@ class IOSAnalyzer:
         binary_analysis: List[IOSBinaryAnalysis] = []
         binary_analysis_map: Dict[str, IOSBinaryAnalysis] = {}
 
-        if self.enable_treemap:
+        if not self.skip_treemap:
             # Collect all binaries first if range mapping is enabled
-            if self.enable_range_mapping:
+            if not self.skip_range_mapping:
                 # Analyze main executable
-                main_executable = artifact.get_plist().get("CFBundleExecutable", "Unknown")
+                main_executable = artifact.get_plist().get("CFBundleExecutable")
+                if main_executable is None:
+                    raise RuntimeError("CFBundleExecutable not found in Info.plist")
                 app_bundle_path = artifact.get_app_bundle_path()
-                main_binary_path = app_bundle_path / main_executable
+                main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
                 main_binary = self._analyze_binary(main_binary_path, skip_swift_metadata=self.skip_swift_metadata)
                 if main_binary.range_map is not None:
                     binary_analysis.append(main_binary)
@@ -254,7 +257,7 @@ class IOSAnalyzer:
 
         # Create range mapping if enabled
         range_map = None
-        if self.enable_range_mapping:
+        if not self.skip_range_mapping:
             range_builder = RangeMappingBuilder(parser, executable_size)
             range_map = range_builder.build_range_mapping()
 

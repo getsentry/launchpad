@@ -56,6 +56,8 @@ def cli(ctx: click.Context, version: bool) -> None:
 )
 @click.option("--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis.")
 @click.option("--skip-symbols", is_flag=True, help="Skip symbol extraction and analysis.")
+@click.option("--skip-range-mapping", is_flag=True, help="Skip range mapping for binary content categorization.")
+@click.option("--skip-treemap", is_flag=True, help="Skip treemap generation for hierarchical size analysis.")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
 @click.option("--quiet", "-q", is_flag=True, help="Suppress all output except errors.")
 @click.option(
@@ -72,6 +74,8 @@ def ios(
     working_dir: Path | None,
     skip_swift_metadata: bool,
     skip_symbols: bool,
+    skip_range_mapping: bool,
+    skip_treemap: bool,
     verbose: bool,
     quiet: bool,
     output_format: str,
@@ -110,6 +114,8 @@ def ios(
                 working_dir=working_dir,
                 skip_swift_metadata=skip_swift_metadata,
                 skip_symbols=skip_symbols,
+                skip_range_mapping=skip_range_mapping,
+                skip_treemap=skip_treemap,
             )
             artifact = ArtifactFactory.from_path(input_path)
             results = analyzer.analyze(cast(IOSArtifact, artifact))
