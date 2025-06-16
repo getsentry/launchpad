@@ -48,11 +48,11 @@ jobs:
             --platform linux/amd64 \
             --cache-from type=registry,ref=ghcr.io/getsentry/launchpad:buildcache \
             --cache-from type=registry,ref=ghcr.io/getsentry/launchpad:latest \
-            --tag ghcr.io/getsentry/launchpad:${{ github.sha }} \
+            --tag ghcr.io/getsentry/launchpad:${{ github.event.pull_request.head.sha || github.sha }} \
             "${args[@]}" \
             .
 
       - id: get_image_tag
-        run: echo 'image_tag=ghcr.io/getsentry/launchpad:${{ github.sha }}' >> "$GITHUB_OUTPUT"
+        run: echo 'image_tag=ghcr.io/getsentry/launchpad:${{ github.event.pull_request.head.sha || github.sha }}' >> "$GITHUB_OUTPUT"
 
   # TODO: implement self hosted support
