@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -12,21 +13,10 @@ import lief
 from launchpad.artifacts.artifact import IOSArtifact
 
 from ..artifacts import ZippedXCArchive
-from ..models import (
-    DuplicateFileGroup,
-    FileAnalysis,
-    FileInfo,
-    IOSAnalysisResults,
-    IOSAppInfo,
-    IOSBinaryAnalysis,
-    TreemapResults,
-)
+from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis
 from ..parsers.ios.macho_parser import MachOParser
 from ..parsers.ios.range_mapping_builder import RangeMappingBuilder
-from ..utils.file_utils import (
-    calculate_file_hash,
-    get_file_size,
-)
+from ..utils.file_utils import calculate_file_hash, get_file_size
 from ..utils.logging import get_logger
 from ..utils.treemap_builder import TreemapBuilder
 
@@ -41,8 +31,8 @@ class IOSAnalyzer:
         working_dir: Path | None = None,
         skip_swift_metadata: bool = False,
         skip_symbols: bool = False,
-        enable_range_mapping: bool = True,
-        enable_treemap: bool = True,
+        skip_range_mapping: bool = False,
+        skip_treemap: bool = False,
     ) -> None:
         """Initialize the iOS analyzer.
 
@@ -50,15 +40,15 @@ class IOSAnalyzer:
             working_dir: Directory for temporary files (None for system temp)
             skip_swift_metadata: Skip Swift metadata extraction for faster analysis
             skip_symbols: Skip symbol extraction for faster analysis
-            enable_range_mapping: Enable range mapping for binary content categorization
-            enable_treemap: Enable treemap generation for hierarchical size analysis
+            skip_range_mapping: Skip range mapping for binary content categorization
+            skip_treemap: Skip treemap generation for hierarchical size analysis
         """
         self.working_dir = working_dir
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
-        self.enable_range_mapping = enable_range_mapping
-        self.enable_treemap = enable_treemap
-        self._temp_dirs: List[Path] = []
+        self.skip_range_mapping = skip_range_mapping
+        self.skip_treemap = skip_treemap
+        self.binary_analysis: IOSBinaryAnalysis | None = None
 
     def analyze(self, artifact: IOSArtifact) -> IOSAnalysisResults:
         """Analyze an iOS app bundle.
@@ -67,11 +57,7 @@ class IOSAnalyzer:
             artifact: IOSArtifact to analyze
 
         Returns:
-            Complete analysis results
-
-        Raises:
-            ValueError: If input is not a valid iOS app bundle
-            RuntimeError: If analysis fails
+            Analysis results including file sizes, binary analysis, and treemap
         """
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
@@ -82,27 +68,55 @@ class IOSAnalyzer:
         app_info = self._extract_app_info(artifact)
         logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
 
-        # Analyze files in the bundle
         file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
 
-        # Generate treemap if enabled
-        treemap_results = None
-        if self.enable_treemap:
-            treemap_results = self._generate_treemap(app_info, file_analysis)
-            logger.info(f"Generated treemap with {treemap_results.file_count} files")
+        treemap = None
+        binary_analysis: List[IOSBinaryAnalysis] = []
+        binary_analysis_map: Dict[str, IOSBinaryAnalysis] = {}
 
-            # Analyze the main executable binary
-        binary_analysis = self._analyze_binary(artifact)
-        logger.info(f"Binary analysis complete, " f"executable size: {binary_analysis.executable_size} bytes")
+        if not self.skip_treemap:
+            # Collect all binaries first if range mapping is enabled
+            if not self.skip_range_mapping:
+                # Analyze main executable
+                main_executable = artifact.get_plist().get("CFBundleExecutable")
+                if main_executable is None:
+                    raise RuntimeError("CFBundleExecutable not found in Info.plist")
+                app_bundle_path = artifact.get_app_bundle_path()
+                main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
+                main_binary = self._analyze_binary(main_binary_path, skip_swift_metadata=self.skip_swift_metadata)
+                if main_binary.range_map is not None:
+                    binary_analysis.append(main_binary)
+                    binary_analysis_map[main_executable] = main_binary
 
-        return IOSAnalysisResults(
+                # Analyze frameworks
+                for framework_path in app_bundle_path.rglob("*.framework"):
+                    if framework_path.is_dir():
+                        framework_name = framework_path.stem
+                        framework_binary_path = framework_path / framework_name
+                        framework_binary = self._analyze_binary(framework_binary_path, skip_swift_metadata=True)
+                        if framework_binary.range_map is not None:
+                            binary_analysis.append(framework_binary)
+                            binary_analysis_map[framework_name] = framework_binary
+
+            treemap_builder = TreemapBuilder(
+                app_name=app_info.name,
+                platform="ios",
+                download_compression_ratio=0.8,  # TODO: implement this
+                binary_analysis_map=binary_analysis_map,
+            )
+            treemap = treemap_builder.build_file_treemap(file_analysis)
+
+        results = IOSAnalysisResults(
             app_info=app_info,
             file_analysis=file_analysis,
             binary_analysis=binary_analysis,
             analysis_duration=time.time() - analysis_start_time,
-            treemap=treemap_results,
+            treemap=treemap,
         )
+
+        logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")
+        return results
 
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> IOSAppInfo:
         """Extract basic app information from Info.plist.
@@ -113,11 +127,9 @@ class IOSAnalyzer:
         Raises:
             RuntimeError: If Info.plist cannot be read
         """
-
         plist = xcarchive.get_plist()
-
         return IOSAppInfo(
-            name=plist.get("CFBundleDisplayName") or plist.get("CFBundleName", "Unknown"),
+            name=plist.get("CFBundleName", "Unknown"),
             bundle_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
             version=plist.get("CFBundleShortVersionString", "Unknown"),
             build=plist.get("CFBundleVersion", "Unknown"),
@@ -198,30 +210,18 @@ class IOSAnalyzer:
             largest_files=largest_files,
         )
 
-    def _generate_treemap(self, app_info: IOSAppInfo, file_analysis: FileAnalysis) -> TreemapResults:
-        """Generate treemap for hierarchical size analysis."""
-        logger.debug("Generating treemap for file hierarchy")
-
-        # TODO: implement the compression ratio
-        treemap_builder = TreemapBuilder(app_name=app_info.name, platform="ios", download_compression_ratio=0.75)
-        return treemap_builder.build_file_treemap(file_analysis)
-
-    def _analyze_binary(self, xcarchive: ZippedXCArchive) -> IOSBinaryAnalysis:
-        """Analyze the main executable binary using LIEF.
+    def _analyze_binary(self, binary_path: Path, skip_swift_metadata: bool = False) -> IOSBinaryAnalysis:
+        """Analyze a binary file using LIEF.
 
         Args:
-            app_bundle_path: Path to the .app bundle
-            executable_name: Name of the main executable
+            binary_path: Path to the binary file
+            skip_swift_metadata: Whether to skip Swift metadata extraction
 
         Returns:
             Binary analysis results
         """
-        executable_name = xcarchive.get_plist().get("CFBundleExecutable", "Unknown")
-        app_bundle_path = xcarchive.get_app_bundle_path()
-        executable_path = app_bundle_path / executable_name
-
-        if not executable_path.exists():
-            logger.warning(f"Executable not found: {executable_path}")
+        if not binary_path.exists():
+            logger.warning(f"Binary not found: {binary_path}")
             return IOSBinaryAnalysis(
                 executable_size=0,
                 architectures=[],
@@ -231,54 +231,41 @@ class IOSAnalyzer:
                 range_map=None,
             )
 
-        logger.debug(f"Analyzing binary: {executable_path}")
+        logger.debug(f"Analyzing binary: {binary_path}")
 
-        try:
-            # TODO: Potentially move this to the artifact impl
-            fat_binary = lief.MachO.parse(str(executable_path))
+        fat_binary = lief.MachO.parse(str(binary_path))
 
-            if fat_binary is None or fat_binary.size == 0:
-                raise RuntimeError("Failed to parse binary with LIEF")
+        if fat_binary is None or fat_binary.size == 0:
+            raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
 
-            binary = fat_binary.at(0)
-            executable_size = get_file_size(executable_path)
+        binary = fat_binary.at(0)
+        executable_size = get_file_size(binary_path)
 
-            # Create parser for this binary
-            parser = MachOParser(binary)
+        # Create parser for this binary
+        parser = MachOParser(binary)
 
-            # Extract basic information using the parser
-            architectures = parser.extract_architectures()
-            linked_libraries = parser.extract_linked_libraries()
-            sections = parser.extract_sections()
+        # Extract basic information using the parser
+        architectures = parser.extract_architectures()
+        linked_libraries = parser.extract_linked_libraries()
+        sections = parser.extract_sections()
 
-            # Extract Swift metadata if requested
+        # Extract Swift metadata if requested
+        swift_metadata = None
+        if not skip_swift_metadata:
             # TODO: Implement Swift metadata extraction
-            swift_metadata = None
-            # if not self.skip_swift_metadata:
-            #     swift_metadata = parser.extract_swift_metadata()
+            pass
 
-            # Create range mapping if enabled
-            range_map = None
-            if self.enable_range_mapping:
-                range_builder = RangeMappingBuilder(parser, executable_size)
-                range_map = range_builder.build_range_mapping()
+        # Create range mapping if enabled
+        range_map = None
+        if not self.skip_range_mapping:
+            range_builder = RangeMappingBuilder(parser, executable_size)
+            range_map = range_builder.build_range_mapping()
 
-            return IOSBinaryAnalysis(
-                executable_size=executable_size,
-                architectures=architectures,
-                linked_libraries=linked_libraries,
-                sections=sections,
-                swift_metadata=swift_metadata,
-                range_map=range_map,
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to analyze binary: {e}")
-            return IOSBinaryAnalysis(
-                executable_size=get_file_size(executable_path),
-                architectures=[],
-                linked_libraries=[],
-                sections={},
-                swift_metadata=None,
-                range_map=None,
-            )
+        return IOSBinaryAnalysis(
+            executable_size=executable_size,
+            architectures=architectures,
+            linked_libraries=linked_libraries,
+            sections=sections,
+            swift_metadata=swift_metadata,
+            range_map=range_map,
+        )

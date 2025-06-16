@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class ZippedXCArchive(IOSArtifact):
+    """A zipped XCArchive file."""
 
     def __init__(self, content: bytes) -> None:
         super().__init__(content)
@@ -19,6 +20,7 @@ class ZippedXCArchive(IOSArtifact):
         self._plist: dict[str, Any] | None = None
 
     def get_plist(self) -> dict[str, Any]:
+        """Get the Info.plist contents."""
         if self._plist is not None:
             return self._plist
 
@@ -35,6 +37,7 @@ class ZippedXCArchive(IOSArtifact):
             raise RuntimeError(f"Failed to parse Info.plist: {e}")
 
     def get_app_bundle_path(self) -> Path:
+        """Get the path to the .app bundle."""
         if self._app_bundle_path is not None:
             return self._app_bundle_path
 

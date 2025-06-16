@@ -53,9 +53,20 @@ function convertToEChartsData(
   const size = sizeMode === 'install' ? element.install_size : element.download_size;
   const color = element.element_type ? TYPE_COLORS[element.element_type] : TYPE_COLORS[TreemapType.OTHER];
 
+  let children: EChartsTreemapData[] | undefined;
+  let totalSize = size;
+
+  if (element.children && element.children.length > 0) {
+    children = element.children.map(child => convertToEChartsData(child, sizeMode));
+    // Calculate total size from children for directories
+    if (element.is_directory) {
+      totalSize = children.reduce((sum, child) => sum + (child.value || 0), 0);
+    }
+  }
+
   const data: EChartsTreemapData = {
     name: element.name,
-    value: size,
+    value: totalSize,
     itemStyle: {
       color: color,
     },
@@ -70,13 +81,8 @@ function convertToEChartsData(
     },
   };
 
-  if (element.children && element.children.length > 0) {
-    data.children = element.children
-      .filter(child => {
-        const childSize = sizeMode === 'install' ? child.install_size : child.download_size;
-        return childSize > 0;
-      })
-      .map(child => convertToEChartsData(child, sizeMode));
+  if (children) {
+    data.children = children;
   }
 
   return data;

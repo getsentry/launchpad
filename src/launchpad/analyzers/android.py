@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from launchpad.models.common import FileAnalysis
+
 from ..artifacts import AndroidArtifact
 from ..models.android import AndroidAnalysisResults, AndroidAppInfo
 
@@ -19,4 +21,12 @@ class AndroidAnalyzer:
 
         return AndroidAnalysisResults(
             app_info=app_info,
+            file_analysis=FileAnalysis(
+                total_size=0,
+                file_count=0,
+                files_by_type={},
+                duplicate_files=[],
+                largest_files=[],
+            ),
+            analysis_duration=0,
         )

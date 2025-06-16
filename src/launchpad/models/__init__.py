@@ -14,7 +14,12 @@ from .common import (
 )
 
 # Import iOS-specific models
-from .ios import IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis, SwiftMetadata  # Backwards compatibility aliases
+from .ios import (  # Backwards compatibility aliases
+    IOSAnalysisResults,
+    IOSAppInfo,
+    IOSBinaryAnalysis,
+    SwiftMetadata,
+)
 from .range_mapping import BinaryTag, Range, RangeConflict, RangeMap
 from .treemap import TreemapElement, TreemapResults, TreemapType
 

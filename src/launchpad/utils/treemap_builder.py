@@ -7,8 +7,16 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
-from ..models.common import FileAnalysis, FileInfo
-from ..models.treemap import TreemapElement, TreemapResults, TreemapType
+from ..models import (
+    FileAnalysis,
+    FileInfo,
+    IOSBinaryAnalysis,
+    Range,
+    RangeMap,
+    TreemapElement,
+    TreemapResults,
+    TreemapType,
+)
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -23,6 +31,7 @@ class TreemapBuilder:
         platform: str,
         download_compression_ratio: float,
         filesystem_block_size: int | None = None,
+        binary_analysis_map: Dict[str, IOSBinaryAnalysis] | None = None,
     ) -> None:
         """Initialize the treemap builder.
 
@@ -31,10 +40,12 @@ class TreemapBuilder:
             platform: Platform name (ios, android, etc.)
             download_compression_ratio: Ratio of download size to install size (0.0-1.0)
             filesystem_block_size: Filesystem block size in bytes, or None to use platform default
+            binary_analysis_map: Optional mapping of binary names to their analysis results
         """
         self.app_name = app_name
         self.platform = platform
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
+        self.binary_analysis_map = binary_analysis_map or {}
 
         # Set filesystem block size based on platform
         if filesystem_block_size is not None:
@@ -72,6 +83,102 @@ class TreemapBuilder:
             platform=self.platform,
         )
 
+    def _create_file_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
+        """Create a TreemapElement for a single file."""
+        # Check if this is a binary we have analysis for
+        binary_name = os.path.basename(file_info.path)
+        if binary_name in self.binary_analysis_map:
+            binary_analysis = self.binary_analysis_map[binary_name]
+            if binary_analysis.range_map is not None:
+                # Create a binary treemap with sections
+                return self.build_binary_treemap(binary_analysis.range_map, binary_name, file_info.path)
+
+        # Calculate platform-aligned install size and compressed download size
+        install_size = self._calculate_aligned_install_size(file_info)
+        download_size = int(install_size * self.download_compression_ratio)
+
+        details: Dict[str, object] = {
+            "hash": file_info.hash_md5,  # File hash for deduplication
+        }
+
+        # Add file extension only for actual files (not binary subsections)
+        if file_info.file_type and file_info.file_type != "unknown":
+            details["fileExtension"] = file_info.file_type
+
+        return TreemapElement(
+            name=display_name,
+            install_size=install_size,
+            download_size=download_size,
+            element_type=self._get_file_category(file_info),
+            path=file_info.path,
+            is_directory=False,
+            details=details,
+        )
+
+    def build_binary_treemap(self, range_map: RangeMap, name: str, binary_path: str | None = None) -> TreemapElement:
+        """Build a treemap element from binary range mapping.
+
+        Args:
+            range_map: Range mapping for binary content
+            name: Name of the binary
+            binary_path: Optional path to the binary file
+
+        Returns:
+            Treemap element representing the binary sections
+        """
+        # Group ranges by tag
+        ranges_by_tag: Dict[str, List[Range]] = {}
+        for range_obj in range_map.ranges:
+            tag = range_obj.tag.value
+            if tag not in ranges_by_tag:
+                ranges_by_tag[tag] = []
+            ranges_by_tag[tag].append(range_obj)
+
+        # Create child elements for each tag
+        children: List[TreemapElement] = []
+        for tag, ranges in ranges_by_tag.items():
+            total_size = sum(r.size for r in ranges)
+            children.append(
+                TreemapElement(
+                    name=tag,
+                    install_size=total_size,
+                    download_size=total_size,  # Binary sections don't compress
+                    element_type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_directory=False,
+                    children=[],
+                    details={"tag": tag},
+                )
+            )
+
+        # Add unmapped regions if any
+        if range_map.unmapped_size > 0:
+            children.append(
+                TreemapElement(
+                    name="Unmapped",
+                    install_size=int(range_map.unmapped_size),
+                    download_size=int(range_map.unmapped_size),
+                    element_type=TreemapType.UNMAPPED,
+                    path=None,
+                    is_directory=False,
+                    children=[],
+                    details={},
+                )
+            )
+
+        # Create root element
+        total_size = sum(child.install_size for child in children)
+        return TreemapElement(
+            name=name,
+            install_size=total_size,
+            download_size=total_size,
+            element_type=TreemapType.EXECUTABLES,
+            path=binary_path,
+            is_directory=True,
+            children=children,
+            details={},
+        )
+
     def _calculate_aligned_install_size(self, file_info: FileInfo) -> int:
         """Calculate the actual install size considering filesystem block alignment.
 
@@ -96,7 +203,7 @@ class TreemapBuilder:
         for files_by_type in file_analysis.files_by_type.values():
             all_files.extend(files_by_type)
 
-        # Group files by their directory structure
+        # Group files by their full directory structure
         directory_map: Dict[str, List[FileInfo]] = defaultdict(list)
         root_files: List[FileInfo] = []
 
@@ -106,9 +213,9 @@ class TreemapBuilder:
                 # Root level file
                 root_files.append(file_info)
             else:
-                # File in subdirectory - group by first directory
-                first_dir = path_obj.parts[0]
-                directory_map[first_dir].append(file_info)
+                # File in subdirectory - group by full directory path
+                dir_path = str(path_obj.parent)
+                directory_map[dir_path].append(file_info)
 
         elements: List[TreemapElement] = []
 
@@ -117,76 +224,104 @@ class TreemapBuilder:
             element = self._create_file_element(file_info, file_info.path)
             elements.append(element)
 
-        # Add directories with their contents
-        for dir_name, files in directory_map.items():
-            dir_element = self._create_directory_element(dir_name, files)
+        # Create a map of all directories and their files
+        dir_structure: Dict[str, List[FileInfo]] = defaultdict(list)
+
+        # First pass: organize all files into their respective directories
+        for dir_path, files in directory_map.items():
+            path_obj = Path(dir_path)
+            current_dir = dir_path
+
+            # Add files to their immediate directory
+            dir_structure[current_dir].extend(files)
+
+            # Add to parent directories
+            while len(path_obj.parts) > 1:
+                parent = str(path_obj.parent)
+                dir_structure[parent].extend(files)
+                current_dir = parent
+                path_obj = path_obj.parent
+
+        # Get all unique directory paths
+        all_dirs: set[str] = set()
+        for dir_path in directory_map.keys():
+            path_obj = Path(dir_path)
+            # Add all parent directories
+            current = path_obj
+            while len(current.parts) > 0:
+                all_dirs.add(str(current))
+                current = current.parent
+
+        logger.debug(f"Found directories: {sorted(all_dirs)}")
+
+        # Second pass: build the directory hierarchy
+        def build_directory(dir_path: str) -> TreemapElement:
+            dir_name = os.path.basename(dir_path)
+            files = dir_structure[dir_path]
+
+            # Group files by subdirectory
+            subdirs: Dict[str, List[FileInfo]] = defaultdict(list)
+            direct_files: List[FileInfo] = []
+
+            for file_info in files:
+                path_obj = Path(file_info.path)
+                if str(path_obj.parent) == dir_path:
+                    direct_files.append(file_info)
+                else:
+                    # File is in a subdirectory
+                    subdir = str(path_obj.parent)
+                    subdirs[subdir].append(file_info)
+
+            # Create child elements
+            children: List[TreemapElement] = []
+
+            # Add direct files
+            for file_info in direct_files:
+                filename = os.path.basename(file_info.path)
+                element = self._create_file_element(file_info, filename)
+                children.append(element)
+
+            # Add subdirectories
+            for subdir_path, _ in subdirs.items():
+                subdir_element = build_directory(subdir_path)
+                children.append(subdir_element)
+
+            return TreemapElement(
+                name=dir_name,
+                install_size=0,  # Directory itself has no size
+                download_size=0,  # Directory itself has no size
+                element_type=self._get_directory_type(dir_name),
+                path=dir_path,
+                is_directory=True,
+                children=children,
+            )
+
+        # Build top-level directories
+        top_level_dirs: set[str] = {d for d in all_dirs if len(Path(d).parts) == 1}
+        logger.debug(f"Top level directories: {sorted(top_level_dirs)}")
+
+        for dir_path in sorted(top_level_dirs):
+            dir_element = build_directory(dir_path)
             elements.append(dir_element)
 
         return elements
 
-    def _create_file_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
-        """Create a TreemapElement for a single file."""
-        # Calculate platform-aligned install size and compressed download size
-        install_size = self._calculate_aligned_install_size(file_info)
-        download_size = int(install_size * self.download_compression_ratio)
-
-        details: Dict[str, object] = {
-            "hash": file_info.hash_md5,  # File hash for deduplication
-        }
-
-        # Add file extension only for actual files (not binary subsections)
-        if file_info.file_type and file_info.file_type != "unknown":
-            details["fileExtension"] = file_info.file_type
-
-        return TreemapElement(
-            name=display_name,
-            install_size=install_size,
-            download_size=download_size,
-            element_type=self._get_file_category(file_info),
-            path=file_info.path,
-            is_directory=False,
-            details=details,
-        )
-
     def _create_directory_element(self, dir_name: str, files: List[FileInfo]) -> TreemapElement:
         """Create a TreemapElement for a directory containing files."""
-
         # Group files by subdirectory within this directory
         subdirs: Dict[str, List[FileInfo]] = defaultdict(list)
         direct_files: List[FileInfo] = []
 
         for file_info in files:
             path_obj = Path(file_info.path)
+            parent_path = str(path_obj.parent)
 
-            # Find the relative path from current directory
-            relative_parts: List[str] = []
-            found_current_dir = False
-
-            for i, part in enumerate(path_obj.parts):
-                if part == dir_name and not found_current_dir:
-                    # Found our current directory, get the parts after it
-                    relative_parts = list(path_obj.parts[i + 1 :])
-                    found_current_dir = True
-                    break
-
-            # If we didn't find the current directory in the path, check if this file
-            # is at the root level where the directory name is the first part
-            if not found_current_dir:
-                if len(path_obj.parts) > 0 and path_obj.parts[0] == dir_name:
-                    relative_parts = list(path_obj.parts[1:])
-                else:
-                    # This file doesn't belong in this directory, skip it
-                    continue
-
-            if len(relative_parts) == 0:
-                logger.warning(f"File {file_info.path} has no relative parts")
-                continue
-            elif len(relative_parts) == 1:
-                # Direct file in this directory
+            # If this file is directly in the current directory
+            if os.path.basename(parent_path) == dir_name:
                 direct_files.append(file_info)
             else:
-                # File in subdirectory
-                subdir = relative_parts[0]
+                # File is in a subdirectory
+                subdir = os.path.basename(parent_path)
                 subdirs[subdir].append(file_info)
 
         # Create child elements
@@ -276,8 +411,12 @@ class TreemapBuilder:
             return TreemapType.ASSETS
         elif ".lproj" in name_lower:
             return TreemapType.RESOURCES
+        elif name_lower == "frameworks":
+            return TreemapType.FRAMEWORKS
+        elif name_lower == "plugins":
+            return TreemapType.MODULES
 
-        return None  # Generic directory
+        return TreemapType.FILES  # Default to FILES instead of None
 
     def _calculate_category_breakdown(self, file_analysis: FileAnalysis) -> Dict[str, Dict[str, int]]:
         """Calculate size breakdown by category."""

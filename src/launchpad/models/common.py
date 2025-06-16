@@ -94,8 +94,7 @@ class BaseAnalysisResults(BaseModel):
     """Base analysis results structure."""
 
     model_config = ConfigDict(frozen=True)
-
-    file_analysis: FileAnalysis | None = Field(None, description="File-level analysis results")
+    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
 

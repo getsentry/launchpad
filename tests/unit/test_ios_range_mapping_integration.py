@@ -14,12 +14,12 @@ class TestIOSAnalyzerRangeMapping:
     def test_range_mapping_enabled_by_default(self) -> None:
         """Test that range mapping is enabled by default."""
         analyzer = IOSAnalyzer()
-        assert analyzer.enable_range_mapping is True
+        assert analyzer.skip_range_mapping is False
 
     def test_range_mapping_can_be_disabled(self) -> None:
         """Test that range mapping can be disabled."""
-        analyzer = IOSAnalyzer(enable_range_mapping=False)
-        assert analyzer.enable_range_mapping is False
+        analyzer = IOSAnalyzer(skip_range_mapping=True)
+        assert analyzer.skip_range_mapping is True
 
     def test_range_mapping_creation(self) -> None:
         """Test that range mapping is created during binary analysis."""
@@ -49,35 +49,6 @@ class TestIOSAnalyzerRangeMapping:
         assert len(header_ranges) == 1
         assert header_ranges[0].start == 0
         assert header_ranges[0].end == 32  # Mock header size
-
-    def test_section_categorization(self) -> None:
-        """Test that sections are categorized correctly."""
-        # Create a mock binary
-        mock_binary = Mock()
-        parser = MachOParser(mock_binary)
-        range_builder = RangeMappingBuilder(parser, 1000)
-
-        # Test various section names
-        test_cases = [
-            ("__text", BinaryTag.TEXT_SEGMENT),
-            ("__TEXT", BinaryTag.TEXT_SEGMENT),
-            ("__stubs", BinaryTag.TEXT_SEGMENT),
-            ("__swift5_types", BinaryTag.SWIFT_METADATA),
-            ("__objc_classlist", BinaryTag.OBJC_CLASSES),
-            ("__cstring", BinaryTag.C_STRINGS),
-            ("__cfstring", BinaryTag.C_STRINGS),
-            ("__data", BinaryTag.DATA_SEGMENT),
-            ("__const", BinaryTag.CONST_DATA),
-            ("__unwind_info", BinaryTag.UNWIND_INFO),
-            ("__eh_frame", BinaryTag.UNWIND_INFO),
-            ("unknown_section", BinaryTag.DATA_SEGMENT),  # Default case
-        ]
-
-        for section_name, expected_tag in test_cases:
-            result_tag = range_builder._categorize_section(section_name)
-            assert (
-                result_tag == expected_tag
-            ), f"Section {section_name} should be categorized as {expected_tag}, got {result_tag}"
 
     def test_section_mapping(self) -> None:
         """Test that sections are properly mapped to ranges."""

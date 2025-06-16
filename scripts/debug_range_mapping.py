@@ -27,7 +27,7 @@ def analyze_range_mapping(app_path: Path) -> None:
     print(f"Analyzing: {app_path}")
     print("=" * 50)
 
-    analyzer = IOSAnalyzer(enable_range_mapping=True)
+    analyzer = IOSAnalyzer(skip_range_mapping=False)
     artifact = ArtifactFactory.from_path(app_path)
     results = analyzer.analyze(cast(IOSArtifact, artifact))
 

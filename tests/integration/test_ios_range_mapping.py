@@ -33,11 +33,13 @@ class TestIOSRangeMapping:
         This test asserts against the specific section sizes and mappings we expect
         from the HackerNews sample app to catch any regressions in the range mapping logic.
         """
-        analyzer = IOSAnalyzer(enable_range_mapping=True)
+        analyzer = IOSAnalyzer(skip_range_mapping=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
         results = analyzer.analyze(cast(IOSArtifact, artifact))
 
-        range_map = results.binary_analysis.range_map
+        # Get the first binary analysis result since we know there's only one binary
+        binary_analysis = results.binary_analysis[0]
+        range_map = binary_analysis.range_map
         assert range_map is not None, "Range mapping should be created"
 
         # Test exact file structure from HackerNews binary
@@ -84,11 +86,13 @@ class TestIOSRangeMapping:
 
     def test_section_mapping_completeness(self, sample_app_path: Path) -> None:
         """Test that sections are properly mapped to ranges in real binary."""
-        analyzer = IOSAnalyzer(enable_range_mapping=True)
+        analyzer = IOSAnalyzer(skip_range_mapping=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
         results = analyzer.analyze(cast(IOSArtifact, artifact))
 
-        range_map = results.binary_analysis.range_map
+        # Get the first binary analysis result since we know there's only one binary
+        binary_analysis = results.binary_analysis[0]
+        range_map = binary_analysis.range_map
         assert range_map is not None
 
         # Verify we have both text and data ranges
