@@ -118,6 +118,7 @@ def apple_app(
                 skip_treemap=skip_treemap,
             )
             artifact = ArtifactFactory.from_path(input_path)
+            analyzer.preprocess(cast(AppleArtifact, artifact))
             results = analyzer.analyze(cast(AppleArtifact, artifact))
 
             progress.update(task, description="Analysis complete!")

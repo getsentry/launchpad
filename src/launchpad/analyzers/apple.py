@@ -7,14 +7,21 @@ import subprocess
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, Tuple
 
 import lief
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 
-from ..models import AppleAnalysisResults, AppleAppInfo, DuplicateFileGroup, FileAnalysis, FileInfo, MachOBinaryAnalysis
+from ..models import (
+    AppleAnalysisResults,
+    AppleAppInfo,
+    DuplicateFileGroup,
+    FileAnalysis,
+    FileInfo,
+    MachOBinaryAnalysis,
+)
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.apple.macho_parser import MachOParser
 from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
@@ -50,6 +57,14 @@ class AppleAppAnalyzer:
         self.skip_symbols = skip_symbols
         self.skip_range_mapping = skip_range_mapping
         self.skip_treemap = skip_treemap
+        self.app_info: AppleAppInfo | None = None
+
+    def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
+        if not isinstance(artifact, ZippedXCArchive):
+            raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
+
+        self.app_info = self._extract_app_info(artifact)
+        return self.app_info
 
     def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
         """Analyze an Apple app bundle.
@@ -66,7 +81,10 @@ class AppleAppAnalyzer:
         analysis_start_time = time.time()
 
         # Extract basic app information
-        app_info = self._extract_app_info(artifact)
+        if not self.app_info:
+            self.app_info = self.preprocess(artifact)
+
+        app_info = self.app_info
         logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
 
         file_analysis = self._analyze_files(artifact)
@@ -114,7 +132,7 @@ class AppleAppAnalyzer:
         return results
 
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
-        """Extract basic app information from Info.plist.
+        """Extract basic app information.
 
         Returns:
             App information
@@ -123,6 +141,14 @@ class AppleAppAnalyzer:
             RuntimeError: If Info.plist cannot be read
         """
         plist = xcarchive.get_plist()
+        provisioning_profile = xcarchive.get_provisioning_profile()
+        codesigning_type = None
+        profile_name = None
+        if provisioning_profile:
+            codesigning_type, profile_name = self._get_profile_type(provisioning_profile)
+
+        supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
+        is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
         return AppleAppInfo(
             name=plist.get("CFBundleName", "Unknown"),
             bundle_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
@@ -130,8 +156,11 @@ class AppleAppAnalyzer:
             build=plist.get("CFBundleVersion", "Unknown"),
             executable=plist.get("CFBundleExecutable", "Unknown"),
             minimum_os_version=plist.get("MinimumOSVersion", "Unknown"),
-            supported_platforms=plist.get("CFBundleSupportedPlatforms", []),
+            supported_platforms=supported_platforms,
             sdk_version=plist.get("DTSDKName"),
+            is_simulator=is_simulator,
+            codesigning_type=codesigning_type,
+            profile_name=profile_name,
         )
 
     def _detect_file_type(self, file_path: Path) -> str:
@@ -170,6 +199,42 @@ class AppleAppAnalyzer:
         except Exception as e:
             logger.warning(f"Unexpected error detecting file type for {file_path}: {e}")
             return "unknown"
+
+    def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:
+        """Determine the type of provisioning profile and its name.
+        Args:
+            profile_data: Dictionary containing the mobileprovision contents
+        Returns:
+            Tuple of (profile_type, profile_name)
+        """
+        profile_name = profile_data.get("Name", "Unknown")
+
+        # Check for enterprise profile
+        if profile_data.get("ProvisionsAllDevices"):
+            return "enterprise", profile_name
+
+        # Check for development/adhoc profile
+        provisioned_devices = profile_data.get("ProvisionedDevices", [])
+        if provisioned_devices:
+            entitlements = profile_data.get("Entitlements", {})
+            aps_environment = entitlements.get("aps-environment")
+
+            if aps_environment == "development":
+                if entitlements.get("get-task-allow"):
+                    return "development", profile_name
+                return "unknown", profile_name
+            elif aps_environment == "production":
+                return "adhoc", profile_name
+
+            # Check certificate type
+            developer_certs = profile_data.get("DeveloperCertificates", [])
+            if developer_certs:
+                # TODO: Parse DER certificate to check if it's a development certificate
+                # For now, default to development if we have a certificate
+                return "development", profile_name
+
+        # If no devices are provisioned, it's an app store profile
+        return "appstore", profile_name
 
     def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
         """Analyze all files in the app bundle.

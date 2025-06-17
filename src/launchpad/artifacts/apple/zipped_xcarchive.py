@@ -18,6 +18,7 @@ class ZippedXCArchive(AppleArtifact):
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
+        self._provisioning_profile: dict[str, Any] | None = None
 
     def get_plist(self) -> dict[str, Any]:
         """Get the Info.plist contents."""
@@ -35,6 +36,29 @@ class ZippedXCArchive(AppleArtifact):
             return self._plist
         except Exception as e:
             raise RuntimeError(f"Failed to parse Info.plist: {e}")
+
+    def get_provisioning_profile(self) -> dict[str, Any] | None:
+        if self._provisioning_profile is not None:
+            return self._provisioning_profile
+
+        app_bundle_path = self.get_app_bundle_path()
+        mobileprovision_path = app_bundle_path / "embedded.mobileprovision"
+        try:
+            with open(mobileprovision_path, "rb") as f:
+                content = f.read()
+
+            content_str = content.decode("utf-8", errors="ignore")
+            plist_start = content_str.find("<?xml")
+            plist_end = content_str.find("</plist>")
+            if plist_start == -1 or plist_end == -1:
+                return None
+
+            plist_str = content_str[plist_start : plist_end + 8]
+            self._provisioning_profile = plistlib.loads(plist_str.encode("utf-8"))
+            return self._provisioning_profile
+        except FileNotFoundError:
+            logger.debug(f"No embedded.mobileprovision found at {mobileprovision_path}")
+            return None
 
     def get_app_bundle_path(self) -> Path:
         """Get the path to the .app bundle."""
