@@ -6,8 +6,8 @@ from typing import cast
 
 import pytest
 
-from launchpad.analyzers.ios import IOSAnalyzer
-from launchpad.artifacts.artifact import IOSArtifact
+from launchpad.analyzers.apple import AppleAppAnalyzer
+from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.models.treemap import TreemapElement
 
@@ -23,10 +23,10 @@ class TestTreemapGeneration:
     def test_treemap_generation_basic(self, sample_app_path: Path) -> None:
         """Test basic treemap generation functionality."""
 
-        analyzer = IOSAnalyzer(skip_treemap=False)
+        analyzer = AppleAppAnalyzer(skip_treemap=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
 
-        results = analyzer.analyze(cast(IOSArtifact, artifact))
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None
@@ -48,10 +48,10 @@ class TestTreemapGeneration:
     def test_treemap_json_serialization(self, sample_app_path: Path) -> None:
         """Test that treemap can be serialized to JSON."""
 
-        analyzer = IOSAnalyzer(skip_treemap=False)
+        analyzer = AppleAppAnalyzer(skip_treemap=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
 
-        results = analyzer.analyze(cast(IOSArtifact, artifact))
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None
@@ -97,10 +97,10 @@ class TestTreemapGeneration:
     def test_treemap_matches_reference(self, sample_app_path: Path) -> None:
         """Test that treemap structure matches reference report."""
 
-        analyzer = IOSAnalyzer(skip_treemap=False)
+        analyzer = AppleAppAnalyzer(skip_treemap=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
 
-        results = analyzer.analyze(cast(IOSArtifact, artifact))
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
 
         # Verify treemap was generated
         assert results.treemap is not None

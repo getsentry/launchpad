@@ -1,6 +1,6 @@
 """Analyzers for different platforms."""
 
 from .android import AndroidAnalyzer
-from .ios import IOSAnalyzer
+from .apple import AppleAppAnalyzer
 
-__all__ = ["AndroidAnalyzer", "IOSAnalyzer"]
+__all__ = ["AndroidAnalyzer", "AppleAppAnalyzer"]

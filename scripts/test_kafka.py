@@ -4,7 +4,7 @@
 import json
 import sys
 import time
-from typing import Dict, Any
+from typing import Any, Dict
 
 import click
 from kafka import KafkaProducer
@@ -19,10 +19,10 @@ def create_producer(bootstrap_servers: str = "localhost:9092") -> KafkaProducer:
     )
 
 
-def create_ios_analysis_message(artifact_path: str) -> Dict[str, Any]:
-    """Create an iOS analysis message."""
+def create_apple_analysis_message(artifact_path: str) -> Dict[str, Any]:
+    """Create an Apple analysis message."""
     return {
-        "type": "analyze_ios",
+        "type": "analyze_apple",
         "artifact_path": artifact_path,
         "timestamp": time.time(),
         "request_id": f"ios-{int(time.time())}",
@@ -72,7 +72,7 @@ def main(
                     click.echo(f"Error parsing custom JSON: {e}", err=True)
                     sys.exit(1)
             elif message_type == "ios":
-                message = create_ios_analysis_message(artifact_path)
+                message = create_apple_analysis_message(artifact_path)
             elif message_type == "android":
                 message = create_android_analysis_message(artifact_path)
             else:

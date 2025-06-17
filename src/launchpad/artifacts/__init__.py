@@ -5,9 +5,9 @@ from .android.manifest.manifest import AndroidManifest
 from .android.resources.binary import BinaryResourceTable
 from .android.zipped_aab import ZippedAAB
 from .android.zipped_apk import ZippedAPK
-from .artifact import AndroidArtifact, Artifact, IOSArtifact
+from .apple.zipped_xcarchive import ZippedXCArchive
+from .artifact import AndroidArtifact, AppleArtifact, Artifact
 from .artifact_factory import ArtifactFactory
-from .ios.zipped_xcarchive import ZippedXCArchive
 from .providers.zip_provider import ZipProvider
 
 __all__ = [
@@ -20,7 +20,7 @@ __all__ = [
     "AndroidManifest",
     "BinaryResourceTable",
     "BinaryXmlParser",
-    "IOSArtifact",
+    "AppleArtifact",
     "ZipProvider",
     "ZippedAPK",
     "ZippedAAB",

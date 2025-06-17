@@ -24,15 +24,15 @@ class TestCLI:
 
         assert result.exit_code == 0
         assert "Launchpad" in result.output
-        assert "ios" in result.output
+        assert "apple-app" in result.output
 
     def test_analyze_help(self) -> None:
         """Test analyze command help."""
         runner = CliRunner()
-        result = runner.invoke(cli, ["ios", "--help"])
+        result = runner.invoke(cli, ["apple-app", "--help"])
 
         assert result.exit_code == 0
-        assert "Analyze an iOS app bundle" in result.output
+        assert "Analyze an Apple app bundle" in result.output
         assert "INPUT_PATH" in result.output
 
     def test_analyze_missing_input(self) -> None:

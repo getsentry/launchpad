@@ -17,9 +17,9 @@ from rich.table import Table
 
 from . import __version__
 from .analyzers.android import AndroidAnalyzer
-from .analyzers.ios import IOSAnalyzer
-from .artifacts import AndroidArtifact, ArtifactFactory, IOSArtifact
-from .models import AndroidAnalysisResults, IOSAnalysisResults
+from .analyzers.apple import AppleAppAnalyzer
+from .artifacts import AndroidArtifact, AppleArtifact, ArtifactFactory
+from .models import AndroidAnalysisResults, AppleAnalysisResults
 from .service import run_service
 from .utils.logging import setup_logging
 
@@ -30,7 +30,7 @@ console = Console()
 @click.option("--version", is_flag=True, help="Show version information and exit.")
 @click.pass_context
 def cli(ctx: click.Context, version: bool) -> None:
-    """Launchpad - Analyze iOS and Android app bundle sizes."""
+    """Launchpad - Analyze Apple and Android app bundle sizes."""
     if version:
         click.echo(f"Launchpad v{__version__}")
         ctx.exit()
@@ -45,7 +45,7 @@ def cli(ctx: click.Context, version: bool) -> None:
     "-o",
     "--output",
     type=click.Path(path_type=Path),
-    default="ios-analysis-report.json",
+    default="apple-app-analysis-report.json",
     help="Output path for the JSON analysis report.",
     show_default=True,
 )
@@ -68,7 +68,7 @@ def cli(ctx: click.Context, version: bool) -> None:
     help="Output format for results.",
     show_default=True,
 )
-def ios(
+def apple_app(
     input_path: Path,
     output: Path,
     working_dir: Path | None,
@@ -80,7 +80,7 @@ def ios(
     quiet: bool,
     output_format: str,
 ) -> None:
-    """Analyze an iOS app bundle and generate a size report.
+    """Analyze an Apple app bundle and generate a size report.
 
     INPUT_PATH can be:
     - .xcarchive.zip file
@@ -91,11 +91,11 @@ def ios(
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
 
-    _validate_ios_input(input_path)
+    _validate_apple_input(input_path)
 
     if not quiet:
         console.print(f"[bold blue]App Size Analyzer v{__version__}[/bold blue]")
-        console.print(f"Analyzing iOS app: [cyan]{input_path}[/cyan]")
+        console.print(f"Analyzing Apple app: [cyan]{input_path}[/cyan]")
         console.print(f"Output: [cyan]{output}[/cyan]")
         console.print()
 
@@ -108,9 +108,9 @@ def ios(
             console=console,
             disable=quiet,
         ) as progress:
-            task = progress.add_task("Analyzing iOS app bundle...", total=None)
+            task = progress.add_task("Analyzing Apple app bundle...", total=None)
 
-            analyzer = IOSAnalyzer(
+            analyzer = AppleAppAnalyzer(
                 working_dir=working_dir,
                 skip_swift_metadata=skip_swift_metadata,
                 skip_symbols=skip_symbols,
@@ -118,7 +118,7 @@ def ios(
                 skip_treemap=skip_treemap,
             )
             artifact = ArtifactFactory.from_path(input_path)
-            results = analyzer.analyze(cast(IOSArtifact, artifact))
+            results = analyzer.analyze(cast(AppleArtifact, artifact))
 
             progress.update(task, description="Analysis complete!")
 
@@ -130,11 +130,11 @@ def ios(
         if output_format == "json":
             _write_json_output(results, output, quiet)
         else:
-            _print_ios_table_output(results, quiet)
+            _print_apple_table_output(results, quiet)
 
         if not quiet:
             console.print(f"\n[bold green]✓[/bold green] Analysis completed in {duration:.2f}s")
-            _print_ios_summary(results)
+            _print_apple_summary(results)
 
     except Exception as e:
         if verbose:
@@ -277,19 +277,19 @@ def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
         raise click.Abort()
 
 
-def _validate_ios_input(input_path: Path) -> None:
-    """Validate that the input path looks like an iOS artifact."""
+def _validate_apple_input(input_path: Path) -> None:
+    """Validate that the input path looks like an Apple artifact."""
     suffix = input_path.suffix.lower()
     valid_extensions = {".zip"}
 
     if suffix not in valid_extensions:
         raise click.BadParameter(
-            f"'{input_path}' doesn't look like a typical iOS artifact. "
+            f"'{input_path}' doesn't look like a typical Apple artifact. "
             f"Expected one of: {', '.join(sorted(valid_extensions))}"
         )
 
 
-def _write_json_output(results: IOSAnalysisResults | AndroidAnalysisResults, output_path: Path, quiet: bool) -> None:
+def _write_json_output(results: AppleAnalysisResults | AndroidAnalysisResults, output_path: Path, quiet: bool) -> None:
     """Write results to JSON file."""
     # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -302,7 +302,7 @@ def _write_json_output(results: IOSAnalysisResults | AndroidAnalysisResults, out
         console.print(f"[bold green]✓[/bold green] Results written to: [cyan]{output_path}[/cyan]")
 
 
-def _print_ios_table_output(results: IOSAnalysisResults, quiet: bool) -> None:
+def _print_apple_table_output(results: AppleAnalysisResults, quiet: bool) -> None:
     """Print results in table format to console."""
     if quiet:
         return
@@ -373,7 +373,7 @@ def _print_android_table_output(results: AndroidAnalysisResults, quiet: bool) ->
     console.print()
 
 
-def _print_ios_summary(results: IOSAnalysisResults) -> None:
+def _print_apple_summary(results: AppleAnalysisResults) -> None:
     """Print a brief summary of the analysis."""
     file_analysis = results.file_analysis
     binary_analysis = results.binary_analysis

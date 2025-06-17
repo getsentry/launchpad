@@ -2,10 +2,10 @@
 
 from unittest.mock import Mock
 
-from launchpad.analyzers.ios import IOSAnalyzer
+from launchpad.analyzers.apple import AppleAppAnalyzer
 from launchpad.models.range_mapping import BinaryTag
-from launchpad.parsers.ios.macho_parser import MachOParser
-from launchpad.parsers.ios.range_mapping_builder import RangeMappingBuilder
+from launchpad.parsers.apple.macho_parser import MachOParser
+from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 
 
 class TestIOSAnalyzerRangeMapping:
@@ -13,12 +13,12 @@ class TestIOSAnalyzerRangeMapping:
 
     def test_range_mapping_enabled_by_default(self) -> None:
         """Test that range mapping is enabled by default."""
-        analyzer = IOSAnalyzer()
+        analyzer = AppleAppAnalyzer()
         assert analyzer.skip_range_mapping is False
 
     def test_range_mapping_can_be_disabled(self) -> None:
         """Test that range mapping can be disabled."""
-        analyzer = IOSAnalyzer(skip_range_mapping=True)
+        analyzer = AppleAppAnalyzer(skip_range_mapping=True)
         assert analyzer.skip_range_mapping is True
 
     def test_range_mapping_creation(self) -> None:

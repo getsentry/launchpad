@@ -55,9 +55,7 @@ def extract_our_values(our_data: Dict[str, Any]) -> Dict[str, Any]:
 
     # Duplicate savings
     duplicate_files = file_analysis.get("duplicate_files", [])
-    values["our_total_savings"] = sum(
-        group.get("potential_savings", 0) for group in duplicate_files
-    )
+    values["our_total_savings"] = sum(group.get("potential_savings", 0) for group in duplicate_files)
 
     # App info
     app_info = our_data.get("app_info", {})
@@ -137,10 +135,8 @@ def collect_our_file_sizes(our_data: Dict[str, Any]) -> Dict[str, int]:
 def compare_implementations() -> None:
     """Compare our implementation with the reference."""
     # File paths
-    reference_file = (
-        Path(__file__).parent.parent / "tests" / "artifacts" / "hackernews-results.json"
-    )
-    our_file = Path(__file__).parent.parent / "ios-analysis-report.json"
+    reference_file = Path(__file__).parent.parent / "tests" / "artifacts" / "hackernews-results.json"
+    our_file = Path(__file__).parent.parent / "apple-app-analysis-report.json"
 
     # Check if files exist
     if not reference_file.exists():
@@ -149,10 +145,10 @@ def compare_implementations() -> None:
 
     if not our_file.exists():
         print(f"❌ Our results file not found: {our_file}")
-        print("Run: python -m launchpad.cli ios --verbose tests/artifacts/HackerNews.xcarchive.zip")
+        print("Run: python -m launchpad.cli apple-app --verbose tests/artifacts/HackerNews.xcarchive.zip")
         return
 
-    print("📊 Comparing iOS Size Analysis Results")
+    print("📊 Comparing Apple App Size Analysis Results")
     print("=" * 50)
 
     # Load data
@@ -169,36 +165,22 @@ def compare_implementations() -> None:
     print("\n📏 Size Comparisons:")
     ref_install_mb = ref_values["ref_install_size"] / 1024 / 1024
     our_install_mb = our_values["our_install_size"] / 1024 / 1024
-    print(
-        f"  Reference install size: {ref_values['ref_install_size']:,} bytes ({ref_install_mb:.1f} MB)"
-    )
-    print(
-        f"  Our install size:       {our_values['our_install_size']:,} bytes ({our_install_mb:.1f} MB)"
-    )
+    print(f"  Reference install size: {ref_values['ref_install_size']:,} bytes ({ref_install_mb:.1f} MB)")
+    print(f"  Our install size:       {our_values['our_install_size']:,} bytes ({our_install_mb:.1f} MB)")
     install_diff = our_values["our_install_size"] - ref_values["ref_install_size"]
     print(f"  Difference:             {install_diff:+,} bytes ({install_diff/1024/1024:+.1f} MB)")
 
     ref_download_mb = ref_values["ref_download_size"] / 1024 / 1024
     our_download_mb = our_values["our_download_size"] / 1024 / 1024
-    print(
-        f"\n  Reference download size: {ref_values['ref_download_size']:,} bytes ({ref_download_mb:.1f} MB)"
-    )
-    print(
-        f"  Our download size:       {our_values['our_download_size']:,} bytes ({our_download_mb:.1f} MB)"
-    )
+    print(f"\n  Reference download size: {ref_values['ref_download_size']:,} bytes ({ref_download_mb:.1f} MB)")
+    print(f"  Our download size:       {our_values['our_download_size']:,} bytes ({our_download_mb:.1f} MB)")
     download_diff = our_values["our_download_size"] - ref_values["ref_download_size"]
-    print(
-        f"  Difference:              {download_diff:+,} bytes ({download_diff/1024/1024:+.1f} MB)"
-    )
+    print(f"  Difference:              {download_diff:+,} bytes ({download_diff/1024/1024:+.1f} MB)")
 
     ref_app_mb = ref_values["ref_app_value"] / 1024 / 1024
     our_total_mb = our_values["our_total_size"] / 1024 / 1024
-    print(
-        f"\n  Reference app value:     {ref_values['ref_app_value']:,} bytes ({ref_app_mb:.1f} MB)"
-    )
-    print(
-        f"  Our total size:          {our_values['our_total_size']:,} bytes ({our_total_mb:.1f} MB)"
-    )
+    print(f"\n  Reference app value:     {ref_values['ref_app_value']:,} bytes ({ref_app_mb:.1f} MB)")
+    print(f"  Our total size:          {our_values['our_total_size']:,} bytes ({our_total_mb:.1f} MB)")
     app_diff = our_values["our_total_size"] - ref_values["ref_app_value"]
     print(f"  Difference:              {app_diff:+,} bytes ({app_diff/1024/1024:+.1f} MB)")
 

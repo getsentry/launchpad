@@ -3,13 +3,13 @@ import plistlib
 from pathlib import Path
 from typing import Any
 
-from ..artifact import IOSArtifact
+from ..artifact import AppleArtifact
 from ..providers.zip_provider import ZipProvider
 
 logger = logging.getLogger(__name__)
 
 
-class ZippedXCArchive(IOSArtifact):
+class ZippedXCArchive(AppleArtifact):
     """A zipped XCArchive file."""
 
     def __init__(self, content: bytes) -> None:
@@ -43,7 +43,7 @@ class ZippedXCArchive(IOSArtifact):
 
         for path in self._extract_dir.rglob("*.app"):
             if path.is_dir():
-                logger.debug(f"Found iOS app bundle: {path}")
+                logger.debug(f"Found Apple app bundle: {path}")
                 return path
 
         raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")

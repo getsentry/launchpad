@@ -1,4 +1,4 @@
-"""iOS-specific models for analysis results."""
+"""Apple-specific models for analysis results."""
 
 from __future__ import annotations
 
@@ -22,20 +22,20 @@ class SwiftMetadata(BaseModel):
     total_metadata_size: int = Field(default=0, ge=0, description="Total Swift metadata size")
 
 
-class IOSAppInfo(BaseAppInfo):
-    """iOS-specific app information."""
+class AppleAppInfo(BaseAppInfo):
+    """Apple-specific app information."""
 
     model_config = ConfigDict(frozen=True)
 
     executable: str = Field(..., description="Main executable name")
     bundle_id: str = Field(..., description="Bundle identifier")
-    minimum_os_version: str = Field(..., description="Minimum iOS version")
+    minimum_os_version: str = Field(..., description="Minimum app version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
-    sdk_version: str | None = Field(None, description="iOS SDK version used for build")
+    sdk_version: str | None = Field(None, description="App SDK version used for build")
 
 
-class IOSBinaryAnalysis(BaseBinaryAnalysis):
-    """iOS-specific binary analysis results."""
+class MachOBinaryAnalysis(BaseBinaryAnalysis):
+    """Mach-O binary analysis results."""
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
@@ -67,16 +67,16 @@ class IOSBinaryAnalysis(BaseBinaryAnalysis):
         return 0.0
 
 
-class IOSAnalysisResults(BaseAnalysisResults):
-    """Complete iOS analysis results."""
+class AppleAnalysisResults(BaseAnalysisResults):
+    """Complete Apple analysis results."""
 
     model_config = ConfigDict(frozen=True)
 
-    app_info: IOSAppInfo = Field(..., description="iOS app information")
+    app_info: AppleAppInfo = Field(..., description="Apple app information")
     treemap: TreemapResults | None = Field(None, description="Hierarchical size analysis treemap")
-    binary_analysis: List[IOSBinaryAnalysis] = Field(
+    binary_analysis: List[MachOBinaryAnalysis] = Field(
         default_factory=list,
-        description="iOS binary analysis results",
+        description="Apple binary analysis results",
         exclude=True,
     )
 

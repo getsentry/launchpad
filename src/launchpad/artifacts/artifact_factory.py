@@ -6,8 +6,8 @@ from .android.aab import AAB
 from .android.apk import APK
 from .android.zipped_aab import ZippedAAB
 from .android.zipped_apk import ZippedAPK
+from .apple.zipped_xcarchive import ZippedXCArchive
 from .artifact import Artifact
-from .ios.zipped_xcarchive import ZippedXCArchive
 
 
 class ArtifactFactory:

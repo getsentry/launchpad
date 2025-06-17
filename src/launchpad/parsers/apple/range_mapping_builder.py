@@ -1,4 +1,4 @@
-"""Range mapping builder for iOS binaries."""
+"""Range mapping builder for Mach-O binaries."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 class RangeMappingBuilder:
-    """Builds range mappings for iOS binaries."""
+    """Builds range mappings for Mach-O binaries."""
 
     def __init__(self, parser: MachOParser, file_size: int) -> None:
         """Initialize the builder.

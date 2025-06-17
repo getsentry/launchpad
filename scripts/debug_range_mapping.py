@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Debug script to analyze iOS binary range mapping.
+"""Debug script to analyze Mach-O binary range mapping.
 
-This script analyzes the range mapping coverage of an iOS binary and provides
+This script analyzes the range mapping coverage of an Mach-O binary and provides
 detailed information about mapped/unmapped regions, conflicts, and size breakdown.
 
 Usage:
@@ -14,22 +14,22 @@ import sys
 from pathlib import Path
 from typing import cast
 
-from launchpad.artifacts.artifact import ArtifactFactory, IOSArtifact
+from launchpad.artifacts.artifact_factory import ArtifactFactory
 
 # Add src to path so we can import launchpad modules
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from launchpad.analyzers.ios import IOSAnalyzer
+from launchpad.analyzers.apple import AppleAppAnalyzer
 
 
 def analyze_range_mapping(app_path: Path) -> None:
-    """Analyze and display range mapping information for an iOS app."""
+    """Analyze and display range mapping information for an Mach-O app."""
     print(f"Analyzing: {app_path}")
     print("=" * 50)
 
-    analyzer = IOSAnalyzer(skip_range_mapping=False)
+    analyzer = AppleAppAnalyzer(skip_range_mapping=False)
     artifact = ArtifactFactory.from_path(app_path)
-    results = analyzer.analyze(cast(IOSArtifact, artifact))
+    results = analyzer.analyze(cast(AppleArtifact, artifact))
 
     if not results.binary_analysis.range_map:
         print("ERROR: No range mapping was created!")

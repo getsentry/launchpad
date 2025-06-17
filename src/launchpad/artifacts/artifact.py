@@ -23,8 +23,8 @@ class AndroidArtifact(Artifact):
         raise NotImplementedError("Not implemented")
 
 
-class IOSArtifact(Artifact):
-    """Protocol defining the interface for iOS artifacts."""
+class AppleArtifact(Artifact):
+    """Protocol defining the interface for Apple artifacts."""
 
     def get_plist(self) -> dict[str, Any]:
         """Get the plist from the artifact."""
