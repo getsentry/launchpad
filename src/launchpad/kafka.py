@@ -138,13 +138,14 @@ class MessageProcessingStrategy(ProcessingStrategy[KafkaPayload]):
             # Assume we're getting BrokerValue from Kafka consumer
             broker_value = message.value
             if isinstance(broker_value, BrokerValue):
+                timestamp = broker_value.timestamp.timestamp() if broker_value.timestamp else None
                 launchpad_msg = LaunchpadMessage(
                     topic=broker_value.partition.topic.name,
                     partition=broker_value.partition.index,
                     offset=broker_value.offset,
                     key=kafka_payload.key,
                     value=kafka_payload.value,
-                    timestamp=broker_value.timestamp.timestamp() if broker_value.timestamp else None,
+                    timestamp=timestamp,
                 )
             else:
                 logger.error(f"Expected BrokerValue but got {type(broker_value)}")
@@ -217,9 +218,7 @@ class KafkaConsumer:
         self._processor: StreamProcessor[KafkaPayload] | None = None
         self._shutdown_requested = False
 
-        logger.info(f"Initialized Arroyo Kafka consumer for topics: {topics}")
-        logger.info(f"Group ID: {group_id}")
-        logger.info(f"Bootstrap servers: {self.bootstrap_servers}")
+        logger.info(f"Kafka consumer initialized: {len(topics)} topics, group: {group_id}")
 
     def run(self) -> None:
         """Run the Kafka consumer (blocking, like Snuba)."""
@@ -238,6 +237,9 @@ class KafkaConsumer:
         while not self._shutdown_requested:
             try:
                 # Create Arroyo consumer - minimal config for Arroyo
+                # When we're closer to production, we'll need a way to disable this logic as topics,
+                # partitions and kafka clusters are configured through getsentry/ops.
+                # We will work with the streaming teams to get this set up.
                 consumer_config = {
                     "bootstrap.servers": self.bootstrap_servers,
                     "group.id": self.group_id,
@@ -261,12 +263,12 @@ class KafkaConsumer:
                     processor_factory=strategy_factory,
                 )
 
-                logger.info("Arroyo Kafka consumer started, calling processor.run()...")
+                logger.info("Kafka consumer started")
 
                 # This blocks until shutdown is signaled (exactly like Snuba)
                 self._processor.run()
 
-                logger.info("Processor.run() completed")
+                logger.info("Kafka consumer completed")
                 break
 
             except Exception as e:
@@ -285,12 +287,11 @@ class KafkaConsumer:
 
     def shutdown(self) -> None:
         """Signal shutdown to the Kafka consumer."""
-        logger.info("Shutdown requested for Kafka consumer")
+        logger.info("Shutting down Kafka consumer")
         self._shutdown_requested = True
 
         if self._processor:
             try:
-                logger.info("Calling signal_shutdown on processor")
                 self._processor.signal_shutdown()
             except Exception as e:
                 logger.warning(f"Error signaling processor shutdown: {e}")

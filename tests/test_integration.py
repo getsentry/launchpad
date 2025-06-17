@@ -2,24 +2,39 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from launchpad.kafka import LaunchpadMessage
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService
+from launchpad.service import LaunchpadConsumerService, LaunchpadWebService
 
 
-class TestServiceIntegration:
-    """Integration tests for the full service."""
+class TestWebServiceIntegration:
+    """Integration tests for the web service."""
 
     @pytest.mark.asyncio
-    async def test_service_startup_and_health(self):
-        """Test that the service can start up and respond to health checks."""
-        service = LaunchpadService()
+    async def test_web_service_startup_and_health(self):
+        """Test that the web service can start up and respond to health checks."""
+        service = LaunchpadWebService()
+        await service.setup()
+
+        # Test health check after setup
+        health = await service.health_check()
+        assert health["service"] == "launchpad-web"
+        assert health["status"] == "ok"
+        assert health["components"]["server"]["status"] == "ok"
+
+
+class TestConsumerServiceIntegration:
+    """Integration tests for the consumer service."""
+
+    @pytest.mark.asyncio
+    async def test_consumer_service_startup_and_health(self):
+        """Test that the consumer service can start up and respond to health checks."""
+        service = LaunchpadConsumerService()
 
         # Mock the Kafka consumer to avoid needing actual Kafka
         service.kafka_consumer = AsyncMock()
@@ -36,13 +51,13 @@ class TestServiceIntegration:
 
         # Test health check before starting
         health = await service.health_check()
-        assert health["service"] == "launchpad"
+        assert health["service"] == "launchpad-consumer"
         assert health["status"] == "ok"
 
     @pytest.mark.asyncio
     async def test_kafka_message_processing(self):
         """Test processing of different Kafka message types."""
-        service = LaunchpadService()
+        service = LaunchpadConsumerService()
 
         # Test iOS analysis message
         ios_message = LaunchpadMessage(
@@ -56,12 +71,12 @@ class TestServiceIntegration:
         )
 
         # Mock the analysis handler
-        service._handle_ios_analysis = AsyncMock()
+        service._handle_ios_analysis_sync = Mock()
 
-        await service.handle_kafka_message(ios_message)
+        service.handle_kafka_message(ios_message)
 
         # Verify the handler was called with correct payload
-        service._handle_ios_analysis.assert_called_once_with(
+        service._handle_ios_analysis_sync.assert_called_once_with(
             {"type": "analyze_ios", "file_path": "/path/to/app.xcarchive.zip", "metadata": {"version": "1.0.0"}}
         )
 
@@ -77,19 +92,19 @@ class TestServiceIntegration:
         )
 
         # Mock the analysis handler
-        service._handle_android_analysis = AsyncMock()
+        service._handle_android_analysis_sync = Mock()
 
-        await service.handle_kafka_message(android_message)
+        service.handle_kafka_message(android_message)
 
         # Verify the handler was called with correct payload
-        service._handle_android_analysis.assert_called_once_with(
+        service._handle_android_analysis_sync.assert_called_once_with(
             {"type": "analyze_android", "file_path": "/path/to/app.apk", "metadata": {"version": "2.0.0"}}
         )
 
     @pytest.mark.asyncio
     async def test_error_handling_in_message_processing(self):
         """Test that errors in message processing don't crash the service."""
-        service = LaunchpadService()
+        service = LaunchpadConsumerService()
 
         # Test with malformed JSON
         bad_message = LaunchpadMessage(
@@ -97,7 +112,7 @@ class TestServiceIntegration:
         )
 
         # This should not raise an exception
-        await service.handle_kafka_message(bad_message)
+        service.handle_kafka_message(bad_message)
 
         # Test with missing required fields
         incomplete_message = LaunchpadMessage(
@@ -109,16 +124,16 @@ class TestServiceIntegration:
         )
 
         # This should not raise an exception
-        await service.handle_kafka_message(incomplete_message)
+        service.handle_kafka_message(incomplete_message)
 
     @pytest.mark.asyncio
     async def test_concurrent_message_processing(self):
         """Test that multiple messages can be processed concurrently."""
-        service = LaunchpadService()
+        service = LaunchpadConsumerService()
 
         # Mock analysis handlers
-        service._handle_ios_analysis = AsyncMock()
-        service._handle_android_analysis = AsyncMock()
+        service._handle_ios_analysis_sync = Mock()
+        service._handle_android_analysis_sync = Mock()
 
         # Create multiple messages
         messages = [
@@ -137,13 +152,13 @@ class TestServiceIntegration:
             for i in range(10)
         ]
 
-        # Process all messages concurrently
-        tasks = [service.handle_kafka_message(msg) for msg in messages]
-        await asyncio.gather(*tasks)
+        # Process all messages (note: these are synchronous calls now)
+        for msg in messages:
+            service.handle_kafka_message(msg)
 
         # Verify handlers were called the expected number of times
-        assert service._handle_ios_analysis.call_count == 5  # Even indices
-        assert service._handle_android_analysis.call_count == 5  # Odd indices
+        assert service._handle_ios_analysis_sync.call_count == 5  # Even indices
+        assert service._handle_android_analysis_sync.call_count == 5  # Odd indices
 
 
 @pytest.mark.integration

@@ -45,5 +45,7 @@ USER app
 # Expose ports
 EXPOSE 2218
 
-# Default command
-CMD ["launchpad", "serve"]
+# Default to web server (can be overridden)
+# For consumer: docker run <image> launchpad consumer --prod
+# For development: docker run <image> launchpad devserver
+CMD ["launchpad", "web-server"]

@@ -10,7 +10,7 @@ from aiohttp.test_utils import AioHTTPTestCase
 
 from launchpad.kafka import LaunchpadMessage
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService
+from launchpad.service import LaunchpadConsumerService, LaunchpadWebService
 
 
 class TestLaunchpadServer(AioHTTPTestCase):
@@ -41,16 +41,60 @@ class TestLaunchpadServer(AioHTTPTestCase):
         assert data["service"] == "launchpad"
 
 
-class TestLaunchpadService:
-    """Test cases for LaunchpadService."""
+class TestLaunchpadWebService:
+    """Test cases for LaunchpadWebService."""
+
+    @pytest.mark.asyncio
+    async def test_setup(self):
+        """Test that web service can be set up."""
+        service = LaunchpadWebService()
+        await service.setup()
+
+        assert service.server is not None
+
+    @pytest.mark.asyncio
+    async def test_health_check(self):
+        """Test the web service health check."""
+        service = LaunchpadWebService()
+        await service.setup()
+
+        health = await service.health_check()
+
+        assert health["service"] == "launchpad-web"
+        assert health["status"] == "ok"
+        assert "components" in health
+        assert health["components"]["server"]["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_health_check_no_setup(self):
+        """Test health check when service is not set up."""
+        service = LaunchpadWebService()
+
+        health = await service.health_check()
+
+        assert health["service"] == "launchpad-web"
+        assert health["status"] == "ok"
+        assert health["components"]["server"]["status"] == "not_initialized"
+
+
+class TestLaunchpadConsumerService:
+    """Test cases for LaunchpadConsumerService."""
+
+    @pytest.mark.asyncio
+    async def test_setup(self):
+        """Test that consumer service can be set up."""
+        service = LaunchpadConsumerService()
+        await service.setup()
+
+        assert service.kafka_consumer is not None
 
     @pytest.mark.asyncio
     async def test_handle_kafka_message_ios(self):
         """Test handling iOS analysis messages."""
-        service = LaunchpadService()
+        service = LaunchpadConsumerService()
 
         # Mock the iOS analysis handler
-        service._handle_ios_analysis = AsyncMock()
+        service._handle_ios_analysis_sync = Mock()
 
         # Create a mock message
         message = LaunchpadMessage(
@@ -61,18 +105,20 @@ class TestLaunchpadService:
             value=json.dumps({"type": "analyze_ios", "file_path": "/path/to/app.zip"}).encode(),
         )
 
-        await service.handle_kafka_message(message)
+        service.handle_kafka_message(message)
 
         # Verify the handler was called
-        service._handle_ios_analysis.assert_called_once_with({"type": "analyze_ios", "file_path": "/path/to/app.zip"})
+        service._handle_ios_analysis_sync.assert_called_once_with(
+            {"type": "analyze_ios", "file_path": "/path/to/app.zip"}
+        )
 
     @pytest.mark.asyncio
     async def test_handle_kafka_message_android(self):
         """Test handling Android analysis messages."""
-        service = LaunchpadService()
+        service = LaunchpadConsumerService()
 
         # Mock the Android analysis handler
-        service._handle_android_analysis = AsyncMock()
+        service._handle_android_analysis_sync = Mock()
 
         # Create a mock message
         message = LaunchpadMessage(
@@ -83,17 +129,17 @@ class TestLaunchpadService:
             value=json.dumps({"type": "analyze_android", "file_path": "/path/to/app.apk"}).encode(),
         )
 
-        await service.handle_kafka_message(message)
+        service.handle_kafka_message(message)
 
         # Verify the handler was called
-        service._handle_android_analysis.assert_called_once_with(
+        service._handle_android_analysis_sync.assert_called_once_with(
             {"type": "analyze_android", "file_path": "/path/to/app.apk"}
         )
 
     @pytest.mark.asyncio
     async def test_handle_kafka_message_unknown_type(self):
         """Test handling messages with unknown type."""
-        service = LaunchpadService()
+        service = LaunchpadConsumerService()
 
         # Create a mock message with unknown type
         message = LaunchpadMessage(
@@ -105,23 +151,23 @@ class TestLaunchpadService:
         )
 
         # This should not raise an exception
-        await service.handle_kafka_message(message)
+        service.handle_kafka_message(message)
 
     @pytest.mark.asyncio
     async def test_handle_kafka_message_invalid_json(self):
         """Test handling messages with invalid JSON."""
-        service = LaunchpadService()
+        service = LaunchpadConsumerService()
 
         # Create a mock message with invalid JSON
         message = LaunchpadMessage(topic="test-topic", partition=0, offset=1, key=b"test-key", value=b"invalid json")
 
         # This should not raise an exception
-        await service.handle_kafka_message(message)
+        service.handle_kafka_message(message)
 
     @pytest.mark.asyncio
     async def test_health_check(self):
-        """Test the service health check."""
-        service = LaunchpadService()
+        """Test the consumer service health check."""
+        service = LaunchpadConsumerService()
 
         # Mock the Kafka consumer
         mock_kafka_consumer = Mock()
@@ -133,13 +179,22 @@ class TestLaunchpadService:
         )
         service.kafka_consumer = mock_kafka_consumer
 
-        # Mock the server
-        service.server = Mock()
-
         health = await service.health_check()
 
-        assert health["service"] == "launchpad"
+        assert health["service"] == "launchpad-consumer"
         assert health["status"] == "ok"
         assert "components" in health
         assert health["components"]["kafka"]["status"] == "ok"
-        assert health["components"]["server"]["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_health_check_no_kafka(self):
+        """Test health check when Kafka consumer is not set up."""
+        service = LaunchpadConsumerService()
+
+        health = await service.health_check()
+
+        assert health["service"] == "launchpad-consumer"
+        assert health["status"] == "ok"
+        assert "components" in health
+        # When kafka_consumer is None, no kafka component should be in health
+        assert "kafka" not in health["components"]

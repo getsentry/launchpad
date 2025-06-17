@@ -22,8 +22,8 @@ DevServices provides shared Kafka infrastructure used by multiple Sentry service
 # Start shared dependencies (Kafka)
 devservices up
 
-# In another terminal, start the service
-launchpad serve
+# In another terminal, start the development service
+launchpad devserver
 
 # Or run integration tests
 make test-service-integration
@@ -96,10 +96,20 @@ Options:
 
 ### Service Development
 
+#### Local Environment Setup
+
+First, set up your local environment variables:
+
 ```bash
-# Development with shared infrastructure (recommended)
+# Copy the example environment file
+cp env.local.example .env
+```
+
+#### Development Server Options
+
+```bash
 devservices up                  # Start Kafka via devservices
-launchpad serve
+launchpad devserver             # Start combined service
 ```
 
 ### Testing
@@ -136,6 +146,25 @@ make check
 # Full CI pipeline
 make ci
 ```
+
+## Production Deployment
+
+For production Kubernetes deployments, use separate web and consumer components:
+
+```bash
+# Web server only (for web pods)
+launchpad web-server --prod --host 0.0.0.0 --port 8080
+
+# Consumer only (for worker pods)
+launchpad consumer --prod
+```
+
+This architecture allows you to:
+
+- Scale web servers independently from consumers
+- Deploy different configurations for each component
+- Optimize resource allocation per component type
+- Achieve better fault isolation
 
 ## Configuration
 

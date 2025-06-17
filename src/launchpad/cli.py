@@ -8,9 +8,10 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import cast
+from typing import Awaitable, Callable, cast
 
 import click
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
@@ -20,10 +21,81 @@ from .analyzers.android import AndroidAnalyzer
 from .analyzers.apple import AppleAppAnalyzer
 from .artifacts import AndroidArtifact, AppleArtifact, ArtifactFactory
 from .models import AndroidAnalysisResults, AppleAnalysisResults
-from .service import run_service
+from .service import run_consumer_service, run_service, run_web_service
 from .utils.logging import setup_logging
 
+load_dotenv()
+
 console = Console()
+
+
+def _setup_server_environment(
+    mode: str | None,
+    verbose: bool,
+    host: str | None = None,
+    port: int | None = None,
+    force_dev_mode: bool = False,
+    auto_verbose_in_dev: bool = True,
+) -> tuple[str, bool]:
+    """Set up environment and logging for server commands.
+
+    Returns:
+        tuple of (final_mode, final_verbose)
+    """
+    # Handle mode defaulting
+    if mode is None or force_dev_mode:
+        mode = "development"
+
+    # Auto-enable verbose in development mode if not explicitly set
+    if not verbose and mode == "development" and auto_verbose_in_dev:
+        verbose = True
+
+    # Set environment variables
+    os.environ["LAUNCHPAD_ENV"] = mode
+    if host is not None:
+        os.environ["LAUNCHPAD_HOST"] = host
+    if port is not None:
+        os.environ["LAUNCHPAD_PORT"] = str(port)
+
+    setup_logging(verbose=verbose, quiet=False)
+
+    # Reduce noise from libraries when not verbose
+    if not verbose:
+        logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
+        logging.getLogger("arroyo.processing.processor").setLevel(logging.WARNING)
+
+    return mode, verbose
+
+
+def _print_server_header(service_name: str, mode: str, host: str | None = None, port: int | None = None) -> None:
+    """Print standardized server startup header."""
+    console.print(f"[bold blue]Launchpad {service_name} v{__version__}[/bold blue]")
+
+    if host and port:
+        console.print(f"Starting {service_name.lower()} on [cyan]http://{host}:{port}[/cyan]")
+    else:
+        console.print(f"Starting {service_name.lower()}...")
+
+    mode_display = "Development" if mode == "development" else "Production"
+    mode_color = "green" if mode == "development" else "yellow"
+    console.print(f"Mode: [{mode_color}]{mode_display}[/{mode_color}]")
+    console.print("Press Ctrl+C to stop the server")
+    console.print()
+
+
+async def _run_server_with_error_handling(
+    service_func: Callable[[], Awaitable[None]], service_name: str, verbose: bool
+) -> None:
+    """Run a server service with standardized error handling."""
+    try:
+        await service_func()
+    except KeyboardInterrupt:
+        console.print(f"\n[yellow]{service_name} stopped by user[/yellow]")
+    except Exception as e:
+        console.print(f"[bold red]{service_name} error:[/bold red] {e}")
+        if verbose:
+            console.print_exception()
+        raise click.Abort()
 
 
 @click.group(invoke_without_command=True)
@@ -229,52 +301,59 @@ def android(
 @click.option("--dev", "mode", flag_value="development", help="Run in development mode (default).")
 @click.option("--prod", "mode", flag_value="production", help="Run in production mode.")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
-def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
-    """Start the Launchpad server.
+def web_server(host: str, port: int, mode: str | None, verbose: bool) -> None:
+    """Start only the Launchpad web server.
 
-    Runs the HTTP server with health check endpoints and Kafka consumer
-    for processing analysis requests.
+    Runs just the HTTP server with health check endpoints.
+    Perfect for Kubernetes deployments where web and consumer are scaled independently.
 
     By default, runs in development mode with debug logging and features enabled.
     Use --prod for production mode with optimized settings.
     """
-    # Default to development mode if no mode specified
-    if mode is None:
-        mode = "development"
+    mode, verbose = _setup_server_environment(mode, verbose, host, port)
+    _print_server_header("Web Server", mode, host, port)
 
-    # If verbose wasn't explicitly set and we're in development mode, enable verbose
-    if not verbose and mode == "development":
-        verbose = True
+    asyncio.run(_run_server_with_error_handling(run_web_service, "Web server", verbose))
 
-    # Set environment variables for configuration
-    os.environ["LAUNCHPAD_ENV"] = mode
-    os.environ["LAUNCHPAD_HOST"] = host
-    os.environ["LAUNCHPAD_PORT"] = str(port)
 
-    setup_logging(verbose=verbose, quiet=False)
+@cli.command()
+@click.option("--dev", "mode", flag_value="development", help="Run in development mode (default).")
+@click.option("--prod", "mode", flag_value="production", help="Run in production mode.")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
+def consumer(mode: str | None, verbose: bool) -> None:
+    """Start only the Launchpad Kafka consumer.
 
-    if not verbose:
-        # Reduce noise from some libraries
-        logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
+    Runs just the Kafka consumer for processing analysis requests.
+    Perfect for Kubernetes deployments where web and consumer are scaled independently.
 
-    mode_display = "Development" if mode == "development" else "Production"
-    console.print(f"[bold blue]Launchpad {mode_display} Server v{__version__}[/bold blue]")
-    console.print(f"Starting server on [cyan]http://{host}:{port}[/cyan]")
+    By default, runs in development mode with debug logging and features enabled.
+    Use --prod for production mode with optimized settings.
+    """
+    mode, verbose = _setup_server_environment(mode, verbose)
+    _print_server_header("Consumer", mode)
 
-    mode_color = "green" if mode == "development" else "yellow"
-    console.print(f"Mode: [{mode_color}]{mode}[/{mode_color}]")
-    console.print("Press Ctrl+C to stop the server")
-    console.print()
+    asyncio.run(_run_server_with_error_handling(run_consumer_service, "Consumer", verbose))
 
-    try:
-        asyncio.run(run_service())
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Server stopped by user[/yellow]")
-    except Exception as e:
-        console.print(f"[bold red]Server error:[/bold red] {e}")
-        if verbose:
-            console.print_exception()
-        raise click.Abort()
+
+@cli.command()
+@click.option("--host", default="0.0.0.0", help="Host to bind the server to.", show_default=True)
+@click.option("--port", default=2218, help="Port to bind the server to.", show_default=True)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
+def devserver(host: str, port: int, verbose: bool) -> None:
+    """Start the Launchpad development server (web + consumer combined).
+
+    Runs both the HTTP server with health check endpoints and Kafka consumer
+    for processing analysis requests. Perfect for local development.
+
+    For production Kubernetes deployments, use 'web-server' and 'consumer'
+    commands separately to enable independent scaling.
+
+    Always runs in development mode with debug logging enabled by default.
+    """
+    mode, verbose = _setup_server_environment(None, verbose, host, port, force_dev_mode=True)
+    _print_server_header("Development Server", mode, host, port)
+
+    asyncio.run(_run_server_with_error_handling(run_service, "Development server", verbose))
 
 
 def _validate_apple_input(input_path: Path) -> None:

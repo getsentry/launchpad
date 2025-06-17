@@ -36,3 +36,8 @@ legacy/ios/sizeAnalysis/.build/
 
 # in case the user is installing devenv for the first time
 install-devenv.sh
+
+# Environment files
+.env
+.env.local
+.env.*.local
