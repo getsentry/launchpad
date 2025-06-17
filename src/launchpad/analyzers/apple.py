@@ -148,7 +148,6 @@ class AppleAppAnalyzer:
             treemap=treemap,
             insights=InsightResults(**insights),
         )
-        AppleAnalysisResults.model_rebuild()
 
         logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")
         return results
