@@ -86,7 +86,7 @@ class LaunchpadService:
             self._background_tasks.add(task)
 
             # Clean up completed tasks
-            def task_done_callback(completed_task):
+            def task_done_callback(completed_task: asyncio.Task[Any]) -> None:
                 self._background_tasks.discard(completed_task)
                 if completed_task.exception():
                     logger.error(f"Apple analysis task failed: {completed_task.exception()}")
@@ -122,6 +122,8 @@ class LaunchpadService:
             logger.info(f"Starting Apple analysis: {payload.get('id', 'unknown')}")
 
             # Run the actual analysis in thread pool to avoid blocking event loop
+            if not self._loop:
+                raise RuntimeError("Event loop not initialized")
             await self._loop.run_in_executor(self._task_executor, self._do_apple_analysis, payload)
 
             logger.info(f"Apple analysis completed: {payload.get('id', 'unknown')}")
@@ -135,6 +137,8 @@ class LaunchpadService:
             logger.info(f"Starting Android analysis: {payload.get('id', 'unknown')}")
 
             # Run the actual analysis in thread pool to avoid blocking event loop
+            if not self._loop:
+                raise RuntimeError("Event loop not initialized")
             await self._loop.run_in_executor(self._task_executor, self._do_android_analysis, payload)
 
             logger.info(f"Android analysis completed successfully: {payload.get('id', 'unknown')}")
@@ -259,7 +263,7 @@ class LaunchpadService:
             except asyncio.TimeoutError:
                 logger.warning("Some service tasks did not complete within timeout, cancelling remaining tasks")
                 # Cancel remaining tasks if they didn't complete
-                for task in self._tasks:
+                for task in self._tasks:  # type: ignore[assignment]
                     if not task.done():
                         logger.info(f"Cancelling task: {task}")
                         task.cancel()
