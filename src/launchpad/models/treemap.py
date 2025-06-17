@@ -20,7 +20,7 @@ class TreemapType(str, Enum):
     SIGNATURES = "signatures"
     FONTS = "fonts"
 
-    # iOS-specific categories
+    # Apple-specific categories
     FRAMEWORKS = "frameworks"
     PLISTS = "plists"
     EXTENSIONS = "extensions"  # App extensions and plugins
@@ -37,7 +37,7 @@ class TreemapType(str, Enum):
     STRINGS = "strings"
     SYMBOLS = "symbols"
 
-    # iOS binary categories
+    # Apple binary categories
     DYLD = "dyld"
     MACHO = "macho"
     FUNCTION_STARTS = "function_starts"

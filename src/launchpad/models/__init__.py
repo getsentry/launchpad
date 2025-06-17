@@ -3,6 +3,14 @@
 # Import common models that are shared across platforms
 # Import Android models (placeholders for now)
 from .android import AndroidAnalysisResults, AndroidAppInfo
+
+# Import Apple-specific models
+from .apple import (  # Backwards compatibility aliases
+    AppleAnalysisResults,
+    AppleAppInfo,
+    MachOBinaryAnalysis,
+    SwiftMetadata,
+)
 from .common import (
     BaseAnalysisResults,
     BaseAppInfo,
@@ -11,14 +19,6 @@ from .common import (
     FileAnalysis,
     FileInfo,
     SymbolInfo,
-)
-
-# Import iOS-specific models
-from .ios import (  # Backwards compatibility aliases
-    IOSAnalysisResults,
-    IOSAppInfo,
-    IOSBinaryAnalysis,
-    SwiftMetadata,
 )
 from .range_mapping import BinaryTag, Range, RangeConflict, RangeMap
 from .treemap import TreemapElement, TreemapResults, TreemapType
@@ -32,11 +32,11 @@ __all__ = [
     "BaseAppInfo",
     "BaseBinaryAnalysis",
     "BaseAnalysisResults",
-    # iOS-specific models
+    # Apple-specific models
     "SwiftMetadata",
-    "IOSAppInfo",
-    "IOSBinaryAnalysis",
-    "IOSAnalysisResults",
+    "AppleAppInfo",
+    "MachOBinaryAnalysis",
+    "AppleAnalysisResults",
     # Android models
     "AndroidAppInfo",
     "AndroidAnalysisResults",

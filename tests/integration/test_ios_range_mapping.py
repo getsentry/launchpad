@@ -6,8 +6,8 @@ from typing import Any, Dict, cast
 
 import pytest
 
-from launchpad.analyzers.ios import IOSAnalyzer
-from launchpad.artifacts import ArtifactFactory, IOSArtifact
+from launchpad.analyzers.apple import AppleAppAnalyzer
+from launchpad.artifacts import AppleArtifact, ArtifactFactory
 from launchpad.models import BinaryTag
 
 
@@ -33,9 +33,9 @@ class TestIOSRangeMapping:
         This test asserts against the specific section sizes and mappings we expect
         from the HackerNews sample app to catch any regressions in the range mapping logic.
         """
-        analyzer = IOSAnalyzer(skip_range_mapping=False)
+        analyzer = AppleAppAnalyzer(skip_range_mapping=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
-        results = analyzer.analyze(cast(IOSArtifact, artifact))
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
 
         # Get the first binary analysis result since we know there's only one binary
         binary_analysis = results.binary_analysis[0]
@@ -86,9 +86,9 @@ class TestIOSRangeMapping:
 
     def test_section_mapping_completeness(self, sample_app_path: Path) -> None:
         """Test that sections are properly mapped to ranges in real binary."""
-        analyzer = IOSAnalyzer(skip_range_mapping=False)
+        analyzer = AppleAppAnalyzer(skip_range_mapping=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
-        results = analyzer.analyze(cast(IOSArtifact, artifact))
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
 
         # Get the first binary analysis result since we know there's only one binary
         binary_analysis = results.binary_analysis[0]

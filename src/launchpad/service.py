@@ -56,8 +56,8 @@ class LaunchpadService:
 
             # TODO: !! ensure we utilize proper parallelism.
             # Right now, each analysis job will block the entire Kafka consumer until it completes
-            if message_type == "analyze_ios":
-                self._handle_ios_analysis_sync(payload)
+            if message_type == "analyze_apple":
+                self._handle_apple_analysis_sync(payload)
             elif message_type == "analyze_android":
                 self._handle_android_analysis_sync(payload)
             else:
@@ -66,12 +66,12 @@ class LaunchpadService:
         except Exception as e:
             logger.error(f"Error handling Kafka message: {e}", exc_info=True)
 
-    def _handle_ios_analysis_sync(self, payload: Dict[str, Any]) -> None:
-        """Handle iOS analysis requests (synchronous)."""
-        logger.info(f"Processing iOS analysis request: {payload}")
+    def _handle_apple_analysis_sync(self, payload: Dict[str, Any]) -> None:
+        """Handle Apple analysis requests (synchronous)."""
+        logger.info(f"Processing Apple analysis request: {payload}")
         # TODO: Integrate with app_size_analyzer for actual analysis
         # For now, just log the request
-        logger.info("iOS analysis completed (stub)")
+        logger.info("Apple app analysis completed (stub)")
 
     def _handle_android_analysis_sync(self, payload: Dict[str, Any]) -> None:
         """Handle Android analysis requests (synchronous)."""

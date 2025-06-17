@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
-from ..models import FileAnalysis, FileInfo, IOSBinaryAnalysis, Range, RangeMap, TreemapElement, TreemapResults
+from ..models import FileAnalysis, FileInfo, MachOBinaryAnalysis, Range, RangeMap, TreemapElement, TreemapResults
 from ..models.treemap import TreemapType
 from ..utils.logging import get_logger
 
@@ -23,7 +23,7 @@ class TreemapBuilder:
         platform: str,
         download_compression_ratio: float,
         filesystem_block_size: int | None = None,
-        binary_analysis_map: Dict[str, IOSBinaryAnalysis] | None = None,
+        binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
     ) -> None:
         """Initialize the treemap builder.
 

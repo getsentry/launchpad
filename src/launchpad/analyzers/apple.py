@@ -1,4 +1,4 @@
-"""iOS app bundle analyzer using LIEF for Mach-O parsing."""
+"""Apple app bundle analyzer using LIEF for Mach-O parsing."""
 
 from __future__ import annotations
 
@@ -11,13 +11,13 @@ from typing import Dict, List
 
 import lief
 
-from launchpad.artifacts.artifact import IOSArtifact
+from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.artifact import AppleArtifact
 
-from ..artifacts import ZippedXCArchive
-from ..models import DuplicateFileGroup, FileAnalysis, FileInfo, IOSAnalysisResults, IOSAppInfo, IOSBinaryAnalysis
+from ..models import AppleAnalysisResults, AppleAppInfo, DuplicateFileGroup, FileAnalysis, FileInfo, MachOBinaryAnalysis
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
-from ..parsers.ios.macho_parser import MachOParser
-from ..parsers.ios.range_mapping_builder import RangeMappingBuilder
+from ..parsers.apple.macho_parser import MachOParser
+from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
 from ..utils.file_utils import calculate_file_hash, get_file_size
 from ..utils.logging import get_logger
 from ..utils.treemap_builder import TreemapBuilder
@@ -25,8 +25,8 @@ from ..utils.treemap_builder import TreemapBuilder
 logger = get_logger(__name__)
 
 
-class IOSAnalyzer:
-    """Analyzer for iOS app bundles (.xcarchive directories)."""
+class AppleAppAnalyzer:
+    """Analyzer for Apple app bundles (.xcarchive directories)."""
 
     def __init__(
         self,
@@ -36,7 +36,7 @@ class IOSAnalyzer:
         skip_range_mapping: bool = False,
         skip_treemap: bool = False,
     ) -> None:
-        """Initialize the iOS analyzer.
+        """Initialize the Apple analyzer.
 
         Args:
             working_dir: Directory for temporary files (None for system temp)
@@ -51,11 +51,11 @@ class IOSAnalyzer:
         self.skip_range_mapping = skip_range_mapping
         self.skip_treemap = skip_treemap
 
-    def analyze(self, artifact: IOSArtifact) -> IOSAnalysisResults:
-        """Analyze an iOS app bundle.
+    def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
+        """Analyze an Apple app bundle.
 
         Args:
-            artifact: IOSArtifact to analyze
+            artifact: AppleArtifact to analyze
 
         Returns:
             Analysis results including file sizes, binary analysis, and treemap
@@ -73,8 +73,8 @@ class IOSAnalyzer:
         logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
 
         treemap = None
-        binary_analysis: List[IOSBinaryAnalysis] = []
-        binary_analysis_map: Dict[str, IOSBinaryAnalysis] = {}
+        binary_analysis: List[MachOBinaryAnalysis] = []
+        binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
 
         if not self.skip_treemap and not self.skip_range_mapping:
             app_bundle_path = artifact.get_app_bundle_path()
@@ -102,7 +102,7 @@ class IOSAnalyzer:
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
-        results = IOSAnalysisResults(
+        results = AppleAnalysisResults(
             app_info=app_info,
             file_analysis=file_analysis,
             binary_analysis=binary_analysis,
@@ -113,7 +113,7 @@ class IOSAnalyzer:
         logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")
         return results
 
-    def _extract_app_info(self, xcarchive: ZippedXCArchive) -> IOSAppInfo:
+    def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
         """Extract basic app information from Info.plist.
 
         Returns:
@@ -123,7 +123,7 @@ class IOSAnalyzer:
             RuntimeError: If Info.plist cannot be read
         """
         plist = xcarchive.get_plist()
-        return IOSAppInfo(
+        return AppleAppInfo(
             name=plist.get("CFBundleName", "Unknown"),
             bundle_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
             version=plist.get("CFBundleShortVersionString", "Unknown"),
@@ -249,12 +249,12 @@ class IOSAnalyzer:
             largest_files=largest_files,
         )
 
-    def _find_binaries(self, app_bundle_path: Path, artifact: IOSArtifact) -> List[tuple[Path, str]]:
+    def _find_binaries(self, app_bundle_path: Path, artifact: AppleArtifact) -> List[tuple[Path, str]]:
         """Find all binaries in the app bundle.
 
         Args:
             app_bundle_path: Path to the app bundle
-            artifact: The iOS artifact being analyzed
+            artifact: The Apple app artifact being analyzed
 
         Returns:
             List of tuples containing (binary_path, binary_name, skip_swift_metadata)
@@ -298,7 +298,7 @@ class IOSAnalyzer:
 
         return binaries
 
-    def _analyze_binary(self, binary_path: Path, skip_swift_metadata: bool = False) -> IOSBinaryAnalysis:
+    def _analyze_binary(self, binary_path: Path, skip_swift_metadata: bool = False) -> MachOBinaryAnalysis:
         """Analyze a binary file using LIEF.
 
         Args:
@@ -310,7 +310,7 @@ class IOSAnalyzer:
         """
         if not binary_path.exists():
             logger.warning(f"Binary not found: {binary_path}")
-            return IOSBinaryAnalysis(
+            return MachOBinaryAnalysis(
                 executable_size=0,
                 architectures=[],
                 linked_libraries=[],
@@ -349,7 +349,7 @@ class IOSAnalyzer:
             range_builder = RangeMappingBuilder(parser, executable_size)
             range_map = range_builder.build_range_mapping()
 
-        return IOSBinaryAnalysis(
+        return MachOBinaryAnalysis(
             executable_size=executable_size,
             architectures=architectures,
             linked_libraries=linked_libraries,

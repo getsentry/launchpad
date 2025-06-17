@@ -6,8 +6,8 @@ from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.android.zipped_apk import ZippedAPK
+from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact_factory import ArtifactFactory
-from launchpad.artifacts.ios.zipped_xcarchive import ZippedXCArchive
 
 
 @pytest.fixture
