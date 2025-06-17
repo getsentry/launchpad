@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis, InsightResults
 from .range_mapping import RangeMap
 from .treemap import TreemapResults
 
@@ -24,8 +24,8 @@ class AppleAnalysisResults(BaseAnalysisResults):
         description="Apple binary analysis results",
         exclude=True,
     )
-    insights: Dict[str, Dict[str, Any]] = Field(
-        default_factory=dict,
+    insights: InsightResults = Field(
+        default_factory=InsightResults,
         description="Generated insights from the analysis",
     )
 

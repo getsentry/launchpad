@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Dict, List, Protocol, TypeVar
+from typing import Any, Dict, List, Protocol
 
-from pydantic import BaseModel
-
-from launchpad.models.common import DuplicateFileGroup, FileInfo
+from launchpad.models.common import DuplicateFileGroup, DuplicateFilesInsightResult, FileInfo
 
 from ..models.apple import AppleAnalysisResults
-
-T = TypeVar("T", bound=BaseModel)
 
 
 class Insight(Protocol):
@@ -36,14 +32,14 @@ class Insight(Protocol):
 class DuplicateFilesInsight:
     """Insight for duplicate files analysis."""
 
-    def generate_insight(self, results: AppleAnalysisResults) -> Dict[str, Any]:
+    def generate_insight(self, results: AppleAnalysisResults) -> DuplicateFilesInsightResult:
         """Generate insights about duplicate files.
 
         Args:
             results: The analysis results to generate insights from
 
         Returns:
-            Dictionary containing duplicate file insights
+            Duplicate files insight results
         """
         # Group files by hash
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
@@ -68,20 +64,20 @@ class DuplicateFilesInsight:
                     )
 
         if not duplicate_groups:
-            return {
-                "has_duplicates": False,
-                "total_savings": 0,
-                "duplicate_groups": [],
-            }
+            return DuplicateFilesInsightResult(
+                has_duplicates=False,
+                total_savings=0,
+                duplicate_groups=[],
+            )
 
         # Sort groups by potential savings
         sorted_groups = sorted(duplicate_groups, key=lambda g: g.potential_savings, reverse=True)
         total_savings = sum(group.potential_savings for group in duplicate_groups)
 
-        return {
-            "has_duplicates": True,
-            "total_savings": total_savings,
-            "duplicate_groups": [
+        return DuplicateFilesInsightResult(
+            has_duplicates=True,
+            total_savings=total_savings,
+            duplicate_groups=[
                 {
                     "files": [f.path for f in group.files],
                     "size": group.files[0].size,
@@ -89,4 +85,4 @@ class DuplicateFilesInsight:
                 }
                 for group in sorted_groups
             ],
-        }
+        )

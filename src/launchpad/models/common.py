@@ -101,3 +101,29 @@ class DuplicateFileGroup(BaseModel):
     def duplicate_count(self) -> int:
         """Number of duplicate files (excluding the original)."""
         return len(self.files) - 1
+
+
+class BaseInsightResult(BaseModel):
+    """Base class for all insight results."""
+
+    model_config = ConfigDict(frozen=True)
+
+    total_savings: int = Field(..., ge=0, description="Total potential savings in bytes")
+
+
+class DuplicateFilesInsightResult(BaseInsightResult):
+    """Results from duplicate files analysis."""
+
+    has_duplicates: bool = Field(..., description="Whether any duplicate files were found")
+    duplicate_groups: List[Dict[str, Any]] = Field(
+        ...,
+        description="List of duplicate file groups, each containing files, size, and potential savings",
+    )
+
+
+class InsightResults(BaseModel):
+    """Collection of all insight results."""
+
+    model_config = ConfigDict(frozen=True)
+
+    duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")

@@ -13,6 +13,7 @@ import lief
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.insights.common import DuplicateFilesInsight
+from launchpad.models.common import InsightResults
 
 from ..models import AppleAnalysisResults, AppleAppInfo, FileAnalysis, FileInfo, MachOBinaryAnalysis
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
@@ -132,12 +133,11 @@ class AppleAppAnalyzer:
                 binary_analysis=binary_analysis,
                 analysis_duration=0,
                 treemap=treemap,
-                insights={},
+                insights=InsightResults(),
             )
             AppleAnalysisResults.model_rebuild()
             insights = {
-                insight.__class__.__name__.replace("Insight", ""): insight.generate_insight(temp_results)
-                for insight in self.INSIGHTS
+                "duplicate_files": self.INSIGHTS[0].generate_insight(temp_results),
             }
 
         results = AppleAnalysisResults(
@@ -146,7 +146,7 @@ class AppleAppAnalyzer:
             binary_analysis=binary_analysis,
             analysis_duration=time.time() - analysis_start_time,
             treemap=treemap,
-            insights=insights,
+            insights=InsightResults(**insights),
         )
         AppleAnalysisResults.model_rebuild()
 

@@ -383,10 +383,10 @@ def _print_apple_summary(results: AppleAnalysisResults) -> None:
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
 
-    if insights.get("DuplicateFiles", {}).get("has_duplicates", False):
+    if insights.duplicate_files and insights.duplicate_files.has_duplicates:
         console.print(
             f"• Potential savings from duplicates: "
-            f"[yellow]{_format_bytes(insights.get('DuplicateFilesInsight', {}).get('total_savings', 0))}[/yellow]"
+            f"[yellow]{_format_bytes(insights.duplicate_files.total_savings)}[/yellow]"
         )
 
     if binary_analysis:
