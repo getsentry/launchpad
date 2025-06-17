@@ -91,10 +91,10 @@ run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments, DEBUG=1 to run 
 	fi
 
 test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
-	$(PYTHON_VENV) scripts/test_kafka.py --message-type ios --count 1
+	$(PYTHON_VENV) scripts/test_kafka.py --message-type apple --count 1
 
 test-kafka-multiple:  ## Send multiple test messages to Kafka
-	$(PYTHON_VENV) scripts/test_kafka.py --message-type ios --count 5 --interval 2
+	$(PYTHON_VENV) scripts/test_kafka.py --message-type apple --count 5 --interval 0
 
 test-service-integration:  ## Run full integration test with devservices
 	@echo "Starting Kafka services via devservices..."

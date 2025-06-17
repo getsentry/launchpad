@@ -238,6 +238,9 @@ class KafkaConsumer:
         while not self._shutdown_requested:
             try:
                 # Create Arroyo consumer - minimal config for Arroyo
+                # When we're closer to production, we'll need a way to disable this logic as topics,
+                # partitions and kafka clusters are configured through getsentry/ops.
+                # We will work with the streaming teams to get this set up.
                 consumer_config = {
                     "bootstrap.servers": self.bootstrap_servers,
                     "group.id": self.group_id,

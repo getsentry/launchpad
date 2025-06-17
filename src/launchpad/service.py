@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Union
 
 from .kafka import KafkaConsumer, LaunchpadMessage, get_kafka_config
@@ -22,9 +23,15 @@ class LaunchpadService:
         self._shutdown_event = asyncio.Event()
         self._tasks: list[Union[asyncio.Task[Any], asyncio.Future[Any]]] = []
         self._kafka_task: asyncio.Future[Any] | None = None
+        self._task_executor = ThreadPoolExecutor(max_workers=4)  # Adjust based on resources
+        self._background_tasks: set[asyncio.Task[Any]] = set()
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     async def setup(self) -> None:
         """Set up the service components."""
+        # Store reference to the event loop for use in message handlers
+        self._loop = asyncio.get_running_loop()
+
         # Setup HTTP server
         server_config = get_server_config()
         self.server = LaunchpadServer(host=server_config["host"], port=server_config["port"])
@@ -41,9 +48,9 @@ class LaunchpadService:
         logger.info("Service components initialized")
 
     def handle_kafka_message(self, message: LaunchpadMessage) -> None:
-        """Handle incoming Kafka messages (synchronous wrapper)."""
+        """Handle incoming Kafka messages - immediately queue for background processing."""
         try:
-            logger.info(f"Received message from topic {message.topic}: {message.value!r}")
+            logger.info(f"Received message from topic {message.topic}")
 
             # Parse message payload
             payload = message.get_json_payload()
@@ -51,32 +58,102 @@ class LaunchpadService:
                 logger.error("Failed to parse message payload")
                 return
 
-            # TODO: Route message to appropriate handler based on message type
+            # Route message to appropriate handler based on message type
             message_type = payload.get("type", "unknown")
 
-            # TODO: !! ensure we utilize proper parallelism.
-            # Right now, each analysis job will block the entire Kafka consumer until it completes
+            # Queue task immediately - don't block the consumer
+            # Use call_soon_threadsafe since we're being called from the Kafka consumer thread
             if message_type == "analyze_apple":
-                self._handle_apple_analysis_sync(payload)
+                if self._loop:
+                    self._loop.call_soon_threadsafe(self._queue_apple_analysis, payload)
             elif message_type == "analyze_android":
-                self._handle_android_analysis_sync(payload)
+                if self._loop:
+                    self._loop.call_soon_threadsafe(self._queue_android_analysis, payload)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
         except Exception as e:
             logger.error(f"Error handling Kafka message: {e}", exc_info=True)
 
-    def _handle_apple_analysis_sync(self, payload: Dict[str, Any]) -> None:
-        """Handle Apple analysis requests (synchronous)."""
-        logger.info(f"Processing Apple analysis request: {payload}")
+    def _queue_apple_analysis(self, payload: Dict[str, Any]) -> None:
+        """Queue Apple analysis for background processing."""
+        try:
+            if not self._loop:
+                raise RuntimeError("Event loop not initialized")
+
+            # Create background task using stored loop reference
+            task = self._loop.create_task(self._handle_apple_analysis_async(payload))
+            self._background_tasks.add(task)
+
+            # Clean up completed tasks
+            def task_done_callback(completed_task):
+                self._background_tasks.discard(completed_task)
+                if completed_task.exception():
+                    logger.error(f"Apple analysis task failed: {completed_task.exception()}")
+
+            task.add_done_callback(task_done_callback)
+
+            task_id = payload.get("id", "unknown")
+            logger.info(f"Queued Apple analysis task: {task_id}")
+
+        except Exception as e:
+            logger.error(f"Failed to queue Apple analysis: {e}", exc_info=True)
+
+    def _queue_android_analysis(self, payload: Dict[str, Any]) -> None:
+        """Queue Android analysis for background processing."""
+        try:
+            if not self._loop:
+                raise RuntimeError("Event loop not initialized")
+
+            # Create background task using stored loop reference
+            task = self._loop.create_task(self._handle_android_analysis_async(payload))
+            self._background_tasks.add(task)
+
+            # Clean up completed tasks
+            task.add_done_callback(self._background_tasks.discard)
+
+            logger.info(f"Queued Android analysis task: {payload.get('id', 'unknown')}")
+        except Exception as e:
+            logger.error(f"Failed to queue Android analysis: {e}", exc_info=True)
+
+    async def _handle_apple_analysis_async(self, payload: Dict[str, Any]) -> None:
+        """Handle Apple analysis in background thread."""
+        try:
+            logger.info(f"Starting Apple analysis: {payload.get('id', 'unknown')}")
+
+            # Run the actual analysis in thread pool to avoid blocking event loop
+            await self._loop.run_in_executor(self._task_executor, self._do_apple_analysis, payload)
+
+            logger.info(f"Apple analysis completed: {payload.get('id', 'unknown')}")
+
+        except Exception as e:
+            logger.error(f"Apple analysis failed: {e}", exc_info=True)
+
+    async def _handle_android_analysis_async(self, payload: Dict[str, Any]) -> None:
+        """Handle Android analysis in background thread."""
+        try:
+            logger.info(f"Starting Android analysis: {payload.get('id', 'unknown')}")
+
+            # Run the actual analysis in thread pool to avoid blocking event loop
+            await self._loop.run_in_executor(self._task_executor, self._do_android_analysis, payload)
+
+            logger.info(f"Android analysis completed successfully: {payload.get('id', 'unknown')}")
+
+        except Exception as e:
+            logger.error(f"Android analysis failed: {e}", exc_info=True)
+
+    def _do_apple_analysis(self, payload: Dict[str, Any]) -> None:
+        """Actual Apple analysis work (runs in thread pool)."""
         # TODO: Integrate with app_size_analyzer for actual analysis
-        # For now, just log the request
+        # This runs in a separate thread so it won't block Kafka heartbeats
+        logger.info(f"Processing Apple analysis request: {payload}")
         logger.info("Apple app analysis completed (stub)")
 
-    def _handle_android_analysis_sync(self, payload: Dict[str, Any]) -> None:
-        """Handle Android analysis requests (synchronous)."""
-        logger.info(f"Processing Android analysis request: {payload}")
+    def _do_android_analysis(self, payload: Dict[str, Any]) -> None:
+        """Actual Android analysis work (runs in thread pool)."""
         # TODO: Implement Android analysis
+        # This runs in a separate thread so it won't block Kafka heartbeats
+        logger.info(f"Processing Android analysis request: {payload}")
         logger.info("Android analysis completed (stub)")
 
     async def start(self) -> None:
@@ -160,14 +237,27 @@ class LaunchpadService:
             except Exception as e:
                 logger.warning(f"Error shutting down server: {e}")
 
-        # Wait for all tasks to complete or timeout
+        # Wait for background analysis tasks to complete or timeout
+        if self._background_tasks:
+            logger.info(f"Waiting for {len(self._background_tasks)} background tasks to complete...")
+            try:
+                await asyncio.wait_for(asyncio.gather(*self._background_tasks, return_exceptions=True), timeout=30.0)
+                logger.info("All background tasks completed")
+            except asyncio.TimeoutError:
+                logger.warning("Background tasks did not complete within timeout, cancelling...")
+                for task in self._background_tasks:
+                    task.cancel()
+                # Wait a bit for cancellation to complete
+                await asyncio.gather(*self._background_tasks, return_exceptions=True)
+
+        # Wait for all other tasks to complete or timeout
         if self._tasks:
             try:
-                logger.info("Waiting for tasks to complete...")
+                logger.info("Waiting for service tasks to complete...")
                 await asyncio.wait_for(asyncio.gather(*self._tasks, return_exceptions=True), timeout=5.0)
-                logger.info("All tasks completed")
+                logger.info("All service tasks completed")
             except asyncio.TimeoutError:
-                logger.warning("Some tasks did not complete within timeout, cancelling remaining tasks")
+                logger.warning("Some service tasks did not complete within timeout, cancelling remaining tasks")
                 # Cancel remaining tasks if they didn't complete
                 for task in self._tasks:
                     if not task.done():
@@ -179,6 +269,11 @@ class LaunchpadService:
                     await asyncio.wait_for(asyncio.gather(*self._tasks, return_exceptions=True), timeout=2.0)
                 except asyncio.TimeoutError:
                     logger.warning("Some tasks did not respond to cancellation")
+
+        # Shut down the thread pool executor
+        logger.info("Shutting down thread pool executor...")
+        self._task_executor.shutdown(wait=True, cancel_futures=True)
+        logger.info("Thread pool executor shut down")
 
         logger.info("Service cleanup completed")
 

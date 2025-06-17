@@ -25,7 +25,7 @@ def create_apple_analysis_message(artifact_path: str) -> Dict[str, Any]:
         "type": "analyze_apple",
         "artifact_path": artifact_path,
         "timestamp": time.time(),
-        "request_id": f"ios-{int(time.time())}",
+        "request_id": f"apple-{int(time.time())}",
     }
 
 
@@ -43,7 +43,7 @@ def create_android_analysis_message(artifact_path: str) -> Dict[str, Any]:
 @click.option("--topic", default="launchpad-events", help="Kafka topic to send messages to")
 @click.option("--bootstrap-servers", default="localhost:9092", help="Kafka bootstrap servers")
 @click.option(
-    "--message-type", type=click.Choice(["ios", "android", "custom"]), default="ios", help="Type of message to send"
+    "--message-type", type=click.Choice(["apple", "android", "custom"]), default="apple", help="Type of message to send"
 )
 @click.option("--artifact-path", default="/path/to/test.xcarchive.zip", help="Path to artifact for analysis")
 @click.option("--custom-json", help="Custom JSON message to send (overrides other options)")
@@ -71,7 +71,7 @@ def main(
                 except json.JSONDecodeError as e:
                     click.echo(f"Error parsing custom JSON: {e}", err=True)
                     sys.exit(1)
-            elif message_type == "ios":
+            elif message_type == "apple":
                 message = create_apple_analysis_message(artifact_path)
             elif message_type == "android":
                 message = create_android_analysis_message(artifact_path)
