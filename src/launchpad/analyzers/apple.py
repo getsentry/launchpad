@@ -135,7 +135,6 @@ class AppleAppAnalyzer:
                 treemap=treemap,
                 insights=InsightResults(),
             )
-            AppleAnalysisResults.model_rebuild()
             insights = {
                 "duplicate_files": self.INSIGHTS[0].generate_insight(temp_results),
             }
