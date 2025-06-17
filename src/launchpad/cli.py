@@ -332,8 +332,6 @@ def _print_apple_table_output(results: AppleAnalysisResults, quiet: bool) -> Non
         file_analysis = results.file_analysis
         file_table.add_row("Total Size", _format_bytes(file_analysis.total_size))
         file_table.add_row("File Count", str(file_analysis.file_count))
-        file_table.add_row("Duplicate Files", str(len(file_analysis.duplicate_files)))
-        file_table.add_row("Potential Savings", _format_bytes(file_analysis.total_duplicate_savings))
 
         console.print(file_table)
         console.print()
@@ -378,16 +376,17 @@ def _print_apple_summary(results: AppleAnalysisResults) -> None:
     """Print a brief summary of the analysis."""
     file_analysis = results.file_analysis
     binary_analysis = results.binary_analysis
+    insights = results.insights
 
     console.print("\n[bold]Summary:[/bold]")
     console.print(f"• App name: [cyan]{results.app_info.name}[/cyan]")
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
 
-    if file_analysis.duplicate_files:
+    if insights.get("DuplicateFiles", {}).get("has_duplicates", False):
         console.print(
             f"• Potential savings from duplicates: "
-            f"[yellow]{_format_bytes(file_analysis.total_duplicate_savings)}[/yellow]"
+            f"[yellow]{_format_bytes(insights.get('DuplicateFilesInsight', {}).get('total_savings', 0))}[/yellow]"
         )
 
     if binary_analysis:

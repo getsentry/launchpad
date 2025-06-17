@@ -7,69 +7,19 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .treemap import TreemapType
 
-
-class FileInfo(BaseModel):
-    """Information about a single file."""
+class BaseAnalysisResults(BaseModel):
+    """Base analysis results structure."""
 
     model_config = ConfigDict(frozen=True)
+    generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
+    analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
 
-    path: str = Field(..., description="Relative path to the file")
-    size: int = Field(..., ge=0, description="File size in bytes")
-    file_type: str = Field(..., description="File type/extension")
-    hash_md5: str = Field(..., description="MD5 hash of file contents")
-    treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
-
-
-class DuplicateFileGroup(BaseModel):
-    """Group of duplicate files found in the bundle."""
-
-    model_config = ConfigDict(frozen=True)
-
-    files: List[FileInfo] = Field(..., min_length=2, description="List of duplicate files")
-    potential_savings: int = Field(..., ge=0, description="Potential size savings in bytes")
-
-    @property
-    def duplicate_count(self) -> int:
-        """Number of duplicate files (excluding the original)."""
-        return len(self.files) - 1
-
-
-class SymbolInfo(BaseModel):
-    """Information about a binary symbol."""
-
-    model_config = ConfigDict(frozen=True)
-
-    name: str = Field(..., description="Symbol name")
-    mangled_name: str | None = Field(None, description="Mangled symbol name")
-    size: int = Field(..., ge=0, description="Symbol size in bytes")
-    section: str = Field(..., description="Binary section containing the symbol")
-    symbol_type: str = Field(..., description="Type of symbol (function, data, etc.)")
-
-
-class FileAnalysis(BaseModel):
-    """Analysis results for files in the app bundle."""
-
-    model_config = ConfigDict(frozen=True)
-
-    total_size: int = Field(..., ge=0, description="Total bundle size in bytes")
-    file_count: int = Field(..., ge=0, description="Total number of files")
-    files_by_type: Dict[str, List[FileInfo]] = Field(
-        default_factory=dict, description="Files grouped by type/extension"
-    )
-    duplicate_files: List[DuplicateFileGroup] = Field(default_factory=list, description="Groups of duplicate files")
-    largest_files: List[FileInfo] = Field(default_factory=list, description="Largest files in the bundle")
-
-    @property
-    def total_duplicate_savings(self) -> int:
-        """Total potential savings from removing duplicates."""
-        return sum(group.potential_savings for group in self.duplicate_files)
-
-    @property
-    def file_type_sizes(self) -> Dict[str, int]:
-        """Total size by file type."""
-        return {file_type: sum(file.size for file in files) for file_type, files in self.files_by_type.items()}
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable datetime."""
+        data = self.model_dump()
+        data["generated_at"] = self.generated_at.isoformat()
+        return data
 
 
 class BaseAppInfo(BaseModel):
@@ -93,16 +43,61 @@ class BaseBinaryAnalysis(BaseModel):
     sections: Dict[str, int] = Field(default_factory=dict, description="Binary sections and their sizes")
 
 
-class BaseAnalysisResults(BaseModel):
-    """Base analysis results structure."""
+class SymbolInfo(BaseModel):
+    """Information about a binary symbol."""
 
     model_config = ConfigDict(frozen=True)
-    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
-    generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
-    analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary with serializable datetime."""
-        data = self.model_dump()
-        data["generated_at"] = self.generated_at.isoformat()
-        return data
+    name: str = Field(..., description="Symbol name")
+    mangled_name: str | None = Field(None, description="Mangled symbol name")
+    size: int = Field(..., ge=0, description="Symbol size in bytes")
+    type: str = Field(..., description="Symbol type")
+
+
+class FileAnalysis(BaseModel):
+    """Analysis results for files in the app bundle."""
+
+    model_config = ConfigDict(frozen=True)
+
+    files: List[FileInfo] = Field(..., description="List of all files in the bundle")
+
+    @property
+    def total_size(self) -> int:
+        """Total bundle size in bytes."""
+        return sum(f.size for f in self.files)
+
+    @property
+    def file_count(self) -> int:
+        """Total number of files."""
+        return len(self.files)
+
+    @property
+    def file_type_sizes(self) -> Dict[str, int]:
+        """Total size by file type."""
+        return {file.file_type: file.size for file in self.files}
+
+
+class FileInfo(BaseModel):
+    """Information about a file in the app bundle."""
+
+    model_config = ConfigDict(frozen=True)
+
+    path: str = Field(..., description="Relative path in the bundle")
+    size: int = Field(..., ge=0, description="File size in bytes")
+    file_type: str = Field(..., description="File type/extension")
+    hash_md5: str = Field(..., description="MD5 hash of file contents")
+    treemap_type: str = Field(..., description="Type for treemap visualization")
+
+
+class DuplicateFileGroup(BaseModel):
+    """Group of duplicate files."""
+
+    model_config = ConfigDict(frozen=True)
+
+    files: List[FileInfo] = Field(..., description="Files in the group")
+    potential_savings: int = Field(..., ge=0, description="Potential size savings in bytes")
+
+    @property
+    def duplicate_count(self) -> int:
+        """Number of duplicate files (excluding the original)."""
+        return len(self.files) - 1
