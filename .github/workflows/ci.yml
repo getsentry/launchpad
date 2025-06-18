@@ -65,6 +65,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: adopt
+
+      - name: Setup bundletool
+        run: |
+          json=$(curl -s https://api.github.com/repos/google/bundletool/releases/latest)
+          downloadUrl=$(echo $json | jq -r ".assets | .[].browser_download_url")
+          curl $downloadUrl -4 -sL -o 'bundletool.jar'
+          echo '#!/bin/bash' > bundletool
+          echo 'java -jar "$(dirname "$0")/bundletool.jar" "$@"' >> bundletool
+          chmod +x bundletool
+          echo "$(pwd)" >> $GITHUB_PATH
+          ./bundletool version
+
       - name: Install dependencies
         run: make install-dev
 

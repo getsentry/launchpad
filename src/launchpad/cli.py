@@ -19,7 +19,7 @@ from . import __version__
 from .analyzers.android import AndroidAnalyzer
 from .analyzers.apple import AppleAppAnalyzer
 from .artifacts import AndroidArtifact, AppleArtifact, ArtifactFactory
-from .models import AndroidAnalysisResults, AppleAnalysisResults
+from .models import AndroidAnalysisResults, AppleAnalysisResults, FileAnalysis
 from .service import run_service
 from .utils.logging import setup_logging
 
@@ -323,28 +323,18 @@ def _print_apple_table_output(results: AppleAnalysisResults, quiet: bool) -> Non
     console.print(app_table)
     console.print()
 
-    # File Analysis Table
-    if results.file_analysis:
-        file_table = Table(title="File Analysis", show_header=True, header_style="bold green")
-        file_table.add_column("Metric", style="cyan")
-        file_table.add_column("Value", style="white")
-
-        file_analysis = results.file_analysis
-        file_table.add_row("Total Size", _format_bytes(file_analysis.total_size))
-        file_table.add_row("File Count", str(file_analysis.file_count))
-
-        console.print(file_table)
-        console.print()
+    file_analysis = results.file_analysis
+    _print_file_analysis_table(file_analysis)
 
     # File Types Table
-    if results.file_analysis.file_type_sizes:
+    if file_analysis.file_type_sizes:
         type_table = Table(title="File Types", show_header=True, header_style="bold yellow")
         type_table.add_column("Type", style="cyan")
         type_table.add_column("Size", style="white")
         type_table.add_column("Percentage", style="green")
 
-        total_size = results.file_analysis.total_size
-        for file_type, size in sorted(results.file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True)[
+        total_size = file_analysis.total_size
+        for file_type, size in sorted(file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True)[
             :10
         ]:  # Top 10 file types
             percentage = (size / total_size) * 100 if total_size > 0 else 0
@@ -361,7 +351,7 @@ def _print_android_table_output(results: AndroidAnalysisResults, quiet: bool) ->
     # App Info Table
     app_table = Table(title="App Information", show_header=True, header_style="bold magenta")
     app_table.add_column("Property", style="cyan")
-    app_table.add_column("Value", style="white")
+    app_table.add_column("Value")
 
     app_info = results.app_info
     app_table.add_row("Name", app_info.name)
@@ -369,6 +359,20 @@ def _print_android_table_output(results: AndroidAnalysisResults, quiet: bool) ->
     app_table.add_row("Version", f"{app_info.version} ({app_info.build})")
 
     console.print(app_table)
+    console.print()
+
+    _print_file_analysis_table(results.file_analysis)
+
+
+def _print_file_analysis_table(file_analysis: FileAnalysis) -> None:
+    file_table = Table(title="File Analysis", show_header=True, header_style="bold green")
+    file_table.add_column("Metric", style="cyan")
+    file_table.add_column("Value")
+
+    file_table.add_row("Total Size", _format_bytes(file_analysis.total_size))
+    file_table.add_row("File Count", str(file_analysis.file_count))
+
+    console.print(file_table)
     console.print()
 
 
