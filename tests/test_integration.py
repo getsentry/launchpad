@@ -43,28 +43,38 @@ class TestServiceIntegration:
         """Test processing of different Kafka message types."""
         service = LaunchpadService()
 
-        # Test Apple analysis message (note: the actual service uses "analyze_apple")
+        # Test artifact analysis message with Apple artifact
         ios_message = LaunchpadMessage(
             topic="launchpad-events",
             partition=0,
             offset=1,
             key=b"ios-analysis",
             value=json.dumps(
-                {"type": "analyze_apple", "file_path": "/path/to/app.xcarchive.zip", "metadata": {"version": "1.0.0"}}
+                {
+                    "type": "analyze_artifact",
+                    "artifact_id": "ios-test-123",
+                    "artifact_path": "/path/to/app.xcarchive.zip",
+                    "metadata": {"version": "1.0.0"},
+                }
             ).encode(),
         )
 
         # handle_kafka_message is synchronous - it queues async work
         service.handle_kafka_message(ios_message)
 
-        # Test Android analysis message
+        # Test artifact analysis message with Android artifact
         android_message = LaunchpadMessage(
             topic="launchpad-events",
             partition=0,
             offset=2,
             key=b"android-analysis",
             value=json.dumps(
-                {"type": "analyze_android", "file_path": "/path/to/app.apk", "metadata": {"version": "2.0.0"}}
+                {
+                    "type": "analyze_artifact",
+                    "artifact_id": "android-test-456",
+                    "artifact_path": "/path/to/app.apk",
+                    "metadata": {"version": "2.0.0"},
+                }
             ).encode(),
         )
 
@@ -104,11 +114,10 @@ class TestServiceIntegration:
         """Test that multiple messages can be processed concurrently."""
         service = LaunchpadService()
 
-        # Mock analysis handlers
-        service._handle_ios_analysis = AsyncMock()
-        service._handle_android_analysis = AsyncMock()
+        # Mock analysis handler
+        service._handle_analysis_async = AsyncMock()
 
-        # Create multiple messages
+        # Create multiple messages with different artifact types
         messages = [
             LaunchpadMessage(
                 topic="launchpad-events",
@@ -117,8 +126,9 @@ class TestServiceIntegration:
                 key=f"message-{i}".encode(),
                 value=json.dumps(
                     {
-                        "type": "analyze_apple" if i % 2 == 0 else "analyze_android",
-                        "file_path": f"/path/to/app{i}.zip",
+                        "type": "analyze_artifact",
+                        "artifact_id": f"test-artifact-{i}",
+                        "artifact_path": f"/path/to/app{i}.{'xcarchive.zip' if i % 2 == 0 else 'apk'}",
                     }
                 ).encode(),
             )

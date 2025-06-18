@@ -63,102 +63,68 @@ class LaunchpadService:
 
             # Queue task immediately - don't block the consumer
             # Use call_soon_threadsafe since we're being called from the Kafka consumer thread
-            if message_type == "analyze_apple":
+            if message_type == "analyze_artifact":
                 if self._loop:
-                    self._loop.call_soon_threadsafe(self._queue_apple_analysis, payload)
-            elif message_type == "analyze_android":
-                if self._loop:
-                    self._loop.call_soon_threadsafe(self._queue_android_analysis, payload)
+                    self._loop.call_soon_threadsafe(self._queue_analysis, payload)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
 
         except Exception as e:
             logger.error(f"Error handling Kafka message: {e}", exc_info=True)
 
-    def _queue_apple_analysis(self, payload: Dict[str, Any]) -> None:
-        """Queue Apple analysis for background processing."""
+    def _queue_analysis(self, payload: Dict[str, Any]) -> None:
+        """Queue analysis for background processing (platform determined by artifact type)."""
         try:
             if not self._loop:
                 raise RuntimeError("Event loop not initialized")
 
             # Create background task using stored loop reference
-            task = self._loop.create_task(self._handle_apple_analysis_async(payload))
+            task = self._loop.create_task(self._handle_analysis_async(payload))
             self._background_tasks.add(task)
 
-            # Clean up completed tasks
+            # Clean up completed tasks with error logging (platform will be determined later)
             def task_done_callback(completed_task: asyncio.Task[Any]) -> None:
                 self._background_tasks.discard(completed_task)
                 if completed_task.exception():
-                    logger.error(f"Apple analysis task failed: {completed_task.exception()}")
+                    logger.error(f"Analysis task failed: {completed_task.exception()}")
 
             task.add_done_callback(task_done_callback)
 
-            task_id = payload.get("id", "unknown")
-            logger.info(f"Queued Apple analysis task: {task_id}")
+            artifact_id = payload.get("artifact_id", payload.get("id", "unknown"))
+            logger.info(f"Queued analysis task for artifact: {artifact_id}")
 
         except Exception as e:
-            logger.error(f"Failed to queue Apple analysis: {e}", exc_info=True)
+            logger.error(f"Failed to queue analysis: {e}", exc_info=True)
 
-    def _queue_android_analysis(self, payload: Dict[str, Any]) -> None:
-        """Queue Android analysis for background processing."""
+    async def _handle_analysis_async(self, payload: Dict[str, Any]) -> None:
+        """Handle analysis in background thread (platform determined by artifact type)."""
+        artifact_id = payload.get("artifact_id", payload.get("id", "unknown"))
+
         try:
-            if not self._loop:
-                raise RuntimeError("Event loop not initialized")
-
-            # Create background task using stored loop reference
-            task = self._loop.create_task(self._handle_android_analysis_async(payload))
-            self._background_tasks.add(task)
-
-            # Clean up completed tasks
-            task.add_done_callback(self._background_tasks.discard)
-
-            logger.info(f"Queued Android analysis task: {payload.get('id', 'unknown')}")
-        except Exception as e:
-            logger.error(f"Failed to queue Android analysis: {e}", exc_info=True)
-
-    async def _handle_apple_analysis_async(self, payload: Dict[str, Any]) -> None:
-        """Handle Apple analysis in background thread."""
-        try:
-            logger.info(f"Starting Apple analysis: {payload.get('id', 'unknown')}")
+            logger.info(f"Starting analysis for artifact: {artifact_id}")
 
             # Run the actual analysis in thread pool to avoid blocking event loop
             if not self._loop:
                 raise RuntimeError("Event loop not initialized")
-            await self._loop.run_in_executor(self._task_executor, self._do_apple_analysis, payload)
+            await self._loop.run_in_executor(self._task_executor, self._do_analysis, payload)
 
-            logger.info(f"Apple analysis completed: {payload.get('id', 'unknown')}")
-
-        except Exception as e:
-            logger.error(f"Apple analysis failed: {e}", exc_info=True)
-
-    async def _handle_android_analysis_async(self, payload: Dict[str, Any]) -> None:
-        """Handle Android analysis in background thread."""
-        try:
-            logger.info(f"Starting Android analysis: {payload.get('id', 'unknown')}")
-
-            # Run the actual analysis in thread pool to avoid blocking event loop
-            if not self._loop:
-                raise RuntimeError("Event loop not initialized")
-            await self._loop.run_in_executor(self._task_executor, self._do_android_analysis, payload)
-
-            logger.info(f"Android analysis completed successfully: {payload.get('id', 'unknown')}")
+            logger.info(f"Analysis completed for artifact: {artifact_id}")
 
         except Exception as e:
-            logger.error(f"Android analysis failed: {e}", exc_info=True)
+            logger.error(f"Analysis failed for artifact {artifact_id}: {e}", exc_info=True)
 
-    def _do_apple_analysis(self, payload: Dict[str, Any]) -> None:
-        """Actual Apple analysis work (runs in thread pool)."""
-        # TODO: Integrate with app_size_analyzer for actual analysis
-        # This runs in a separate thread so it won't block Kafka heartbeats
-        logger.info(f"Processing Apple analysis request: {payload}")
-        logger.info("Apple app analysis completed (stub)")
+    def _do_analysis(self, payload: Dict[str, Any]) -> None:
+        """Actual analysis work (runs in thread pool) - platform determined by artifact."""
+        artifact_id = payload.get("artifact_id", payload.get("id", "unknown"))
+        artifact_path = payload.get("artifact_path")
 
-    def _do_android_analysis(self, payload: Dict[str, Any]) -> None:
-        """Actual Android analysis work (runs in thread pool)."""
-        # TODO: Implement Android analysis
-        # This runs in a separate thread so it won't block Kafka heartbeats
-        logger.info(f"Processing Android analysis request: {payload}")
-        logger.info("Android analysis completed (stub)")
+        logger.info(f"Processing analysis request for artifact {artifact_id}")
+        logger.info(f"Artifact path: {artifact_path}")
+
+        # TODO: Implement actual analysis logic
+        # This will determine platform by examining the artifact and run appropriate analyzer
+
+        logger.info(f"Analysis completed for artifact {artifact_id} (stub)")
 
     async def start(self) -> None:
         """Start all service components."""
