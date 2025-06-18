@@ -65,6 +65,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-${{ matrix.python-version }}-
 
+      - name: Setup JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Setup bundletool
+        uses: amyu/setup-bundletool@v1
+
       - name: Install dependencies
         run: make install-dev
 
