@@ -92,7 +92,7 @@ class TestTreemapGeneration:
         assert resources.install_size == 94208
         assert resources.element_type == "resources"
 
-        # Verify expected totals (these will need to be updated with actual values)
+        # Verify expected totals
         assert treemap.total_install_size == 9175040
         assert treemap.total_download_size == 9175040
         assert treemap.file_count == 177
@@ -113,7 +113,7 @@ class TestTreemapGeneration:
         # Verify treemap was generated
         assert results.treemap is not None
         treemap = results.treemap
-        # assert treemap.file_count == 169 TODO: Address difference in CI vs local
+        assert treemap.file_count == 169
         assert treemap.total_install_size == 7221248
         assert treemap.total_download_size == 7221248
 
@@ -163,10 +163,10 @@ class TestTreemapGeneration:
         assert resources.install_size == 24576
         assert resources.element_type == "resources"
 
-        # Verify expected totals (these will need to be updated with actual values)
+        # Verify expected totals
         assert treemap.total_install_size == 7221248
         assert treemap.total_download_size == 7221248
-        # assert treemap.file_count == 169 TODO: Address difference in CI vs local
+        assert treemap.file_count == 123
 
         # Verify category breakdown exists
         assert "dex_files" in treemap.category_breakdown
