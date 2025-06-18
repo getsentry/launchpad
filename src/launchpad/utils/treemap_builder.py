@@ -402,7 +402,7 @@ class TreemapBuilder:
         breakdown: Dict[str, Dict[str, int]] = defaultdict(lambda: {"install": 0, "download": 0})
 
         for file_info in file_analysis.files:
-            treemap_type = file_info.treemap_type
+            treemap_type = file_info.treemap_type.value
 
             # Use filesystem block-aligned size for install calculations
             install_size = self._calculate_aligned_install_size(file_info)
