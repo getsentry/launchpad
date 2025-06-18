@@ -25,6 +25,7 @@ from ..models import (
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.apple.macho_parser import MachOParser
 from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
+from ..utils.code_signature_validator import CodeSignatureValidator
 from ..utils.file_utils import calculate_file_hash, get_file_size
 from ..utils.logging import get_logger
 from ..utils.treemap_builder import TreemapBuilder
@@ -149,6 +150,17 @@ class AppleAppAnalyzer:
 
         supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
         is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
+
+        is_code_signature_valid = False
+        code_signature_errors: List[str] = []
+        try:
+            validator = CodeSignatureValidator(xcarchive)
+            is_code_signature_valid, code_signature_errors = validator.validate()
+        except Exception as e:
+            logger.warning(f"Failed to validate code signature: {e}")
+            is_code_signature_valid = False
+            code_signature_errors = [str(e)]
+
         return AppleAppInfo(
             name=plist.get("CFBundleName", "Unknown"),
             bundle_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
@@ -161,6 +173,8 @@ class AppleAppAnalyzer:
             is_simulator=is_simulator,
             codesigning_type=codesigning_type,
             profile_name=profile_name,
+            is_code_signature_valid=is_code_signature_valid,
+            code_signature_errors=code_signature_errors,
         )
 
     def _detect_file_type(self, file_path: Path) -> str:

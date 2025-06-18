@@ -60,13 +60,22 @@ class ZippedXCArchive(AppleArtifact):
             logger.debug(f"No embedded.mobileprovision found at {mobileprovision_path}")
             return None
 
+    def get_binary_path(self) -> Path | None:
+        app_bundle_path = self.get_app_bundle_path()
+        plist = self.get_plist()
+        executable_name: str = plist.get("CFBundleExecutable", "")
+        if not executable_name:
+            return None
+
+        return app_bundle_path / executable_name
+
     def get_app_bundle_path(self) -> Path:
         """Get the path to the .app bundle."""
         if self._app_bundle_path is not None:
             return self._app_bundle_path
 
         for path in self._extract_dir.rglob("*.app"):
-            if path.is_dir():
+            if path.is_dir() and "__MACOSX" not in str(path):
                 logger.debug(f"Found Apple app bundle: {path}")
                 return path
 
