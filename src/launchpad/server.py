@@ -11,7 +11,9 @@ from aiohttp import web
 from aiohttp.typedefs import Handler
 from aiohttp.web import Application, Request, Response, StreamResponse, middleware
 
-logger = logging.getLogger(__name__)
+from launchpad.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @middleware

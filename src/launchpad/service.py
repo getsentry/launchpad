@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import signal
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Union
 
+from launchpad.utils.logging import get_logger
+
 from .kafka import KafkaConsumer, LaunchpadMessage, get_kafka_config
 from .server import LaunchpadServer, get_server_config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LaunchpadService:

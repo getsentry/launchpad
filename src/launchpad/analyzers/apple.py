@@ -10,12 +10,10 @@ from typing import Any, Dict, List, Tuple
 
 import lief
 
-from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
-from launchpad.artifacts.artifact import AppleArtifact
-from launchpad.insights.common import DuplicateFilesInsight, InsightsInput
-from launchpad.models.apple import AppleInsightResults
-
+from ..artifacts import AppleArtifact, ZippedXCArchive
+from ..insights.common import DuplicateFilesInsight, InsightsInput
 from ..models import AppleAnalysisResults, AppleAppInfo, FileAnalysis, FileInfo, MachOBinaryAnalysis
+from ..models.apple import AppleInsightResults
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.apple.macho_parser import MachOParser
 from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
