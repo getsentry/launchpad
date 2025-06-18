@@ -11,22 +11,13 @@ from .apple import (  # Backwards compatibility aliases
     MachOBinaryAnalysis,
     SwiftMetadata,
 )
-from .common import (
-    BaseAnalysisResults,
-    BaseAppInfo,
-    BaseBinaryAnalysis,
-    DuplicateFileGroup,
-    FileAnalysis,
-    FileInfo,
-    SymbolInfo,
-)
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis, FileInfo, SymbolInfo
 from .range_mapping import BinaryTag, Range, RangeConflict, RangeMap
 from .treemap import TreemapElement, TreemapResults, TreemapType
 
 __all__ = [
     # Common models
     "FileInfo",
-    "DuplicateFileGroup",
     "SymbolInfo",
     "FileAnalysis",
     "BaseAppInfo",

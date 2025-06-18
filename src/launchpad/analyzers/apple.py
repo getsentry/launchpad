@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -13,15 +12,10 @@ import lief
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
+from launchpad.insights.common import DuplicateFilesInsight, InsightsInput
+from launchpad.models.apple import AppleInsightResults
 
-from ..models import (
-    AppleAnalysisResults,
-    AppleAppInfo,
-    DuplicateFileGroup,
-    FileAnalysis,
-    FileInfo,
-    MachOBinaryAnalysis,
-)
+from ..models import AppleAnalysisResults, AppleAppInfo, FileAnalysis, FileInfo, MachOBinaryAnalysis
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.apple.macho_parser import MachOParser
 from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
@@ -42,6 +36,8 @@ class AppleAppAnalyzer:
         skip_symbols: bool = False,
         skip_range_mapping: bool = False,
         skip_treemap: bool = False,
+        skip_image_analysis: bool = False,
+        skip_insights: bool = False,
     ) -> None:
         """Initialize the Apple analyzer.
 
@@ -51,12 +47,16 @@ class AppleAppAnalyzer:
             skip_symbols: Skip symbol extraction for faster analysis
             skip_range_mapping: Skip range mapping for binary content categorization
             skip_treemap: Skip treemap generation for hierarchical size analysis
+            skip_image_analysis: Skip image analysis for faster processing
+            skip_insights: Skip insights generation for faster analysis
         """
         self.working_dir = working_dir
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
         self.skip_range_mapping = skip_range_mapping
         self.skip_treemap = skip_treemap
+        self.skip_image_analysis = skip_image_analysis
+        self.skip_insights = skip_insights
         self.app_info: AppleAppInfo | None = None
 
     def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
@@ -120,12 +120,26 @@ class AppleAppAnalyzer:
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
+        insights: AppleInsightResults | None = None
+        if not self.skip_insights:
+            logger.info("Generating insights from analysis results")
+            insights_input = InsightsInput(
+                app_info=app_info,
+                file_analysis=file_analysis,
+                binary_analysis=binary_analysis,
+                treemap=treemap,
+            )
+            insights = AppleInsightResults(
+                duplicate_files=DuplicateFilesInsight().__call__(insights_input),
+            )
+
         results = AppleAnalysisResults(
             app_info=app_info,
             file_analysis=file_analysis,
             binary_analysis=binary_analysis,
             analysis_duration=time.time() - analysis_start_time,
             treemap=treemap,
+            insights=insights,
         )
 
         logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")
@@ -240,7 +254,7 @@ class AppleAppAnalyzer:
         """Analyze all files in the app bundle.
 
         Args:
-            app_bundle_path: Path to the .app bundle
+            xcarchive: The XCArchive to analyze
 
         Returns:
             File analysis results
@@ -248,12 +262,9 @@ class AppleAppAnalyzer:
         logger.debug("Analyzing files in app bundle")
 
         files: List[FileInfo] = []
-        files_by_type: Dict[str, List[FileInfo]] = defaultdict(list)
-        files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
-        total_size = 0
+        app_bundle_path = xcarchive.get_app_bundle_path()
 
         # Walk through all files in the bundle
-        app_bundle_path = xcarchive.get_app_bundle_path()
         for file_path in app_bundle_path.rglob("*"):
             if not file_path.is_file():
                 continue
@@ -271,6 +282,12 @@ class AppleAppAnalyzer:
             # Calculate hash for duplicate detection
             file_hash = calculate_file_hash(file_path, algorithm="md5")
 
+            # Analyze image if applicable
+            # TODO: image analysis
+            # image_analysis_result = None
+            # if file_type.lower() in {"png", "jpg", "jpeg", "webp"}:
+            #     image_analysis_result = self._analyze_image(file_path, file_size)
+
             file_info = FileInfo(
                 path=str(relative_path),
                 size=file_size,
@@ -280,39 +297,8 @@ class AppleAppAnalyzer:
             )
 
             files.append(file_info)
-            files_by_type[file_info.file_type].append(file_info)
-            files_by_hash[file_hash].append(file_info)
-            total_size += file_size
 
-        # Find duplicate files
-        duplicate_groups: List[DuplicateFileGroup] = []
-        for file_hash, file_list in files_by_hash.items():
-            if len(file_list) > 1:
-                # Calculate potential savings (all files except one)
-                total_file_size = sum(f.size for f in file_list)
-                savings = total_file_size - file_list[0].size
-
-                if savings > 0:  # Only include if there are actual savings
-                    duplicate_groups.append(
-                        DuplicateFileGroup(
-                            files=file_list,
-                            potential_savings=savings,
-                        )
-                    )
-
-        # Sort files by size for largest files list
-        largest_files = sorted(files, key=lambda f: f.size, reverse=True)[:20]
-
-        # Sort duplicate groups by potential savings
-        duplicate_groups.sort(key=lambda g: g.potential_savings, reverse=True)
-
-        return FileAnalysis(
-            total_size=total_size,
-            file_count=len(files),
-            files_by_type=dict(files_by_type),
-            duplicate_files=duplicate_groups,
-            largest_files=largest_files,
-        )
+        return FileAnalysis(files=files)
 
     def _find_binaries(self, app_bundle_path: Path, artifact: AppleArtifact) -> List[tuple[Path, str]]:
         """Find all binaries in the app bundle.

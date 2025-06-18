@@ -40,12 +40,6 @@ class AndroidAnalyzer:
 
         return AndroidAnalysisResults(
             app_info=app_info,
-            file_analysis=FileAnalysis(
-                total_size=0,
-                file_count=0,
-                files_by_type={},
-                duplicate_files=[],
-                largest_files=[],
-            ),
+            file_analysis=FileAnalysis(files=[]),
             analysis_duration=0,
         )

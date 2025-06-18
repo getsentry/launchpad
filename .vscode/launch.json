@@ -62,7 +62,7 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "module": "launchpad.cli",
       "args": [
-        "ios",
+        "apple-app",
         "--verbose",
         "tests/_fixtures/ios/HackerNews.xcarchive.zip"
       ],
@@ -72,6 +72,6 @@
         "PYTHONPATH": "${workspaceFolder}/src"
       },
       "justMyCode": false
-    }
+    },
   ]
 }

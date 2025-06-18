@@ -192,15 +192,11 @@ class TreemapBuilder:
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
         """Build hierarchical file structure from file analysis."""
 
-        all_files: List[FileInfo] = []
-        for files_by_type in file_analysis.files_by_type.values():
-            all_files.extend(files_by_type)
-
         # Group files by their full directory structure
         directory_map: Dict[str, List[FileInfo]] = defaultdict(list)
         root_files: List[FileInfo] = []
 
-        for file_info in all_files:
+        for file_info in file_analysis.files:
             path_obj = Path(file_info.path)
             if len(path_obj.parts) == 1:
                 # Root level file
@@ -405,17 +401,15 @@ class TreemapBuilder:
         """Calculate size breakdown by category."""
         breakdown: Dict[str, Dict[str, int]] = defaultdict(lambda: {"install": 0, "download": 0})
 
-        for files in file_analysis.files_by_type.values():
-            for file_info in files:
-                treemap_type = file_info.treemap_type
-                category = treemap_type.value
+        for file_info in file_analysis.files:
+            treemap_type = file_info.treemap_type.value
 
-                # Use filesystem block-aligned size for install calculations
-                install_size = self._calculate_aligned_install_size(file_info)
-                download_size = int(install_size * self.download_compression_ratio)
+            # Use filesystem block-aligned size for install calculations
+            install_size = self._calculate_aligned_install_size(file_info)
+            download_size = int(install_size * self.download_compression_ratio)
 
-                breakdown[category]["install"] += install_size
-                breakdown[category]["download"] += download_size
+            breakdown[treemap_type]["install"] += install_size
+            breakdown[treemap_type]["download"] += download_size
 
         return dict(breakdown)
 
