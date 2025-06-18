@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import os
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
@@ -18,7 +17,9 @@ from arroyo.types import BrokerValue, Commit, Partition
 from confluent_kafka import KafkaError, KafkaException
 from confluent_kafka.admin import AdminClient, NewTopic
 
-logger = logging.getLogger(__name__)
+from launchpad.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def ensure_topics_exist(

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
+
+from launchpad.utils.logging import get_logger
 
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
@@ -11,7 +12,7 @@ from .manifest.axml import AxmlUtils
 from .manifest.manifest import AndroidManifest
 from .resources.binary import BinaryResourceTable
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class APK(AndroidArtifact):

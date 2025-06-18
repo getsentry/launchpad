@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from typing import Any, List, Sequence
 
 from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
+from launchpad.utils.logging import get_logger
 
 from ..resources.binary import BinaryResourceTable
 from .manifest import AndroidApplication, AndroidManifest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

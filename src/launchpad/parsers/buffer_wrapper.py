@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 import struct
 import types
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+from launchpad.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

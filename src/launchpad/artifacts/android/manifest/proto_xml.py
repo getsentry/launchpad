@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, Callable, List, Sequence
+
+from launchpad.utils.logging import get_logger
 
 from ..resources.proto import ProtobufResourceTable
 from ..resources.protos.Resources_pb2 import XmlAttribute, XmlElement  # type: ignore[attr-defined]
 from ..resources.protos.Resources_pb2 import XmlNode as PbXmlNode  # type: ignore[attr-defined]
 from .manifest import AndroidApplication, AndroidManifest, DeliveryType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ProtoXmlUtils:

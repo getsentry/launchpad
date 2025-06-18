@@ -1,12 +1,13 @@
-import logging
 import plistlib
 from pathlib import Path
 from typing import Any
 
+from launchpad.utils.logging import get_logger
+
 from ..artifact import AppleArtifact
 from ..providers.zip_provider import ZipProvider
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ZippedXCArchive(AppleArtifact):
