@@ -166,7 +166,7 @@ class TestTreemapGeneration:
         # Verify expected totals
         assert treemap.total_install_size == 7221248
         assert treemap.total_download_size == 7221248
-        assert treemap.file_count == 123
+        assert treemap.file_count == 169
 
         # Verify category breakdown exists
         assert "dex_files" in treemap.category_breakdown

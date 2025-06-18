@@ -89,7 +89,6 @@ class AndroidAnalyzer:
                     relative_path = str(file_path.relative_to(extract_path))
                     file_size = file_path.stat().st_size
                     total_size += file_size
-                    print("Processing file: ", file_path, file_size)
 
                     # If we've seen this path before, merge the sizes to simplify the treemap
                     # This is intentional as things like the AndroidManifest.xml are duplicated
