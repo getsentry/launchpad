@@ -10,6 +10,11 @@ VENV_DIR := .venv
 PIP := $(VENV_DIR)/bin/pip
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
+# Kafka configuration for local development
+export KAFKA_BOOTSTRAP_SERVERS ?= localhost:9092
+export KAFKA_GROUP_ID ?= launchpad-consumer
+export KAFKA_TOPICS ?= launchpad-events
+
 # # Create virtual environment
 $(VENV_DIR):
 	python -m venv $(VENV_DIR)
@@ -89,6 +94,9 @@ run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments, DEBUG=1 to run 
 	else \
 		$(PYTHON_VENV) -m launchpad.cli $(ARGS); \
 	fi
+
+serve:  ## Start the Launchpad server with proper Kafka configuration
+	$(PYTHON_VENV) -m launchpad.cli serve --verbose
 
 test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
 	$(PYTHON_VENV) scripts/test_kafka.py --count 1
