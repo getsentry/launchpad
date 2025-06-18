@@ -155,7 +155,3 @@ The service automatically creates required Kafka topics on startup with sensible
 - **Partitions**: 1
 - **Replication Factor**: 1
 - **Retention**: 7 days
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
