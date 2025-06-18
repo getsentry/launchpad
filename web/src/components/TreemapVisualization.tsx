@@ -8,7 +8,7 @@ interface TreemapVisualizationProps {
   sizeMode: 'install' | 'download';
 }
 
-// Sentry color constants
+// Sentry color constants, see: https://develop.sentry.dev/frontend/component-library/
 const COLORS = {
   // Grays
   gray500: '#2B2233',
@@ -45,7 +45,6 @@ const COLORS = {
   white: '#FFFFFF',
 } as const;
 
-// Updated color mapping using Sentry's color scheme
 const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.FILES]: COLORS.blue400,
   [TreemapType.EXECUTABLES]: COLORS.purple400, // binary breakdown
@@ -195,18 +194,18 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
             },
             upperLabel: {
               show: true,
-              height: 24, // Reduced from 35
-              fontSize: 13, // Reduced from 16
+              height: 24,
+              fontSize: 13,
               fontWeight: 'bold',
               color: COLORS.white,
               backgroundColor: COLORS.red300,
-              borderRadius: 3, // Reduced from 4
-              padding: [4, 8], // Reduced padding
+              borderRadius: 3,
+              padding: [4, 8],
             },
             label: {
               show: true,
               position: 'inside',
-              fontSize: 12, // Reduced from 14
+              fontSize: 12,
               fontWeight: 'bold',
               color: COLORS.white,
             },
@@ -215,30 +214,30 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
             // First level - category groups
             itemStyle: {
               borderColor: COLORS.gray300,
-              borderWidth: 1, // Reduced from 3
-              gapWidth: 1, // Reduced from 2
+              borderWidth: 1,
+              gapWidth: 1,
             },
             upperLabel: {
               show: true,
-              height: 20, // Reduced from 28
-              fontSize: 12, // Reduced from 14
+              height: 20,
+              fontSize: 12,
               fontWeight: 'bold',
               color: COLORS.white,
               backgroundColor: COLORS.red300,
-              borderRadius: 2, // Reduced from 3
-              padding: [3, 6], // Reduced padding
+              borderRadius: 2,
+              padding: [3, 6],
             },
             label: {
               show: true,
               position: 'inside',
-              fontSize: 11, // Reduced from 13
+              fontSize: 11,
               fontWeight: 'bold',
               color: COLORS.white,
             },
             emphasis: {
               itemStyle: {
                 borderColor: COLORS.gray400,
-                borderWidth: 2, // Reduced from 4
+                borderWidth: 2,
               },
             },
           },
@@ -246,23 +245,23 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
             // Second level - individual files
             itemStyle: {
               borderColor: COLORS.gray100,
-              borderWidth: 1, // Reduced from 2
+              borderWidth: 1,
               gapWidth: 1,
             },
             upperLabel: {
               show: true,
-              height: 18, // Reduced from 24
-              fontSize: 10, // Reduced from 12
+              height: 18,
+              fontSize: 10,
               fontWeight: 'normal',
               color: COLORS.white,
               backgroundColor: COLORS.red300,
               borderRadius: 2,
-              padding: [2, 4], // Reduced padding
+              padding: [2, 4],
             },
             label: {
               show: true,
               position: 'inside',
-              fontSize: 10, // Reduced from 11
+              fontSize: 10,
               color: COLORS.white,
             },
             emphasis: {
