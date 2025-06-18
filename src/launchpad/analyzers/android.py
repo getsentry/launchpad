@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from ..artifacts import AAB, APK, AndroidArtifact, ZippedAAB, ZippedAPK
 from ..models.android import AndroidAnalysisResults, AndroidAppInfo
 from ..models.common import FileAnalysis, FileInfo
-from ..models.treemap import TreemapType
+from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
+from ..utils.file_utils import calculate_file_hash
 from ..utils.logging import get_logger
 from ..utils.treemap_builder import TreemapBuilder
 
@@ -50,8 +51,8 @@ class AndroidAnalyzer:
         treemap_builder = TreemapBuilder(
             app_name=app_info.name,
             platform="android",
-            download_compression_ratio=0.0,
-            filesystem_block_size=4 * 1024,
+            # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
+            download_compression_ratio=1.0,
         )
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
@@ -77,6 +78,10 @@ class AndroidAnalyzer:
                     logger.debug("Processing file: %s", file_path)
                     # Get file extension or use 'unknown' if none
                     file_type = file_path.suffix.lstrip(".").lower() or "unknown"
+                    print("File %s type: %s", file_path, file_type)
+
+                    # Map file type to TreemapType
+                    treemap_type = FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.OTHER)
 
                     # Get relative path from extract directory
                     relative_path = str(file_path.relative_to(extract_path))
@@ -102,16 +107,20 @@ class AndroidAnalyzer:
                             path=relative_path,
                             size=merged_size,
                             file_type=file_type,
-                            hash_md5=None,  # TODO: Implement
+                            treemap_type=treemap_type,
+                            # Intentionally igoring hash of merged file
+                            hash_md5=None,
                         )
                         path_to_file_info[relative_path] = merged_file_info
                     else:
+                        file_hash = calculate_file_hash(file_path, algorithm="md5")
                         # First time seeing this path
                         file_info = FileInfo(
                             path=relative_path,
                             size=file_size,
                             file_type=file_type,
-                            hash_md5=None,  # TODO: Implement
+                            treemap_type=treemap_type,
+                            hash_md5=file_hash,
                         )
                         path_to_file_info[relative_path] = file_info
 
