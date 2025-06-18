@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import cast
 
 import click
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
@@ -23,8 +22,6 @@ from .artifacts import AndroidArtifact, AppleArtifact, ArtifactFactory
 from .models import AndroidAnalysisResults, AppleAnalysisResults
 from .service import run_service
 from .utils.logging import setup_logging
-
-load_dotenv()
 
 console = Console()
 
