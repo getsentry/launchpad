@@ -29,6 +29,7 @@ Thumbs.db
 .temporary/
 
 ios-analysis-report.json
+apple-app-analysis-report.json
 android-analysis-report.json
 *_treemap.json
 *_treemap_cli.json

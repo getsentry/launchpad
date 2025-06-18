@@ -8,34 +8,72 @@ interface TreemapVisualizationProps {
   sizeMode: 'install' | 'download';
 }
 
-// Color mapping for different element types
+// Sentry color constants
+const COLORS = {
+  // Grays
+  gray500: '#2B2233',
+  gray400: '#3E3446',
+  gray300: '#71637E',
+  gray200: '#E0DCE5',
+  gray100: '#F0ECF3',
+
+  // Purples
+  purple400: '#6559C5',
+  purple300: '#6C5FC7',
+
+  // Blues
+  blue400: '#2562D4',
+  blue300: '#3C74DD',
+
+  // Greens
+  green400: '#207964',
+  green300: '#2BA185',
+
+  // Yellows
+  yellow400: '#856C00',
+  yellow300: '#EBC000',
+
+  // Reds
+  red400: '#CF2126',
+  red300: '#F55459',
+
+  // Pinks
+  pink400: '#D1056B',
+  pink300: '#F14499',
+
+  // Whites
+  white: '#FFFFFF',
+} as const;
+
+// Updated color mapping using Sentry's color scheme
 const TYPE_COLORS: Record<TreemapType, string> = {
-  [TreemapType.FILES]: '#3498db',
-  [TreemapType.EXECUTABLES]: '#e74c3c',
-  [TreemapType.RESOURCES]: '#2ecc71',
-  [TreemapType.ASSETS]: '#f39c12',
-  [TreemapType.MANIFESTS]: '#9b59b6',
-  [TreemapType.SIGNATURES]: '#1abc9c',
-  [TreemapType.FRAMEWORKS]: '#e67e22',
-  [TreemapType.PLISTS]: '#34495e',
-  [TreemapType.DEX_FILES]: '#f1c40f',
-  [TreemapType.NATIVE_LIBRARIES]: '#8e44ad',
-  [TreemapType.COMPILED_RESOURCES]: '#16a085',
-  [TreemapType.MODULES]: '#2980b9',
-  [TreemapType.CLASSES]: '#27ae60',
-  [TreemapType.METHODS]: '#d35400',
-  [TreemapType.STRINGS]: '#c0392b',
-  [TreemapType.SYMBOLS]: '#7f8c8d',
-  [TreemapType.DYLD]: '#fd79a8',
-  [TreemapType.MACHO]: '#fdcb6e',
-  [TreemapType.FUNCTION_STARTS]: '#6c5ce7',
-  [TreemapType.CODE_SIGNATURE]: '#a29bfe',
-  [TreemapType.EXTERNAL_METHODS]: '#fd79a8',
-  [TreemapType.DEX_CLASSES]: '#00b894',
-  [TreemapType.DEX_METHODS]: '#00cec9',
-  [TreemapType.NATIVE_CODE]: '#74b9ff',
-  [TreemapType.OTHER]: '#636e72',
-  [TreemapType.UNMAPPED]: '#95a5a6',
+  [TreemapType.FILES]: COLORS.blue400,
+  [TreemapType.EXECUTABLES]: COLORS.purple400, // binary breakdown
+  [TreemapType.RESOURCES]: COLORS.blue300, // asset catalog
+  [TreemapType.ASSETS]: COLORS.blue400, // asset catalog
+  [TreemapType.FONTS]: COLORS.green300,
+  [TreemapType.MANIFESTS]: COLORS.purple400,
+  [TreemapType.SIGNATURES]: COLORS.blue300,
+  [TreemapType.FRAMEWORKS]: COLORS.red300,
+  [TreemapType.PLISTS]: COLORS.gray400,
+  [TreemapType.DEX_FILES]: COLORS.pink400,
+  [TreemapType.NATIVE_LIBRARIES]: COLORS.purple400,
+  [TreemapType.COMPILED_RESOURCES]: COLORS.blue300, // asset catalog
+  [TreemapType.MODULES]: COLORS.blue300,
+  [TreemapType.CLASSES]: COLORS.purple300, // binary breakdown
+  [TreemapType.METHODS]: COLORS.purple400, // binary breakdown
+  [TreemapType.STRINGS]: COLORS.purple300, // binary breakdown
+  [TreemapType.SYMBOLS]: COLORS.purple400, // binary breakdown
+  [TreemapType.DYLD]: COLORS.pink300,
+  [TreemapType.MACHO]: COLORS.purple300, // binary breakdown
+  [TreemapType.FUNCTION_STARTS]: COLORS.purple300, // binary breakdown
+  [TreemapType.CODE_SIGNATURE]: COLORS.blue400,
+  [TreemapType.EXTERNAL_METHODS]: COLORS.pink300,
+  [TreemapType.DEX_CLASSES]: COLORS.purple300, // binary breakdown
+  [TreemapType.DEX_METHODS]: COLORS.purple400, // binary breakdown
+  [TreemapType.NATIVE_CODE]: COLORS.blue300,
+  [TreemapType.OTHER]: COLORS.gray300,
+  [TreemapType.UNMAPPED]: COLORS.gray200,
 };
 
 function formatBytes(bytes: number): string {
@@ -77,7 +115,7 @@ function convertToEChartsData(
     upperLabel: {
       show: true,
       backgroundColor: color,
-      color: '#000',
+      color: COLORS.white,
     },
   };
 
@@ -100,9 +138,24 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       text: `${data.platform.toUpperCase()} Size Analysis - ${sizeMode === 'install' ? 'Install' : 'Download'} Size`,
       subtext: `Total: ${formatBytes(totalSize)} | Files: ${data.file_count}`,
       left: 'center',
+      textStyle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.gray500,
+      },
+      subtextStyle: {
+        fontSize: 14,
+        color: COLORS.gray400,
+      },
     },
     tooltip: {
       trigger: 'item',
+      backgroundColor: COLORS.white,
+      borderColor: COLORS.gray200,
+      borderWidth: 1,
+      textStyle: {
+        color: COLORS.gray500,
+      },
       formatter: function (info: { name: string; value: number }) {
         const value = info.value;
         const percent = ((value / totalSize) * 100).toFixed(2);
@@ -126,91 +179,96 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
           position: 'inside',
           fontSize: 12,
           fontWeight: 'bold',
+          color: COLORS.white,
         },
         itemStyle: {
-          borderColor: '#fff',
-          borderWidth: 2,
+          borderColor: COLORS.white,
+          borderWidth: 1,
         },
         levels: [
           {
-            // Root level - always show labels for top-level categories
+            // Root level - minimal styling
             itemStyle: {
-              borderColor: '#777',
+              borderColor: COLORS.gray200,
               borderWidth: 0,
               gapWidth: 1,
             },
             upperLabel: {
               show: true,
-              height: 35,
-              fontSize: 16,
+              height: 24, // Reduced from 35
+              fontSize: 13, // Reduced from 16
               fontWeight: 'bold',
-              color: '#000',
-              borderRadius: 4,
-              padding: [6, 10],
+              color: COLORS.white,
+              backgroundColor: COLORS.red300,
+              borderRadius: 3, // Reduced from 4
+              padding: [4, 8], // Reduced padding
             },
             label: {
               show: true,
               position: 'inside',
-              fontSize: 14,
+              fontSize: 12, // Reduced from 14
               fontWeight: 'bold',
-              color: '#333',
+              color: COLORS.white,
             },
           },
           {
-            // First level - category groups (always visible labels)
+            // First level - category groups
             itemStyle: {
-              borderColor: '#555',
-              borderWidth: 3,
-              gapWidth: 2,
+              borderColor: COLORS.gray300,
+              borderWidth: 1, // Reduced from 3
+              gapWidth: 1, // Reduced from 2
             },
             upperLabel: {
               show: true,
-              height: 28,
-              fontSize: 14,
+              height: 20, // Reduced from 28
+              fontSize: 12, // Reduced from 14
               fontWeight: 'bold',
-              color: '#000',
-              borderRadius: 3,
-              padding: [4, 8],
+              color: COLORS.white,
+              backgroundColor: COLORS.red300,
+              borderRadius: 2, // Reduced from 3
+              padding: [3, 6], // Reduced padding
             },
             label: {
               show: true,
               position: 'inside',
-              fontSize: 13,
+              fontSize: 11, // Reduced from 13
               fontWeight: 'bold',
-              color: '#333',
+              color: COLORS.white,
             },
             emphasis: {
               itemStyle: {
-                borderColor: '#ddd',
-                borderWidth: 4,
+                borderColor: COLORS.gray400,
+                borderWidth: 2, // Reduced from 4
               },
             },
           },
           {
             // Second level - individual files
             itemStyle: {
-              borderColor: '#333',
-              borderWidth: 2,
+              borderColor: COLORS.gray100,
+              borderWidth: 1, // Reduced from 2
               gapWidth: 1,
             },
             upperLabel: {
               show: true,
-              height: 24,
-              fontSize: 12,
+              height: 18, // Reduced from 24
+              fontSize: 10, // Reduced from 12
               fontWeight: 'normal',
-              color: '#000',
+              color: COLORS.white,
+              backgroundColor: COLORS.red300,
               borderRadius: 2,
-              padding: [2, 6],
+              padding: [2, 4], // Reduced padding
             },
             label: {
               show: true,
               position: 'inside',
-              fontSize: 11,
-              color: '#333',
+              fontSize: 10, // Reduced from 11
+              color: COLORS.white,
             },
             emphasis: {
               itemStyle: {
-                borderColor: '#999',
+                borderColor: COLORS.gray300,
+                borderWidth: 2,
               },
             },
           },
