@@ -72,10 +72,14 @@ jobs:
           distribution: adopt
 
       - name: Setup bundletool
-        uses: amyu/setup-bundletool@v1
-
-      - name: Make bundletool executable
-        run: chmod +x $(which bundletool)
+        run: |
+          json=$(curl -s https://api.github.com/repos/google/bundletool/releases/latest)
+          downloadUrl=$(echo $json | jq -r ".assets | .[].browser_download_url")
+          curl $downloadUrl -4 -sL -o 'bundletool.jar'
+          echo '#!/bin/bash' > bundletool
+          echo 'java -jar "$(dirname "$0")/bundletool.jar" "$@"' >> bundletool
+          chmod +x bundletool
+          echo "$(pwd)" >> $GITHUB_PATH
 
       - name: Install dependencies
         run: make install-dev
