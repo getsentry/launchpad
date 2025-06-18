@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import secrets
+import string
 import subprocess
 import tempfile
 from pathlib import Path
@@ -98,11 +100,70 @@ class Bundletool:
 
         return result.returncode, result.stdout, result.stderr
 
+    def _generate_keystore(self, keystore_path: Path) -> tuple[str, str]:
+        """Generate a random keystore for signing APKs.
+
+        Args:
+            keystore_path: Path where the keystore file should be created
+
+        Returns:
+            Tuple of (keystore_password, key_alias)
+
+        Raises:
+            BundletoolError: If keystore generation fails
+        """
+        # Generate random password and alias
+        password = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(16))
+        key_alias = "".join(secrets.choice(string.ascii_lowercase) for _ in range(8))
+
+        # Keytool command to generate keystore
+        keytool_cmd = [
+            "keytool",
+            "-genkeypair",
+            "-v",
+            "-keystore",
+            str(keystore_path),
+            "-alias",
+            key_alias,
+            "-keyalg",
+            "RSA",
+            "-keysize",
+            "2048",
+            "-validity",
+            "10000",
+            "-storepass",
+            password,
+            "-keypass",
+            password,
+            "-dname",
+            "CN=Launchpad, OU=Development, O=Sentry, L=San Francisco, S=CA, C=US",
+        ]
+
+        logger.debug("Generating keystore at %s", keystore_path)
+
+        try:
+            subprocess.run(
+                keytool_cmd,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except subprocess.CalledProcessError as e:
+            raise BundletoolError(
+                f"Failed to generate keystore: {e}",
+                e.returncode,
+                e.stdout,
+                e.stderr,
+            ) from e
+
+        return password, key_alias
+
     def build_apks(
         self,
         bundle_path: str | Path,
         output_dir: str | Path,
         device_spec: DeviceSpec,
+        sign_apks: bool = True,
     ) -> None:
         """Build APKs from an Android App Bundle.
 
@@ -110,6 +171,8 @@ class Bundletool:
             bundle_path: Path to input AAB file
             output_dir: Directory to output APKS files
             device_spec: Device specification for APK splitting configuration.
+            sign_apks: Whether to sign the generated APKs with a random keystore.
+                      Defaults to True to ensure .SF and .MF files are present.
 
         Raises:
             BundletoolError: If build command fails
@@ -117,21 +180,37 @@ class Bundletool:
         temp_apks_path = create_temp_directory("apks-") / "apks.apks"
         build_apks_command = ["build-apks", f"--bundle={bundle_path}", f"--output={temp_apks_path}"]
 
+        # Generate keystore and sign APKs if requested
+        if sign_apks:
+            keystore_path = create_temp_directory("keystore-") / "signing.keystore"
+            keystore_password, key_alias = self._generate_keystore(keystore_path)
+
+            # Add signing arguments to build command
+            build_apks_command.extend(
+                [
+                    f"--ks={keystore_path}",
+                    f"--ks-key-alias={key_alias}",
+                    f"--ks-pass=pass:{keystore_password}",
+                ]
+            )
+
+            logger.debug("APKs will be signed with generated keystore")
+
         # Create a temporary file for the device spec JSON
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as temp_file:
             json.dump(device_spec.model_dump(by_alias=True), temp_file)
-            temp_device_spec_path = temp_file.name
+            temp_file.flush()  # Ensure data is written to disk
 
-        self._run_command(build_apks_command)
+            self._run_command(build_apks_command)
 
-        # Extract APKs for the specified device
-        extract_command = [
-            "extract-apks",
-            f"--apks={temp_apks_path}",
-            f"--output-dir={output_dir}",
-            f"--device-spec={temp_device_spec_path}",
-        ]
-        self._run_command(extract_command)
+            # Extract APKs for the specified device
+            extract_command = [
+                "extract-apks",
+                f"--apks={temp_apks_path}",
+                f"--output-dir={output_dir}",
+                f"--device-spec={temp_file.name}",
+            ]
+            self._run_command(extract_command)
 
 
 class DeviceSpec(BaseModel):
