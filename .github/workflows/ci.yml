@@ -80,7 +80,7 @@ jobs:
           echo 'java -jar "$(dirname "$0")/bundletool.jar" "$@"' >> bundletool
           chmod +x bundletool
           echo "$(pwd)" >> $GITHUB_PATH
-          bundletool version
+          /bundletool version
 
       - name: Install dependencies
         run: make install-dev
