@@ -73,7 +73,7 @@ class LaunchpadService:
             logger.error(f"Error handling Kafka message: {e}", exc_info=True)
 
     def _queue_analysis(self, payload: Dict[str, Any]) -> None:
-        """Queue analysis for background processing (platform determined by artifact type)."""
+        """Queue analysis for background processing."""
         try:
             if not self._loop:
                 raise RuntimeError("Event loop not initialized")
@@ -97,7 +97,7 @@ class LaunchpadService:
             logger.error(f"Failed to queue analysis: {e}", exc_info=True)
 
     async def _handle_analysis_async(self, payload: Dict[str, Any]) -> None:
-        """Handle analysis in background thread (platform determined by artifact type)."""
+        """Handle analysis in background thread."""
         artifact_id = payload.get("artifact_id", payload.get("id", "unknown"))
 
         try:
