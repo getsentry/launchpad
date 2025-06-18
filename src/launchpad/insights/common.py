@@ -6,7 +6,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Dict, List, Protocol, TypeVar
 
-from launchpad.models.common import DuplicateFilesInsightResult, FileAnalysis, FileInfo
+from launchpad.models.common import FileAnalysis, FileInfo
+from launchpad.models.insights import DuplicateFilesInsightResult
 from launchpad.models.treemap import TreemapResults
 
 from ..models.apple import AppleAppInfo, MachOBinaryAnalysis
