@@ -14,9 +14,9 @@ devenv sync
 
 If you don't have devenv installed, [follow these instructions](https://github.com/getsentry/devenv#install).
 
-### Using DevServices
+### Using devservices
 
-DevServices provides shared Kafka infrastructure used by multiple Sentry services:
+[devservices](https://github.com/getsentry/devservices) provides shared Kafka infrastructure used by multiple Sentry services:
 
 ```bash
 # Start shared dependencies (Kafka)
@@ -34,22 +34,11 @@ devservices down
 
 ## Usage
 
-### Service Endpoints
-
-- `GET /health` - Basic health check
-- `GET /ready` - Readiness check
-
 ### Analyze an Android App
 
 ```bash
 
-# Analyze an APK, AAB or Zip containing a single APK or AAB
-launchpad android app.apk
-launchpad android app.aab
-launchpad android zipped_aab.zip
-
 # Analyze an apk with a custom output location
-launchpad android app.apk -o detailed-report.json
 ```
 
 ### Testing Kafka Integration
@@ -71,25 +60,61 @@ make test-kafka-multiple
 
 ```bash
 # Direct iOS analysis
-launchpad ios path/to/app.xcarchive.zip
-# Direct Android analysis
+launchpad apple-app path/to/app.xcarchive.zip
+
+# Analyze an APK, AAB or Zip containing a single APK or AAB
 launchpad android path/to/app.apk
-# Custom output location
-launchpad ios path/to/app.xcarchive.zip -o my-report.json
+launchpad android path/to/app.aab
+launchpad android path/to/zipped_aab.zip
 
 # Skip time-consuming analysis for faster results
-launchpad ios path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
+launchpad apple-app path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
+
+# Custom output location
+launchpad apple-app path/to/app.xcarchive.zip -o my-report.json
+launchpad android app.apk -o detailed-report.json
+```
+
+### Usage
+```
+$ launchpad apple-app --help
+Usage: launchpad apple-app [OPTIONS] INPUT_PATH
+
+  Analyze an Apple app bundle and generate a size report.
+
+  INPUT_PATH can be: - .xcarchive.zip file
 
 Options:
-  -o, --output PATH           Output path for JSON report [default: analysis-report.json]
-  --working-dir PATH          Working directory for temporary files
-  --platform [ios|android]    Target platform (auto-detected if not specified)
-  --skip-swift-metadata       [iOS] Skip Swift metadata parsing
-  --skip-symbols              [iOS] Skip symbol extraction
-  --format [json|table]       Output format [default: json]
-  -v, --verbose               Enable verbose logging
-  -q, --quiet                 Suppress all output except errors
-  --help                      Show this message and exit
+  -o, --output PATH      Output path for the JSON analysis report.  [default:
+                         apple-app-analysis-report.json]
+  --working-dir PATH     Working directory for temporary files (default:
+                         system temp).
+  --skip-swift-metadata  Skip Swift metadata parsing for faster analysis.
+  --skip-symbols         Skip symbol extraction and analysis.
+  --skip-range-mapping   Skip range mapping for binary content categorization.
+  --skip-treemap         Skip treemap generation for hierarchical size
+                         analysis.
+  -v, --verbose          Enable verbose logging output.
+  -q, --quiet            Suppress all output except errors.
+  --format [json|table]  Output format for results.  [default: json]
+  --help                 Show this message and exit
+```
+
+```
+$ launchpad android --help
+Usage: launchpad android [OPTIONS] INPUT_PATH
+
+  Analyze an Android app bundle and generate a size report.
+
+  INPUT_PATH can be: - Android .apk file - Android .aab file (coming soon)
+
+Options:
+  -o, --output PATH      Output path for the JSON analysis report.  [default:
+                         android-analysis-report.json]
+  -v, --verbose          Enable verbose logging output.
+  -q, --quiet            Suppress all output except errors.
+  --format [json|table]  Output format for results.  [default: json]
+  --help                 Show this message and exit.
 ```
 
 ## Development
@@ -97,7 +122,7 @@ Options:
 ### Service Development
 
 ```bash
-# Development with shared infrastructure (recommended)
+# Development with shared infrastructure
 devservices up                  # Start Kafka via devservices
 launchpad serve
 ```
@@ -116,9 +141,6 @@ make test-integration
 
 # Integration test with devservices
 make test-service-integration
-
-# Integration test with standalone setup
-make test-integration-standalone
 ```
 
 ### Code Quality

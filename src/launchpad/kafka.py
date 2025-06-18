@@ -319,12 +319,9 @@ class KafkaConsumer:
 
 def get_kafka_config() -> Dict[str, Any]:
     """Get Kafka configuration from environment."""
-    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
-    if not bootstrap_servers:
-        raise ValueError("KAFKA_BOOTSTRAP_SERVERS environment variable must be set")
 
     return {
-        "bootstrap_servers": bootstrap_servers,
+        "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
         "group_id": os.getenv("KAFKA_GROUP_ID", "launchpad-consumer"),
         "topics": os.getenv("KAFKA_TOPICS", "launchpad-events").split(","),
     }
