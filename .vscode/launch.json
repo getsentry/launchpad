@@ -73,5 +73,23 @@
       },
       "justMyCode": false
     },
+    {
+      "name": "Python: Debug Android AAB CLI",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "launchpad.cli",
+      "args": [
+        "android",
+        "--verbose",
+        "tests/_fixtures/android/zipped_aab.zip"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+      },
+      "justMyCode": false
+    },
   ]
 }
