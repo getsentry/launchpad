@@ -31,32 +31,7 @@ class TestTreemapGeneration:
         """Path to sample Android AAB for testing."""
         return Path("tests/_fixtures/android/hn.aab")
 
-    def test_treemap_generation_basic(self, sample_ios_app_path: Path) -> None:
-        """Test basic treemap generation functionality."""
-
-        analyzer = AppleAppAnalyzer(skip_treemap=False)
-        artifact = ArtifactFactory.from_path(sample_ios_app_path)
-
-        results = analyzer.analyze(cast(AppleArtifact, artifact))
-
-        # Verify treemap was generated
-        assert results.treemap is not None
-        treemap = results.treemap
-        assert treemap.file_count > 0
-        assert treemap.total_install_size > 0
-        assert treemap.total_download_size > 0
-
-        # Verify root element
-        root = treemap.root
-        assert root.name == results.app_info.name
-        assert len(root.children) > 0
-
-        # Verify size calculations work
-        assert root.total_install_size > 0
-        assert root.total_download_size > 0
-        assert root.total_download_size <= root.total_install_size  # Download should be <= install
-
-    def test_android_apk_treemap_generation(self, sample_android_apk_path: Path) -> None:
+    def test_android_apk_treemap_matches_reference(self, sample_android_apk_path: Path) -> None:
         """Test Android APK treemap generation functionality."""
 
         analyzer = AndroidAnalyzer()
@@ -67,18 +42,18 @@ class TestTreemapGeneration:
         # Verify treemap was generated
         assert results.treemap is not None
         treemap = results.treemap
-        assert treemap.file_count > 0
-        assert treemap.total_install_size > 0
+        assert treemap.file_count == 177
+        assert treemap.total_install_size == 9175040
         # assert treemap.total_download_size > 0
 
         # Verify root element
         root = treemap.root
         assert root.name == results.app_info.name
-        assert len(root.children) > 0
+        assert len(root.children) == 14
 
         # Verify size calculations work
-        assert root.total_install_size > 0
-        assert root.total_download_size > 0
+        assert root.total_install_size == 9175040
+        assert root.total_download_size == 9175040
         assert root.total_download_size <= root.total_install_size  # Download should be <= install
 
         # Verify platform
@@ -102,32 +77,32 @@ class TestTreemapGeneration:
         # Verify AndroidManifest.xml exists
         manifest = find_node_by_path(treemap.root, "AndroidManifest.xml")
         assert manifest is not None
-        assert manifest.install_size > 0
-        assert manifest.element_type == "xml"
+        assert manifest.install_size == 20480
+        assert manifest.element_type == "manifests"
 
         # Verify classes.dex exists
         classes_dex = find_node_by_path(treemap.root, "classes.dex")
         assert classes_dex is not None
-        assert classes_dex.install_size > 0
-        assert classes_dex.element_type == "dex"
+        assert classes_dex.install_size == 4366336
+        assert classes_dex.element_type == "dex_files"
 
         # Verify resources.arsc exists
         resources = find_node_by_path(treemap.root, "resources.arsc")
         assert resources is not None
-        assert resources.install_size > 0
-        assert resources.element_type == "arsc"
+        assert resources.install_size == 94208
+        assert resources.element_type == "resources"
 
         # Verify expected totals (these will need to be updated with actual values)
-        assert treemap.total_install_size > 0  # TODO: Update with actual value
-        assert treemap.total_download_size > 0  # TODO: Update with actual value
-        assert treemap.file_count > 0  # TODO: Update with actual value
+        assert treemap.total_install_size == 9175040
+        assert treemap.total_download_size == 9175040
+        assert treemap.file_count == 177
 
         # Verify category breakdown exists
-        assert "dex" in treemap.category_breakdown
-        assert "xml" in treemap.category_breakdown
-        assert "arsc" in treemap.category_breakdown
+        assert "dex_files" in treemap.category_breakdown
+        assert "resources" in treemap.category_breakdown
+        assert "manifests" in treemap.category_breakdown
 
-    def test_android_aab_treemap_generation(self, sample_android_aab_path: Path) -> None:
+    def test_android_aab_treemap_matches_reference(self, sample_android_aab_path: Path) -> None:
         """Test Android AAB treemap generation functionality."""
 
         analyzer = AndroidAnalyzer()
@@ -138,18 +113,18 @@ class TestTreemapGeneration:
         # Verify treemap was generated
         assert results.treemap is not None
         treemap = results.treemap
-        assert treemap.file_count > 0
-        assert treemap.total_install_size > 0
-        assert treemap.total_download_size > 0
+        assert treemap.file_count == 169
+        assert treemap.total_install_size == 7221248
+        assert treemap.total_download_size == 7221248
 
         # Verify root element
         root = treemap.root
         assert root.name == results.app_info.name
-        assert len(root.children) > 0
+        assert len(root.children) == 14
 
         # Verify size calculations work
-        assert root.total_install_size > 0
-        assert root.total_download_size > 0
+        assert root.total_install_size == 7221248
+        assert root.total_download_size == 7221248
         assert root.total_download_size <= root.total_install_size  # Download should be <= install
 
         # Verify platform
@@ -170,40 +145,35 @@ class TestTreemapGeneration:
                     return result
             return None
 
-        # Verify base directory exists
-        base = find_node_by_path(treemap.root, "base")
-        assert base is not None
-        assert base.is_directory is True
-
-        # Verify base/manifest/AndroidManifest.xml exists
-        manifest = find_node_by_path(treemap.root, "base/manifest/AndroidManifest.xml")
+        # Verify AndroidManifest.xml exists
+        manifest = find_node_by_path(treemap.root, "AndroidManifest.xml")
         assert manifest is not None
-        assert manifest.install_size > 0
-        assert manifest.element_type == "xml"
+        assert manifest.install_size == 24576
+        assert manifest.element_type == "manifests"
 
-        # Verify base/dex/classes.dex exists
-        classes_dex = find_node_by_path(treemap.root, "base/dex/classes.dex")
+        # Verify classes.dex exists
+        classes_dex = find_node_by_path(treemap.root, "classes.dex")
         assert classes_dex is not None
-        assert classes_dex.install_size > 0
-        assert classes_dex.element_type == "dex"
+        assert classes_dex.install_size == 4366336
+        assert classes_dex.element_type == "dex_files"
 
-        # Verify base/resources.pb exists
-        resources = find_node_by_path(treemap.root, "base/resources.pb")
+        # Verify resources.arsc exists
+        resources = find_node_by_path(treemap.root, "resources.arsc")
         assert resources is not None
-        assert resources.install_size > 0
-        assert resources.element_type == "pb"
+        assert resources.install_size == 24576
+        assert resources.element_type == "resources"
 
         # Verify expected totals (these will need to be updated with actual values)
-        assert treemap.total_install_size > 0  # TODO: Update with actual value
-        assert treemap.total_download_size > 0  # TODO: Update with actual value
-        assert treemap.file_count > 0  # TODO: Update with actual value
+        assert treemap.total_install_size == 7221248
+        assert treemap.total_download_size == 7221248
+        assert treemap.file_count == 169
 
         # Verify category breakdown exists
-        assert "dex" in treemap.category_breakdown
-        assert "xml" in treemap.category_breakdown
-        assert "pb" in treemap.category_breakdown
+        assert "dex_files" in treemap.category_breakdown
+        assert "resources" in treemap.category_breakdown
+        assert "manifests" in treemap.category_breakdown
 
-    def test_treemap_json_serialization(self, sample_ios_app_path: Path) -> None:
+    def test_apple_treemap_json_serialization(self, sample_ios_app_path: Path) -> None:
         """Test that treemap can be serialized to JSON."""
 
         analyzer = AppleAppAnalyzer(skip_treemap=False)
@@ -302,7 +272,32 @@ class TestTreemapGeneration:
         parsed = json.loads(json_str)
         assert parsed == treemap_dict
 
-    def test_treemap_matches_reference(self, sample_ios_app_path: Path) -> None:
+    def test_apple_treemap_generation_basic(self, sample_ios_app_path: Path) -> None:
+        """Test basic treemap generation functionality."""
+
+        analyzer = AppleAppAnalyzer(skip_treemap=False)
+        artifact = ArtifactFactory.from_path(sample_ios_app_path)
+
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
+
+        # Verify treemap was generated
+        assert results.treemap is not None
+        treemap = results.treemap
+        assert treemap.file_count > 0
+        assert treemap.total_install_size > 0
+        assert treemap.total_download_size > 0
+
+        # Verify root element
+        root = treemap.root
+        assert root.name == results.app_info.name
+        assert len(root.children) > 0
+
+        # Verify size calculations work
+        assert root.total_install_size > 0
+        assert root.total_download_size > 0
+        assert root.total_download_size <= root.total_install_size  # Download should be <= install
+
+    def test_apple_treemap_matches_reference(self, sample_ios_app_path: Path) -> None:
         """Test that treemap structure matches reference report."""
 
         analyzer = AppleAppAnalyzer(skip_treemap=False)
@@ -393,13 +388,13 @@ class TestTreemapGeneration:
         # Verify PlugIns directory
         plugins = find_node_by_path(treemap.root, "PlugIns")
         assert plugins is not None
-        assert plugins.element_type == "modules"
+        assert plugins.element_type == "extensions"
         assert plugins.is_directory is True
 
         # Verify HomeWidget extension
         widget = find_node_by_path(treemap.root, "PlugIns/HackerNewsHomeWidgetExtension.appex")
         assert widget is not None
-        assert widget.element_type == "files"
+        assert widget.element_type == "extensions"
         assert widget.is_directory is True
 
         # Verify widget binary
@@ -407,9 +402,9 @@ class TestTreemapGeneration:
             treemap.root, "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension"
         )
         assert widget_binary is not None
-        assert widget_binary.install_size == 155648
-        assert widget_binary.download_size == 124518
-        assert widget_binary.element_type == "files"
+        assert widget_binary.install_size == 152288
+        assert widget_binary.download_size == 152288
+        assert widget_binary.element_type == "executables"
 
         # Verify Assets.car
         assets = find_node_by_path(treemap.root, "Assets.car")
@@ -419,15 +414,14 @@ class TestTreemapGeneration:
         assert assets.element_type == "assets"
 
         # Verify category breakdown
-        assert treemap.category_breakdown == {
-            "files": {"install": 4489216, "download": 3591368},
-            "frameworks": {"install": 327680, "download": 262137},
-            "assets": {"install": 4841472, "download": 3873176},
-            "plists": {"install": 16384, "download": 13104},
-        }
+        assert treemap.category_breakdown["files"] == {"install": 122880, "download": 98298}
+        assert treemap.category_breakdown["assets"] == {"install": 4841472, "download": 3873176}
+        assert treemap.category_breakdown["plists"] == {"install": 28672, "download": 22932}
+        assert treemap.category_breakdown["executables"] == {"download": 2886859, "install": 3608576}
+        assert treemap.category_breakdown["fonts"] == {"download": 858520, "install": 1073152}
 
         # Verify totals
-        assert treemap.total_install_size == 13129568
-        assert treemap.total_download_size == 11881908
+        assert treemap.total_install_size == 13278496
+        assert treemap.total_download_size == 12061966
         assert treemap.file_count == 32
         assert treemap.platform == "ios"

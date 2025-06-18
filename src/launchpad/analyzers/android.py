@@ -78,10 +78,12 @@ class AndroidAnalyzer:
                     logger.debug("Processing file: %s", file_path)
                     # Get file extension or use 'unknown' if none
                     file_type = file_path.suffix.lstrip(".").lower() or "unknown"
-                    print("File %s type: %s", file_path, file_type)
 
-                    # Map file type to TreemapType
-                    treemap_type = FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.OTHER)
+                    # Some files have special overrides for the treemap type
+                    if file_path.name in FILE_NAME_TO_TREEMAP_TYPE:
+                        treemap_type = FILE_NAME_TO_TREEMAP_TYPE[file_path.name]
+                    else:
+                        treemap_type = FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.OTHER)
 
                     # Get relative path from extract directory
                     relative_path = str(file_path.relative_to(extract_path))
@@ -109,7 +111,7 @@ class AndroidAnalyzer:
                             file_type=file_type,
                             treemap_type=treemap_type,
                             # Intentionally igoring hash of merged file
-                            hash_md5=None,
+                            hash_md5="",
                         )
                         path_to_file_info[relative_path] = merged_file_info
                     else:
