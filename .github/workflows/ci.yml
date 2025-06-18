@@ -69,10 +69,12 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: 17
-          distribution: temurin
 
       - name: Setup bundletool
         uses: amyu/setup-bundletool@v1
+
+      - name: Make bundletool executable
+        run: chmod +x $(which bundletool)
 
       - name: Install dependencies
         run: make install-dev
