@@ -19,41 +19,29 @@ def create_producer(bootstrap_servers: str = "localhost:9092") -> KafkaProducer:
     )
 
 
-def create_apple_analysis_message(artifact_path: str) -> Dict[str, Any]:
-    """Create an Apple analysis message."""
+def create_analysis_message(artifact_path: str, artifact_id: str | None = None) -> Dict[str, Any]:
+    """Create an artifact analysis message."""
     return {
-        "type": "analyze_apple",
+        "type": "analyze_artifact",
+        "artifact_id": artifact_id or f"test-{int(time.time())}",
         "artifact_path": artifact_path,
         "timestamp": time.time(),
-        "request_id": f"ios-{int(time.time())}",
-    }
-
-
-def create_android_analysis_message(artifact_path: str) -> Dict[str, Any]:
-    """Create an Android analysis message."""
-    return {
-        "type": "analyze_android",
-        "artifact_path": artifact_path,
-        "timestamp": time.time(),
-        "request_id": f"android-{int(time.time())}",
     }
 
 
 @click.command()
 @click.option("--topic", default="launchpad-events", help="Kafka topic to send messages to")
 @click.option("--bootstrap-servers", default="localhost:9092", help="Kafka bootstrap servers")
-@click.option(
-    "--message-type", type=click.Choice(["ios", "android", "custom"]), default="ios", help="Type of message to send"
-)
-@click.option("--artifact-path", default="/path/to/test.xcarchive.zip", help="Path to artifact for analysis")
+@click.option("--artifact-path", default="/path/to/test-artifact", help="Path to artifact for analysis")
+@click.option("--artifact-id", help="Custom artifact ID (auto-generated if not provided)")
 @click.option("--custom-json", help="Custom JSON message to send (overrides other options)")
 @click.option("--count", default=1, help="Number of messages to send")
 @click.option("--interval", default=1.0, help="Interval between messages in seconds")
 def main(
     topic: str,
     bootstrap_servers: str,
-    message_type: str,
     artifact_path: str,
+    artifact_id: str,
     custom_json: str,
     count: int,
     interval: float,
@@ -71,23 +59,21 @@ def main(
                 except json.JSONDecodeError as e:
                     click.echo(f"Error parsing custom JSON: {e}", err=True)
                     sys.exit(1)
-            elif message_type == "ios":
-                message = create_apple_analysis_message(artifact_path)
-            elif message_type == "android":
-                message = create_android_analysis_message(artifact_path)
             else:
-                click.echo(f"Unknown message type: {message_type}", err=True)
-                sys.exit(1)
+                # Use provided artifact_id or generate one with counter
+                current_artifact_id = artifact_id or f"test-{int(time.time())}-{i+1}"
+                message = create_analysis_message(artifact_path, current_artifact_id)
 
             # Send message
-            key = f"{message_type}-{i+1}"
+            key = f"test-{i+1}"
             future = producer.send(topic, value=message, key=key)
 
             # Wait for the message to be sent
             record_metadata = future.get(timeout=10)
 
             click.echo(
-                f"Message {i+1}/{count} sent to {record_metadata.topic}:{record_metadata.partition}:{record_metadata.offset}"
+                f"Message {i+1}/{count} sent to {record_metadata.topic}:"
+                f"{record_metadata.partition}:{record_metadata.offset}"
             )
             click.echo(f"  Key: {key}")
             click.echo(f"  Message: {json.dumps(message, indent=2)}")
