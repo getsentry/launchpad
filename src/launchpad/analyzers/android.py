@@ -137,9 +137,5 @@ class AndroidAnalyzer:
             files_by_type[file_info.file_type].append(file_info)
 
         return FileAnalysis(
-            file_count=len(file_infos),
-            files_by_type=files_by_type,
-            total_size=total_size,
-            duplicate_files=[],
-            largest_files=[],
+            files=file_infos,
         )

@@ -10,21 +10,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from .treemap import TreemapResults, TreemapType
 
 
-class BaseAnalysisResults(BaseModel):
-    """Base analysis results structure."""
-
-    model_config = ConfigDict(frozen=True)
-    generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
-    analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
-    treemap: TreemapResults = Field(..., description="Hierarchical size analysis treemap")
-
-def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary with serializable datetime."""
-        data = self.model_dump()
-        data["generated_at"] = self.generated_at.isoformat()
-        return data
-
-
 class BaseAppInfo(BaseModel):
     """Base app information that applies across platforms."""
 
@@ -90,3 +75,19 @@ class FileInfo(BaseModel):
     file_type: str = Field(..., description="File type/extension")
     hash_md5: str = Field(..., description="MD5 hash of file contents")
     treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
+
+
+class BaseAnalysisResults(BaseModel):
+    """Base analysis results structure."""
+
+    model_config = ConfigDict(frozen=True)
+    generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
+    analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
+    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
+    treemap: TreemapResults = Field(..., description="Hierarchical size analysis treemap")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with serializable datetime."""
+        data = self.model_dump()
+        data["generated_at"] = self.generated_at.isoformat()
+        return data

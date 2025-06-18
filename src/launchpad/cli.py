@@ -371,8 +371,6 @@ def _print_file_analysis_table(file_analysis: FileAnalysis) -> None:
 
     file_table.add_row("Total Size", _format_bytes(file_analysis.total_size))
     file_table.add_row("File Count", str(file_analysis.file_count))
-    file_table.add_row("Duplicate Files", str(len(file_analysis.duplicate_files)))
-    file_table.add_row("Potential Savings", _format_bytes(file_analysis.total_duplicate_savings))
 
     console.print(file_table)
     console.print()

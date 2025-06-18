@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from launchpad.models.insights import DuplicateFilesInsightResult
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .range_mapping import RangeMap
 
 
@@ -18,7 +18,6 @@ class AppleAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
 
     app_info: AppleAppInfo = Field(..., description="Apple app information")
-    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     binary_analysis: List[MachOBinaryAnalysis] = Field(
         default_factory=list,
         description="Apple binary analysis results",
