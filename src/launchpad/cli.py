@@ -337,14 +337,14 @@ def _print_apple_table_output(results: AppleAnalysisResults, quiet: bool) -> Non
         console.print()
 
     # File Types Table
-    if file_analysis.file_type_sizes:
+    if results.file_analysis.file_type_sizes:
         type_table = Table(title="File Types", show_header=True, header_style="bold yellow")
         type_table.add_column("Type", style="cyan")
         type_table.add_column("Size", style="white")
         type_table.add_column("Percentage", style="green")
 
-        total_size = file_analysis.total_size
-        for file_type, size in sorted(file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True)[
+        total_size = results.file_analysis.total_size
+        for file_type, size in sorted(results.file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True)[
             :10
         ]:  # Top 10 file types
             percentage = (size / total_size) * 100 if total_size > 0 else 0
@@ -383,7 +383,7 @@ def _print_apple_summary(results: AppleAnalysisResults) -> None:
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
 
-    if insights.duplicate_files and insights.duplicate_files.has_duplicates:
+    if insights and insights.duplicate_files and insights.duplicate_files.total_savings > 0:
         console.print(
             f"• Potential savings from duplicates: "
             f"[yellow]{_format_bytes(insights.duplicate_files.total_savings)}[/yellow]"

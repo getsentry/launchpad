@@ -7,6 +7,8 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from launchpad.models.treemap import TreemapType
+
 
 class BaseAnalysisResults(BaseModel):
     """Base analysis results structure."""
@@ -86,21 +88,7 @@ class FileInfo(BaseModel):
     size: int = Field(..., ge=0, description="File size in bytes")
     file_type: str = Field(..., description="File type/extension")
     hash_md5: str = Field(..., description="MD5 hash of file contents")
-    treemap_type: str = Field(..., description="Type for treemap visualization")
-
-
-class DuplicateFileGroup(BaseModel):
-    """Group of duplicate files."""
-
-    model_config = ConfigDict(frozen=True)
-
-    files: List[FileInfo] = Field(..., description="Files in the group")
-    potential_savings: int = Field(..., ge=0, description="Potential size savings in bytes")
-
-    @property
-    def duplicate_count(self) -> int:
-        """Number of duplicate files (excluding the original)."""
-        return len(self.files) - 1
+    treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
 
 
 class BaseInsightResult(BaseModel):
@@ -114,16 +102,9 @@ class BaseInsightResult(BaseModel):
 class DuplicateFilesInsightResult(BaseInsightResult):
     """Results from duplicate files analysis."""
 
-    has_duplicates: bool = Field(..., description="Whether any duplicate files were found")
-    duplicate_groups: List[Dict[str, Any]] = Field(
-        ...,
-        description="List of duplicate file groups, each containing files, size, and potential savings",
-    )
+    files: List[FileInfo] = Field(..., description="Files in the group")
 
-
-class InsightResults(BaseModel):
-    """Collection of all insight results."""
-
-    model_config = ConfigDict(frozen=True)
-
-    duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
+    @property
+    def duplicate_count(self) -> int:
+        """Number of duplicate files (excluding the original)."""
+        return len(self.files) - 1

@@ -12,8 +12,8 @@ import lief
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
-from launchpad.insights.common import DuplicateFilesInsight
-from launchpad.models.common import InsightResults
+from launchpad.insights.common import DuplicateFilesInsight, InsightsInput
+from launchpad.models.apple import AppleInsightResults
 
 from ..models import AppleAnalysisResults, AppleAppInfo, FileAnalysis, FileInfo, MachOBinaryAnalysis
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
@@ -28,10 +28,6 @@ logger = get_logger(__name__)
 
 class AppleAppAnalyzer:
     """Analyzer for Apple app bundles (.xcarchive directories)."""
-
-    INSIGHTS = [
-        DuplicateFilesInsight(),
-    ]
 
     def __init__(
         self,
@@ -124,20 +120,18 @@ class AppleAppAnalyzer:
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
-        insights = {}
+        insights: AppleInsightResults | None = None
         if not self.skip_insights:
             logger.info("Generating insights from analysis results")
-            temp_results = AppleAnalysisResults(
+            insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
-                analysis_duration=0,
                 treemap=treemap,
-                insights=InsightResults(),
             )
-            insights = {
-                "duplicate_files": self.INSIGHTS[0].generate_insight(temp_results),
-            }
+            insights = AppleInsightResults(
+                duplicate_files=DuplicateFilesInsight().__call__(insights_input),
+            )
 
         results = AppleAnalysisResults(
             app_info=app_info,
@@ -145,7 +139,7 @@ class AppleAppAnalyzer:
             binary_analysis=binary_analysis,
             analysis_duration=time.time() - analysis_start_time,
             treemap=treemap,
-            insights=InsightResults(**insights),
+            insights=insights,
         )
 
         logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")

@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis, InsightResults
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, DuplicateFilesInsightResult, FileAnalysis
 from .range_mapping import RangeMap
 from .treemap import TreemapResults
 
@@ -24,8 +24,7 @@ class AppleAnalysisResults(BaseAnalysisResults):
         description="Apple binary analysis results",
         exclude=True,
     )
-    insights: InsightResults = Field(
-        default_factory=InsightResults,
+    insights: AppleInsightResults | None = Field(
         description="Generated insights from the analysis",
     )
 
@@ -103,3 +102,11 @@ class SwiftMetadata(BaseModel):
     protocols: List[str] = Field(default_factory=list, description="Swift protocol names")
     extensions: List[str] = Field(default_factory=list, description="Swift extension names")
     total_metadata_size: int = Field(default=0, ge=0, description="Total Swift metadata size")
+
+
+class AppleInsightResults(BaseModel):
+    """Collection of all insight results."""
+
+    model_config = ConfigDict(frozen=True)
+
+    duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
