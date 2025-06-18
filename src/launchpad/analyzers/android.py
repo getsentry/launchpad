@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-from zipfile import ZipInfo
-
-from launchpad.utils.treemap_builder import TreemapBuilder
 
 from ..artifacts import AAB, APK, AndroidArtifact, ZippedAAB, ZippedAPK
 from ..models.android import AndroidAnalysisResults, AndroidAppInfo
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import TreemapType
 from ..utils.logging import get_logger
+from ..utils.treemap_builder import TreemapBuilder
 
 logger = get_logger(__name__)
 
@@ -57,44 +54,81 @@ class AndroidAnalyzer:
             filesystem_block_size=4 * 1024,
         )
 
-        treemap_results = treemap_builder.build_file_treemap(file_analysis)
+        treemap = treemap_builder.build_file_treemap(file_analysis)
 
         analysis_duration = time.time() - start_time
         return AndroidAnalysisResults(
             generated_at=datetime.now(timezone.utc),
             analysis_duration=analysis_duration,
             app_info=app_info,
-            treemap_results=treemap_results,
+            treemap=treemap,
             file_analysis=file_analysis,
         )
 
     def _get_file_analysis(self, apks: list[APK]) -> FileAnalysis:
-        file_infos: list[ZipInfo] = []
+        file_infos: list[FileInfo] = []
+        total_size = 0
+        path_to_file_info: dict[str, FileInfo] = {}
+
         for apk in apks:
-            file_infos.extend(apk.get_file_infos())
+            extract_path = apk.get_extract_path()
+            for file_path in extract_path.rglob("*"):
+                if file_path.is_file():
+                    logger.debug("Processing file: %s", file_path)
+                    # Get file extension or use 'unknown' if none
+                    file_type = file_path.suffix.lstrip(".").lower() or "unknown"
+
+                    # Get relative path from extract directory
+                    relative_path = str(file_path.relative_to(extract_path))
+                    file_size = file_path.stat().st_size
+                    total_size += file_size
+
+                    # If we've seen this path before, merge the sizes to simplify the treemap
+                    # This is intentional as things like the AndroidManifest.xml are duplicated
+                    # across APKs, but to users that's not relevant so we'll group.
+                    if relative_path in path_to_file_info:
+                        existing_info = path_to_file_info[relative_path]
+                        merged_size = existing_info.size + file_size
+                        logger.debug(
+                            "Merging duplicate path %s: %d + %d = %d",
+                            relative_path,
+                            existing_info.size,
+                            file_size,
+                            merged_size,
+                        )
+
+                        # Create new FileInfo with merged size
+                        merged_file_info = FileInfo(
+                            path=relative_path,
+                            size=merged_size,
+                            file_type=file_type,
+                            hash_md5=None,  # TODO: Implement
+                        )
+                        path_to_file_info[relative_path] = merged_file_info
+                    else:
+                        # First time seeing this path
+                        file_info = FileInfo(
+                            path=relative_path,
+                            size=file_size,
+                            file_type=file_type,
+                            hash_md5=None,  # TODO: Implement
+                        )
+                        path_to_file_info[relative_path] = file_info
+
+        # Convert dictionary values to list
+        file_infos = list(path_to_file_info.values())
 
         # Group files by type
         files_by_type: dict[str, list[FileInfo]] = {}
-        for zip_file_info in file_infos:
-            logger.debug("Processing file: %s", zip_file_info.filename)
-            # Get file extension or use 'unknown' if none
-            file_type = Path(zip_file_info.filename).suffix.lstrip(".").lower() or "unknown"
-            if file_type not in files_by_type:
-                files_by_type[file_type] = []
-
-            file_info = FileInfo(
-                path=zip_file_info.filename,
-                size=zip_file_info.file_size,
-                file_type=file_type,
-                hash_md5=None,  # TODO: Implement
-            )
-            files_by_type[file_type].append(file_info)
+        for file_info in file_infos:
+            if file_info.file_type not in files_by_type:
+                files_by_type[file_info.file_type] = []
+            files_by_type[file_info.file_type].append(file_info)
 
         return FileAnalysis(
             file_count=len(file_infos),
             files_by_type=files_by_type,
-            # TODO: Implement
-            total_size=0,
+            total_size=total_size,
             duplicate_files=[],
             largest_files=[],
         )

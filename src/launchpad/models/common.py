@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from launchpad.models.treemap import TreemapType
+from .treemap import TreemapResults, TreemapType
 
 
 class BaseAnalysisResults(BaseModel):
@@ -16,8 +16,9 @@ class BaseAnalysisResults(BaseModel):
     model_config = ConfigDict(frozen=True)
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
+    treemap: TreemapResults = Field(..., description="Hierarchical size analysis treemap")
 
-    def to_dict(self) -> Dict[str, Any]:
+def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with serializable datetime."""
         data = self.model_dump()
         data["generated_at"] = self.generated_at.isoformat()

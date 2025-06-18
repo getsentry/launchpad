@@ -10,7 +10,6 @@ from launchpad.models.insights import DuplicateFilesInsightResult
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
 from .range_mapping import RangeMap
-from .treemap import TreemapResults
 
 
 class AppleAnalysisResults(BaseAnalysisResults):
@@ -20,7 +19,6 @@ class AppleAnalysisResults(BaseAnalysisResults):
 
     app_info: AppleAppInfo = Field(..., description="Apple app information")
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
-    treemap: TreemapResults | None = Field(None, description="Hierarchical size analysis treemap")
     binary_analysis: List[MachOBinaryAnalysis] = Field(
         default_factory=list,
         description="Apple binary analysis results",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from zipfile import ZipInfo
+from pathlib import Path
 
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
@@ -25,6 +25,7 @@ class APK(AndroidArtifact):
         """
         super().__init__(content)
         self._zip_provider = ZipProvider(content)
+        self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
 
@@ -40,8 +41,7 @@ class APK(AndroidArtifact):
         if self._manifest is not None:
             return self._manifest
 
-        zip_file = self._zip_provider.get_zip()
-        manifest_files = [f for f in zip_file.namelist() if f.endswith("AndroidManifest.xml")]
+        manifest_files = list(self._extract_dir.rglob("AndroidManifest.xml"))
         if len(manifest_files) > 1:
             raise ValueError("Multiple AndroidManifest.xml files found in APK")
 
@@ -49,7 +49,8 @@ class APK(AndroidArtifact):
         if not manifest_file:
             raise ValueError("Could not find manifest in APK")
 
-        manifest_buffer = zip_file.read(manifest_file)
+        with open(manifest_file, "rb") as f:
+            manifest_buffer = f.read()
         binary_res_tables = self.get_resource_tables()
 
         self._manifest = AxmlUtils.binary_xml_to_android_manifest(manifest_buffer, binary_res_tables)
@@ -67,8 +68,7 @@ class APK(AndroidArtifact):
         if self._resource_table is not None:
             return [self._resource_table]
 
-        zip_file = self._zip_provider.get_zip()
-        arsc_files = [f for f in zip_file.namelist() if f.endswith("resources.arsc")]
+        arsc_files = list(self._extract_dir.rglob("resources.arsc"))
         if len(arsc_files) > 1:
             raise ValueError("Multiple resources.arsc files found in APK")
 
@@ -77,15 +77,11 @@ class APK(AndroidArtifact):
             logger.warning("No resources.arsc file found in APK")
             return []
 
-        arsc_buffer = zip_file.read(arsc_file)
+        with open(arsc_file, "rb") as f:
+            arsc_buffer = f.read()
+
         self._resource_table = BinaryResourceTable(arsc_buffer)
         return [self._resource_table]
 
-    def get_file_infos(self) -> list[ZipInfo]:
-        """Get all files from the APK with their sizes.
-
-        Returns:
-            Dictionary mapping file paths to their sizes in bytes
-        """
-        zip_file = self._zip_provider.get_zip()
-        return zip_file.infolist()
+    def get_extract_path(self) -> Path:
+        return self._extract_dir
