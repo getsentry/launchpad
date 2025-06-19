@@ -61,7 +61,7 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 - `make help` - Show all available commands
 - `make dev-setup` - Set up development environment
 - `make test` - Run all tests (`test-unit`, `test-integration` available separately)
-- `make check` - Run all code quality checks (lint + format + type-check)
+- `make check` - Run all code quality checks (`check-lint`, `check-format`, `check-types` available separately)
 - `make ci` - Full CI pipeline
 - `make run-cli` - Run the CLI tool (use ARGS="..." for arguments)
 - `make clean` - Clean build artifacts
