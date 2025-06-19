@@ -4,7 +4,8 @@ import time
 from datetime import datetime, timezone
 
 from ..artifacts import AAB, APK, AndroidArtifact, ZippedAAB, ZippedAPK
-from ..models.android import AndroidAnalysisResults, AndroidAppInfo
+from ..insights.common import DuplicateFilesInsight, InsightsInput
+from ..models.android import AndroidAnalysisResults, AndroidAppInfo, AndroidInsightResults
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..utils.file_utils import calculate_file_hash
@@ -20,6 +21,15 @@ FILE_NAME_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
 
 class AndroidAnalyzer:
     """Analyzer for Android apps (.apk, .aab files)."""
+
+    def __init__(
+        self,
+        skip_insights: bool = False,
+    ) -> None:
+        """Args:
+        skip_insights: Skip insights generation for faster analysis
+        """
+        self.skip_insights = skip_insights
 
     def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
         manifest_dict = artifact.get_manifest().model_dump()
@@ -57,6 +67,18 @@ class AndroidAnalyzer:
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
 
+        insights: AndroidInsightResults | None = None
+        if not self.skip_insights:
+            logger.info("Generating insights from analysis results")
+            insights_input = InsightsInput(
+                app_info=app_info,
+                file_analysis=file_analysis,
+                treemap=treemap,
+            )
+            insights = AndroidInsightResults(
+                duplicate_files=DuplicateFilesInsight().__call__(insights_input),
+            )
+
         analysis_duration = time.time() - start_time
         return AndroidAnalysisResults(
             generated_at=datetime.now(timezone.utc),
@@ -64,6 +86,7 @@ class AndroidAnalyzer:
             app_info=app_info,
             treemap=treemap,
             file_analysis=file_analysis,
+            insights=insights,
         )
 
     def _get_file_analysis(self, apks: list[APK]) -> FileAnalysis:
@@ -110,7 +133,7 @@ class AndroidAnalyzer:
                             size=merged_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
-                            # Intentionally igoring hash of merged file
+                            # Intentionally ignoring hash of merged file
                             hash_md5="",
                         )
                         path_to_file_info[relative_path] = merged_file_info

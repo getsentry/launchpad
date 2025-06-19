@@ -216,6 +216,10 @@ def android(
         else:
             _print_android_table_output(results, quiet)
 
+        if not quiet:
+            console.print(f"\n[bold green]✓[/bold green] Analysis completed in {duration:.2f}s")
+            _print_android_summary(results)
+
     except Exception as e:
         if verbose:
             console.print_exception()
@@ -374,6 +378,24 @@ def _print_file_analysis_table(file_analysis: FileAnalysis) -> None:
 
     console.print(file_table)
     console.print()
+
+
+def _print_android_summary(results: AndroidAnalysisResults) -> None:
+    """Print a brief summary of the analysis."""
+    file_analysis = results.file_analysis
+    insights = results.insights
+
+    console.print("\n[bold]Summary:[/bold]")
+    console.print(f"• App name: [cyan]{results.app_info.name}[/cyan]")
+    console.print(f"• Package name: [cyan]{results.app_info.package_name}[/cyan]")
+    console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
+    console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
+
+    if insights and insights.duplicate_files and insights.duplicate_files.total_savings > 0:
+        console.print(
+            f"• Potential savings from duplicates: "
+            f"[yellow]{_format_bytes(insights.duplicate_files.total_savings)}[/yellow]"
+        )
 
 
 def _print_apple_summary(results: AppleAnalysisResults) -> None:
