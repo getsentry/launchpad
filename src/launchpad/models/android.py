@@ -1,6 +1,7 @@
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo
+from .insights import DuplicateFilesInsightResult
 
 
 class AndroidAppInfo(BaseAppInfo):
@@ -8,8 +9,15 @@ class AndroidAppInfo(BaseAppInfo):
     package_name: str = Field(..., description="Android package name")
 
 
-class AndroidAnalysisResults(BaseAnalysisResults):
-    """Complete Android analysis results."""
+class AndroidInsightResults(BaseModel):
+    model_config = ConfigDict(frozen=True)
 
+    duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
+
+
+class AndroidAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
     app_info: AndroidAppInfo = Field(..., description="Android app information")
+    insights: AndroidInsightResults | None = Field(
+        description="Generated insights from the analysis",
+    )

@@ -1,20 +1,19 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from typing import List, Protocol, TypeVar
 
-from ..models.apple import AppleAppInfo, MachOBinaryAnalysis
-from ..models.common import FileAnalysis
-from ..models.treemap import TreemapResults
+from launchpad.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
+from launchpad.models.treemap import TreemapResults
 
 T_co = TypeVar("T_co", covariant=True)
 
 
 @dataclass
 class InsightsInput:
-    app_info: AppleAppInfo
+    app_info: BaseAppInfo
     file_analysis: FileAnalysis
     treemap: TreemapResults | None
-    binary_analysis: list[MachOBinaryAnalysis]
+    binary_analysis: List[BaseBinaryAnalysis]
 
 
 class Insight(Protocol[T_co]):
