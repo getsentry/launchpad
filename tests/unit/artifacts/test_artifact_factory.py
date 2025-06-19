@@ -75,5 +75,5 @@ def test_factory_raises_value_error_for_invalid_file(tmp_path: Path) -> None:
     invalid_file = tmp_path / "invalid.txt"
     invalid_file.write_text("This is not a valid artifact")
 
-    with pytest.raises(ValueError, match="File is not a supported Android artifact"):
+    with pytest.raises(ValueError, match="Input is not a supported artifact"):
         ArtifactFactory.from_path(invalid_file)

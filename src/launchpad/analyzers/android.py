@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timezone
+from typing import Any
 
 from ..artifacts.android.aab import AAB
 from ..artifacts.android.apk import APK
@@ -24,6 +25,9 @@ FILE_NAME_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
 
 class AndroidAnalyzer:
     """Analyzer for Android apps (.apk, .aab files)."""
+
+    def __init__(self, **_: Any) -> None:
+        pass
 
     def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
         manifest_dict = artifact.get_manifest().model_dump()
