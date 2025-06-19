@@ -278,7 +278,7 @@ class MachOParser:
             data_offset = cs.data_offset
             data_size = cs.data_size
 
-            logger.info(f"Data offset: {data_offset}, Data size: {data_size}")
+            logger.debug(f"Data offset: {data_offset}, Data size: {data_size}")
 
             # Read the SuperBlob header from the raw data
             raw_data = cs.content
@@ -291,7 +291,7 @@ class MachOParser:
             length = int.from_bytes(raw_data[4:8], byteorder="big")
             count = int.from_bytes(raw_data[8:12], byteorder="big")
 
-            logger.info(f"Superblob magic: 0x{magic:08x}, Superblob length: {length}, Superblob count: {count}")
+            logger.debug(f"Superblob magic: 0x{magic:08x}, Superblob length: {length}, Superblob count: {count}")
 
             # Read the blob indices
             index_entries: List[CSBlobIndex] = []
@@ -649,7 +649,6 @@ class MachOParser:
                                     try:
                                         # Access the parsed value directly
                                         hash_block = value.native
-                                        logger.info(f"Hash block: {hash_block}")
 
                                         # The hash_block is an OrderedDict with hash_oid and hash_value
                                         if isinstance(hash_block, dict):
@@ -664,8 +663,6 @@ class MachOParser:
                                                 hash_type = CSAlgorithm.SHA1
 
                                             cd_hashes.append({"type": hash_type, "value": hash_value})
-
-                                            logger.info(f"Found CD hash: {hash_type.name} = {hash_value}")
 
                                     except Exception as e:
                                         logger.error(f"Failed to parse CD hash value: {e}")
@@ -718,8 +715,6 @@ class MachOParser:
                 logger.info("No CMS signature found")
                 return None
 
-            logger.info(f"Superblob 0x{super_blob.magic:08x} at {self.binary.code_signature.data_offset}")
-            logger.info(f"entitlements {entitlements}")
             return CodeSignInformation(
                 code_directory=code_directory,
                 entitlements=entitlements,

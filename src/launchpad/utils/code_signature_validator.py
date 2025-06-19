@@ -5,10 +5,13 @@ from __future__ import annotations
 import hashlib
 import plistlib
 import re
+from ast import parse
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import lief
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.macho_parser import CodeSignInformation, MachOParser
@@ -137,9 +140,7 @@ class CodeSignatureValidator:
         if self.macho_parser.is_encrypted():
             raise ValueError("Binary is encrypted, not valid for distribution")
 
-        logger.info("Checking binary")
         binary_hashes = self._check_binary()
-        logger.info("Checked binary")
         if not binary_hashes.valid:
             raise ValueError("Binary is not valid")
 
@@ -366,23 +367,64 @@ class CodeSignatureValidator:
         return True
 
     def _validate_certificates(self, certificates: List[bytes]) -> bool:
-        """Validate certificates."""
+        """Validate certificates chain of trust.
+
+        This function validates the certificate chain by:
+        1. Checking that each certificate is signed by the next one in the chain
+        2. Validating that the root certificate is a known Apple certificate
+
+        Args:
+            certificates: List of certificate data in DER format
+
+        Returns:
+            True if certificate chain is valid, False otherwise
+        """
         if not certificates:
             logger.warning("[Codesign] No certificates found")
             return False
 
-        # For now, implement a simplified certificate validation
-        # In a full implementation, you would use cryptography or similar library
-        # to validate the certificate chain
+        try:
+            # Parse certificates from DER format
+            parsed_certs: list[x509.Certificate] = []
+            for cert_data in certificates:
+                try:
+                    cert = x509.load_der_x509_certificate(cert_data)
+                    parsed_certs.append(cert)
+                except Exception as e:
+                    logger.error(f"[Codesign] Failed to parse certificate: {e}")
+                    return False
 
-        # Check if the root certificate is a known Apple certificate
-        if certificates:
-            root_cert_data = certificates[-1]
-            root_cert_fingerprint = hashlib.sha256(root_cert_data).hexdigest()
+            commonNameOid = x509.ObjectIdentifier("2.5.4.3")
+            for i in range(len(parsed_certs) - 1):
+                commonName = parsed_certs[i].issuer.get_attributes_for_oid(commonNameOid)
+                found_cert = next(
+                    (cert for cert in parsed_certs if cert.subject.get_attributes_for_oid(commonNameOid) == commonName),
+                    None,
+                )
+                if not found_cert:
+                    logger.warning(
+                        f"[Codesign] Certificate chain is broken - issuer not found: {parsed_certs[i].issuer}"
+                    )
+                    return False
 
-            if root_cert_fingerprint not in KNOWN_APPLE_ROOT_CERT_FINGERPRINTS:
-                logger.warning(f"[Codesign] Root certificate is not a trusted Apple CA: {root_cert_fingerprint}")
+                # We don't perform further validation of the signature because some certificates will
+                # use the sha1WithRSAEncryption signature algorithm which is not supported
+                # by `verify_directly_issued_by`
+
+            # Validate root certificate against known fingerprints
+            root_cert = parsed_certs[-1]
+            root_fingerprint = root_cert.fingerprint(hashes.SHA256()).hex()
+
+            is_known_apple_root = any(
+                fingerprint == root_fingerprint for fingerprint in KNOWN_APPLE_ROOT_CERT_FINGERPRINTS
+            )
+            if not is_known_apple_root:
+                logger.warning(f"[Codesign] Root certificate is not a trusted Apple CA: {root_fingerprint}")
                 return False
 
-        logger.info("Certificate chain validation successful")
-        return True
+            logger.debug("Certificate chain validation successful")
+            return True
+
+        except Exception as e:
+            logger.error(f"[Codesign] Certificate validation failed: {e}")
+            return False
