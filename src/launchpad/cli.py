@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import cast
 
 import click
-from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
@@ -21,9 +20,8 @@ from .analyzers.apple import AppleAppAnalyzer
 from .artifacts import AndroidArtifact, AppleArtifact, ArtifactFactory
 from .models import AndroidAnalysisResults, AppleAnalysisResults, FileAnalysis
 from .service import run_service
-from .utils.logging import setup_logging
-
-console = Console()
+from .size import size_command
+from .utils import console, setup_logging
 
 
 @click.group(invoke_without_command=True)
@@ -409,6 +407,9 @@ def _format_bytes(size: int) -> str:
             return f"{size_float:.1f} {unit}"
         size_float /= 1024.0
     return f"{size_float:.1f} TB"
+
+
+cli.add_command(size_command)
 
 
 def main() -> None:
