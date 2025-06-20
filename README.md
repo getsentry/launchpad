@@ -146,14 +146,11 @@ make test-service-integration
 ### Code Quality
 
 ```bash
-# Format code
-make format
-
-# Lint and type check
-make lint
-
-# All quality checks (format + lint + type-check)
+# Run all quality checks (check-format + check-lint + check-types)
 make check
+
+# Autofix as many checks as possible.
+make fix
 
 # Full CI pipeline
 make ci

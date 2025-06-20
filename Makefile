@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-integration lint format autofix check-format type-check clean build build-wheel clean-venv check ci all run-cli status
+.PHONY: help test test-unit test-integration lint fix check-format check-types type-check clean build build-wheel clean-venv check ci all run-cli status
 
 # Default target
 help:
@@ -25,36 +25,29 @@ install-dev: $(VENV_DIR)  ## Install development dependencies
 	$(PIP) install -e .
 	$(VENV_DIR)/bin/pre-commit install
 
-test: test-unit test-integration
+test:
+	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v --tb=short
 
 test-unit:
 	$(PYTHON_VENV) -m pytest tests/unit/ -v --tb=short
 
-test-integration:  ## Run integration tests only
-	@if [ -d tests/integration ]; then \
-		$(PYTHON_VENV) -m pytest tests/integration/ -v --tb=short; \
-	else \
-		echo "No integration tests found in tests/integration/. Skipping integration tests."; \
-	fi
+test-integration:
+	$(PYTHON_VENV) -m pytest tests/integration/ -v --tb=short
 
 # Code quality targets
-lint:  ## Run linting checks
+check-lint:
 	$(PYTHON_VENV) -m flake8 src/ tests/
-
-format:  ## Format code with black and isort
-	$(PYTHON_VENV) -m isort src/ tests/
-	$(PYTHON_VENV) -m black src/ tests/
-
-autofix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
-	$(PYTHON_VENV) -m isort src/ tests/
-	$(PYTHON_VENV) -m black src/ tests/
 
 check-format:  ## Check code format without modifying files
 	$(PYTHON_VENV) -m isort --check-only src/ tests/
 	$(PYTHON_VENV) -m black --check src/ tests/
 
-type-check:  ## Run type checking with mypy
+check-types:  ## Run type checking with mypy
 	$(PYTHON_VENV) -m mypy src
+
+fix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
+	$(PYTHON_VENV) -m isort src/ tests/
+	$(PYTHON_VENV) -m black src/ tests/
 
 # Build targets
 build: clean $(VENV_DIR)  ## Build the package
@@ -78,7 +71,7 @@ clean:
 	rm -rf $(VENV_DIR)
 
 # Combined targets for CI
-check: autofix lint type-check
+check: check-lint check-format check-types
 
 ci: install-dev check test
 
