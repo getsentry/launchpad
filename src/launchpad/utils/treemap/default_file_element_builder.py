@@ -1,7 +1,7 @@
 from ...models.common import FileInfo
 from ...models.treemap import TreemapElement
 from ...utils.file_utils import calculate_aligned_install_size
-from .element_builder import TreemapElementBuilder
+from .treemap_element_builder import TreemapElementBuilder
 
 
 class DefaultFileElementBuilder(TreemapElementBuilder):

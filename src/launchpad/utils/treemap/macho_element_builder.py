@@ -4,7 +4,7 @@ from ...models.common import FileInfo
 from ...models.range_mapping import Range, RangeMap
 from ...models.treemap import TreemapElement, TreemapType
 from ..logging import get_logger
-from .element_builder import TreemapElementBuilder
+from .treemap_element_builder import TreemapElementBuilder
 
 logger = get_logger(__name__)
 

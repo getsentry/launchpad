@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Literal
 
-from launchpad.utils.treemap.element_builder import TreemapElementBuilder
+from launchpad.utils.treemap.treemap_element_builder import TreemapElementBuilder
 
 from ...models import FileAnalysis, FileInfo, MachOBinaryAnalysis, TreemapElement, TreemapResults
 from ...models.treemap import TreemapType

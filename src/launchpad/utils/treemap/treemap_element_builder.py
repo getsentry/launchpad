@@ -30,4 +30,4 @@ class TreemapElementBuilder(ABC):
         Returns:
             Treemap element representing the file, `None` if the file is not supported
         """
-        pass
+        raise NotImplementedError("Not implemented")
