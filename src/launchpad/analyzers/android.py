@@ -9,7 +9,7 @@ from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..utils.file_utils import calculate_file_hash
 from ..utils.logging import get_logger
-from ..utils.treemap_builder import TreemapBuilder
+from ..utils.treemap.treemap_builder import TreemapBuilder
 
 logger = get_logger(__name__)
 

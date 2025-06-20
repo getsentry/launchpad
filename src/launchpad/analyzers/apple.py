@@ -19,7 +19,7 @@ from ..parsers.apple.macho_parser import MachOParser
 from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
 from ..utils.file_utils import calculate_file_hash, get_file_size
 from ..utils.logging import get_logger
-from ..utils.treemap_builder import TreemapBuilder
+from ..utils.treemap.treemap_builder import TreemapBuilder
 
 logger = get_logger(__name__)
 
