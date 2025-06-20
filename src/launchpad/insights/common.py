@@ -4,23 +4,21 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Protocol, TypeVar
+from typing import Dict, List, Protocol, Sequence, TypeVar
 
-from launchpad.models.common import FileAnalysis, FileInfo
+from launchpad.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis, FileInfo
 from launchpad.models.insights import DuplicateFilesInsightResult
 from launchpad.models.treemap import TreemapResults
-
-from ..models.apple import AppleAppInfo, MachOBinaryAnalysis
 
 T_co = TypeVar("T_co", covariant=True)
 
 
 @dataclass
 class InsightsInput:
-    app_info: AppleAppInfo
+    app_info: BaseAppInfo
     file_analysis: FileAnalysis
     treemap: TreemapResults | None
-    binary_analysis: List[MachOBinaryAnalysis]
+    binary_analysis: Sequence[BaseBinaryAnalysis] | None = None
 
 
 class Insight(Protocol[T_co]):
