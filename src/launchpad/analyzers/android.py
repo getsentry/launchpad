@@ -3,7 +3,11 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 
-from ..artifacts import AAB, APK, AndroidArtifact, ZippedAAB, ZippedAPK
+from ..artifacts.android.aab import AAB
+from ..artifacts.android.apk import APK
+from ..artifacts.android.zipped_aab import ZippedAAB
+from ..artifacts.android.zipped_apk import ZippedAPK
+from ..artifacts.artifact import AndroidArtifact
 from ..models.android import AndroidAnalysisResults, AndroidAppInfo
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType

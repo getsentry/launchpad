@@ -1,5 +1,3 @@
-"""Command-line interface for launchpad."""
-
 from __future__ import annotations
 
 import asyncio
@@ -18,8 +16,11 @@ from rich.table import Table
 from . import __version__
 from .analyzers.android import AndroidAnalyzer
 from .analyzers.apple import AppleAppAnalyzer
-from .artifacts import AndroidArtifact, AppleArtifact, ArtifactFactory
-from .models import AndroidAnalysisResults, AppleAnalysisResults, FileAnalysis
+from .artifacts.artifact import AndroidArtifact, AppleArtifact
+from .artifacts.artifact_factory import ArtifactFactory
+from .models.android import AndroidAnalysisResults
+from .models.apple import AppleAnalysisResults
+from .models.common import FileAnalysis
 from .service import run_service
 from .utils.logging import setup_logging
 

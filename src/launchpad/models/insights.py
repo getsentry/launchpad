@@ -2,7 +2,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from launchpad.models.common import FileInfo
+from .common import FileInfo
 
 
 class BaseInsightResult(BaseModel):
