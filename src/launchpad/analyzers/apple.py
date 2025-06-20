@@ -129,7 +129,7 @@ class AppleAppAnalyzer:
                 treemap=treemap,
             )
             insights = AppleInsightResults(
-                duplicate_files=DuplicateFilesInsight().get_results(insights_input),
+                duplicate_files=DuplicateFilesInsight().generate(insights_input),
             )
 
         results = AppleAnalysisResults(

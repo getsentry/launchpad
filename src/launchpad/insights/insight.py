@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Protocol, TypeVar
 
@@ -23,7 +24,8 @@ class Insight(Protocol[T_co]):
     All data needed for the insight must be collected during the main analysis phase.
     """
 
-    def get_results(self, input: InsightsInput) -> T_co:
+    @abstractmethod
+    def generate(self, input: InsightsInput) -> T_co:
         """Generate insights from analysis results.
 
         Args:
