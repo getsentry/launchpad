@@ -23,3 +23,5 @@ class TestAppleBasicInfo:
         assert basic_info.sdk_version == "iphoneos18.4"
         assert basic_info.is_simulator is False
         assert basic_info.codesigning_type == "development"
+        assert basic_info.is_code_signature_valid is True
+        assert basic_info.code_signature_errors == []

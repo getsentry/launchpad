@@ -57,6 +57,10 @@ class AppleAppInfo(BaseAppInfo):
         None, description="Type of codesigning used (development, adhoc, appstore, enterprise)"
     )
     profile_name: str | None = Field(None, description="Name of the provisioning profile used")
+    is_code_signature_valid: bool = Field(True, description="Whether the app's code signature is valid")
+    code_signature_errors: List[str] = Field(
+        default_factory=list, description="List of code signature validation errors"
+    )
 
 
 class MachOBinaryAnalysis(BaseBinaryAnalysis):
