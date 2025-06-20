@@ -1,5 +1,3 @@
-"""Treemap builder for creating hierarchical size analysis from file data."""
-
 from __future__ import annotations
 
 import os
@@ -7,22 +5,26 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Literal
 
-from ..models import FileAnalysis, FileInfo, MachOBinaryAnalysis, Range, RangeMap, TreemapElement, TreemapResults
-from ..models.treemap import TreemapType
-from ..utils.logging import get_logger
+from launchpad.utils.treemap.treemap_element_builder import TreemapElementBuilder
+
+from ...models import FileAnalysis, FileInfo, MachOBinaryAnalysis, TreemapElement, TreemapResults
+from ...models.treemap import TreemapType
+from ...utils.file_utils import calculate_aligned_install_size
+from ..logging import get_logger
+from .default_file_element_builder import DefaultFileElementBuilder
+from .macho_element_builder import MachOElementBuilder
 
 logger = get_logger(__name__)
 
 
 class TreemapBuilder:
-    """Builder for creating treemap structures from file analysis data."""
-
     def __init__(
         self,
         app_name: str,
         platform: Literal["ios", "android"],
         download_compression_ratio: float,
         filesystem_block_size: int | None = None,
+        # TODO: We should try to move iOS-specific logic out of this class's constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
     ) -> None:
         """Initialize the treemap builder.
@@ -75,119 +77,31 @@ class TreemapBuilder:
         )
 
     def _create_file_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
-        """Create a TreemapElement for a single file."""
-        if file_info.file_type == "macho":
-            if file_info.path in self.binary_analysis_map:
-                binary_analysis = self.binary_analysis_map[file_info.path]
-                if binary_analysis.range_map is not None:
-                    # Create a binary treemap with sections
-                    return self.build_binary_treemap(binary_analysis.range_map, display_name, file_info.path)
-                else:
-                    logger.warning(f"Binary {file_info.path} found but has no range mapping")
-            else:
-                logger.warning(f"Binary {file_info.path} found but not in binary analysis map")
-
-        # Calculate platform-aligned install size and compressed download size
-        install_size = self._calculate_aligned_install_size(file_info)
-        download_size = int(install_size * self.download_compression_ratio)
-
-        details: Dict[str, object] = {
-            "hash": file_info.hash_md5,  # File hash for deduplication
-        }
-
-        # Add file extension only for actual files (not binary subsections)
-        if file_info.file_type and file_info.file_type != "unknown":
-            details["fileExtension"] = file_info.file_type
-
-        return TreemapElement(
-            name=display_name,
-            install_size=install_size,
-            download_size=download_size,
-            element_type=file_info.treemap_type,
-            path=file_info.path,
-            is_directory=False,
-            details=details,
+        default_element_builder = DefaultFileElementBuilder(
+            download_compression_ratio=self.download_compression_ratio,
+            filesystem_block_size=self.filesystem_block_size,
         )
 
-    def build_binary_treemap(self, range_map: RangeMap, name: str, binary_path: str | None = None) -> TreemapElement:
-        """Build a treemap element from binary range mapping.
-
-        Args:
-            range_map: Range mapping for binary content
-            name: Name of the binary
-            binary_path: Optional path to the binary file
-
-        Returns:
-            Treemap element representing the binary sections
-        """
-        # Group ranges by tag
-        ranges_by_tag: Dict[str, List[Range]] = {}
-        for range_obj in range_map.ranges:
-            tag = range_obj.tag.value
-            if tag not in ranges_by_tag:
-                ranges_by_tag[tag] = []
-            ranges_by_tag[tag].append(range_obj)
-
-        # Create child elements for each tag
-        children: List[TreemapElement] = []
-        for tag, ranges in ranges_by_tag.items():
-            total_size = sum(r.size for r in ranges)
-            children.append(
-                TreemapElement(
-                    name=tag,
-                    install_size=total_size,
-                    download_size=total_size,  # Binary sections don't compress
-                    element_type=TreemapType.EXECUTABLES,
-                    path=None,
-                    is_directory=False,
-                    children=[],
-                    details={"tag": tag},
+        element_builder: TreemapElementBuilder = default_element_builder
+        match file_info.file_type:
+            case "macho":
+                element_builder = MachOElementBuilder(
+                    download_compression_ratio=self.download_compression_ratio,
+                    filesystem_block_size=self.filesystem_block_size,
+                    binary_analysis_map=self.binary_analysis_map,
                 )
+
+        logger.debug(f"Using {element_builder.__class__.__name__} for {file_info.file_type}")
+
+        element = element_builder.build_element(file_info, display_name)
+        if element is None:
+            logger.debug(
+                f"None returned from {element_builder.__class__.__name__} for {file_info.file_type}, "
+                f"using DefaultFileElementBuilder"
             )
+            element = default_element_builder.build_element(file_info, display_name)
 
-        # Add unmapped regions if any
-        if range_map.unmapped_size > 0:
-            children.append(
-                TreemapElement(
-                    name="Unmapped",
-                    install_size=int(range_map.unmapped_size),
-                    download_size=int(range_map.unmapped_size),
-                    element_type=TreemapType.UNMAPPED,
-                    path=None,
-                    is_directory=False,
-                    children=[],
-                    details={},
-                )
-            )
-
-        # Create root element
-        total_size = sum(child.install_size for child in children)
-        return TreemapElement(
-            name=name,
-            install_size=total_size,
-            download_size=total_size,
-            element_type=TreemapType.EXECUTABLES,
-            path=binary_path,
-            is_directory=True,
-            children=children,
-            details={},
-        )
-
-    def _calculate_aligned_install_size(self, file_info: FileInfo) -> int:
-        """Calculate the actual install size considering filesystem block alignment.
-
-        Args:
-            file_info: File information including size and type
-
-        Returns:
-            Install size rounded up to nearest filesystem block boundary
-        """
-        file_size = file_info.size
-        if file_size == 0:
-            return 0
-
-        # Round up to nearest filesystem block boundary
-        return ((file_size - 1) // self.filesystem_block_size + 1) * self.filesystem_block_size
+        return element
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
         """Build hierarchical file structure from file analysis."""
@@ -403,9 +317,8 @@ class TreemapBuilder:
 
         for file_info in file_analysis.files:
             treemap_type = file_info.treemap_type.value
-
             # Use filesystem block-aligned size for install calculations
-            install_size = self._calculate_aligned_install_size(file_info)
+            install_size = calculate_aligned_install_size(file_info, self.filesystem_block_size)
             download_size = int(install_size * self.download_compression_ratio)
 
             breakdown[treemap_type]["install"] += install_size
