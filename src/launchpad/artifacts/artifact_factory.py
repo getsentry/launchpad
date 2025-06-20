@@ -1,5 +1,6 @@
 from io import BytesIO
 from pathlib import Path
+from typing import BinaryIO
 from zipfile import ZipFile
 
 from .android.aab import AAB
@@ -18,20 +19,50 @@ class ArtifactFactory:
         """Create appropriate Artifact from file path.
 
         Args:
-            path: Path to the Android artifact file
+            path: Path to the artifact file
 
         Returns:
             Appropriate Artifact instance
 
         Raises:
             FileNotFoundError: If path does not exist
-            ValueError: If file is not a valid Android artifact
+            ValueError: If file is not a valid artifact
         """
         if not path.is_file():
             raise FileNotFoundError(f"Path is not a file: {path}")
 
         content = path.read_bytes()
+        return ArtifactFactory.from_bytes(content)
 
+    @staticmethod
+    def from_file(file: BinaryIO) -> Artifact:
+        """Create appropriate Artifact from file.
+
+        Args:
+            file: The artifact file
+
+        Returns:
+            Appropriate Artifact instance
+
+        Raises:
+            ValueError: If file is not a valid artifact
+        """
+        content = file.read()
+        return ArtifactFactory.from_bytes(content)
+
+    @staticmethod
+    def from_bytes(content: bytes) -> Artifact:
+        """Create appropriate Artifact from file path.
+
+        Args:
+            content: bytes of the artifact
+
+        Returns:
+            Appropriate Artifact instance
+
+        Raises:
+            ValueError: If file is not a valid artifact
+        """
         # Check if it's a zip file by looking at magic bytes
         if content.startswith(b"PK\x03\x04"):
             # Check if zip contains a single APK (ZippedAPK)
@@ -70,4 +101,4 @@ class ArtifactFactory:
         except Exception:
             pass
 
-        raise ValueError(f"File is not a supported Android artifact: {path}")
+        raise ValueError("Input is not a supported artifact")
