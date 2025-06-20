@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import plistlib
 import re
-from ast import parse
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -190,7 +189,6 @@ class CodeSignatureValidator:
         """Check bundle resources."""
         errors: list[str] = []
 
-        logger.info(f"Checking bundle resources: {self.app_root}")
         for file_path in self.app_root.rglob("*"):
             if file_path.is_dir():
                 continue
@@ -223,7 +221,7 @@ class CodeSignatureValidator:
             hash_data = file_hashes[file_path]
             if isinstance(hash_data, dict):
                 is_optional = hash_data.get("optional", False)
-                found_hash = hash_data.get("hash2", "").hex()
+                found_hash = hash_data.get("hash2", b"").hex()
                 is_symlink = bool(hash_data.get("symlink"))
             else:
                 is_optional = False
