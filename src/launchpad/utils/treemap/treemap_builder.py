@@ -5,11 +5,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Literal
 
-from launchpad.utils.treemap.treemap_element_builder import TreemapElementBuilder
-
-from ...models import FileAnalysis, FileInfo, MachOBinaryAnalysis, TreemapElement, TreemapResults
-from ...models.treemap import TreemapType
+from ...models.apple import MachOBinaryAnalysis
+from ...models.common import FileAnalysis, FileInfo
+from ...models.treemap import TreemapElement, TreemapResults, TreemapType
 from ...utils.file_utils import calculate_aligned_install_size
+from ...utils.treemap.treemap_element_builder import TreemapElementBuilder
 from ..logging import get_logger
 from .default_file_element_builder import DefaultFileElementBuilder
 from .macho_element_builder import MachOElementBuilder

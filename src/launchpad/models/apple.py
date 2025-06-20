@@ -6,9 +6,8 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from launchpad.models.insights import DuplicateFilesInsightResult
-
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
+from .insights import DuplicateFilesInsightResult
 from .range_mapping import RangeMap
 
 

@@ -1,5 +1,3 @@
-"""Unit tests for CLI functionality."""
-
 from click.testing import CliRunner
 
 from launchpad import __version__

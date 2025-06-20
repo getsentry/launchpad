@@ -10,11 +10,12 @@ from typing import Any, Dict, List, Tuple
 
 import lief
 
-from ..artifacts import AppleArtifact, ZippedXCArchive
+from ..artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from ..artifacts.artifact import AppleArtifact
 from ..insights.common import DuplicateFilesInsight
 from ..insights.insight import InsightsInput
-from ..models import AppleAnalysisResults, AppleAppInfo, FileAnalysis, FileInfo, MachOBinaryAnalysis
-from ..models.apple import AppleInsightResults
+from ..models.apple import AppleAnalysisResults, AppleAppInfo, AppleInsightResults, MachOBinaryAnalysis
+from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.apple.macho_parser import MachOParser
 from ..parsers.apple.range_mapping_builder import RangeMappingBuilder

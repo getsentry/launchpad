@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ...models import FileInfo, TreemapElement
+from ...models.common import FileInfo
+from ...models.treemap import TreemapElement
 from ..logging import get_logger
 
 logger = get_logger(__name__)
