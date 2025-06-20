@@ -11,7 +11,8 @@ from typing import Any, Dict, List, Tuple
 import lief
 
 from ..artifacts import AppleArtifact, ZippedXCArchive
-from ..insights.common import DuplicateFilesInsight, InsightsInput
+from ..insights.common import DuplicateFilesInsight
+from ..insights.insight import InsightsInput
 from ..models import AppleAnalysisResults, AppleAppInfo, FileAnalysis, FileInfo, MachOBinaryAnalysis
 from ..models.apple import AppleInsightResults
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
@@ -128,7 +129,7 @@ class AppleAppAnalyzer:
                 treemap=treemap,
             )
             insights = AppleInsightResults(
-                duplicate_files=DuplicateFilesInsight().__call__(insights_input),
+                duplicate_files=DuplicateFilesInsight().get_results(insights_input),
             )
 
         results = AppleAnalysisResults(
