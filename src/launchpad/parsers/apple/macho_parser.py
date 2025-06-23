@@ -329,9 +329,31 @@ class MachOParser:
                 return None
 
         elif isinstance(protocol_file_offset, lief.lief_errors) and len(imported_symbols) > 0:
-            pass
+            vm_address_result = self.binary.offset_to_virtual_address(offset)
+            if isinstance(vm_address_result, lief.lief_errors):
+                return None
+
+            vm_address = vm_address_result
+            offset_value = self.binary.get_int_from_virtual_address(vm_address, 4, lief.Binary.VA_TYPES.AUTO)
+            if offset_value is None:
+                return None
+
+            if offset_value % 2 == 1:
+                indirect_vm = vm_address + (offset_value & ~0x1)
+                # Look for bound symbol at this address
+                for symbol in self.binary.symbols:
+                    if symbol.value == indirect_vm:
+                        return str(symbol.name)
+                logger.debug("Could not find bound symbol")
+                return None
         else:
-            pass
+            if not isinstance(protocol_file_offset, lief.lief_errors):
+                logger.debug(
+                    f"Protocol descriptor found at offset {protocol_file_offset}, but name extraction not implemented"
+                )
+                return None
+
+        return None
 
     def _parse_swift_protocol_descriptor(self, offset: int) -> SwiftProtocolDescriptor | None:
         protocol_descriptor, bytes_read = self._read_indirect_pointer(offset)

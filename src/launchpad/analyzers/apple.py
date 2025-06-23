@@ -14,7 +14,7 @@ from ..artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from ..artifacts.artifact import AppleArtifact
 from ..insights.common import DuplicateFilesInsight
 from ..insights.insight import InsightsInput
-from ..models.apple import AppleAnalysisResults, AppleAppInfo, AppleInsightResults, MachOBinaryAnalysis
+from ..models.apple import AppleAnalysisResults, AppleAppInfo, AppleInsightResults, MachOBinaryAnalysis, SwiftMetadata
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.apple.macho_parser import MachOParser
@@ -406,8 +406,13 @@ class AppleAppAnalyzer:
         # Extract Swift metadata if enabled
         swift_metadata = None
         if not skip_swift_metadata:
-            # TODO: Implement Swift metadata extraction
-            logger.warning("Swift metadata extraction is not implemented")
+            swift_metadata = SwiftMetadata(
+                classes=[],  # TODO: Extract Swift classes
+                protocols=[],  # TODO: Extract Swift protocols
+                extensions=[],  # TODO: Extract Swift extensions
+                protocol_conformances=swift_protocol_conformances,
+                total_metadata_size=0,  # TODO: Calculate total metadata size
+            )
 
         # Build range mapping for binary content
         range_map = None
