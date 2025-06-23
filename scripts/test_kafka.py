@@ -9,6 +9,9 @@ from typing import Any, Dict
 import click
 from kafka import KafkaProducer
 
+sys.path.insert(0, "src")
+from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC  # noqa: E402
+
 
 def create_producer(bootstrap_servers: str = "localhost:9092") -> KafkaProducer:
     """Create a Kafka producer."""
@@ -19,34 +22,37 @@ def create_producer(bootstrap_servers: str = "localhost:9092") -> KafkaProducer:
     )
 
 
-def create_analysis_message(artifact_path: str, artifact_id: str | None = None) -> Dict[str, Any]:
-    """Create an artifact analysis message."""
+def create_preprod_artifact_event(
+    artifact_id: str | None = None, project_id: str | None = None, organization_id: str | None = None
+) -> Dict[str, Any]:
+    """Create a preprod artifact event message matching the schema."""
     return {
-        "type": "analyze_artifact",
-        "artifact_id": artifact_id or f"test-{int(time.time())}",
-        "artifact_path": artifact_path,
-        "timestamp": time.time(),
+        "artifact_id": artifact_id or f"test-artifact-{int(time.time())}",
+        "project_id": project_id or f"test-project-{int(time.time())}",
+        "organization_id": organization_id or f"test-org-{int(time.time())}",
     }
 
 
 @click.command()
-@click.option("--topic", default="launchpad-events", help="Kafka topic to send messages to")
+@click.option("--topic", default=PREPROD_ARTIFACT_EVENTS_TOPIC, help="Kafka topic to send messages to")
 @click.option("--bootstrap-servers", default="localhost:9092", help="Kafka bootstrap servers")
-@click.option("--artifact-path", default="/path/to/test-artifact", help="Path to artifact for analysis")
 @click.option("--artifact-id", help="Custom artifact ID (auto-generated if not provided)")
+@click.option("--project-id", help="Custom project ID (auto-generated if not provided)")
+@click.option("--organization-id", help="Custom organization ID (auto-generated if not provided)")
 @click.option("--custom-json", help="Custom JSON message to send (overrides other options)")
 @click.option("--count", default=1, help="Number of messages to send")
 @click.option("--interval", default=1.0, help="Interval between messages in seconds")
 def main(
     topic: str,
     bootstrap_servers: str,
-    artifact_path: str,
     artifact_id: str,
+    project_id: str,
+    organization_id: str,
     custom_json: str,
     count: int,
     interval: float,
 ) -> None:
-    """Send test messages to Kafka for Launchpad testing."""
+    """Send preprod artifact event messages to Kafka for Launchpad testing."""
 
     try:
         producer = create_producer(bootstrap_servers)
@@ -60,9 +66,16 @@ def main(
                     click.echo(f"Error parsing custom JSON: {e}", err=True)
                     sys.exit(1)
             else:
-                # Use provided artifact_id or generate one with counter
-                current_artifact_id = artifact_id or f"test-{int(time.time())}-{i+1}"
-                message = create_analysis_message(artifact_path, current_artifact_id)
+                # Use provided IDs or generate them with counter
+                current_artifact_id = artifact_id or f"test-artifact-{int(time.time())}-{i+1}"
+                current_project_id = project_id or f"test-project-{int(time.time())}-{i+1}"
+                current_organization_id = organization_id or f"test-org-{int(time.time())}-{i+1}"
+
+                message = create_preprod_artifact_event(
+                    artifact_id=current_artifact_id,
+                    project_id=current_project_id,
+                    organization_id=current_organization_id,
+                )
 
             # Send message
             key = f"test-{i+1}"

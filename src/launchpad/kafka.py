@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
@@ -17,10 +16,17 @@ from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyF
 from arroyo.types import BrokerValue, Commit, Partition
 from confluent_kafka import KafkaError, KafkaException
 from confluent_kafka.admin import AdminClient, NewTopic
+from sentry_kafka_schemas import get_codec
+from sentry_kafka_schemas.codecs import ValidationError
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
+from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Schema codec for preprod artifact events
+PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
 def ensure_topics_exist_dev_only(
@@ -122,7 +128,7 @@ def get_topic_name() -> str:
         The topic name as defined in sentry_kafka_schemas
     """
     # Use the topic name from the schema registry (following Snuba's pattern)
-    return "preprod-artifact-events"
+    return PREPROD_ARTIFACT_EVENTS_TOPIC
 
 
 def get_topic_creation_config() -> Dict[str, str]:
@@ -160,14 +166,21 @@ class LaunchpadMessage:
         self.value = value
         self.timestamp = timestamp
 
-    def get_json_payload(self) -> Dict[str, Any]:
-        """Parse the message value as JSON."""
+    def get_validated_payload(self) -> PreprodArtifactEvents | None:
+        """Parse and validate the message using the schema."""
         try:
-            result: Dict[str, Any] = json.loads(self.value.decode("utf-8"))
-            return result
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to parse message as JSON: {e}")
-            return {}
+            decoded = PREPROD_ARTIFACT_SCHEMA.decode(self.value)
+            return decoded
+        except ValidationError as e:
+            logger.error(f"Schema validation failed for message: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to decode message: {e}")
+            return None
+
+    def is_valid_preprod_artifact_event(self) -> bool:
+        """Check if this message is a valid preprod artifact event."""
+        return self.get_validated_payload() is not None
 
     def __str__(self) -> str:
         return f"LaunchpadMessage(topic={self.topic}, partition={self.partition}, offset={self.offset})"
@@ -216,8 +229,11 @@ class MessageProcessingStrategy(ProcessingStrategy[KafkaPayload]):
                     logger.error(f"Error in message handler: {e}", exc_info=True)
             else:
                 logger.info(f"No handler set, received message: {launchpad_msg}")
-                payload = launchpad_msg.get_json_payload()
-                logger.info(f"Message payload: {payload}")
+                if launchpad_msg.is_valid_preprod_artifact_event():
+                    payload = launchpad_msg.get_validated_payload()
+                    logger.info(f"Valid preprod artifact event: {payload}")
+                else:
+                    logger.warning(f"Invalid or malformed message received on topic {launchpad_msg.topic}")
 
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
