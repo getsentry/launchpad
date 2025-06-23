@@ -8,6 +8,7 @@ import os
 import time
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
+import sentry_kafka_schemas
 from arroyo import Message, Topic
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
 from arroyo.backends.kafka import KafkaPayload
@@ -16,7 +17,6 @@ from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyF
 from arroyo.types import BrokerValue, Commit, Partition
 from confluent_kafka import KafkaError, KafkaException
 from confluent_kafka.admin import AdminClient, NewTopic
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvent
 
 from launchpad.utils.logging import get_logger
 
@@ -59,16 +59,22 @@ def ensure_topics_exist_dev_only(
     for topic_name in topic_names:
         if topic_name not in existing_topics:
             logger.info(f"[DEV ONLY] Topic '{topic_name}' does not exist, will create it")
+
+            # Use schema-defined config if available, otherwise use defaults
+            topic_config = get_topic_creation_config() if topic_name == get_topic_name() else {}
+            default_config = {
+                "cleanup.policy": "delete",
+                "retention.ms": str(7 * 24 * 60 * 60 * 1000),  # 7 days
+            }
+            # Schema config takes precedence over defaults
+            final_config = {**default_config, **topic_config}
+
             topics_to_create.append(
                 NewTopic(
                     topic_name,
                     num_partitions=num_partitions,
                     replication_factor=replication_factor,
-                    config={
-                        # Add some reasonable defaults
-                        "cleanup.policy": "delete",
-                        "retention.ms": str(7 * 24 * 60 * 60 * 1000),  # 7 days
-                    },
+                    config=final_config,
                 )
             )
         else:
@@ -115,8 +121,24 @@ def get_topic_name() -> str:
     Returns:
         The topic name as defined in sentry_kafka_schemas
     """
-    # Use the topic name from the schema
-    return PreprodArtifactEvent.topic_name
+    # Use the topic name from the schema registry (following Snuba's pattern)
+    return "preprod-artifact-events"
+
+
+def get_topic_creation_config() -> Dict[str, str]:
+    """
+    Get topic creation configuration from schema registry.
+
+    Returns:
+        Topic creation config dict, or empty dict if not found
+    """
+    topic_name = get_topic_name()
+    try:
+        topic_info = sentry_kafka_schemas.get_topic(topic_name)
+        return topic_info.get("topic_creation_config", {})
+    except sentry_kafka_schemas.SchemaNotFound:
+        logger.warning(f"Topic '{topic_name}' not found in schema registry")
+        return {}
 
 
 class LaunchpadMessage:
