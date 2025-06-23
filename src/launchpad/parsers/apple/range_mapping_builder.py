@@ -279,42 +279,12 @@ class RangeMappingBuilder:
 
     def _map_dyld_chained_fixups_command(self, range_map: RangeMap, command: lief.MachO.DyldChainedFixups) -> None:
         """Map chained fixups from LC_DYLD_CHAINED_FIXUPS command."""
-        try:
-            range_map.add_range(
-                command.data_offset,
-                command.data_offset + command.data_size,
-                BinaryTag.DYLD_FIXUPS,
-                "dyld_chained_fixups",
-            )
-
-            # Extract imported symbols from chained fixups
-            self._extract_imported_symbols_from_fixups(range_map, command)
-        except Exception as e:
-            logger.debug(f"Failed to map chained fixups command: {e}")
-
-    def _extract_imported_symbols_from_fixups(self, range_map: RangeMap, command: lief.MachO.DyldChainedFixups) -> None:
-        """Extract imported symbols from chained fixups command.
-
-        This maps the external methods/symbols that are imported by the binary.
-        Uses LIEF's built-in imported_symbols property for simplicity.
-        """
-        try:
-            # Use LIEF's built-in imported symbols functionality
-            imported_symbols = self.parser.binary.imported_symbols
-            if imported_symbols:
-                # Map the entire fixups data as external methods
-                # The individual symbol names are available via imported_symbols
-                range_map.add_range(
-                    command.data_offset,
-                    command.data_offset + command.data_size,
-                    BinaryTag.EXTERNAL_METHODS,
-                    "imported_symbols",
-                )
-
-                logger.debug(f"Found {len(imported_symbols)} imported symbols")
-
-        except Exception as e:
-            logger.debug(f"Failed to extract imported symbols from fixups: {e}")
+        range_map.add_range(
+            command.data_offset,
+            command.data_offset + command.data_size,
+            BinaryTag.DYLD_FIXUPS,
+            "dyld_chained_fixups",
+        )
 
     def _map_segments_and_sections(self, range_map: RangeMap) -> None:
         """Map segments and sections."""
