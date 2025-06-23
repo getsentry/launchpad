@@ -12,6 +12,7 @@ from asn1crypto import cms  # type: ignore
 from lief.MachO import CodeSignature
 
 from ...utils.logging import get_logger
+from .swift_protocol_parser import SwiftProtocolParser
 
 logger = get_logger(__name__)
 
@@ -262,6 +263,37 @@ class MachOParser:
         except Exception as e:
             logger.debug(f"Failed to check encryption status: {e}")
             return False
+
+    def parse_swift_protocol_conformances(self) -> List[str]:
+        """Parse the Swift protocol section."""
+        return SwiftProtocolParser(self.binary, self).parse_swift_protocol_conformances()
+
+    def read_indirect_pointer(self, offset: int) -> tuple[int, int]:
+        """Read an indirect pointer from the binary.
+
+        This is a shared function that reads relative pointers used in Swift metadata.
+        Returns a tuple of (pointer_value, bytes_consumed).
+        """
+        vm_address_result = self.binary.offset_to_virtual_address(offset)
+
+        # Handle the union type - check if it's an error
+        if isinstance(vm_address_result, lief.lief_errors):
+            logger.debug(f"Failed to convert offset {offset} to virtual address: {vm_address_result}")
+            return (0, 4)  # Return 0 as fallback for error cases, consumed 4 bytes
+
+        vm_address = vm_address_result
+        indirect_offset = self.binary.get_int_from_virtual_address(vm_address, 4, lief.Binary.VA_TYPES.AUTO)
+        if indirect_offset is None:
+            logger.debug(f"Failed to convert offset {offset} to virtual address: {indirect_offset}")
+            return (0, 4)  # Return 0 as fallback for error cases, consumed 4 bytes
+
+        if indirect_offset % 2 == 1:
+            contents = self.binary.get_content_from_virtual_address(
+                vm_address + (indirect_offset & ~0x1), 8, lief.Binary.VA_TYPES.AUTO
+            )
+            return (int.from_bytes(contents, byteorder="little"), 4)  # Consumed 4 bytes
+        else:
+            return (vm_address + indirect_offset, 4)  # Consumed 4 bytes
 
     def _parse_code_signature_command(self, cs: CodeSignature) -> Optional[CSSuperBlob]:
         """Parse the code signature command and extract super blob information.

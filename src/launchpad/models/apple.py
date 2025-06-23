@@ -100,10 +100,7 @@ class SwiftMetadata(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    classes: List[str] = Field(default_factory=list, description="Swift class names")
-    protocols: List[str] = Field(default_factory=list, description="Swift protocol names")
-    extensions: List[str] = Field(default_factory=list, description="Swift extension names")
-    total_metadata_size: int = Field(default=0, ge=0, description="Total Swift metadata size")
+    protocol_conformances: List[str] = Field(default_factory=list, description="Swift protocol conformance names")
 
 
 class AppleInsightResults(BaseModel):
