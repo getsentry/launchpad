@@ -88,7 +88,10 @@ class RangeMappingBuilder:
                     lief.MachO.LoadCommand.TYPE.DYLD_INFO,
                     lief.MachO.LoadCommand.TYPE.DYLD_INFO_ONLY,
                 ]:
-                    self._map_dyld_info_command(range_map, command)
+                    if isinstance(command, lief.MachO.DyldInfo):
+                        self._map_dyld_info_command(range_map, command)
+                    else:
+                        logger.warning(f"Expected DyldInfo, got {type(command).__name__}")
                 elif cmd_type == lief.MachO.LoadCommand.TYPE.FUNCTION_STARTS:
                     self._map_function_starts_command(range_map, command)
                 elif cmd_type == lief.MachO.LoadCommand.TYPE.CODE_SIGNATURE:
@@ -102,7 +105,18 @@ class RangeMappingBuilder:
                 elif cmd_type == lief.MachO.LoadCommand.TYPE.DYLD_EXPORTS_TRIE:
                     self._map_dyld_exports_trie_command(range_map, command)
                 elif cmd_type == lief.MachO.LoadCommand.TYPE.DYLD_CHAINED_FIXUPS:
-                    self._map_dyld_chained_fixups_command(range_map, command)
+                    if isinstance(command, lief.MachO.DyldChainedFixups):
+                        self._map_dyld_chained_fixups_command(range_map, command)
+                    else:
+                        logger.warning(f"Expected DyldChainedFixups, got {type(command).__name__}")
+                elif cmd_type == lief.MachO.LoadCommand.TYPE.RPATH:
+                    self._map_rpath_command(range_map, command)
+                elif cmd_type in [
+                    lief.MachO.LoadCommand.TYPE.LOAD_DYLIB,
+                    lief.MachO.LoadCommand.TYPE.LOAD_WEAK_DYLIB,
+                    lief.MachO.LoadCommand.TYPE.REEXPORT_DYLIB,
+                ]:
+                    self._map_dylib_command(range_map, command)
             except Exception as e:
                 logger.debug(f"Failed to process command {i} {command.command.name}: {e}")
 
@@ -128,34 +142,50 @@ class RangeMappingBuilder:
         except Exception as e:
             logger.error(f"Failed to map symtab command: {e}")
 
-    def _map_dyld_info_command(self, range_map: RangeMap, command: Any) -> None:
+    def _map_dyld_info_command(self, range_map: RangeMap, command: lief.MachO.DyldInfo) -> None:
         """Map DYLD info sections from LC_DYLD_INFO command."""
         try:
-            if hasattr(command, "rebase_off") and command.rebase_off > 0 and command.rebase_size > 0:
+            # Rebase information
+            rebase_offset, rebase_size = command.rebase
+            if rebase_offset > 0 and rebase_size > 0:
                 range_map.add_range(
-                    command.rebase_off,
-                    command.rebase_off + command.rebase_size,
+                    rebase_offset,
+                    rebase_offset + rebase_size,
                     BinaryTag.DYLD_REBASE,
                     "dyld_rebase_info",
                 )
 
-            if hasattr(command, "bind_off") and command.bind_off > 0 and command.bind_size > 0:
+            # Bind information
+            bind_offset, bind_size = command.bind
+            if bind_offset > 0 and bind_size > 0:
+                range_map.add_range(bind_offset, bind_offset + bind_size, BinaryTag.DYLD_BIND, "dyld_bind_info")
+
+            # Weak bind information
+            weak_bind_offset, weak_bind_size = command.weak_bind
+            if weak_bind_offset > 0 and weak_bind_size > 0:
                 range_map.add_range(
-                    command.bind_off, command.bind_off + command.bind_size, BinaryTag.DYLD_BIND, "dyld_bind_info"
+                    weak_bind_offset,
+                    weak_bind_offset + weak_bind_size,
+                    BinaryTag.DYLD_BIND,
+                    "dyld_weak_bind_info",
                 )
 
-            if hasattr(command, "lazy_bind_off") and command.lazy_bind_off > 0 and command.lazy_bind_size > 0:
+            # Lazy bind information
+            lazy_bind_offset, lazy_bind_size = command.lazy_bind
+            if lazy_bind_offset > 0 and lazy_bind_size > 0:
                 range_map.add_range(
-                    command.lazy_bind_off,
-                    command.lazy_bind_off + command.lazy_bind_size,
+                    lazy_bind_offset,
+                    lazy_bind_offset + lazy_bind_size,
                     BinaryTag.DYLD_LAZY_BIND,
                     "dyld_lazy_bind_info",
                 )
 
-            if hasattr(command, "export_off") and command.export_off > 0 and command.export_size > 0:
+            # Export information
+            export_offset, export_size = command.export_info
+            if export_offset > 0 and export_size > 0:
                 range_map.add_range(
-                    command.export_off,
-                    command.export_off + command.export_size,
+                    export_offset,
+                    export_offset + export_size,
                     BinaryTag.DYLD_EXPORTS,
                     "dyld_export_info",
                 )
@@ -192,14 +222,39 @@ class RangeMappingBuilder:
         """Map data-in-code information from LC_DATA_IN_CODE command."""
         try:
             if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                # Map the overall data-in-code section
                 range_map.add_range(
                     command.data_offset,
                     command.data_offset + command.data_size,
                     BinaryTag.DEBUG_INFO,
                     "data_in_code",
                 )
+
+                # Parse individual data-in-code entries
+                self._map_data_in_code_entries(range_map, command)
         except Exception as e:
             logger.debug(f"Failed to map data-in-code command: {e}")
+
+    def _map_data_in_code_entries(self, range_map: RangeMap, command: Any) -> None:
+        """Map individual data-in-code entries."""
+        try:
+            # Each data_in_code_entry is typically 8 bytes:
+            # - offset: UInt32 (offset from start of function)
+            # - length: UInt16 (length of data)
+            # - kind: UInt16 (type of data)
+            entry_size = 8
+            num_entries = command.data_size // entry_size
+
+            if num_entries > 0:
+                # Map the entries table
+                range_map.add_range(
+                    command.data_offset,
+                    command.data_offset + (num_entries * entry_size),
+                    BinaryTag.DEBUG_INFO,
+                    "data_in_code_entries",
+                )
+        except Exception as e:
+            logger.debug(f"Failed to map data-in-code entries: {e}")
 
     def _map_dylib_code_sign_drs_command(self, range_map: RangeMap, command: Any) -> None:
         """Map code signature DRs from LC_DYLIB_CODE_SIGN_DRS command."""
@@ -240,14 +295,44 @@ class RangeMappingBuilder:
         except Exception as e:
             logger.debug(f"Failed to map exports trie command: {e}")
 
-    def _map_dyld_chained_fixups_command(self, range_map: RangeMap, command: Any) -> None:
+    def _map_dyld_chained_fixups_command(self, range_map: RangeMap, command: lief.MachO.DyldChainedFixups) -> None:
         """Map chained fixups from LC_DYLD_CHAINED_FIXUPS command."""
-        range_map.add_range(
-            command.data_offset,
-            command.data_offset + command.data_size,
-            BinaryTag.DYLD_BIND,
-            "dyld_chained_fixups",
-        )
+        try:
+            range_map.add_range(
+                command.data_offset,
+                command.data_offset + command.data_size,
+                BinaryTag.DYLD_FIXUPS,
+                "dyld_chained_fixups",
+            )
+
+            # Extract imported symbols from chained fixups
+            self._extract_imported_symbols_from_fixups(range_map, command)
+        except Exception as e:
+            logger.debug(f"Failed to map chained fixups command: {e}")
+
+    def _extract_imported_symbols_from_fixups(self, range_map: RangeMap, command: lief.MachO.DyldChainedFixups) -> None:
+        """Extract imported symbols from chained fixups command.
+
+        This maps the external methods/symbols that are imported by the binary.
+        Uses LIEF's built-in imported_symbols property for simplicity.
+        """
+        try:
+            # Use LIEF's built-in imported symbols functionality
+            imported_symbols = self.parser.binary.imported_symbols
+            if imported_symbols:
+                # Map the entire fixups data as external methods
+                # The individual symbol names are available via imported_symbols
+                range_map.add_range(
+                    command.data_offset,
+                    command.data_offset + command.data_size,
+                    BinaryTag.EXTERNAL_METHODS,
+                    "imported_symbols",
+                )
+
+                logger.debug(f"Found {len(imported_symbols)} imported symbols")
+
+        except Exception as e:
+            logger.debug(f"Failed to extract imported symbols from fixups: {e}")
 
     def _map_segments_and_sections(self, range_map: RangeMap) -> None:
         """Map segments and sections."""
@@ -303,3 +388,41 @@ class RangeMappingBuilder:
 
         # Default to data segment
         return BinaryTag.DATA_SEGMENT
+
+    def _map_rpath_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map RPATH command data."""
+        try:
+            if hasattr(command, "path") and hasattr(command.path, "offset"):
+                # The path string is embedded in the command
+                path_offset = command.command_offset + command.path.offset
+                path_size = command.size - command.path.offset
+                if path_size > 0:
+                    range_map.add_range(
+                        path_offset,
+                        path_offset + path_size,
+                        BinaryTag.C_STRINGS,
+                        "rpath_string",
+                    )
+        except Exception as e:
+            logger.debug(f"Failed to map RPATH command: {e}")
+
+    def _map_dylib_command(self, range_map: RangeMap, command: Any) -> None:
+        """Map dylib loading command data (LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB)."""
+        try:
+            if (
+                hasattr(command, "library")
+                and hasattr(command.library, "name")
+                and hasattr(command.library.name, "offset")
+            ):
+                # The dylib name string is embedded in the command
+                name_offset = command.command_offset + command.library.name.offset
+                name_size = command.size - command.library.name.offset
+                if name_size > 0:
+                    range_map.add_range(
+                        name_offset,
+                        name_offset + name_size,
+                        BinaryTag.C_STRINGS,
+                        "dylib_name",
+                    )
+        except Exception as e:
+            logger.debug(f"Failed to map dylib command: {e}")
