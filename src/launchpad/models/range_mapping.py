@@ -33,6 +33,7 @@ class BinaryTag(Enum):
     CODE_SIGNATURE = "code_signature"
 
     # DYLD info categories
+    DYLD = "dyld"  # Parent category for all DYLD-related ranges
     DYLD_REBASE = "dyld_rebase"
     DYLD_BIND = "dyld_bind"
     DYLD_LAZY_BIND = "dyld_lazy_bind"

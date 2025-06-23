@@ -189,6 +189,7 @@ class RangeMappingBuilder:
                     BinaryTag.DYLD_EXPORTS,
                     "dyld_export_info",
                 )
+
         except Exception as e:
             logger.debug(f"Failed to map DYLD info command: {e}")
 
