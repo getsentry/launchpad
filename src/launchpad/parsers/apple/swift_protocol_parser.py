@@ -57,12 +57,9 @@ class SwiftProtocolParser:
                 relative_pointer = int.from_bytes(swift_proto[i : i + 4], byteorder="little", signed=True)
                 proto_offsets.append((i + swift_proto_section.offset, relative_pointer))
 
-        # Parse the protocol conformance descriptors
         protocol_names: List[str] = []
         for base_offset, relative_pointer in proto_offsets:
-            # Calculate the actual file address by adding relative pointer to base offset
             type_file_address = relative_pointer + base_offset
-
             protocol_name = self._parse_swift_protocol_conformance(type_file_address)
             if protocol_name:
                 protocol_names.append(protocol_name)
@@ -101,7 +98,6 @@ class SwiftProtocolParser:
 
             if offset_value % 2 == 1:
                 indirect_vm = vm_address + (offset_value & ~0x1)
-                # Look for bound symbol at this address
                 for symbol in self.binary.symbols:
                     if symbol.value == indirect_vm:
                         return str(symbol.name)
@@ -121,7 +117,6 @@ class SwiftProtocolParser:
         protocol_descriptor, bytes_read = self.macho_parser.read_indirect_pointer(offset)
         offset += bytes_read
 
-        # Read conformance_flags from the binary using virtual address
         vm_address_result = self.binary.offset_to_virtual_address(offset)
         if isinstance(vm_address_result, lief.lief_errors):
             logger.debug(f"Failed to convert offset {offset} to virtual address: {vm_address_result}")
@@ -134,7 +129,6 @@ class SwiftProtocolParser:
 
         offset += 4
 
-        # Read nominal_type_descriptor from the binary using virtual address
         vm_address_result = self.binary.offset_to_virtual_address(offset)
         if isinstance(vm_address_result, lief.lief_errors):
             logger.debug(f"Failed to convert offset {offset} to virtual address: {vm_address_result}")
@@ -147,7 +141,6 @@ class SwiftProtocolParser:
 
         offset += 4
 
-        # Read protocol_witness_table from the binary using virtual address
         vm_address_result = self.binary.offset_to_virtual_address(offset)
         if isinstance(vm_address_result, lief.lief_errors):
             logger.debug(f"Failed to convert offset {offset} to virtual address: {vm_address_result}")
