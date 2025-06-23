@@ -70,7 +70,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             element = TreemapElement(
                 name=tag,
                 install_size=total_size,
-                download_size=total_size,  # Binary sections don't compress
+                download_size=total_size,  # TODO: add download size
                 element_type=element_type,
                 path=None,
                 is_directory=False,
