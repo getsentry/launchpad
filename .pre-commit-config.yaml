@@ -15,7 +15,7 @@ repos:
       - id: autofix
         name: Auto-fix code (format with isort + black)
         entry: make
-        args: [autofix]
+        args: [fix]
         language: system
         types: [python]
         pass_filenames: false
