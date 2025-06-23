@@ -401,6 +401,7 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
+        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
 
         # Extract Swift metadata if enabled
         swift_metadata = None
