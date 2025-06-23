@@ -95,7 +95,7 @@ class CSSuperBlob:
 
 
 @dataclass
-class SwiftProtocolConformance:
+class SwiftProtocolDescriptor:
     """Swift protocol conformance information."""
 
     protocol_descriptor: int
@@ -303,14 +303,37 @@ class MachOParser:
             # Calculate the actual file address by adding relative pointer to base offset
             type_file_address = relative_pointer + base_offset
 
-            protocol_data = self._parse_swift_protocol_conformance(type_file_address)
-            if protocol_data:
-                # For now, just add a placeholder since we're not extracting protocol names yet
-                protocol_names.append(f"protocol_{protocol_data.protocol_descriptor:x}")
+            protocol_name = self._parse_swift_protocol_conformance(type_file_address)
+            if protocol_name:
+                protocol_names.append(protocol_name)
 
         return protocol_names
 
-    def _parse_swift_protocol_conformance(self, offset: int) -> SwiftProtocolConformance | None:
+    def _parse_swift_protocol_conformance(self, offset: int) -> str | None:
+        conformance_descriptor = self._parse_swift_protocol_descriptor(offset)
+        if conformance_descriptor is None:
+            logger.debug(f"Failed to parse protocol descriptor at offset {offset}")
+            return None
+
+        protocol_file_offset = self.binary.virtual_address_to_offset(conformance_descriptor.protocol_descriptor)
+        uses_chained_fixups = self.binary.has_dyld_chained_fixups
+        imported_symbols = self.binary.imported_symbols
+
+        if isinstance(protocol_file_offset, lief.lief_errors) and uses_chained_fixups and len(imported_symbols) > 0:
+            ordinal = conformance_descriptor.protocol_descriptor & 0xFFFFFF
+            if conformance_descriptor.protocol_descriptor >> 63 == 1 and ordinal < len(imported_symbols):
+                protocol_name = imported_symbols[ordinal].name
+                return str(protocol_name)
+            else:
+                logger.debug(f"Failed to parse protocol descriptor at offset {offset}")
+                return None
+
+        elif isinstance(protocol_file_offset, lief.lief_errors) and len(imported_symbols) > 0:
+            pass
+        else:
+            pass
+
+    def _parse_swift_protocol_descriptor(self, offset: int) -> SwiftProtocolDescriptor | None:
         protocol_descriptor, bytes_read = self._read_indirect_pointer(offset)
         offset += bytes_read
 
@@ -351,7 +374,7 @@ class MachOParser:
             logger.debug(f"Failed to read protocol_witness_table at offset {offset}")
             return None
 
-        return SwiftProtocolConformance(
+        return SwiftProtocolDescriptor(
             protocol_descriptor=protocol_descriptor,
             conformance_flags=conformance_flags,
             nominal_type_descriptor=nominal_type_descriptor,
@@ -379,19 +402,6 @@ class MachOParser:
             return (int.from_bytes(contents, byteorder="little"), 4)  # Consumed 4 bytes
         else:
             return (vm_address + indirect_offset, 4)  # Consumed 4 bytes
-
-    def _get_absolute_file_address(self, offset: int) -> int | None:
-        # TODO: make more efficient
-        for load_command in self.binary.commands:
-            if offset >= load_command.command_offset and offset < load_command.command_offset + load_command.size:
-                return None
-
-            if isinstance(load_command, lief.MachO.SegmentCommand):
-                for section in load_command.sections:
-                    if offset >= section.offset and offset < section.offset + section.size:
-                        return section.offset + (offset - section.virtual_address)
-
-        return None
 
     def _parse_code_signature_command(self, cs: CodeSignature) -> Optional[CSSuperBlob]:
         """Parse the code signature command and extract super blob information.
