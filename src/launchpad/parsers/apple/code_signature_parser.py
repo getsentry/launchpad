@@ -8,7 +8,7 @@ from enum import IntEnum
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import lief
-from asn1crypto import cms  # type: ignore
+from asn1crypto import cms  # type: ignore[import-untyped]
 from lief.MachO import CodeSignature
 
 from ...utils.logging import get_logger
@@ -547,7 +547,7 @@ class CodeSignatureParser:
             logger.error(f"Failed to parse DER entitlements: {e}")
             return None
 
-    def _parse_signature(self, super_blob: CSSuperBlob, cs: CodeSignature) -> Optional[CMSSigning]:
+    def _parse_signature(self, super_blob: CSSuperBlob, cs: CodeSignature) -> CMSSigning | None:
         """Parse the CMS signature from the super blob."""
         try:
             signature_index = next(
@@ -573,7 +573,7 @@ class CodeSignatureParser:
 
             # Parse the CMS signature
             try:
-                signature = cms.ContentInfo.load(signature_content)  # type: ignore
+                signature = cms.ContentInfo.load(signature_content)
             except Exception as e:
                 logger.error(f"Failed to parse CMS signature: {e}")
                 return None
@@ -582,32 +582,32 @@ class CodeSignatureParser:
             certificates: List[bytes] = []
 
             # Check if this is a SignedData content type
-            if signature["content_type"].native == "signed_data":  # type: ignore
-                signed_data = signature["content"]  # type: ignore
+            if signature["content_type"].native == "signed_data":
+                signed_data = signature["content"]
 
                 # Extract certificates
-                if "certificates" in signed_data:  # type: ignore
-                    for cert in signed_data["certificates"]:  # type: ignore
-                        certificates.append(cert.dump())  # type: ignore
+                if "certificates" in signed_data:
+                    for cert in signed_data["certificates"]:
+                        certificates.append(cert.dump())
 
                 # Extract CD hashes from signed attributes
-                for signer_info in signed_data["signer_infos"]:  # type: ignore
-                    if "signed_attrs" in signer_info:  # type: ignore
-                        for attr in signer_info["signed_attrs"]:  # type: ignore
-                            attr_type = attr["type"].native  # type: ignore
+                for signer_info in signed_data["signer_infos"]:
+                    if "signed_attrs" in signer_info:
+                        for attr in signer_info["signed_attrs"]:
+                            attr_type = attr["type"].native
 
                             # CDHash attribute type: 1.2.840.113635.100.9.2
                             if attr_type == "1.2.840.113635.100.9.2":
-                                for value in attr["values"]:  # type: ignore
+                                for value in attr["values"]:
                                     try:
                                         # Access the parsed value directly
-                                        hash_block = value.native  # type: ignore
+                                        hash_block = value.native
 
                                         # The hash_block is an OrderedDict with hash_oid and hash_value
                                         if isinstance(hash_block, dict):
                                             # Get the hash algorithm OID and hash value from the dict
-                                            hash_oid = hash_block.get("0", "")  # type: ignore
-                                            hash_value = hash_block.get("1", "").hex()  # type: ignore
+                                            hash_oid = hash_block.get("0", "")
+                                            hash_value = hash_block.get("1", "").hex()
 
                                             # Determine hash type based on OID
                                             if hash_oid == "2.16.840.1.101.3.4.2.1":  # SHA-256
