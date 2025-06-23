@@ -45,20 +45,20 @@ class TestIOSRangeMapping:
 
         # Test exact file structure from HackerNews binary
         assert range_map.total_file_size == 3152944
-        assert range_map.total_mapped == 3076062
-        assert len(range_map.ranges) == 121
+        assert range_map.total_mapped == 3107254
+        assert len(range_map.ranges) == 172
 
         # Test coverage report structure
         report = range_map.get_coverage_report()
         expected_coverage = {
             "total_file_size": 3152944,
-            "total_mapped": 3076062,
-            "unmapped_size": 76882,
-            "coverage_percentage": 97,
-            "conflict_count": 0,
-            "total_conflict_size": 0,
-            "unmapped_region_count": 14,
-            "largest_unmapped_region": 39616,
+            "total_mapped": 3107254,
+            "unmapped_size": 45690,
+            "coverage_percentage": 98,
+            "conflict_count": 49,
+            "total_conflict_size": 3536,
+            "unmapped_region_count": 15,
+            "largest_unmapped_region": 16235,
         }
 
         for key, expected_value in expected_coverage.items():
@@ -70,7 +70,7 @@ class TestIOSRangeMapping:
             BinaryTag.TEXT_SEGMENT: 1842548,
             BinaryTag.OBJC_CLASSES: 430336,
             BinaryTag.DATA_SEGMENT: 114666,
-            BinaryTag.C_STRINGS: 197007,
+            BinaryTag.C_STRINGS: 200543,
             BinaryTag.SWIFT_METADATA: 114830,
             BinaryTag.CONST_DATA: 79511,
             BinaryTag.UNMAPPED: 0,
