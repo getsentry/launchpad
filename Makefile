@@ -14,6 +14,7 @@ PYTHON_VENV := $(VENV_DIR)/bin/python
 export KAFKA_BOOTSTRAP_SERVERS ?= localhost:9092
 export KAFKA_GROUP_ID ?= launchpad-consumer
 export KAFKA_TOPICS ?= launchpad-events
+export LAUNCHPAD_DEV_ENVIRONMENT = true
 
 # # Create virtual environment
 $(VENV_DIR):

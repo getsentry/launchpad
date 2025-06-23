@@ -16,13 +16,14 @@ from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyF
 from arroyo.types import BrokerValue, Commit, Partition
 from confluent_kafka import KafkaError, KafkaException
 from confluent_kafka.admin import AdminClient, NewTopic
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvent
 
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-def ensure_topics_exist(
+def ensure_topics_exist_dev_only(
     bootstrap_servers: str,
     topic_names: Sequence[str],
     num_partitions: int = 1,
@@ -39,10 +40,14 @@ def ensure_topics_exist(
         replication_factor: Replication factor for new topics
         timeout_s: Timeout for topic creation operations
     """
+    if not _is_local_development_environment():
+        logger.info("Skipping topic creation - not in development environment")
+        return
+
     if not topic_names:
         return
 
-    logger.info(f"Ensuring Kafka topics exist: {list(topic_names)}")
+    logger.info(f"[DEV ONLY] Ensuring Kafka topics exist: {list(topic_names)}")
 
     admin_client = AdminClient({"bootstrap.servers": bootstrap_servers})
 
@@ -53,7 +58,7 @@ def ensure_topics_exist(
     topics_to_create = []
     for topic_name in topic_names:
         if topic_name not in existing_topics:
-            logger.info(f"Topic '{topic_name}' does not exist, will create it")
+            logger.info(f"[DEV ONLY] Topic '{topic_name}' does not exist, will create it")
             topics_to_create.append(
                 NewTopic(
                     topic_name,
@@ -67,26 +72,51 @@ def ensure_topics_exist(
                 )
             )
         else:
-            logger.debug(f"Topic '{topic_name}' already exists")
+            logger.debug(f"[DEV ONLY] Topic '{topic_name}' already exists")
 
     if not topics_to_create:
-        logger.info("All required topics already exist")
+        logger.info("[DEV ONLY] All required topics already exist")
         return
 
     # Create the topics
-    logger.info(f"Creating {len(topics_to_create)} topic(s)...")
+    logger.info(f"[DEV ONLY] Creating {len(topics_to_create)} topic(s)...")
     future_map = admin_client.create_topics(topics_to_create, operation_timeout=timeout_s)
 
     for topic_name, future in future_map.items():
         try:
             future.result()  # Block until topic is created
-            logger.info(f"Successfully created topic '{topic_name}'")
+            logger.info(f"[DEV ONLY] Successfully created topic '{topic_name}'")
         except KafkaException as e:
             if e.args[0].code() == KafkaError.TOPIC_ALREADY_EXISTS:
-                logger.info(f"Topic '{topic_name}' already exists (created by another process)")
+                logger.info(f"[DEV ONLY] Topic '{topic_name}' already exists (created by another process)")
             else:
-                logger.error(f"Failed to create topic '{topic_name}': {e}")
+                logger.error(f"[DEV ONLY] Failed to create topic '{topic_name}': {e}")
                 raise
+
+
+def _is_local_development_environment() -> bool:
+    """
+    Check if we're running in the local development environment where topic creation is allowed.
+
+    Returns:
+        True if in development environment, False otherwise
+    """
+    # Check for explicit development flag
+    if os.getenv("LAUNCHPAD_DEV_ENVIRONMENT", "false").lower() == "true":
+        return True
+
+    return False
+
+
+def get_topic_name() -> str:
+    """
+    Get the canonical topic name for preprod artifact events.
+
+    Returns:
+        The topic name as defined in sentry_kafka_schemas
+    """
+    # Use the topic name from the schema
+    return PreprodArtifactEvent.topic_name
 
 
 class LaunchpadMessage:
@@ -224,9 +254,9 @@ class KafkaConsumer:
 
     def run(self) -> None:
         """Run the Kafka consumer (blocking, like Snuba)."""
-        # Ensure required topics exist before starting consumer
+        # Ensure required topics exist before starting consumer (development only)
         try:
-            ensure_topics_exist(
+            ensure_topics_exist_dev_only(
                 bootstrap_servers=self.bootstrap_servers,
                 topic_names=self.topics,
                 num_partitions=1,
@@ -321,8 +351,11 @@ class KafkaConsumer:
 def get_kafka_config() -> Dict[str, Any]:
     """Get Kafka configuration from environment."""
 
+    # Use the canonical topic name from schema by default
+    default_topic = get_topic_name()
+
     return {
         "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
         "group_id": os.getenv("KAFKA_GROUP_ID", "launchpad-consumer"),
-        "topics": os.getenv("KAFKA_TOPICS", "launchpad-events").split(","),
+        "topics": os.getenv("KAFKA_TOPICS", default_topic).split(","),
     }
