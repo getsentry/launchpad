@@ -39,6 +39,7 @@ class BinaryTag(Enum):
     DYLD_LAZY_BIND = "dyld_lazy_bind"
     DYLD_EXPORTS = "dyld_exports"
     DYLD_FIXUPS = "dyld_fixups"
+    DYLD_STRING_TABLE = "dyld_string_table"
 
     # Binary modules/classes
     OBJC_CLASSES = "objc_classes"

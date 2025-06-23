@@ -83,7 +83,10 @@ class RangeMappingBuilder:
 
             try:
                 if cmd_type == lief.MachO.LoadCommand.TYPE.SYMTAB:
-                    self._map_symtab_command(range_map, command)
+                    if isinstance(command, lief.MachO.SymbolCommand):
+                        self._map_symtab_command(range_map, command)
+                    else:
+                        logger.warning(f"Expected SymbolCommand, got {type(command).__name__}")
                 elif cmd_type in [
                     lief.MachO.LoadCommand.TYPE.DYLD_INFO,
                     lief.MachO.LoadCommand.TYPE.DYLD_INFO_ONLY,
@@ -122,25 +125,25 @@ class RangeMappingBuilder:
 
             current_offset += cmd_size
 
-    def _map_symtab_command(self, range_map: RangeMap, command: Any) -> None:
+    def _map_symtab_command(self, range_map: RangeMap, command: lief.MachO.SymbolCommand) -> None:
         """Map symbol table and string table from LC_SYMTAB command."""
-        try:
-            if command.symbol_offset > 0 and command.nb_symbols > 0:
-                # Each symbol entry is typically 16 bytes (64-bit)
-                symbol_size = command.nb_symbols * 16
-                range_map.add_range(
-                    command.symbol_offset, command.symbol_offset + symbol_size, BinaryTag.DEBUG_INFO, "symbol_table"
-                )
 
-            if command.string_offset > 0 and command.string_size > 0:
-                range_map.add_range(
-                    command.string_offset,
-                    command.string_offset + command.string_size,
-                    BinaryTag.C_STRINGS,
-                    "string_table",
-                )
-        except Exception as e:
-            logger.error(f"Failed to map symtab command: {e}")
+        # Map symbol table
+        if command.symbol_offset > 0 and command.numberof_symbols > 0:
+            # Each symbol entry is typically 16 bytes (64-bit)
+            symbol_size = command.numberof_symbols * 16
+            range_map.add_range(
+                command.symbol_offset, command.symbol_offset + symbol_size, BinaryTag.DEBUG_INFO, "symbol_table"
+            )
+
+        # Map string table
+        if command.strings_offset > 0 and command.strings_size > 0:
+            range_map.add_range(
+                command.strings_offset,
+                command.strings_offset + command.strings_size,
+                BinaryTag.DYLD_STRING_TABLE,
+                "string_table",
+            )
 
     def _map_dyld_info_command(self, range_map: RangeMap, command: lief.MachO.DyldInfo) -> None:
         """Map DYLD info sections from LC_DYLD_INFO command."""

@@ -49,13 +49,29 @@ class MachOElementBuilder(TreemapElementBuilder):
         children: list[TreemapElement] = []
         dyld_children: list[TreemapElement] = []
 
+        logger.debug(f"Processing tags: {list(ranges_by_tag.keys())}")
+
         for tag, ranges in ranges_by_tag.items():
             total_size = sum(r.size for r in ranges)
+
+            # Determine element type based on tag
+            element_type = TreemapType.EXECUTABLES  # Default
+            if tag.startswith("dyld_"):
+                element_type = TreemapType.DYLD
+            elif tag == "unmapped":
+                element_type = TreemapType.UNMAPPED
+            elif tag == "code_signature":
+                element_type = TreemapType.CODE_SIGNATURE
+            elif tag == "function_starts":
+                element_type = TreemapType.FUNCTION_STARTS
+            elif tag == "external_methods":
+                element_type = TreemapType.EXTERNAL_METHODS
+
             element = TreemapElement(
                 name=tag,
                 install_size=total_size,
                 download_size=total_size,  # Binary sections don't compress
-                element_type=TreemapType.EXECUTABLES,
+                element_type=element_type,
                 path=None,
                 is_directory=False,
                 children=[],
@@ -64,8 +80,10 @@ class MachOElementBuilder(TreemapElementBuilder):
 
             # Group DYLD-related tags under a parent DYLD element
             if tag.startswith("dyld_"):
+                logger.debug(f"Adding {tag} to DYLD group")
                 dyld_children.append(element)
             else:
+                logger.debug(f"Adding {tag} to regular children")
                 children.append(element)
 
         # Create parent DYLD element if we have DYLD children
