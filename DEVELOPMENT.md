@@ -34,9 +34,11 @@ Run `make help` to see all available commands.
 - `make test-integration` - Run only integration tests
 - `make build` - Build the package
 - `make clean` - Clean build artifacts
-- `make lint` - Run code linting
-- `make format` - Format code
-- `make type-check` - Run type checking
+- `make check-lint` - Run linter
+- `make check-format` - Run formatter in 'check' mode
+- `make check-types` - Run type checking
+- `make check` - Run all the checks
+- `make fix` - Autofix everything possible (e.g. run formatter in format mode)
 
 ## Requirements
 
