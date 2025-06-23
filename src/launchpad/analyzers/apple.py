@@ -407,11 +407,7 @@ class AppleAppAnalyzer:
         swift_metadata = None
         if not skip_swift_metadata:
             swift_metadata = SwiftMetadata(
-                classes=[],  # TODO: Extract Swift classes
-                protocols=[],  # TODO: Extract Swift protocols
-                extensions=[],  # TODO: Extract Swift extensions
                 protocol_conformances=swift_protocol_conformances,
-                total_metadata_size=0,  # TODO: Calculate total metadata size
             )
 
         # Build range mapping for binary content
