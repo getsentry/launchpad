@@ -104,13 +104,15 @@ class RangeMappingBuilder:
                     if cast_command := self._cast_command(command, lief.MachO.DyldChainedFixups):
                         self._map_dyld_chained_fixups_command(range_map, cast_command)
                 elif cmd_type == lief.MachO.LoadCommand.TYPE.RPATH:
-                    self._map_rpath_command(range_map, command)
+                    if cast_command := self._cast_command(command, lief.MachO.RPathCommand):
+                        self._map_rpath_command(range_map, cast_command)
                 elif cmd_type in [
                     lief.MachO.LoadCommand.TYPE.LOAD_DYLIB,
                     lief.MachO.LoadCommand.TYPE.LOAD_WEAK_DYLIB,
                     lief.MachO.LoadCommand.TYPE.REEXPORT_DYLIB,
                 ]:
-                    self._map_dylib_command(range_map, command)
+                    if cast_command := self._cast_command(command, lief.MachO.DylibCommand):
+                        self._map_dylib_command(range_map, cast_command)
             except Exception as e:
                 logger.debug(f"Failed to process command {i} {command.command.name}: {e}")
 
@@ -306,6 +308,26 @@ class RangeMappingBuilder:
             except Exception as e:
                 logger.debug(f"Failed to map section {section_name}: {e}")
 
+    def _map_rpath_command(self, range_map: RangeMap, command: lief.MachO.RPathCommand) -> None:
+        """Map RPATH command data."""
+        if command.path:
+            range_map.add_range(
+                command.command_offset,
+                command.command_offset + command.size,
+                BinaryTag.C_STRINGS,
+                "rpath_string",
+            )
+
+    def _map_dylib_command(self, range_map: RangeMap, command: lief.MachO.DylibCommand) -> None:
+        """Map dylib loading command data (LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB)."""
+        if command.name:
+            range_map.add_range(
+                command.command_offset,
+                command.command_offset + command.size,
+                BinaryTag.C_STRINGS,
+                "dylib_name",
+            )
+
     def _categorize_section(self, section_name: str) -> BinaryTag:
         """Categorize a section based on its name."""
         name_lower = section_name.lower()
@@ -340,41 +362,3 @@ class RangeMappingBuilder:
 
         # Default to data segment
         return BinaryTag.DATA_SEGMENT
-
-    def _map_rpath_command(self, range_map: RangeMap, command: Any) -> None:
-        """Map RPATH command data."""
-        try:
-            if hasattr(command, "path") and hasattr(command.path, "offset"):
-                # The path string is embedded in the command
-                path_offset = command.command_offset + command.path.offset
-                path_size = command.size - command.path.offset
-                if path_size > 0:
-                    range_map.add_range(
-                        path_offset,
-                        path_offset + path_size,
-                        BinaryTag.C_STRINGS,
-                        "rpath_string",
-                    )
-        except Exception as e:
-            logger.debug(f"Failed to map RPATH command: {e}")
-
-    def _map_dylib_command(self, range_map: RangeMap, command: Any) -> None:
-        """Map dylib loading command data (LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB)."""
-        try:
-            if (
-                hasattr(command, "library")
-                and hasattr(command.library, "name")
-                and hasattr(command.library.name, "offset")
-            ):
-                # The dylib name string is embedded in the command
-                name_offset = command.command_offset + command.library.name.offset
-                name_size = command.size - command.library.name.offset
-                if name_size > 0:
-                    range_map.add_range(
-                        name_offset,
-                        name_offset + name_size,
-                        BinaryTag.C_STRINGS,
-                        "dylib_name",
-                    )
-        except Exception as e:
-            logger.debug(f"Failed to map dylib command: {e}")
