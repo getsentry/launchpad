@@ -149,14 +149,33 @@ class LaunchpadServer:
 
 def get_server_config() -> Dict[str, Any]:
     """Get server configuration from environment."""
-    environment = os.getenv("LAUNCHPAD_ENV", "development").lower()
+    environment = os.getenv("LAUNCHPAD_ENV").lower()
+    if not environment:
+        raise ValueError("LAUNCHPAD_ENV environment variable is required")
+
+    environment = environment
     is_production = environment == "production"
+
+    host = os.getenv("LAUNCHPAD_HOST")
+    if not host:
+        raise ValueError("LAUNCHPAD_HOST environment variable is required")
+
+    port_str = os.getenv("LAUNCHPAD_PORT")
+    if not port_str:
+        raise ValueError("LAUNCHPAD_PORT environment variable is required")
+
+    try:
+        port = int(port_str)
+    except ValueError:
+        raise ValueError(  # noqa: E501
+            f"LAUNCHPAD_PORT must be a valid integer, got: {port_str}"
+        )
 
     return {
         "environment": environment,
-        "host": os.getenv("LAUNCHPAD_HOST", "0.0.0.0"),
-        "port": int(os.getenv("LAUNCHPAD_PORT", "2218")),
+        "host": host,
+        "port": port,
         "debug": not is_production,
         "log_level": "WARNING" if is_production else "DEBUG",
-        "access_log": not is_production,  # Disable access logs in prod for performance
+        "access_log": not is_production,  # Disable access logs in prod
     }

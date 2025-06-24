@@ -8,7 +8,9 @@ import signal
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Union
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
+    PreprodArtifactEvents,
+)
 
 from launchpad.utils.logging import get_logger
 
@@ -222,7 +224,10 @@ class LaunchpadService:
         if self._background_tasks:
             logger.info(f"Waiting for {len(self._background_tasks)} background tasks to complete...")
             try:
-                await asyncio.wait_for(asyncio.gather(*self._background_tasks, return_exceptions=True), timeout=30.0)
+                await asyncio.wait_for(
+                    asyncio.gather(*self._background_tasks, return_exceptions=True),
+                    timeout=30.0,
+                )
                 logger.info("All background tasks completed")
             except asyncio.TimeoutError:
                 logger.warning("Background tasks did not complete within timeout, cancelling...")
@@ -247,7 +252,10 @@ class LaunchpadService:
 
                 # Give cancelled tasks a moment to clean up
                 try:
-                    await asyncio.wait_for(asyncio.gather(*self._tasks, return_exceptions=True), timeout=2.0)
+                    await asyncio.wait_for(
+                        asyncio.gather(*self._tasks, return_exceptions=True),
+                        timeout=2.0,
+                    )
                 except asyncio.TimeoutError:
                     logger.warning("Some tasks did not respond to cancellation")
 
@@ -260,7 +268,11 @@ class LaunchpadService:
 
     async def health_check(self) -> Dict[str, Any]:
         """Get overall service health status."""
-        health_status: Dict[str, Any] = {"service": "launchpad", "status": "ok", "components": {}}
+        health_status: Dict[str, Any] = {
+            "service": "launchpad",
+            "status": "ok",
+            "components": {},
+        }
 
         # Check Kafka health
         if self.kafka_consumer:

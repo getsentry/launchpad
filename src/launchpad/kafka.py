@@ -16,7 +16,9 @@ from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyF
 from arroyo.types import BrokerValue, Commit, Partition
 from sentry_kafka_schemas import get_codec
 from sentry_kafka_schemas.codecs import ValidationError
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
+    PreprodArtifactEvents,
+)
 
 from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.utils.logging import get_logger
@@ -90,7 +92,7 @@ class MessageProcessingStrategy(ProcessingStrategy[KafkaPayload]):
                     offset=broker_value.offset,
                     key=kafka_payload.key,
                     value=kafka_payload.value,
-                    timestamp=broker_value.timestamp.timestamp() if broker_value.timestamp else None,
+                    timestamp=(broker_value.timestamp.timestamp() if broker_value.timestamp else None),
                 )
             else:
                 logger.error(f"Expected BrokerValue but got {type(broker_value)}")
@@ -255,8 +257,21 @@ class KafkaConsumer:
 def get_kafka_config() -> Dict[str, Any]:
     """Get Kafka configuration from environment."""
 
+    bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
+    if not bootstrap_servers:
+        raise ValueError("KAFKA_BOOTSTRAP_SERVERS env var is required")
+
+    group_id = os.getenv("KAFKA_GROUP_ID")
+    if not group_id:
+        raise ValueError("KAFKA_GROUP_ID env var is required")
+
+    topics_env = os.getenv("KAFKA_TOPICS")
+    if not topics_env:
+        raise ValueError("KAFKA_TOPICS env var is required")
+
+    topics = topics_env.split(",")
     return {
-        "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
-        "group_id": os.getenv("KAFKA_GROUP_ID", "launchpad-consumer"),
-        "topics": os.getenv("KAFKA_TOPICS", PREPROD_ARTIFACT_EVENTS_TOPIC).split(","),
+        "bootstrap_servers": bootstrap_servers,
+        "group_id": group_id,
+        "topics": topics,
     }
