@@ -46,16 +46,15 @@ class TestServiceIntegration:
 
         # Test artifact analysis message with Apple artifact
         ios_message = LaunchpadMessage(
-            topic="launchpad-events",
+            topic="preprod-artifact-events",
             partition=0,
             offset=1,
             key=b"ios-analysis",
             value=json.dumps(
                 {
-                    "type": "analyze_artifact",
                     "artifact_id": "ios-test-123",
-                    "artifact_path": "/path/to/app.xcarchive.zip",
-                    "metadata": {"version": "1.0.0"},
+                    "project_id": "test-project-ios",
+                    "organization_id": "test-org-123",
                 }
             ).encode(),
         )
@@ -65,16 +64,15 @@ class TestServiceIntegration:
 
         # Test artifact analysis message with Android artifact
         android_message = LaunchpadMessage(
-            topic="launchpad-events",
+            topic="preprod-artifact-events",
             partition=0,
             offset=2,
             key=b"android-analysis",
             value=json.dumps(
                 {
-                    "type": "analyze_artifact",
                     "artifact_id": "android-test-456",
-                    "artifact_path": "/path/to/app.apk",
-                    "metadata": {"version": "2.0.0"},
+                    "project_id": "test-project-android",
+                    "organization_id": "test-org-456",
                 }
             ).encode(),
         )
@@ -82,8 +80,8 @@ class TestServiceIntegration:
         # handle_kafka_message is synchronous - it queues async work
         service.handle_kafka_message(android_message)
 
-        # Note: The actual implementation queues tasks async, so we can't easily verify
-        # the handlers were called in a unit test without more complex mocking
+        # Note: The actual implementation queues tasks async, so we can't
+        # easily verify the handlers were called without more complex mocking
 
     @pytest.mark.asyncio
     async def test_error_handling_in_message_processing(self):
@@ -92,7 +90,11 @@ class TestServiceIntegration:
 
         # Test with malformed JSON
         bad_message = LaunchpadMessage(
-            topic="launchpad-events", partition=0, offset=1, key=b"bad-message", value=b"not json"
+            topic="preprod-artifact-events",
+            partition=0,
+            offset=1,
+            key=b"bad-message",
+            value=b"not json",
         )
 
         # This should not raise an exception
@@ -100,11 +102,11 @@ class TestServiceIntegration:
 
         # Test with missing required fields
         incomplete_message = LaunchpadMessage(
-            topic="launchpad-events",
+            topic="preprod-artifact-events",
             partition=0,
             offset=2,
             key=b"incomplete",
-            value=json.dumps({"data": "missing type field"}).encode(),
+            value=json.dumps({"data": "missing required fields"}).encode(),
         )
 
         # This should not raise an exception
@@ -121,15 +123,15 @@ class TestServiceIntegration:
         # Create multiple messages with different artifact types
         messages = [
             LaunchpadMessage(
-                topic="launchpad-events",
+                topic="preprod-artifact-events",
                 partition=0,
                 offset=i,
                 key=f"message-{i}".encode(),
                 value=json.dumps(
                     {
-                        "type": "analyze_artifact",
                         "artifact_id": f"test-artifact-{i}",
-                        "artifact_path": f"/path/to/app{i}.{'xcarchive.zip' if i % 2 == 0 else 'apk'}",
+                        "project_id": f"test-project-{i}",
+                        "organization_id": f"test-org-{i}",
                     }
                 ).encode(),
             )
@@ -140,8 +142,8 @@ class TestServiceIntegration:
         for msg in messages:
             service.handle_kafka_message(msg)
 
-        # Note: The actual implementation queues tasks async, so we can't easily verify
-        # handler call counts in a unit test without more complex mocking
+        # Note: The actual implementation queues tasks async, so we can't
+        # easily verify handler call counts without more complex mocking
 
 
 @pytest.mark.integration
@@ -150,12 +152,12 @@ class TestServiceWithMockServer:
 
     @pytest.mark.asyncio
     async def test_http_endpoints_while_service_running(self):
-        """Test HTTP endpoints while the service is running (mocked version)."""
+        """Test HTTP endpoints while the service is running (mocked)."""
         # This is a placeholder for a more complex integration test
         # that would start the actual service and test HTTP endpoints
         # For now, we test the components separately
 
-        server = LaunchpadServer(host="127.0.0.1", port=0)  # Use port 0 for random port
+        server = LaunchpadServer(host="127.0.0.1", port=0)  # Random port
         app = await server.create_app()
 
         # Test that we can create the app without errors

@@ -10,11 +10,14 @@ VENV_DIR := .venv
 UV := uv
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
-# Kafka configuration for local development
+# local development environment variables
 export KAFKA_BOOTSTRAP_SERVERS ?= localhost:9092
-export KAFKA_GROUP_ID ?= launchpad-consumer
-# NOTE: Keep this in sync with PREPROD_ARTIFACT_EVENTS_TOPIC in src/launchpad/constants.py
+export KAFKA_GROUP_ID ?= launchpad-devservices
 export KAFKA_TOPICS ?= preprod-artifact-events
+export LAUNCHPAD_CREATE_KAFKA_TOPIC := 1
+export LAUNCHPAD_ENV ?= development
+export LAUNCHPAD_HOST ?= 0.0.0.0
+export LAUNCHPAD_PORT ?= 2218
 
 # Create virtual environment and install dependencies with uv
 $(VENV_DIR):
@@ -85,6 +88,9 @@ run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments, DEBUG=1 to run 
 	fi
 
 serve:  ## Start the Launchpad server with proper Kafka configuration
+	@echo "Ensuring Kafka topics exist..."
+	$(PYTHON_VENV) scripts/ensure_kafka_topics.py
+	@echo "Starting Launchpad server..."
 	$(PYTHON_VENV) -m launchpad.cli serve --verbose
 
 test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)

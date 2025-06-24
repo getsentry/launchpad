@@ -76,6 +76,7 @@ launchpad android app.apk -o detailed-report.json
 ```
 
 ### Usage
+
 ```
 $ launchpad apple-app --help
 Usage: launchpad apple-app [OPTIONS] INPUT_PATH
@@ -155,22 +156,3 @@ make fix
 # Full CI pipeline
 make ci
 ```
-
-## Configuration
-
-### Environment Variables
-
-- `LAUNCHPAD_HOST` - Server host (default: 0.0.0.0)
-- `LAUNCHPAD_PORT` - Server port (default: 2218)
-- `KAFKA_BOOTSTRAP_SERVERS` - Kafka bootstrap servers (default: localhost:9092)
-- `KAFKA_GROUP_ID` - Kafka consumer group ID (default: launchpad-consumer)
-- `KAFKA_TOPICS` - Comma-separated list of topics (default: launchpad-events)
-
-### Topic Management
-
-The service automatically creates required Kafka topics on startup with sensible defaults:
-
-- **Topic**: `launchpad-events`
-- **Partitions**: 1
-- **Replication Factor**: 1
-- **Retention**: 7 days
