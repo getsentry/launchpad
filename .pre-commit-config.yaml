@@ -13,7 +13,7 @@ repos:
   - repo: local
     hooks:
       - id: autofix
-        name: Auto-fix code (format with isort + black)
+        name: Auto-fix code (format with ruff)
         entry: make
         args: [fix]
         language: system
@@ -21,7 +21,7 @@ repos:
         pass_filenames: false
 
       - id: lint
-        name: Lint code (flake8)
+        name: Lint code (ruff)
         entry: make
         args: [lint]
         language: system
@@ -30,8 +30,8 @@ repos:
 
   - repo: local
     hooks:
-      - id: mypy
-        name: Type check with mypy
+      - id: ty
+        name: Type check with ty
         entry: make
         args: [type-check]
         language: system

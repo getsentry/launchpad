@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61.0.0", "wheel>=0.45.1"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "launchpad"
@@ -37,49 +37,34 @@ launchpad = "launchpad.cli:main"
 Repository = "https://github.com/getsentry/launchpad"
 Issues = "https://github.com/getsentry/launchpad/issues"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/launchpad"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
-[tool.hatch.build.targets.sdist]
-include = [
-    "/src",
-    "/tests",
-    "/README.md",
-    "/LICENSE",
-]
-
-[tool.black]
+[tool.ruff]
 line-length = 120
-target-version = ["py311"]
+target-version = "py311"
 
-[tool.isort]
-profile = "black"
-line_length = 120
-known_first_party = ["launchpad"]
+[tool.ruff.lint]
+# Enable pycodestyle (E), Pyflakes (F), and isort (I) by default
+select = ["E", "F", "I"]
+ignore = ["E501", "E731"]
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-plugins = ["pydantic.mypy"]
+[tool.ruff.format]
+# Use black-compatible formatting
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
-[[tool.mypy.overrides]]
-module = ["lief.*"]
-ignore_missing_imports = true
+[tool.ruff.lint.isort]
+lines-between-types = 1
 
-[[tool.mypy.overrides]]
-module = ["confluent_kafka.*"]
-ignore_missing_imports = true
+[tool.ty]
+src = { include = ["src/"], exclude = [], root = ".", respect-ignore-files = true }
+
+[tool.ty.environment]
+python = "/usr/local/bin/python"
+extra-paths = ["."]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
