@@ -36,17 +36,17 @@ test-integration:
 
 # Code quality targets (using ruff and ty)
 lint:
-	$(UV) ruff check src/ tests/
+	$(PYTHON_VENV) -m ruff check src/ tests/
 
 format:  ## Check code format without modifying files
-	$(UV) ruff format --check src/ tests/
+	$(PYTHON_VENV) -m ruff format --check src/ tests/
 
 type-check:  ## Run type checking with ty
-	$(UV) ty check src
+	$(PYTHON_VENV) -m ty check src
 
 fix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
-	$(UV) ruff format src/ tests/
-	$(UV) ruff check --fix src/ tests/
+	$(PYTHON_VENV) -m ruff format src/ tests/
+	$(PYTHON_VENV) -m ruff check --fix src/ tests/
 
 # Build targets
 build: clean $(VENV_DIR)  ## Build the package
