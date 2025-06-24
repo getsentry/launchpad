@@ -53,6 +53,4 @@ class TestMachOParser:
 
         imported_symbols = macho_parser.get_imported_symbols()
         assert len(imported_symbols) == 2019
-        assert (
-            imported_symbols[0] == "_$s10Foundation4DateV6CommonE14timeAgoDisplaySSyF"  # noqa: E501
-        )
+        assert imported_symbols[0] == "_$s10Foundation4DateV6CommonE14timeAgoDisplaySSyF"
