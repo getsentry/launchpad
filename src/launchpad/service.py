@@ -56,13 +56,10 @@ class LaunchpadService:
             logger.info(f"Received message from topic {message.topic}")
 
             # Validate and parse message payload using schema
-            if not message.is_valid_preprod_artifact_event():
-                logger.error("Invalid message: does not match preprod artifact event schema")
-                return
-
             payload = message.get_validated_payload()
             if not payload:
-                logger.error("Failed to get validated payload")
+                raw_content = message.value.decode("utf-8", errors="replace")[:1000]
+                logger.error(f"Invalid preprod artifact event. Raw: {raw_content}")
                 return
 
             # Queue analysis task immediately - don't block the consumer

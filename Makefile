@@ -15,7 +15,6 @@ export KAFKA_BOOTSTRAP_SERVERS ?= localhost:9092
 export KAFKA_GROUP_ID ?= launchpad-consumer
 # NOTE: Keep this in sync with PREPROD_ARTIFACT_EVENTS_TOPIC in src/launchpad/constants.py
 export KAFKA_TOPICS ?= preprod-artifact-events
-export LAUNCHPAD_DEV_ENVIRONMENT = true
 
 # # Create virtual environment
 $(VENV_DIR):
