@@ -23,17 +23,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Cache uv dependencies
-        uses: actions/cache@v3
+        uses: astral-sh/setup-uv@v6
         with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-3.11-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-3.11-
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
 
       - name: Install dependencies
         run: make install-dev
@@ -63,17 +56,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Cache uv dependencies
-        uses: actions/cache@v3
+        uses: astral-sh/setup-uv@v6
         with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-uv-${{ matrix.python-version }}-
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
 
       - name: Setup JDK 17
         uses: actions/setup-java@v4
@@ -117,9 +103,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
 
       - name: Install dependencies
         run: make install-dev
