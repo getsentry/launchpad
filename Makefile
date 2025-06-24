@@ -10,15 +10,6 @@ VENV_DIR := .venv
 UV := uv
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
-# local development environment variables
-export KAFKA_BOOTSTRAP_SERVERS ?= localhost:9092
-export KAFKA_GROUP_ID ?= launchpad-devservices
-export KAFKA_TOPICS ?= preprod-artifact-events
-export LAUNCHPAD_CREATE_KAFKA_TOPIC := 1
-export LAUNCHPAD_ENV ?= development
-export LAUNCHPAD_HOST ?= 0.0.0.0
-export LAUNCHPAD_PORT ?= 2218
-
 # Create virtual environment and install dependencies with uv
 $(VENV_DIR):
 	$(UV) venv
