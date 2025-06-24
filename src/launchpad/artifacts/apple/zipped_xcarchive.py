@@ -14,9 +14,9 @@ logger = get_logger(__name__)
 class ZippedXCArchive(AppleArtifact):
     """A zipped XCArchive file."""
 
-    def __init__(self, content: bytes) -> None:
+    def __init__(self, path: Path, content: bytes) -> None:
         super().__init__(content)
-        self._zip_provider = ZipProvider(content)
+        self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None

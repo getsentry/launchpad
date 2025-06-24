@@ -1,7 +1,7 @@
-from io import BytesIO
+import subprocess
+
 from pathlib import Path
 from typing import List
-from zipfile import ZipFile
 
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
@@ -12,25 +12,14 @@ logger = get_logger(__name__)
 class ZipProvider:
     """Provider for handling zip file operations."""
 
-    def __init__(self, content: bytes) -> None:
+    def __init__(self, path: Path) -> None:
         """Initialize the zip provider.
 
         Args:
-            content: Raw bytes of the zip file
+            path: Path to the zip file
         """
-        self.content = content
-        self._zip: ZipFile | None = None
+        self.path = path
         self._temp_dirs: List[Path] = []
-
-    def get_zip(self) -> ZipFile:
-        """Get the ZipFile object, creating it if it doesn't exist.
-
-        Returns:
-            ZipFile object for accessing the archive contents
-        """
-        if self._zip is None:
-            self._zip = ZipFile(BytesIO(self.content))
-        return self._zip
 
     def extract_to_temp_directory(self) -> Path:
         """Extract the zip contents to a temporary directory.
@@ -43,18 +32,19 @@ class ZipProvider:
         temp_dir = create_temp_directory("zip-extract-")
         self._temp_dirs.append(temp_dir)
 
-        zip = self.get_zip()
-        with zip as zip_ref:
-            zip_ref.extractall(temp_dir)
-        logger.debug(f"Extracted zip contents to {temp_dir}")
+        try:
+            # Use system unzip command to preserve symlinks and metadata
+            subprocess.run(["unzip", "-q", str(self.path), "-d", str(temp_dir)], check=True, capture_output=True)
+
+            logger.debug(f"Extracted zip contents to {temp_dir} using system unzip")
+        except Exception as e:
+            logger.error(f"Failed to extract zip contents to {temp_dir}: {e}")
+            raise e
 
         return temp_dir
 
     def __del__(self) -> None:
         """Clean up resources when object is destroyed."""
-        if self._zip is not None:
-            self._zip.close()
-
         # Clean up any temporary directories
         for temp_dir in self._temp_dirs:
             if temp_dir.exists():

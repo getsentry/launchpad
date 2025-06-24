@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .apk import APK
@@ -5,9 +7,10 @@ from .manifest.manifest import AndroidManifest
 
 
 class ZippedAPK(AndroidArtifact):
-    def __init__(self, content: bytes) -> None:
+    def __init__(self, path: Path, content: bytes) -> None:
         super().__init__(content)
-        self._zip_provider = ZipProvider(content)
+        self.path = path
+        self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._primary_apk: APK | None = None
 
@@ -20,7 +23,7 @@ class ZippedAPK(AndroidArtifact):
 
         for path in self._extract_dir.rglob("*.apk"):
             if path.is_file():
-                self._primary_apk = APK(path.read_bytes())
+                self._primary_apk = APK(path, path.read_bytes())
                 return self._primary_apk
 
         raise FileNotFoundError(f"No primary APK found in {self._extract_dir}")

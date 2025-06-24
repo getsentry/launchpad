@@ -1,6 +1,5 @@
 from io import BytesIO
 from pathlib import Path
-from typing import BinaryIO
 from zipfile import ZipFile
 
 from .android.aab import AAB
@@ -32,37 +31,7 @@ class ArtifactFactory:
             raise FileNotFoundError(f"Path is not a file: {path}")
 
         content = path.read_bytes()
-        return ArtifactFactory.from_bytes(content)
 
-    @staticmethod
-    def from_file(file: BinaryIO) -> Artifact:
-        """Create appropriate Artifact from file.
-
-        Args:
-            file: The artifact file
-
-        Returns:
-            Appropriate Artifact instance
-
-        Raises:
-            ValueError: If file is not a valid artifact
-        """
-        content = file.read()
-        return ArtifactFactory.from_bytes(content)
-
-    @staticmethod
-    def from_bytes(content: bytes) -> Artifact:
-        """Create appropriate Artifact from file path.
-
-        Args:
-            content: bytes of the artifact
-
-        Returns:
-            Appropriate Artifact instance
-
-        Raises:
-            ValueError: If file is not a valid artifact
-        """
         # Check if it's a zip file by looking at magic bytes
         if content.startswith(b"PK\x03\x04"):
             # Check if zip contains a single APK (ZippedAPK)
@@ -70,34 +39,34 @@ class ArtifactFactory:
                 # Check if zip contains a Info.plist in the root of the .xcarchive folder (ZippedXCArchive)
                 plist_files = [f for f in zip_file.namelist() if f.endswith(".xcarchive/Info.plist")]
                 if plist_files:
-                    return ZippedXCArchive(content)
+                    return ZippedXCArchive(path, content)
 
                 apk_files = [f for f in zip_file.namelist() if f.endswith(".apk")]
                 if len(apk_files) == 1:
-                    return ZippedAPK(content)
+                    return ZippedAPK(path, content)
 
                 aab_files = [f for f in zip_file.namelist() if f.endswith(".aab")]
                 if len(aab_files) == 1:
-                    return ZippedAAB(content)
+                    return ZippedAAB(path, content)
 
                 # Check if zip contains base/manifest/AndroidManifest.xml (AAB)
                 manifest_files = [f for f in zip_file.namelist() if f.endswith("base/manifest/AndroidManifest.xml")]
                 if manifest_files:
-                    return AAB(content)
+                    return AAB(path, content)
 
                 # Check if zip contains AndroidManifest.xml (APK)
                 manifest_files = [f for f in zip_file.namelist() if f.endswith("AndroidManifest.xml")]
                 if manifest_files:
-                    return APK(content)
+                    return APK(path, content)
 
         # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations
         try:
             with ZipFile(BytesIO(content)) as zip_file:
                 if any(f.endswith("base/manifest/AndroidManifest.xml") for f in zip_file.namelist()):
-                    return AAB(content)
+                    return AAB(path, content)
 
                 if any(f.endswith("AndroidManifest.xml") for f in zip_file.namelist()):
-                    return APK(content)
+                    return APK(path, content)
         except Exception:
             pass
 

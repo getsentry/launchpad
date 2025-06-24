@@ -87,10 +87,8 @@ def size_command(
                 )
             )
 
-            input_file = stack.enter_context(open(input_path, "rb"))
-
             task = progress.add_task("Analyzing...", total=None)
-            results = do_size(input_file, **flags)
+            results = do_size(input_path, **flags)
             if output_format == "json":
                 write_results_as_json(results, output)
             else:

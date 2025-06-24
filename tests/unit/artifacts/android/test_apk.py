@@ -13,7 +13,7 @@ def test_apk_path() -> Path:
 @pytest.fixture
 def test_apk(test_apk_path: Path) -> APK:
     with open(test_apk_path, "rb") as f:
-        return APK(f.read())
+        return APK(test_apk_path, f.read())
 
 
 class TestAPK:

@@ -9,9 +9,9 @@ from launchpad.size.runner import do_size, write_results_as_json
 class TestSizeRunner:
     def test_apple(self) -> None:
         output_file = TextIOWrapper(BytesIO())
-        with open(Path("tests/_fixtures/ios/HackerNews.xcarchive.zip"), "rb") as input_file:
-            results = do_size(input_file)
-            write_results_as_json(results, output_file)
+        path = Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
+        results = do_size(path)
+        write_results_as_json(results, output_file)
 
         output_file.seek(0)
         size = json.load(output_file)
@@ -19,9 +19,9 @@ class TestSizeRunner:
 
     def test_android(self) -> None:
         output_file = TextIOWrapper(BytesIO())
-        with open(Path("tests/_fixtures/android/hn.aab"), "rb") as input_file:
-            results = do_size(input_file)
-            write_results_as_json(results, output_file)
+        path = Path("tests/_fixtures/android/hn.aab")
+        results = do_size(path)
+        write_results_as_json(results, output_file)
 
         output_file.seek(0)
         size = json.load(output_file)

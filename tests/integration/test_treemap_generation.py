@@ -415,7 +415,7 @@ class TestTreemapGeneration:
         assert assets.element_type == "assets"
 
         # Verify category breakdown
-        assert treemap.category_breakdown["files"] == {"install": 122880, "download": 98298}
+        assert treemap.category_breakdown["files"] == {"install": 118784, "download": 95022}
         assert treemap.category_breakdown["assets"] == {"install": 4841472, "download": 3873176}
         assert treemap.category_breakdown["plists"] == {"install": 28672, "download": 22932}
         assert treemap.category_breakdown["executables"] == {"download": 2886859, "install": 3608576}
@@ -424,5 +424,5 @@ class TestTreemapGeneration:
         # Verify totals
         # assert treemap.total_install_size == 13278496
         # assert treemap.total_download_size == 12061966
-        assert treemap.file_count == 32
+        assert treemap.file_count == 31
         assert treemap.platform == "ios"
