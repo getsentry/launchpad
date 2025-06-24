@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import time
 
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -80,8 +79,6 @@ class AppleAppAnalyzer:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
 
-        analysis_start_time = time.time()
-
         # Extract basic app information
         if not self.app_info:
             self.app_info = self.preprocess(artifact)
@@ -139,12 +136,11 @@ class AppleAppAnalyzer:
             app_info=app_info,
             file_analysis=file_analysis,
             binary_analysis=binary_analysis,
-            analysis_duration=time.time() - analysis_start_time,
             treemap=treemap,
             insights=insights,
+            analysis_duration=None,
         )
 
-        logger.info(f"Analysis complete in {results.analysis_duration:.1f}s")
         return results
 
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
