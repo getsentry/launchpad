@@ -13,7 +13,8 @@ PYTHON_VENV := $(VENV_DIR)/bin/python
 # Kafka configuration for local development
 export KAFKA_BOOTSTRAP_SERVERS ?= localhost:9092
 export KAFKA_GROUP_ID ?= launchpad-consumer
-export KAFKA_TOPICS ?= launchpad-events
+# NOTE: Keep this in sync with PREPROD_ARTIFACT_EVENTS_TOPIC in src/launchpad/constants.py
+export KAFKA_TOPICS ?= preprod-artifact-events
 
 # Create virtual environment and install dependencies with uv
 $(VENV_DIR):
