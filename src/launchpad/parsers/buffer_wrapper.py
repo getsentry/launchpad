@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import struct
 import types
+
 from dataclasses import dataclass
 
 from launchpad.utils.logging import get_logger
@@ -110,7 +111,6 @@ class BufferWrapper:
     def read_u32(self) -> int:
         """Read unsigned 32-bit integer (little-endian)."""
         with self._debug_group("read_u32"):
-
             logger.debug(f"cursor: {self.cursor}")
             val = struct.unpack("<I", self.buffer[self.cursor : self.cursor + 4])[0]
             logger.debug(f"value: {val} 0x{val:08x}")

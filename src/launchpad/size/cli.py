@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Dict, TextIO
 
 import click
+
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 

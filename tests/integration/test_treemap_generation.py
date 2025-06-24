@@ -1,6 +1,7 @@
 """Integration tests for treemap generation."""
 
 import json
+
 from pathlib import Path
 from typing import cast
 

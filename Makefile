@@ -136,6 +136,8 @@ migrate-dev-env:  ## Migrate to the new dev environment (uv, ruff, ty, etc)
 	uv venv
 	@echo "[4/5] Installing dev requirements..."
 	uv pip install -r requirements-dev.txt
+	@echo "[4.5/5] Installing package in editable mode..."
+	uv pip install -e .
 	@echo "[5/5] Installing pre-commit hooks..."
 	.venv/bin/pre-commit install
 	@echo "\nMigration complete! Your environment now uses uv, ruff, and ty."

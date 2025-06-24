@@ -5,10 +5,12 @@ from __future__ import annotations
 import hashlib
 import plistlib
 import re
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import lief
+
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 

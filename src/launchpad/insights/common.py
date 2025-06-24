@@ -11,7 +11,6 @@ from launchpad.models.insights import DuplicateFilesInsightResult
 
 
 class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
-
     def generate(self, input: InsightsInput) -> DuplicateFilesInsightResult:
         # Group files by hash
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)

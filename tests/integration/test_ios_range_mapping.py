@@ -1,6 +1,7 @@
 """Integration tests for iOS range mapping system."""
 
 import json
+
 from pathlib import Path
 from typing import Any, Dict, cast
 

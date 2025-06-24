@@ -17,7 +17,6 @@ def test_zipped_aab(test_zipped_aab_path: Path) -> ZippedAAB:
 
 
 class TestZippedAAB:
-
     def test_get_manifest(self, test_zipped_aab: ZippedAAB) -> None:
         """Test parsing valid ZippedAAB manifest returns the primary AAB manifest."""
         manifest = test_zipped_aab.get_manifest().model_dump()

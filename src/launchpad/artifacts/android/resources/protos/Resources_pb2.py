@@ -6,6 +6,7 @@
 # Protobuf Python Version: 5.28.3
 # Generated with protoc --proto_path=src/launchpad/artifacts/android/resources/proto --python_out=src/launchpad/artifacts/android/resources/proto src/launchpad/artifacts/android/resources/proto/Configuration.proto src/launchpad/artifacts/android/resources/proto/Resources.proto --pyi_out=src/launchpad/artifacts/android/resources/proto
 """Generated protocol buffer code."""
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import runtime_version as _runtime_version

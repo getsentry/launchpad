@@ -1,7 +1,10 @@
 from launchpad.utils.logging import get_logger
 
-from .protos.Resources_pb2 import Type  # type: ignore[attr-defined]
-from .protos.Resources_pb2 import Entry, Package  # type: ignore[attr-defined]
+from .protos.Resources_pb2 import (  # type: ignore[attr-defined]
+    Entry,
+    Package,
+    Type,  # type: ignore[attr-defined]
+)
 from .protos.Resources_pb2 import ResourceTable as PBResourceTable  # type: ignore[attr-defined]
 from .resource_table import DEFAULT_PACKAGE_ID, ResourceTable
 

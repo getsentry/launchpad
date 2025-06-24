@@ -36,9 +36,9 @@ class TestSwiftProtocolConformance:
         protocol_conformances = (
             binary_analysis.swift_metadata.protocol_conformances if binary_analysis.swift_metadata else []
         )
-        assert (
-            len(protocol_conformances) == 286
-        ), f"Expected 286 protocol conformances, got {len(protocol_conformances)}"
+        assert len(protocol_conformances) == 286, (
+            f"Expected 286 protocol conformances, got {len(protocol_conformances)}"
+        )
 
         assert protocol_conformances[0] == "_$ss22KeyedDecodingContainerV6decode_6forKeyS2im_xtKF"
 

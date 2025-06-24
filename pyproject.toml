@@ -59,12 +59,13 @@ line-ending = "auto"
 [tool.ruff.lint.isort]
 lines-between-types = 1
 
-[tool.ty]
-src = { include = ["src/"], exclude = [], root = ".", respect-ignore-files = true }
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*" = ["S101", "PLR2004"]
+"src/launchpad/artifacts/android/resources/protos/**/*" = ["E", "F", "I", "N", "UP", "ARG", "SIM", "TCH", "TID", "Q", "RSE", "RET", "SLF", "SLOT", "PIE", "T20", "PYI", "PT", "YTT", "BLE", "FBT", "A", "COM", "C90", "DTZ", "ISC", "G", "INP", "PTH", "AIR", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "S"]
 
-[tool.ty.environment]
-python = "/usr/local/bin/python"
-extra-paths = ["."]
+[tool.ty]
+src = { include = ["src/"], exclude = ["src/launchpad/artifacts/android/resources/protos/**/*"], root = ".", respect-ignore-files = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

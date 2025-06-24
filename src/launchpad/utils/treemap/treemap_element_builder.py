@@ -10,7 +10,6 @@ logger = get_logger(__name__)
 
 
 class TreemapElementBuilder(ABC):
-
     def __init__(
         self,
         download_compression_ratio: float,

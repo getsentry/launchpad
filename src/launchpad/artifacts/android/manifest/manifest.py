@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,6 +15,8 @@ class AndroidApplication(BaseModel):
 
     icon_path: str | None = Field(None, description="Path to application icon")
     label: str | None = Field(None, description="Application label")
+    uses_cleartext_traffic: bool | None = Field(None, description="Whether the app uses cleartext traffic")
+    reaper_instrumented: bool | None = Field(None, description="Whether the app is reaper instrumented")
 
 
 class AndroidManifest(BaseModel):
@@ -26,8 +29,10 @@ class AndroidManifest(BaseModel):
     version_code: str | None = Field(None, description="App version code")
     min_sdk_version: int = Field(..., description="Minimum SDK version")
     permissions: list[str] = Field(default_factory=list, description="List of app permissions")
-    application: AndroidApplication = Field(..., description="Application information")
+    application: AndroidApplication | None = Field(..., description="Application information")
     is_feature_split: bool = Field(default=False, description="Whether this is a feature split")
+    split: str | None = Field(None, description="Split name")
+    module: Any | None = Field(None, description="Module information")
 
 
 class DeliveryType(str, Enum):
