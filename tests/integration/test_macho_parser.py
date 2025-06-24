@@ -10,7 +10,7 @@ from launchpad.parsers.apple.macho_parser import MachOParser
 
 def create_macho_parser_from_xcarchive(xcarchive_path: Path) -> MachOParser:
     with open(xcarchive_path, "rb") as f:
-        archive = ZippedXCArchive(f.read())
+        archive = ZippedXCArchive(xcarchive_path, f.read())
 
     binary_path = archive.get_binary_path()
     assert binary_path is not None, "Failed to find main binary in xcarchive"
@@ -53,4 +53,6 @@ class TestMachOParser:
 
         imported_symbols = macho_parser.get_imported_symbols()
         assert len(imported_symbols) == 2019
-        assert imported_symbols[0] == "_$s10Foundation4DateV6CommonE14timeAgoDisplaySSyF"
+        assert (
+            imported_symbols[0] == "_$s10Foundation4DateV6CommonE14timeAgoDisplaySSyF"  # noqa: E501
+        )
