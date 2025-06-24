@@ -39,13 +39,13 @@ jobs:
         run: make install-dev
 
       - name: Check lint
-        run: make lint
+        run: make check-lint
 
       - name: Check format
-        run: make format
+        run: make check-format
 
       - name: Check types
-        run: make type-check
+        run: make check-types
 
   test:
     runs-on: ubuntu-latest

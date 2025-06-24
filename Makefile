@@ -35,13 +35,13 @@ test-integration:
 	$(PYTHON_VENV) -m pytest tests/integration/ -v --tb=short
 
 # Code quality targets (using ruff and ty)
-lint:
+check-lint:
 	$(PYTHON_VENV) -m ruff check src/ tests/
 
-format:  ## Check code format without modifying files
+check-format:  ## Check code format without modifying files
 	$(PYTHON_VENV) -m ruff format --check src/ tests/
 
-type-check:  ## Run type checking with ty
+check-types:  ## Run type checking with ty
 	$(PYTHON_VENV) -m ty check src
 
 fix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
@@ -70,7 +70,7 @@ clean:
 	rm -rf $(VENV_DIR)
 
 # Combined targets for CI
-check: lint format type-check
+check: check-lint check-format check-types
 
 ci: install-dev check test
 
