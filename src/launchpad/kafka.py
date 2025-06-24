@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+
 from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from arroyo import Message, Topic
@@ -156,9 +157,7 @@ class KafkaConsumer:
         self.topics = topics
         self.group_id = group_id
         # Ensure bootstrap_servers is always a string
-        self.bootstrap_servers: str = bootstrap_servers or os.getenv(
-            "KAFKA_BOOTSTRAP_SERVERS"
-        )  # type: ignore[assignment]
+        self.bootstrap_servers: str = bootstrap_servers or os.getenv("KAFKA_BOOTSTRAP_SERVERS")  # type: ignore[assignment]
         if not self.bootstrap_servers:
             raise ValueError("KAFKA_BOOTSTRAP_SERVERS environment variable must be set")
         self.message_handler = message_handler

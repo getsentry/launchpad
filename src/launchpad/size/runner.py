@@ -1,5 +1,6 @@
 import json
 import time
+
 from typing import Any, BinaryIO, TextIO, cast
 
 from ..analyzers.android import AndroidAnalyzer

@@ -10,7 +10,6 @@ logger = get_logger(__name__)
 
 
 class MachOElementBuilder(TreemapElementBuilder):
-
     def __init__(
         self,
         download_compression_ratio: float,

@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-integration lint fix check-format check-types type-check clean build build-wheel clean-venv check ci all run-cli status
+.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status migrate-dev-env
 
 # Default target
 help:
@@ -7,7 +7,7 @@ help:
 
 # Python and virtual environment setup
 VENV_DIR := .venv
-PIP := $(VENV_DIR)/bin/pip
+UV := uv
 PYTHON_VENV := $(VENV_DIR)/bin/python
 
 # Kafka configuration for local development
@@ -16,14 +16,14 @@ export KAFKA_GROUP_ID ?= launchpad-consumer
 # NOTE: Keep this in sync with PREPROD_ARTIFACT_EVENTS_TOPIC in src/launchpad/constants.py
 export KAFKA_TOPICS ?= preprod-artifact-events
 
-# # Create virtual environment
+# Create virtual environment and install dependencies with uv
 $(VENV_DIR):
-	python -m venv $(VENV_DIR)
+	$(UV) venv
 
 # Just used for CI
 install-dev: $(VENV_DIR)  ## Install development dependencies
-	$(PIP) install -r requirements-dev.txt
-	$(PIP) install -e .
+	$(UV) pip install -r requirements-dev.txt
+	$(UV) pip install -e .
 	$(VENV_DIR)/bin/pre-commit install
 
 test:
@@ -35,24 +35,23 @@ test-unit:
 test-integration:
 	$(PYTHON_VENV) -m pytest tests/integration/ -v --tb=short
 
-# Code quality targets
+# Code quality targets (using ruff and ty)
 check-lint:
-	$(PYTHON_VENV) -m flake8 src/ tests/
+	$(PYTHON_VENV) -m ruff check src/ tests/
 
 check-format:  ## Check code format without modifying files
-	$(PYTHON_VENV) -m isort --check-only src/ tests/
-	$(PYTHON_VENV) -m black --check src/ tests/
+	$(PYTHON_VENV) -m ruff format --check src/ tests/
 
-check-types:  ## Run type checking with mypy
-	$(PYTHON_VENV) -m mypy src
+check-types:  ## Run type checking with ty
+	$(PYTHON_VENV) -m ty check src
 
 fix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
-	$(PYTHON_VENV) -m isort src/ tests/
-	$(PYTHON_VENV) -m black src/ tests/
+	$(PYTHON_VENV) -m ruff format src/ tests/
+	$(PYTHON_VENV) -m ruff check --fix src/ tests/
 
 # Build targets
 build: clean $(VENV_DIR)  ## Build the package
-	$(PIP) install build
+	$(UV) pip install build
 	$(PYTHON_VENV) -m build
 
 build-wheel:  ## Build wheel only
@@ -64,7 +63,7 @@ clean:
 	rm -rf dist/
 	rm -rf *.egg-info/
 	rm -rf .pytest_cache/
-	rm -rf .mypy_cache/
+	rm -rf .ty_cache/
 	rm -rf htmlcov/
 	rm -rf .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} +
@@ -121,6 +120,26 @@ test-service-integration:  ## Run full integration test with devservices
 
 # Show current status
 status:
-	@echo "Python version: $$($(PYTHON) --version)"
+	@echo "Python version: $$($(PYTHON_VENV) --version)"
 	@echo "Virtual environment: $$(if [ -d $(VENV_DIR) ]; then echo 'exists'; else echo 'missing'; fi)"
 	@echo "Pre-commit hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"
+	@echo "UV version: $$($(UV) --version 2>/dev/null || echo 'not installed')"
+
+migrate-dev-env:  ## Migrate to the new dev environment (uv, ruff, ty, etc)
+	@echo "[1/5] Cleaning up old virtualenv and caches..."
+	rm -rf .venv .mypy_cache .flake8 .isort.cfg .black .pytest_cache .tox
+	@echo "[2/5] Checking for uv..."
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo >&2 "[ERROR] 'uv' is not installed. Please install it with 'brew install uv' or 'pipx install uv' and re-run this command."; \
+		exit 1; \
+	fi
+	@echo "[3/5] Creating new uv virtualenv..."
+	uv venv
+	@echo "[4/5] Installing dev requirements..."
+	uv pip install -r requirements-dev.txt
+	@echo "[4.5/5] Installing package in editable mode..."
+	uv pip install -e .
+	@echo "[5/5] Installing pre-commit hooks..."
+	.venv/bin/pre-commit install
+	@echo "\nMigration complete! Your environment now uses uv, ruff, and ty."
+	@echo "Run 'make check' and 'make test' to verify your setup."

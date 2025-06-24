@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+
 from aiohttp.test_utils import AioHTTPTestCase
 
 from launchpad.kafka import LaunchpadMessage

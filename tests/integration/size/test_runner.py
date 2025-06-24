@@ -1,4 +1,5 @@
 import json
+
 from io import BytesIO, TextIOWrapper
 from pathlib import Path
 
@@ -6,7 +7,6 @@ from launchpad.size.runner import do_size, write_results_as_json
 
 
 class TestSizeRunner:
-
     def test_apple(self) -> None:
         output_file = TextIOWrapper(BytesIO())
         with open(Path("tests/_fixtures/ios/HackerNews.xcarchive.zip"), "rb") as input_file:

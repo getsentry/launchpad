@@ -72,7 +72,7 @@ class MachOParser:
                 return None
 
             if offset + size > len(content):
-                logger.warning(f"Requested range {offset}:{offset+size} exceeds section size {len(content)}")
+                logger.warning(f"Requested range {offset}:{offset + size} exceeds section size {len(content)}")
                 return None
 
             return content[offset : offset + size]

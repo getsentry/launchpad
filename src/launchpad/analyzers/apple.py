@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -86,7 +87,7 @@ class AppleAppAnalyzer:
         logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
 
         file_analysis = self._analyze_files(artifact)
-        logger.info(f"Found {file_analysis.file_count} files, " f"total size: {file_analysis.total_size} bytes")
+        logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
@@ -137,6 +138,7 @@ class AppleAppAnalyzer:
             binary_analysis=binary_analysis,
             treemap=treemap,
             insights=insights,
+            analysis_duration=None,
         )
 
         return results

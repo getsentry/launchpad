@@ -84,7 +84,7 @@ class BaseAnalysisResults(BaseModel):
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
-    treemap: TreemapResults = Field(..., description="Hierarchical size analysis treemap")
+    treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with serializable datetime."""

@@ -58,8 +58,8 @@ class BinaryXmlParser:
                 return None
 
             # Convert the parser's XmlNode to our model's XmlNode
-            def convert_node(node) -> XmlNode:  # type: ignore[no-untyped-def]
-                attributes = []
+            def convert_node(node: Any) -> XmlNode:  # type: ignore[no-untyped-def]
+                attributes: List[XmlAttribute] = []
                 for attr in node.attributes:
                     value = attr.value
                     typed_value = attr.typed_value
@@ -89,7 +89,11 @@ class BinaryXmlParser:
                 # Recursively convert child nodes
                 child_nodes = [convert_node(child) for child in node.child_nodes]
 
-                return XmlNode(node_name=node.node_name, attributes=attributes, child_nodes=child_nodes)
+                return XmlNode(
+                    node_name=node.node_name,
+                    attributes=attributes,
+                    child_nodes=child_nodes,
+                )
 
             return convert_node(parsed_node)
 
@@ -126,7 +130,10 @@ class AxmlUtils:
         version_name = AxmlUtils.get_optional_attr_value(manifest_attributes, "versionName", binary_resource_tables)
         version_code = AxmlUtils.get_optional_attr_value(manifest_attributes, "versionCode", binary_resource_tables)
 
-        uses_sdk_element = next((node for node in xml_node.child_nodes if node.node_name == "uses-sdk"), None)
+        uses_sdk_element = next(
+            (node for node in xml_node.child_nodes if node.node_name == "uses-sdk"),
+            None,
+        )
 
         # Default to 1 since Android assumes 1 if not specified
         min_sdk_str = (
@@ -145,7 +152,10 @@ class AxmlUtils:
             if attr.name == "name" and attr.value
         ]
 
-        application_element = next((node for node in xml_node.child_nodes if node.node_name == "application"), None)
+        application_element = next(
+            (node for node in xml_node.child_nodes if node.node_name == "application"),
+            None,
+        )
         if not application_element:
             raise ValueError("Could not find application element in binary manifest")
 
@@ -153,7 +163,9 @@ class AxmlUtils:
         label = AxmlUtils.get_optional_attr_value(application_element.attributes, "label", binary_resource_tables)
         uses_cleartext_traffic = (
             AxmlUtils.get_optional_attr_value(
-                application_element.attributes, "usesCleartextTraffic", binary_resource_tables
+                application_element.attributes,
+                "usesCleartextTraffic",
+                binary_resource_tables,
             )
             == "true"
         )
@@ -190,7 +202,9 @@ class AxmlUtils:
 
     @staticmethod
     def get_optional_attr_value(
-        attributes: Sequence[XmlAttribute], name: str, binary_res_tables: List[BinaryResourceTable]
+        attributes: Sequence[XmlAttribute],
+        name: str,
+        binary_res_tables: List[BinaryResourceTable],
     ) -> str | None:
         """Get optional attribute value, resolving resource references if needed.
 
@@ -210,7 +224,10 @@ class AxmlUtils:
 
         value = attribute.value
         if not value:
-            logger.debug("Could not find string value for attribute with name: %s, trying to parse typedValue", name)
+            logger.debug(
+                "Could not find string value for attribute with name: %s, trying to parse typedValue",
+                name,
+            )
 
             if not attribute.typed_value:
                 logger.debug("Could not find typedValue for attribute with name: %s", name)
@@ -247,7 +264,9 @@ class AxmlUtils:
 
     @staticmethod
     def get_required_attr_value(
-        attributes: Sequence[XmlAttribute], name: str, binary_res_tables: List[BinaryResourceTable]
+        attributes: Sequence[XmlAttribute],
+        name: str,
+        binary_res_tables: List[BinaryResourceTable],
     ) -> str:
         """Get required attribute value, raising error if not found.
 

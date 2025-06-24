@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import lief
+
 from asn1crypto import cms  # type: ignore[import-untyped]
 from lief.MachO import CodeSignature
 
@@ -273,11 +275,13 @@ class CodeSignatureParser:
         """Parse the code directory from the super blob."""
         try:
             code_directory_index = next(
-                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_ALTERNATE_CODEDIRECTORIES), None
+                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_ALTERNATE_CODEDIRECTORIES),
+                None,
             )
             if not code_directory_index:
                 code_directory_index = next(
-                    (index for index in super_blob.index if index.type == CSSlot.CSSLOT_CODEDIRECTORY), None
+                    (index for index in super_blob.index if index.type == CSSlot.CSSLOT_CODEDIRECTORY),
+                    None,
                 )
             if not code_directory_index:
                 logger.info("No code directory index found")
@@ -333,17 +337,22 @@ class CodeSignatureParser:
             if version >= 0x20300:
                 if current_offset + 12 <= len(cd_data):
                     spare3 = int.from_bytes(cd_data[current_offset : current_offset + 4], byteorder="little")
-                    code_limit64 = int.from_bytes(cd_data[current_offset + 4 : current_offset + 12], byteorder="little")
+                    code_limit64 = int.from_bytes(
+                        cd_data[current_offset + 4 : current_offset + 12],
+                        byteorder="little",
+                    )
                     current_offset += 12
 
             if version >= 0x20400:
                 if current_offset + 24 <= len(cd_data):
                     exec_seg_base = int.from_bytes(cd_data[current_offset : current_offset + 8], byteorder="little")
                     exec_seg_limit = int.from_bytes(
-                        cd_data[current_offset + 8 : current_offset + 16], byteorder="little"
+                        cd_data[current_offset + 8 : current_offset + 16],
+                        byteorder="little",
                     )
                     exec_seg_flags = int.from_bytes(
-                        cd_data[current_offset + 16 : current_offset + 24], byteorder="little"
+                        cd_data[current_offset + 16 : current_offset + 24],
+                        byteorder="little",
                     )
                     current_offset += 24
 
@@ -402,7 +411,8 @@ class CodeSignatureParser:
                 end_offset = identity_offset
                 while end_offset < len(content) and content[end_offset] != 0:
                     end_offset += 1
-                identity = str(content[identity_offset:end_offset], "utf8")
+                identity_bytes = bytes(content[identity_offset:end_offset])
+                identity = identity_bytes.decode("utf8")
 
             # Read team ID (if available)
             team_id = None
@@ -413,7 +423,8 @@ class CodeSignatureParser:
                     end_offset = team_id_offset
                     while end_offset < len(content) and content[end_offset] != 0:
                         end_offset += 1
-                    team_id = str(content[team_id_offset:end_offset], "utf8")
+                    team_id_bytes = bytes(content[team_id_offset:end_offset])
+                    team_id = team_id_bytes.decode("utf8")
 
             # Calculate CD hash
             blob_data = content[cd_offset : cd_offset + length]
@@ -443,7 +454,8 @@ class CodeSignatureParser:
         try:
             # Find the entitlements index
             entitlements_index = next(
-                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_ENTITLEMENTS), None
+                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_ENTITLEMENTS),
+                None,
             )
             if not entitlements_index:
                 return None
@@ -460,10 +472,10 @@ class CodeSignatureParser:
             # Extract the entitlements plist (skip the 8-byte header)
             entitlements_start = ent_offset + 8
             entitlements_end = ent_offset + entitlements_length
-            entitlements_bytes = content[entitlements_start:entitlements_end]
+            entitlements_bytes = bytes(content[entitlements_start:entitlements_end])
 
             # Convert to string
-            entitlements_plist = str(entitlements_bytes, "utf8")
+            entitlements_plist = entitlements_bytes.decode("utf-8")
 
             # Calculate CD hash for the entire blob
             blob_data = content[ent_offset : ent_offset + entitlements_length]
@@ -482,7 +494,8 @@ class CodeSignatureParser:
         """Parse the requirements from the super blob."""
         try:
             requirements_index = next(
-                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_REQUIREMENTS), None
+                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_REQUIREMENTS),
+                None,
             )
             if not requirements_index:
                 return None
@@ -516,7 +529,8 @@ class CodeSignatureParser:
         """Parse the DER entitlements from the super blob."""
         try:
             der_index = next(
-                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_DER_ENTITLEMENTS), None
+                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_DER_ENTITLEMENTS),
+                None,
             )
             if not der_index:
                 return None
@@ -551,7 +565,8 @@ class CodeSignatureParser:
         """Parse the CMS signature from the super blob."""
         try:
             signature_index = next(
-                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_SIGNATURESLOT), None
+                (index for index in super_blob.index if index.type == CSSlot.CSSLOT_SIGNATURESLOT),
+                None,
             )
             if not signature_index:
                 return None
@@ -573,7 +588,7 @@ class CodeSignatureParser:
 
             # Parse the CMS signature
             try:
-                signature = cms.ContentInfo.load(signature_content)
+                signature = cms.ContentInfo.load(signature_content)  # type: ignore[attr-defined]
             except Exception as e:
                 logger.error(f"Failed to parse CMS signature: {e}")
                 return None
@@ -582,32 +597,32 @@ class CodeSignatureParser:
             certificates: List[bytes] = []
 
             # Check if this is a SignedData content type
-            if signature["content_type"].native == "signed_data":
-                signed_data = signature["content"]
+            if signature["content_type"].native == "signed_data":  # type: ignore[attr-defined]
+                signed_data = signature["content"]  # type: ignore[attr-defined]
 
                 # Extract certificates
                 if "certificates" in signed_data:
-                    for cert in signed_data["certificates"]:
-                        certificates.append(cert.dump())
+                    for cert in signed_data["certificates"]:  # type: ignore[attr-defined]
+                        certificates.append(cert.dump())  # type: ignore[attr-defined]
 
                 # Extract CD hashes from signed attributes
-                for signer_info in signed_data["signer_infos"]:
+                for signer_info in signed_data["signer_infos"]:  # type: ignore[attr-defined]
                     if "signed_attrs" in signer_info:
-                        for attr in signer_info["signed_attrs"]:
-                            attr_type = attr["type"].native
+                        for attr in signer_info["signed_attrs"]:  # type: ignore[attr-defined]
+                            attr_type = attr["type"].native  # type: ignore[attr-defined]
 
                             # CDHash attribute type: 1.2.840.113635.100.9.2
                             if attr_type == "1.2.840.113635.100.9.2":
-                                for value in attr["values"]:
+                                for value in attr["values"]:  # type: ignore[attr-defined]
                                     try:
                                         # Access the parsed value directly
-                                        hash_block = value.native
+                                        hash_block = value.native  # type: ignore[attr-defined]
 
                                         # The hash_block is an OrderedDict with hash_oid and hash_value
                                         if isinstance(hash_block, dict):
                                             # Get the hash algorithm OID and hash value from the dict
-                                            hash_oid = hash_block.get("0", "")
-                                            hash_value = hash_block.get("1", "").hex()
+                                            hash_oid = hash_block.get("0", "")  # type: ignore[attr-defined]
+                                            hash_value = hash_block.get("1", "").hex()  # type: ignore[attr-defined]
 
                                             # Determine hash type based on OID
                                             if hash_oid == "2.16.840.1.101.3.4.2.1":  # SHA-256

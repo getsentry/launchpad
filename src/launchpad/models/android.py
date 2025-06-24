@@ -4,7 +4,6 @@ from .common import BaseAnalysisResults, BaseAppInfo
 
 
 class AndroidAppInfo(BaseAppInfo):
-
     model_config = ConfigDict(frozen=True)
     package_name: str = Field(..., description="Android package name")
 

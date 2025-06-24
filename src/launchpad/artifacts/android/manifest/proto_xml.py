@@ -5,8 +5,13 @@ from typing import Any, Callable, List, Sequence
 from launchpad.utils.logging import get_logger
 
 from ..resources.proto import ProtobufResourceTable
-from ..resources.protos.Resources_pb2 import XmlAttribute, XmlElement  # type: ignore[attr-defined]
-from ..resources.protos.Resources_pb2 import XmlNode as PbXmlNode  # type: ignore[attr-defined]
+from ..resources.protos.Resources_pb2 import (  # type: ignore[attr-defined]
+    XmlAttribute,
+    XmlElement,
+)
+from ..resources.protos.Resources_pb2 import (
+    XmlNode as PbXmlNode,  # type: ignore[attr-defined]
+)
 from .manifest import AndroidApplication, AndroidManifest, DeliveryType
 
 logger = get_logger(__name__)
@@ -52,13 +57,22 @@ class ProtoXmlUtils:
         )
 
         version_name = ProtoXmlUtils.optional_attr_value_with_fallback(
-            manifest_attributes, proto_res_tables, "versionName", ProtoXmlUtils.VERSION_NAME_RESOURCE_ID
+            manifest_attributes,
+            proto_res_tables,
+            "versionName",
+            ProtoXmlUtils.VERSION_NAME_RESOURCE_ID,
         )
         version_code = ProtoXmlUtils.optional_attr_value_with_fallback(
-            manifest_attributes, proto_res_tables, "versionCode", ProtoXmlUtils.VERSION_CODE_RESOURCE_ID
+            manifest_attributes,
+            proto_res_tables,
+            "versionCode",
+            ProtoXmlUtils.VERSION_CODE_RESOURCE_ID,
         )
 
-        uses_sdk_element = next((node.element for node in xml_element.child if node.element.name == "uses-sdk"), None)
+        uses_sdk_element = next(
+            (node.element for node in xml_element.child if node.element.name == "uses-sdk"),
+            None,
+        )
         if not uses_sdk_element:
             raise ValueError("Could not find uses-sdk element in manifest")
 
@@ -84,7 +98,8 @@ class ProtoXmlUtils:
         ]
 
         application_element = next(
-            (node.element for node in xml_element.child if node.element.name == "application"), None
+            (node.element for node in xml_element.child if node.element.name == "application"),
+            None,
         )
         application = None
         if application_element and application_element.attribute:
@@ -103,14 +118,27 @@ class ProtoXmlUtils:
                 ),
                 uses_cleartext_traffic=(
                     ProtoXmlUtils.optional_attr_value_by_name(
-                        application_element.attribute, "usesCleartextTraffic", proto_res_tables
+                        application_element.attribute,
+                        "usesCleartextTraffic",
+                        proto_res_tables,
+                    )
+                    == "true"
+                ),
+                reaper_instrumented=(
+                    ProtoXmlUtils.optional_attr_value_by_name(
+                        application_element.attribute,
+                        "reaperInstrumented",
+                        proto_res_tables,
                     )
                     == "true"
                 ),
             )
 
         # Handle module element if present
-        module_element = next((node.element for node in xml_element.child if node.element.name == "module"), None)
+        module_element = next(
+            (node.element for node in xml_element.child if node.element.name == "module"),
+            None,
+        )
         module = None
         if module_element and module_element.attribute:
             module = ProtoXmlUtils._parse_module_element(
@@ -143,7 +171,8 @@ class ProtoXmlUtils:
 
         # Find delivery element
         delivery_element = next(
-            (node.element for node in module_element.child if node.element.name == "delivery"), None
+            (node.element for node in module_element.child if node.element.name == "delivery"),
+            None,
         )
         delivery_type = None
 

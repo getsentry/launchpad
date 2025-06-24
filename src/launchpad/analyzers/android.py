@@ -68,6 +68,7 @@ class AndroidAnalyzer:
             app_info=app_info,
             treemap=treemap,
             file_analysis=file_analysis,
+            analysis_duration=None,
         )
 
     def _get_file_analysis(self, apks: list[APK]) -> FileAnalysis:
