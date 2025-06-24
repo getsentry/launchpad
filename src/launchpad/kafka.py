@@ -26,17 +26,6 @@ logger = get_logger(__name__)
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
-def get_topic_name() -> str:
-    """
-    Get the canonical topic name for preprod artifact events.
-
-    Returns:
-        The topic name as defined in sentry_kafka_schemas
-    """
-    # Use the topic name from the schema registry (following Snuba's pattern)
-    return PREPROD_ARTIFACT_EVENTS_TOPIC
-
-
 class LaunchpadMessage:
     """Represents a processed Kafka message for Launchpad."""
 
@@ -268,7 +257,7 @@ def get_kafka_config() -> Dict[str, Any]:
     """Get Kafka configuration from environment."""
 
     # Use the canonical topic name from schema by default
-    default_topic = get_topic_name()
+    default_topic = PREPROD_ARTIFACT_EVENTS_TOPIC
 
     return {
         "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
