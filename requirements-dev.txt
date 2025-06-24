@@ -1,7 +1,7 @@
 # Include main dependencies
 -r requirements.txt
 
-devservices>=1.2.0
+devservices>=1.2.1
 
 # Development dependencies
 pytest>=7.4.0
