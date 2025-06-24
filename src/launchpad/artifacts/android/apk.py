@@ -18,14 +18,15 @@ logger = get_logger(__name__)
 class APK(AndroidArtifact):
     """Represents an Android APK file that can be analyzed."""
 
-    def __init__(self, content: bytes) -> None:
-        """Initialize APK with raw bytes content.
+    def __init__(self, path: Path, content: bytes) -> None:
+        """Initialize APK with file path.
 
         Args:
-            content: Raw bytes of the APK file
+            path: Path to the APK file
         """
         super().__init__(content)
-        self._zip_provider = ZipProvider(content)
+        self._path = path
+        self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None

@@ -1,7 +1,8 @@
 import json
 import time
 
-from typing import Any, BinaryIO, TextIO, cast
+from pathlib import Path
+from typing import Any, TextIO, cast
 
 from ..analyzers.android import AndroidAnalyzer
 from ..analyzers.apple import AppleAppAnalyzer
@@ -10,9 +11,9 @@ from ..artifacts.artifact_factory import ArtifactFactory
 from ..models.common import BaseAnalysisResults
 
 
-def do_size(input_file: BinaryIO, **flags: Any) -> BaseAnalysisResults:
+def do_size(path: Path, **flags: Any) -> BaseAnalysisResults:
     start_time = time.time()
-    artifact = ArtifactFactory.from_file(input_file)
+    artifact = ArtifactFactory.from_path(path)
 
     # isinstance switch below is a bit sad. Ryan suggested a
     # get_analyzer method on artifact which might be nicer.

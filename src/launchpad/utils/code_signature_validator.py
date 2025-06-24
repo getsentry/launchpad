@@ -193,7 +193,7 @@ class CodeSignatureValidator:
         errors: list[str] = []
 
         for file_path in self.app_root.rglob("*"):
-            if file_path.is_dir():
+            if file_path.is_dir() and not file_path.is_symlink():
                 continue
 
             relative_path = str(file_path.relative_to(self.app_root))
@@ -212,8 +212,14 @@ class CodeSignatureValidator:
         if file_path in file_hashes:
             full_file_path = self.app_root / file_path
             try:
-                with open(full_file_path, "rb") as f:
-                    file_buffer = f.read()
+                if full_file_path.is_symlink():
+                    # For symlinks, read the target path as the file content
+                    target_path = full_file_path.readlink()
+                    file_buffer = str(target_path).encode("utf-8")
+                else:
+                    # For regular files, read the file contents
+                    with open(full_file_path, "rb") as f:
+                        file_buffer = f.read()
             except Exception as e:
                 logger.error(f"Failed to read file {file_path}: {e}")
                 errors.append(f"file modified: {file_path}")

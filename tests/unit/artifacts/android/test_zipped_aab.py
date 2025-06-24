@@ -13,7 +13,7 @@ def test_zipped_aab_path() -> Path:
 @pytest.fixture
 def test_zipped_aab(test_zipped_aab_path: Path) -> ZippedAAB:
     with open(test_zipped_aab_path, "rb") as f:
-        return ZippedAAB(f.read())
+        return ZippedAAB(test_zipped_aab_path, f.read())
 
 
 class TestZippedAAB:

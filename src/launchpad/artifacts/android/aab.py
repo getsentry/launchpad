@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
@@ -19,16 +21,16 @@ logger = get_logger(__name__)
 class AAB(AndroidArtifact):
     """Represents an Android AAB file that can be analyzed."""
 
-    def __init__(self, content: bytes) -> None:
-        """Initialize APK with raw bytes content.
+    def __init__(self, path: Path, content: bytes) -> None:
+        """Initialize AAB with file path.
 
         Args:
-            content: Raw bytes of the AAB file
+            path: Path to the AAB file
         """
         super().__init__(content)
-        self._path = create_temp_directory("aab-") / "bundle.aab"
-        self._path.write_bytes(content)
-        self._zip_provider = ZipProvider(content)
+        self._path = path
+        self._zip_provider = ZipProvider(path)
+        self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
         self._resource_table: ProtobufResourceTable | None = None
         self._primary_apks: list[APK] | None = None
@@ -45,16 +47,16 @@ class AAB(AndroidArtifact):
         if self._manifest is not None:
             return self._manifest
 
-        zip_file = self._zip_provider.get_zip()
-        manifest_files = [f for f in zip_file.namelist() if f.endswith("base/manifest/AndroidManifest.xml")]
+        manifest_files = list(self._extract_dir.rglob("base/manifest/AndroidManifest.xml"))
         if len(manifest_files) > 1:
             raise ValueError("Multiple AndroidManifest.xml files found in AAB")
 
         manifest_file = manifest_files[0] if manifest_files else None
         if not manifest_file:
-            raise ValueError("Could not find manifest in APK")
+            raise ValueError("Could not find manifest in AAB")
 
-        manifest_buffer = zip_file.read(manifest_file)
+        with open(manifest_file, "rb") as f:
+            manifest_buffer = f.read()
         proto_res_tables = self.get_resource_tables()
 
         self._manifest = ProtoXmlUtils.proto_xml_to_android_manifest(manifest_buffer, proto_res_tables)
@@ -72,16 +74,16 @@ class AAB(AndroidArtifact):
         if self._resource_table is not None:
             return [self._resource_table]
 
-        zip_file = self._zip_provider.get_zip()
-        arsc_files = [f for f in zip_file.namelist() if f.endswith("base/resources.pb")]
+        arsc_files = list(self._extract_dir.rglob("base/resources.pb"))
         if len(arsc_files) > 1:
-            raise ValueError("Multiple resources.arsc files found in APK")
+            raise ValueError("Multiple resources.pb files found in AAB")
 
         arsc_file = arsc_files[0] if arsc_files else None
         if not arsc_file:
-            raise ValueError("Could not find resources.pb in APK")
+            raise ValueError("Could not find resources.pb in AAB")
 
-        arsc_buffer = zip_file.read(arsc_file)
+        with open(arsc_file, "rb") as f:
+            arsc_buffer = f.read()
         self._resource_table = ProtobufResourceTable(arsc_buffer)
         return [self._resource_table]
 
@@ -101,8 +103,7 @@ class AAB(AndroidArtifact):
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
-                with open(apk_path, "rb") as apk_file:
-                    apks.append(APK(apk_file.read()))
+                apks.append(APK(apk_path, apk_path.read_bytes()))
 
             self._primary_apks = apks
             return apks
