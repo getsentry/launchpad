@@ -36,7 +36,7 @@ services:
       PYTHONUNBUFFERED: 1
       KAFKA_BOOTSTRAP_SERVERS: kafka:9093
       KAFKA_GROUP_ID: launchpad-devservices
-      KAFKA_TOPICS: launchpad-events
+      KAFKA_TOPICS: preprod-artifact-events
       LAUNCHPAD_HOST: "0.0.0.0" # Inside container, but port binding restricts access
       LAUNCHPAD_PORT: "2218"
     platform: linux/amd64
