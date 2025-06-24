@@ -75,12 +75,12 @@ class SwiftProtocolParser:
 
         protocol_file_offset = self.binary.virtual_address_to_offset(conformance_descriptor.protocol_descriptor)
         uses_chained_fixups = self.binary.has_dyld_chained_fixups
-        imported_symbols = self.binary.imported_symbols
+        imported_symbols = self.macho_parser.get_imported_symbols()
 
         if isinstance(protocol_file_offset, lief.lief_errors) and uses_chained_fixups and len(imported_symbols) > 0:
             ordinal = conformance_descriptor.protocol_descriptor & 0xFFFFFF
             if conformance_descriptor.protocol_descriptor >> 63 == 1 and ordinal < len(imported_symbols):
-                protocol_name = imported_symbols[ordinal].name
+                protocol_name = imported_symbols[ordinal]
                 return str(protocol_name)
             else:
                 logger.debug(f"Failed to parse protocol descriptor at offset {offset}")

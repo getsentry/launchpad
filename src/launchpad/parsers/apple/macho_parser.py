@@ -7,6 +7,7 @@ from typing import Dict, List
 import lief
 
 from ...utils.logging import get_logger
+from .chained_fixups_parser import ChainedFixupsParser
 from .code_signature_parser import CodeSignatureParser, CodeSignInformation
 from .swift_protocol_parser import SwiftProtocolParser
 
@@ -19,6 +20,7 @@ class MachOParser:
     def __init__(self, binary: lief.MachO.Binary) -> None:
         """Initialize the parser with a LIEF binary object."""
         self.binary = binary
+        self._imported_symbols_cache: List[str] | None = None
 
     def extract_architectures(self) -> List[str]:
         """Extract CPU architectures from the binary."""
@@ -158,3 +160,12 @@ class MachOParser:
     def parse_code_signature(self) -> CodeSignInformation | None:
         """Parse the code signature information from the binary."""
         return CodeSignatureParser(self.binary, self).parse_code_signature()
+
+    def get_imported_symbols(self) -> List[str]:
+        if self._imported_symbols_cache is not None:
+            return self._imported_symbols_cache
+
+        parser = ChainedFixupsParser(self.binary)
+        self._imported_symbols_cache = parser.parse_imported_symbols()
+
+        return self._imported_symbols_cache
