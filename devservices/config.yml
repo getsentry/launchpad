@@ -19,6 +19,7 @@ x-programs:
   devserver:
     command: make serve
 
+# Assuming we only have remote dependencies (currently the case), then below is only relevant when running launchpad as a dependency of the monolith.
 services:
   launchpad:
     image: ghcr.io/getsentry/launchpad:latest
