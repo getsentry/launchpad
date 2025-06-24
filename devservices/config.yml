@@ -15,11 +15,13 @@ x-sentry-service-config:
     default: [kafka]
     containerized: [kafka, launchpad]
 
+x-programs:
+  devserver:
+    command: make serve
+
 services:
   launchpad:
-    build:
-      context: ..
-      dockerfile: Dockerfile
+    image: ghcr.io/getsentry/launchpad:latest
     ports:
       - 127.0.0.1:2218:2218 # Bind to localhost only - no external access
     command:
