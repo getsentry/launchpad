@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import time
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 from arroyo import Message, Topic
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
@@ -14,79 +13,17 @@ from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.types import BrokerValue, Commit, Partition
-from confluent_kafka import KafkaError, KafkaException
-from confluent_kafka.admin import AdminClient, NewTopic
+from sentry_kafka_schemas import get_codec
+from sentry_kafka_schemas.codecs import ValidationError
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
+from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
-
-def ensure_topics_exist(
-    bootstrap_servers: str,
-    topic_names: Sequence[str],
-    num_partitions: int = 1,
-    replication_factor: int = 1,
-    timeout_s: float = 10.0,
-) -> None:
-    """
-    Ensure that the specified Kafka topics exist, creating them if they don't.
-
-    Args:
-        bootstrap_servers: Kafka bootstrap servers
-        topic_names: List of topic names to ensure exist
-        num_partitions: Number of partitions for new topics
-        replication_factor: Replication factor for new topics
-        timeout_s: Timeout for topic creation operations
-    """
-    if not topic_names:
-        return
-
-    logger.info(f"Ensuring Kafka topics exist: {list(topic_names)}")
-
-    admin_client = AdminClient({"bootstrap.servers": bootstrap_servers})
-
-    # Check which topics already exist
-    metadata = admin_client.list_topics(timeout=timeout_s)
-    existing_topics = set(metadata.topics.keys())
-
-    topics_to_create = []
-    for topic_name in topic_names:
-        if topic_name not in existing_topics:
-            logger.info(f"Topic '{topic_name}' does not exist, will create it")
-            topics_to_create.append(
-                NewTopic(
-                    topic_name,
-                    num_partitions=num_partitions,
-                    replication_factor=replication_factor,
-                    config={
-                        # Add some reasonable defaults
-                        "cleanup.policy": "delete",
-                        "retention.ms": str(7 * 24 * 60 * 60 * 1000),  # 7 days
-                    },
-                )
-            )
-        else:
-            logger.debug(f"Topic '{topic_name}' already exists")
-
-    if not topics_to_create:
-        logger.info("All required topics already exist")
-        return
-
-    # Create the topics
-    logger.info(f"Creating {len(topics_to_create)} topic(s)...")
-    future_map = admin_client.create_topics(topics_to_create, operation_timeout=timeout_s)
-
-    for topic_name, future in future_map.items():
-        try:
-            future.result()  # Block until topic is created
-            logger.info(f"Successfully created topic '{topic_name}'")
-        except KafkaException as e:
-            if e.args[0].code() == KafkaError.TOPIC_ALREADY_EXISTS:
-                logger.info(f"Topic '{topic_name}' already exists (created by another process)")
-            else:
-                logger.error(f"Failed to create topic '{topic_name}': {e}")
-                raise
+# Schema codec for preprod artifact events
+PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
 class LaunchpadMessage:
@@ -108,14 +45,21 @@ class LaunchpadMessage:
         self.value = value
         self.timestamp = timestamp
 
-    def get_json_payload(self) -> Dict[str, Any]:
-        """Parse the message value as JSON."""
+    def get_validated_payload(self) -> PreprodArtifactEvents | None:
+        """Parse and validate the message using the schema."""
         try:
-            result: Dict[str, Any] = json.loads(self.value.decode("utf-8"))
-            return result
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to parse message as JSON: {e}")
-            return {}
+            decoded = PREPROD_ARTIFACT_SCHEMA.decode(self.value)
+            return decoded  # type: ignore[no-any-return]
+        except ValidationError as e:
+            logger.error(f"Schema validation failed for message: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to decode message: {e}")
+            return None
+
+    def is_valid_preprod_artifact_event(self) -> bool:
+        """Check if this message is a valid preprod artifact event."""
+        return self.get_validated_payload() is not None
 
     def __str__(self) -> str:
         return f"LaunchpadMessage(topic={self.topic}, partition={self.partition}, offset={self.offset})"
@@ -164,8 +108,11 @@ class MessageProcessingStrategy(ProcessingStrategy[KafkaPayload]):
                     logger.error(f"Error in message handler: {e}", exc_info=True)
             else:
                 logger.info(f"No handler set, received message: {launchpad_msg}")
-                payload = launchpad_msg.get_json_payload()
-                logger.info(f"Message payload: {payload}")
+                if launchpad_msg.is_valid_preprod_artifact_event():
+                    payload = launchpad_msg.get_validated_payload()
+                    logger.info(f"Valid preprod artifact event: {payload}")
+                else:
+                    logger.warning(f"Invalid or malformed message received on topic {launchpad_msg.topic}")
 
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
@@ -224,18 +171,6 @@ class KafkaConsumer:
 
     def run(self) -> None:
         """Run the Kafka consumer (blocking, like Snuba)."""
-        # Ensure required topics exist before starting consumer
-        try:
-            ensure_topics_exist(
-                bootstrap_servers=self.bootstrap_servers,
-                topic_names=self.topics,
-                num_partitions=1,
-                replication_factor=1,
-            )
-        except Exception as e:
-            logger.error(f"Failed to ensure topics exist: {e}")
-            raise
-
         while not self._shutdown_requested:
             try:
                 # Create Arroyo consumer - minimal config for Arroyo
@@ -324,5 +259,5 @@ def get_kafka_config() -> Dict[str, Any]:
     return {
         "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
         "group_id": os.getenv("KAFKA_GROUP_ID", "launchpad-consumer"),
-        "topics": os.getenv("KAFKA_TOPICS", "launchpad-events").split(","),
+        "topics": os.getenv("KAFKA_TOPICS", PREPROD_ARTIFACT_EVENTS_TOPIC).split(","),
     }

@@ -7,6 +7,8 @@ import signal
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Union
 
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+
 from launchpad.utils.logging import get_logger
 
 from .kafka import KafkaConsumer, LaunchpadMessage, get_kafka_config
@@ -53,27 +55,24 @@ class LaunchpadService:
         try:
             logger.info(f"Received message from topic {message.topic}")
 
-            # Parse message payload
-            payload = message.get_json_payload()
+            # Validate and parse message payload using schema
+            payload = message.get_validated_payload()
             if not payload:
-                logger.error("Failed to parse message payload")
+                raw_content = message.value.decode("utf-8", errors="replace")[:1000]
+                logger.error(f"Invalid preprod artifact event. Raw: {raw_content}")
                 return
 
-            # Route message to appropriate handler based on message type
-            message_type = payload.get("type", "unknown")
-
-            # Queue task immediately - don't block the consumer
+            # Queue analysis task immediately - don't block the consumer
             # Use call_soon_threadsafe since we're being called from the Kafka consumer thread
-            if message_type == "analyze_artifact":
-                if self._loop:
-                    self._loop.call_soon_threadsafe(self._queue_analysis, payload)
+            if self._loop:
+                self._loop.call_soon_threadsafe(self._queue_analysis, payload)
             else:
-                logger.warning(f"Unknown message type: {message_type}")
+                logger.error("Event loop not available for queueing analysis")
 
         except Exception as e:
             logger.error(f"Error handling Kafka message: {e}", exc_info=True)
 
-    def _queue_analysis(self, payload: Dict[str, Any]) -> None:
+    def _queue_analysis(self, payload: PreprodArtifactEvents) -> None:
         """Queue analysis for background processing."""
         try:
             if not self._loop:
@@ -91,18 +90,23 @@ class LaunchpadService:
 
             task.add_done_callback(task_done_callback)
 
-            artifact_id = payload.get("artifact_id", payload.get("id", "unknown"))
-            logger.info(f"Queued analysis task for artifact: {artifact_id}")
+            artifact_id = payload["artifact_id"]  # This is guaranteed by schema
+            project_id = payload["project_id"]  # This is guaranteed by schema
+            logger.info(f"Queued analysis task for artifact: {artifact_id} (project: {project_id})")
 
         except Exception as e:
             logger.error(f"Failed to queue analysis: {e}", exc_info=True)
 
-    async def _handle_analysis_async(self, payload: Dict[str, Any]) -> None:
+    async def _handle_analysis_async(self, payload: PreprodArtifactEvents) -> None:
         """Handle analysis in background thread."""
-        artifact_id = payload.get("artifact_id", payload.get("id", "unknown"))
+        artifact_id = payload["artifact_id"]  # Guaranteed by schema
+        project_id = payload["project_id"]  # Guaranteed by schema
+        organization_id = payload["organization_id"]  # Guaranteed by schema
 
         try:
-            logger.info(f"Starting analysis for artifact: {artifact_id}")
+            logger.info(
+                f"Starting analysis for artifact: {artifact_id} (project: {project_id}, org: {organization_id})"
+            )
 
             # Run the actual analysis in thread pool to avoid blocking event loop
             if not self._loop:
@@ -114,16 +118,21 @@ class LaunchpadService:
         except Exception as e:
             logger.error(f"Analysis failed for artifact {artifact_id}: {e}", exc_info=True)
 
-    def _do_analysis(self, payload: Dict[str, Any]) -> None:
+    def _do_analysis(self, payload: PreprodArtifactEvents) -> None:
         """Actual analysis work (runs in thread pool) - platform determined by artifact."""
-        artifact_id = payload.get("artifact_id", payload.get("id", "unknown"))
-        artifact_path = payload.get("artifact_path")
+        artifact_id = payload["artifact_id"]  # Guaranteed by schema
+        project_id = payload["project_id"]  # Guaranteed by schema
+        organization_id = payload["organization_id"]  # Guaranteed by schema
 
         logger.info(f"Processing analysis request for artifact {artifact_id}")
-        logger.info(f"Artifact path: {artifact_path}")
+        logger.info(f"Project ID: {project_id}, Organization ID: {organization_id}")
 
         # TODO: Implement actual analysis logic
-        # This will determine platform by examining the artifact and run appropriate analyzer
+        # This will need to:
+        # 1. Fetch the artifact using artifact_id from storage/API
+        # 2. Determine platform by examining the artifact
+        # 3. Run appropriate analyzer (iOS/Android)
+        # 4. Store results
 
         logger.info(f"Analysis completed for artifact {artifact_id} (stub)")
 
