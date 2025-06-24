@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -31,7 +30,6 @@ class AndroidAnalyzer:
 
     def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
         manifest_dict = artifact.get_manifest().model_dump()
-        start_time = time.time()
 
         app_info = AndroidAppInfo(
             name=manifest_dict["application"]["label"] or "Unknown",
@@ -65,10 +63,8 @@ class AndroidAnalyzer:
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
 
-        analysis_duration = time.time() - start_time
         return AndroidAnalysisResults(
             generated_at=datetime.now(timezone.utc),
-            analysis_duration=analysis_duration,
             app_info=app_info,
             treemap=treemap,
             file_analysis=file_analysis,
