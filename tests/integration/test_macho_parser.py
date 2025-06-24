@@ -10,7 +10,7 @@ from launchpad.parsers.apple.macho_parser import MachOParser
 
 def create_macho_parser_from_xcarchive(xcarchive_path: Path) -> MachOParser:
     with open(xcarchive_path, "rb") as f:
-        archive = ZippedXCArchive(f.read())
+        archive = ZippedXCArchive(xcarchive_path, f.read())
 
     binary_path = archive.get_binary_path()
     assert binary_path is not None, "Failed to find main binary in xcarchive"
