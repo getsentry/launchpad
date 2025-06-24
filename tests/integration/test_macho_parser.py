@@ -29,15 +29,12 @@ class TestMachOParser:
 
     @pytest.fixture
     def sample_app_path(self) -> Path:
-        """Path to the sample HackerNews app."""
         return Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
 
     def test_hackernews_parsing(self, sample_app_path: Path) -> None:
         """Test parsing Swift protocol conformances from the HackerNews app."""
-        # Create the parser using the helper function
         macho_parser = create_macho_parser_from_xcarchive(sample_app_path)
 
-        # Test that we can extract basic information
         architectures = macho_parser.extract_architectures()
         assert architectures == ["CPU_TYPE.ARM64"]
 
@@ -50,9 +47,7 @@ class TestMachOParser:
         assert sections["__text"] == 1828412
         assert sections["__swift5_proto"] == 1200
 
-        # Test Swift protocol conformance parsing
         swift_conformances = macho_parser.parse_swift_protocol_conformances()
-        # The HackerNews app should have some Swift protocol conformances
         assert len(swift_conformances) == 286
         assert swift_conformances[0] == "_$ss35_HasCustomAnyHashableRepresentationMp"
 

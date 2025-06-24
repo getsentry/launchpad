@@ -13,11 +13,9 @@ from .binary_utils import read_null_terminated_string
 
 logger = get_logger(__name__)
 
-# Load command constants
 LC_REQ_DYLD = 0x80000000
 LC_DYLD_CHAINED_FIXUPS = 0x34 | LC_REQ_DYLD
 
-# DYLD chained import formats
 DYLD_CHAINED_IMPORT = 1
 DYLD_CHAINED_IMPORT_ADDEND = 2
 DYLD_CHAINED_IMPORT_ADDEND64 = 3
@@ -27,7 +25,6 @@ class DyldChainedFixupsHeader:
     """Structure for dyld_chained_fixups_header."""
 
     def __init__(self, data: bytes, offset: int = 0):
-        """Parse the header from binary data."""
         if len(data) < offset + 28:  # 7 * 4 bytes
             raise ValueError("Insufficient data for dyld_chained_fixups_header")
 
@@ -64,13 +61,12 @@ class ChainedFixupsParser:
         chained_fixups_command = None
         for command in self.binary.commands:
             if command.command == LC_DYLD_CHAINED_FIXUPS:
-                # Cast to the specific command type
                 if isinstance(command, lief.MachO.DyldChainedFixups):
                     chained_fixups_command = command
                     break
 
         if not chained_fixups_command:
-            logger.debug("No LC_DYLD_CHAINED_FIXUPS command found")
+            logger.error("No LC_DYLD_CHAINED_FIXUPS command found")
             return imported_symbols
 
         data_offset = chained_fixups_command.data_offset
@@ -78,7 +74,7 @@ class ChainedFixupsParser:
 
         vm_address_result = self.binary.offset_to_virtual_address(data_offset)
         if isinstance(vm_address_result, lief.lief_errors):
-            logger.debug(f"Failed to convert data offset {data_offset} to virtual address")
+            logger.error(f"Failed to convert data offset {data_offset} to virtual address")
             return imported_symbols
 
         vm_address = vm_address_result
@@ -86,7 +82,7 @@ class ChainedFixupsParser:
         header_data = self.binary.get_content_from_virtual_address(vm_address, data_size, lief.Binary.VA_TYPES.AUTO)
 
         if not header_data or len(header_data) < 28:
-            logger.debug("Insufficient data for chained fixups header")
+            logger.error("Insufficient data for chained fixups header")
             return imported_symbols
 
         header = DyldChainedFixupsHeader(bytes(header_data))
@@ -135,14 +131,12 @@ class ChainedFixupsParser:
                 continue
 
             if header.imports_format == DYLD_CHAINED_IMPORT_ADDEND64:
-                # For 64-bit format, read first 8 bytes as UInt64
                 if len(import_entry_data) >= 8:
                     import_value = int.from_bytes(bytes(import_entry_data[:8]), byteorder="little")
                     name_offset = (import_value >> name_offset_shift) & name_offset_mask
                 else:
                     continue
             else:
-                # For 32-bit formats, read first 4 bytes as UInt32
                 import_value = int.from_bytes(bytes(import_entry_data[:4]), byteorder="little")
                 name_offset = (import_value >> name_offset_shift) & name_offset_mask
 

@@ -162,15 +162,6 @@ class MachOParser:
         return CodeSignatureParser(self.binary, self).parse_code_signature()
 
     def get_imported_symbols(self) -> List[str]:
-        """Get the imported symbols from the binary.
-
-        This method parses the LC_DYLD_CHAINED_FIXUPS load command to extract
-        imported symbol names from the chained fixups data. Results are cached
-        after first computation.
-
-        Returns:
-            List of imported symbol names
-        """
         if self._imported_symbols_cache is not None:
             return self._imported_symbols_cache
 
