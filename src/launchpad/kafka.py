@@ -49,7 +49,7 @@ class LaunchpadMessage:
         """Parse and validate the message using the schema."""
         try:
             decoded = PREPROD_ARTIFACT_SCHEMA.decode(self.value)
-            return decoded
+            return decoded  # type: ignore[no-any-return]
         except ValidationError as e:
             logger.error(f"Schema validation failed for message: {e}")
             return None
@@ -256,11 +256,8 @@ class KafkaConsumer:
 def get_kafka_config() -> Dict[str, Any]:
     """Get Kafka configuration from environment."""
 
-    # Use the canonical topic name from schema by default
-    default_topic = PREPROD_ARTIFACT_EVENTS_TOPIC
-
     return {
         "bootstrap_servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
         "group_id": os.getenv("KAFKA_GROUP_ID", "launchpad-consumer"),
-        "topics": os.getenv("KAFKA_TOPICS", default_topic).split(","),
+        "topics": os.getenv("KAFKA_TOPICS", PREPROD_ARTIFACT_EVENTS_TOPIC).split(","),
     }

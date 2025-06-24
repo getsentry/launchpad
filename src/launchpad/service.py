@@ -7,6 +7,8 @@ import signal
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Union
 
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+
 from launchpad.utils.logging import get_logger
 
 from .kafka import KafkaConsumer, LaunchpadMessage, get_kafka_config
@@ -73,7 +75,7 @@ class LaunchpadService:
         except Exception as e:
             logger.error(f"Error handling Kafka message: {e}", exc_info=True)
 
-    def _queue_analysis(self, payload: Dict[str, Any]) -> None:
+    def _queue_analysis(self, payload: PreprodArtifactEvents) -> None:
         """Queue analysis for background processing."""
         try:
             if not self._loop:
@@ -98,7 +100,7 @@ class LaunchpadService:
         except Exception as e:
             logger.error(f"Failed to queue analysis: {e}", exc_info=True)
 
-    async def _handle_analysis_async(self, payload: Dict[str, Any]) -> None:
+    async def _handle_analysis_async(self, payload: PreprodArtifactEvents) -> None:
         """Handle analysis in background thread."""
         artifact_id = payload["artifact_id"]  # Guaranteed by schema
         project_id = payload["project_id"]  # Guaranteed by schema
@@ -119,7 +121,7 @@ class LaunchpadService:
         except Exception as e:
             logger.error(f"Analysis failed for artifact {artifact_id}: {e}", exc_info=True)
 
-    def _do_analysis(self, payload: Dict[str, Any]) -> None:
+    def _do_analysis(self, payload: PreprodArtifactEvents) -> None:
         """Actual analysis work (runs in thread pool) - platform determined by artifact."""
         artifact_id = payload["artifact_id"]  # Guaranteed by schema
         project_id = payload["project_id"]  # Guaranteed by schema
