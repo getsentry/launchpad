@@ -3,13 +3,17 @@ from typing import Generator
 
 import lief
 
+from launchpad.utils.logging import get_logger
+
 from .macho_parser import MachOParser
+
+logger = get_logger(__name__)
 
 
 @dataclass
 class SymbolSize:
     name: str
-    section: str
+    section: lief.MachO.Section | None
     address: int
     size: int
 
@@ -23,15 +27,16 @@ class MachOSymbolSizes:
 
     def get_symbol_sizes(self) -> list[SymbolSize]:
         """Get the symbol sizes."""
-        symbol_sizes = self._symbol_sizes(self.binary)
-        return list(symbol_sizes)
+        symbol_sizes = list(self._symbol_sizes(self.binary))
+        logger.info(f"Found {len(symbol_sizes)} symbol sizes")
+        return symbol_sizes
 
     def _is_measurable(self, sym: lief.MachO.Symbol) -> bool:
         """Keep symbols that are actually defined inside a section."""
         return (
             sym.origin == lief.MachO.Symbol.ORIGIN.LC_SYMTAB
             and sym.type == lief.MachO.Symbol.TYPE.SECTION
-            and sym.value != 0
+            and sym.value > 0
         )
 
     def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[SymbolSize, None, None]:
@@ -57,6 +62,4 @@ class MachOSymbolSizes:
             else:
                 end = syms[idx + 1].value
 
-            yield SymbolSize(
-                sym.demangled_name or str(sym.name), str(section.name) if section else "n/a", start, end - start
-            )
+            yield SymbolSize(sym.demangled_name or str(sym.name), section, start, end - start)
