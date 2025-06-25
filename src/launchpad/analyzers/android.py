@@ -9,6 +9,7 @@ from ..artifacts.android.zipped_apk import ZippedAPK
 from ..artifacts.artifact import AndroidArtifact
 from ..insights.common import DuplicateFilesInsight
 from ..insights.insight import InsightsInput
+from ..insights.webp_asset import WebpAssetInsight
 from ..models.android import (
     AndroidAnalysisResults,
     AndroidAppInfo,
@@ -82,9 +83,11 @@ class AndroidAnalyzer:
                 file_analysis=file_analysis,
                 treemap=treemap,
                 binary_analysis=[],
+                artifact=artifact,
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
+                webp_assets=WebpAssetInsight().generate(insights_input),
             )
 
         return AndroidAnalysisResults(
