@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
 
 from ..artifacts.android.aab import AAB
 from ..artifacts.android.apk import APK
 from ..artifacts.android.zipped_aab import ZippedAAB
 from ..artifacts.android.zipped_apk import ZippedAPK
 from ..artifacts.artifact import AndroidArtifact
-from ..models.android import AndroidAnalysisResults, AndroidAppInfo
+from ..insights.common import DuplicateFilesInsight
+from ..insights.insight import InsightsInput
+from ..models.android import (
+    AndroidAnalysisResults,
+    AndroidAppInfo,
+    AndroidInsightResults,
+)
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..utils.file_utils import calculate_file_hash
@@ -25,8 +30,14 @@ FILE_NAME_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
 class AndroidAnalyzer:
     """Analyzer for Android apps (.apk, .aab files)."""
 
-    def __init__(self, **_: Any) -> None:
-        pass
+    def __init__(
+        self,
+        skip_insights: bool = False,
+    ) -> None:
+        """Args:
+        skip_insights: Skip insights generation for faster analysis
+        """
+        self.skip_insights = skip_insights
 
     def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
         manifest_dict = artifact.get_manifest().model_dump()
@@ -63,11 +74,25 @@ class AndroidAnalyzer:
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
 
+        insights: AndroidInsightResults | None = None
+        if not self.skip_insights:
+            logger.info("Generating insights from analysis results")
+            insights_input = InsightsInput(
+                app_info=app_info,
+                file_analysis=file_analysis,
+                treemap=treemap,
+                binary_analysis=[],
+            )
+            insights = AndroidInsightResults(
+                duplicate_files=DuplicateFilesInsight().generate(insights_input),
+            )
+
         return AndroidAnalysisResults(
             generated_at=datetime.now(timezone.utc),
             app_info=app_info,
             treemap=treemap,
             file_analysis=file_analysis,
+            insights=insights,
             analysis_duration=None,
         )
 
@@ -115,7 +140,7 @@ class AndroidAnalyzer:
                             size=merged_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
-                            # Intentionally igoring hash of merged file
+                            # Intentionally ignoring hash of merged file
                             hash_md5="",
                         )
                         path_to_file_info[relative_path] = merged_file_info
