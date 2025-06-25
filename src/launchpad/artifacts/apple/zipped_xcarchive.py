@@ -207,14 +207,6 @@ class ZippedXCArchive(AppleArtifact):
         return binaries
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:
-        """Extract UUID from a Mach-O binary using LIEF.
-
-        Args:
-            binary_path: Path to the binary file
-
-        Returns:
-            UUID string if found, None otherwise
-        """
         try:
             fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(str(binary_path))  # type: ignore
             if fat_binary is None or fat_binary.size == 0:
@@ -226,7 +218,6 @@ class ZippedXCArchive(AppleArtifact):
             # Look for UUID command
             for command in binary.commands:
                 if command.command == lief.MachO.LoadCommand.TYPE.UUID:
-                    # Cast to UUIDCommand to access the uuid property
                     if isinstance(command, lief.MachO.UUIDCommand):
                         # Convert the UUID list to a proper UUID string
                         uuid_bytes = bytes(command.uuid)
@@ -237,15 +228,10 @@ class ZippedXCArchive(AppleArtifact):
             return None
 
         except Exception as e:
-            logger.debug(f"Failed to extract UUID from binary {binary_path}: {e}")
+            logger.error(f"Failed to extract UUID from binary {binary_path}: {e}")
             return None
 
     def _find_dsym_files(self) -> dict[str, Path]:
-        """Find all dSYM files in the XCArchive and map them by UUID.
-
-        Returns:
-            Dictionary mapping UUID strings to dSYM file paths
-        """
         if self._dsym_files is not None:
             return self._dsym_files
 
