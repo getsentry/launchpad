@@ -3,9 +3,13 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+import uuid
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List
+
+import lief
 
 from launchpad.utils.logging import get_logger
 
@@ -13,6 +17,13 @@ from ..artifact import AppleArtifact
 from ..providers.zip_provider import ZipProvider
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class BinaryInfo:
+    name: str
+    path: Path
+    dsym_path: Path | None
 
 
 class ZippedXCArchive(AppleArtifact):
@@ -25,6 +36,7 @@ class ZippedXCArchive(AppleArtifact):
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
+        self._dsym_files: dict[str, Path] | None = None
 
     def get_plist(self) -> dict[str, Any]:
         """Get the Info.plist contents."""
@@ -132,10 +144,15 @@ class ZippedXCArchive(AppleArtifact):
 
         raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
 
-    def get_all_binary_paths(self) -> List[tuple[Path, str]]:
-        """Find all binaries in the app bundle."""
+    def get_all_binary_paths(self) -> List[BinaryInfo]:
+        """Find all binaries in the app bundle and their corresponding dSYM files.
 
-        binaries: List[tuple[Path, str]] = []
+        Returns:
+            List of BinaryInfo objects
+        """
+
+        binaries: List[BinaryInfo] = []
+        dsym_files = self._find_dsym_files()
 
         app_bundle_path = self.get_app_bundle_path()
 
@@ -144,14 +161,24 @@ class ZippedXCArchive(AppleArtifact):
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
         main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
-        binaries.append((main_binary_path, main_executable))  # Don't skip Swift metadata for main binary
+
+        # Find corresponding dSYM for main executable
+        main_uuid = self._extract_binary_uuid(main_binary_path)
+        main_dsym_path = dsym_files.get(main_uuid) if main_uuid else None
+
+        binaries.append(BinaryInfo(main_executable, main_binary_path, main_dsym_path))
 
         # Find framework binaries
         for framework_path in app_bundle_path.rglob("*.framework"):
             if framework_path.is_dir():
                 framework_name = framework_path.stem
                 framework_binary_path = framework_path / framework_name
-                binaries.append((framework_binary_path, framework_name))  # Skip Swift metadata for frameworks
+
+                # Find corresponding dSYM for framework
+                framework_uuid = self._extract_binary_uuid(framework_binary_path)
+                framework_dsym_path = dsym_files.get(framework_uuid) if framework_uuid else None
+
+                binaries.append(BinaryInfo(framework_name, framework_binary_path, framework_dsym_path))
 
         # Find app extension binaries
         for extension_path in app_bundle_path.rglob("*.appex"):
@@ -168,10 +195,84 @@ class ZippedXCArchive(AppleArtifact):
                             extension_binary_path = extension_path / extension_executable
                             # Use the full extension name as the key to avoid conflicts
                             extension_name = f"{extension_path.stem}/{extension_executable}"
-                            binaries.append(
-                                (extension_binary_path, extension_name)
-                            )  # Skip Swift metadata for extensions
+
+                            # Find corresponding dSYM for extension
+                            extension_uuid = self._extract_binary_uuid(extension_binary_path)
+                            extension_dsym_path = dsym_files.get(extension_uuid) if extension_uuid else None
+
+                            binaries.append(BinaryInfo(extension_name, extension_binary_path, extension_dsym_path))
                     except Exception as e:
                         logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
 
         return binaries
+
+    def _extract_binary_uuid(self, binary_path: Path) -> str | None:
+        """Extract UUID from a Mach-O binary using LIEF.
+
+        Args:
+            binary_path: Path to the binary file
+
+        Returns:
+            UUID string if found, None otherwise
+        """
+        try:
+            fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(str(binary_path))  # type: ignore
+            if fat_binary is None or fat_binary.size == 0:
+                logger.debug(f"Failed to parse binary with LIEF: {binary_path}")
+                return None
+
+            binary = fat_binary.at(0)
+
+            # Look for UUID command
+            for command in binary.commands:
+                if command.command == lief.MachO.LoadCommand.TYPE.UUID:
+                    # Cast to UUIDCommand to access the uuid property
+                    if isinstance(command, lief.MachO.UUIDCommand):
+                        # Convert the UUID list to a proper UUID string
+                        uuid_bytes = bytes(command.uuid)
+                        uuid_obj = uuid.UUID(bytes=uuid_bytes)
+                        return str(uuid_obj).upper()
+
+            logger.debug(f"No UUID command found in binary: {binary_path}")
+            return None
+
+        except Exception as e:
+            logger.debug(f"Failed to extract UUID from binary {binary_path}: {e}")
+            return None
+
+    def _find_dsym_files(self) -> dict[str, Path]:
+        """Find all dSYM files in the XCArchive and map them by UUID.
+
+        Returns:
+            Dictionary mapping UUID strings to dSYM file paths
+        """
+        if self._dsym_files is not None:
+            return self._dsym_files
+
+        dsym_files: dict[str, Path] = {}
+
+        # Look for dSYMs directory in the XCArchive
+        dsyms_dir = None
+        for path in self._extract_dir.rglob("dSYMs"):
+            if path.is_dir():
+                dsyms_dir = path
+                break
+
+        if dsyms_dir is None:
+            logger.debug("No dSYMs directory found in XCArchive")
+            self._dsym_files = dsym_files
+            return dsym_files
+
+        # Find all DWARF files within dSYM bundles
+        for dsym_path in dsyms_dir.rglob("DWARF"):
+            if dsym_path.is_dir():
+                for dwarf_file in dsym_path.iterdir():
+                    if dwarf_file.is_file():
+                        # Extract UUID from the dSYM file
+                        dsym_uuid = self._extract_binary_uuid(dwarf_file)
+                        if dsym_uuid:
+                            dsym_files[dsym_uuid] = dwarf_file
+                            logger.debug(f"Found dSYM file {dwarf_file} with UUID {dsym_uuid}")
+
+        self._dsym_files = dsym_files
+        return dsym_files

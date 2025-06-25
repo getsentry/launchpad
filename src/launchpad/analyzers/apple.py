@@ -100,15 +100,14 @@ class AppleAppAnalyzer:
             logger.info(f"Found {len(binaries)} binaries to analyze")
 
             # Then analyze them all
-            for binary_path, binary_name in binaries:
-                try:
-                    logger.info(f"Analyzing binary {binary_name} at {binary_path}")
-                    binary = self._analyze_binary(binary_path)
-                    if binary.range_map is not None:
-                        binary_analysis.append(binary)
-                        binary_analysis_map[str(binary_path.relative_to(app_bundle_path))] = binary
-                except Exception as e:
-                    logger.warning(f"Failed to analyze binary at {binary_path}: {e}")
+            for binary_info in binaries:
+                logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
+                if binary_info.dsym_path:
+                    logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
+                binary = self._analyze_binary(binary_info.path)
+                if binary.range_map is not None:
+                    binary_analysis.append(binary)
+                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
@@ -333,7 +332,7 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        fat_binary = lief.MachO.parse(str(binary_path))
+        fat_binary = lief.MachO.parse(str(binary_path))  # type: ignore
 
         if fat_binary is None or fat_binary.size == 0:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
