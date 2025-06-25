@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 
 from pathlib import Path
@@ -97,19 +96,18 @@ class AppleAppAnalyzer:
             app_bundle_path = artifact.get_app_bundle_path()
 
             # First find all binaries
-            binaries = self._find_binaries(app_bundle_path, artifact)
+            binaries = artifact.get_all_binary_paths()
             logger.info(f"Found {len(binaries)} binaries to analyze")
 
             # Then analyze them all
-            for binary_path, binary_name in binaries:
-                try:
-                    logger.info(f"Analyzing binary {binary_name} at {binary_path}")
-                    binary = self._analyze_binary(binary_path)
-                    if binary.range_map is not None:
-                        binary_analysis.append(binary)
-                        binary_analysis_map[str(binary_path.relative_to(app_bundle_path))] = binary
-                except Exception as e:
-                    logger.warning(f"Failed to analyze binary at {binary_path}: {e}")
+            for binary_info in binaries:
+                logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
+                if binary_info.dsym_path:
+                    logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
+                binary = self._analyze_binary(binary_info.path)
+                if binary.range_map is not None:
+                    binary_analysis.append(binary)
+                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
@@ -311,55 +309,6 @@ class AppleAppAnalyzer:
 
         return FileAnalysis(files=files)
 
-    def _find_binaries(self, app_bundle_path: Path, artifact: AppleArtifact) -> List[tuple[Path, str]]:
-        """Find all binaries in the app bundle.
-
-        Args:
-            app_bundle_path: Path to the app bundle
-            artifact: The Apple app artifact being analyzed
-
-        Returns:
-            List of tuples containing (binary_path, binary_name, skip_swift_metadata)
-        """
-        binaries: List[tuple[Path, str]] = []
-
-        # Find main executable
-        main_executable = artifact.get_plist().get("CFBundleExecutable")
-        if main_executable is None:
-            raise RuntimeError("CFBundleExecutable not found in Info.plist")
-        main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
-        binaries.append((main_binary_path, main_executable))  # Don't skip Swift metadata for main binary
-
-        # Find framework binaries
-        for framework_path in app_bundle_path.rglob("*.framework"):
-            if framework_path.is_dir():
-                framework_name = framework_path.stem
-                framework_binary_path = framework_path / framework_name
-                binaries.append((framework_binary_path, framework_name))  # Skip Swift metadata for frameworks
-
-        # Find app extension binaries
-        for extension_path in app_bundle_path.rglob("*.appex"):
-            if extension_path.is_dir():
-                extension_plist_path = extension_path / "Info.plist"
-                if extension_plist_path.exists():
-                    try:
-                        import plistlib
-
-                        with open(extension_plist_path, "rb") as f:
-                            extension_plist = plistlib.load(f)
-                        extension_executable = extension_plist.get("CFBundleExecutable")
-                        if extension_executable:
-                            extension_binary_path = extension_path / extension_executable
-                            # Use the full extension name as the key to avoid conflicts
-                            extension_name = f"{extension_path.stem}/{extension_executable}"
-                            binaries.append(
-                                (extension_binary_path, extension_name)
-                            )  # Skip Swift metadata for extensions
-                    except Exception as e:
-                        logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
-
-        return binaries
-
     def _analyze_binary(self, binary_path: Path, skip_swift_metadata: bool = False) -> MachOBinaryAnalysis:
         """Analyze a binary file using LIEF.
 
@@ -383,7 +332,7 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        fat_binary = lief.MachO.parse(str(binary_path))
+        fat_binary = lief.MachO.parse(str(binary_path))  # type: ignore
 
         if fat_binary is None or fat_binary.size == 0:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
