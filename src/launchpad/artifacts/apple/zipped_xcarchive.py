@@ -215,11 +215,10 @@ class ZippedXCArchive(AppleArtifact):
 
             binary = fat_binary.at(0)
 
-            # Look for UUID command
+            # Look for UUID load command
             for command in binary.commands:
                 if command.command == lief.MachO.LoadCommand.TYPE.UUID:
                     if isinstance(command, lief.MachO.UUIDCommand):
-                        # Convert the UUID list to a proper UUID string
                         uuid_bytes = bytes(command.uuid)
                         uuid_obj = uuid.UUID(bytes=uuid_bytes)
                         return str(uuid_obj).upper()
@@ -237,7 +236,6 @@ class ZippedXCArchive(AppleArtifact):
 
         dsym_files: dict[str, Path] = {}
 
-        # Look for dSYMs directory in the XCArchive
         dsyms_dir = None
         for path in self._extract_dir.rglob("dSYMs"):
             if path.is_dir():
@@ -249,12 +247,10 @@ class ZippedXCArchive(AppleArtifact):
             self._dsym_files = dsym_files
             return dsym_files
 
-        # Find all DWARF files within dSYM bundles
         for dsym_path in dsyms_dir.rglob("DWARF"):
             if dsym_path.is_dir():
                 for dwarf_file in dsym_path.iterdir():
                     if dwarf_file.is_file():
-                        # Extract UUID from the dSYM file
                         dsym_uuid = self._extract_binary_uuid(dwarf_file)
                         if dsym_uuid:
                             dsym_files[dsym_uuid] = dwarf_file
