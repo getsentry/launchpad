@@ -2,6 +2,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import List, Protocol, TypeVar
 
+from launchpad.artifacts.artifact import Artifact
 from launchpad.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
 from launchpad.models.treemap import TreemapResults
 
@@ -14,6 +15,7 @@ class InsightsInput:
     file_analysis: FileAnalysis
     treemap: TreemapResults | None
     binary_analysis: List[BaseBinaryAnalysis]
+    artifact: Artifact | None = None
 
 
 class Insight(Protocol[T_co]):

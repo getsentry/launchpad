@@ -127,6 +127,7 @@ class AppleAppAnalyzer:
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
                 treemap=treemap,
+                artifact=artifact,
             )
             insights = AppleInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
