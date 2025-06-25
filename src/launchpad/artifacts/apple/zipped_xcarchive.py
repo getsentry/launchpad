@@ -1,4 +1,7 @@
 import plistlib
+import shutil
+import subprocess
+import tempfile
 
 from pathlib import Path
 from typing import Any
@@ -38,6 +41,51 @@ class ZippedXCArchive(AppleArtifact):
             return self._plist
         except Exception as e:
             raise RuntimeError(f"Failed to parse Info.plist: {e}")
+
+    def generate_ipa(self, output_path: Path):
+        """Generate an IPA file
+
+        An IPA file is a zip file containing a Payload directory, with the .app bundle inside.
+
+        Args:
+            output_path: Path where the IPA file should be saved
+
+        Returns:
+            Path to the generated IPA file
+
+        Raises:
+            RuntimeError: If IPA generation fails
+        """
+
+        logger.info("Generating IPA file from XCArchive")
+
+        # Get the app bundle path
+        app_bundle_path = self.get_app_bundle_path()
+
+        # Create a temporary directory for Payload
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            payload_dir = temp_dir_path / "Payload"
+            payload_dir.mkdir()
+            dest_app_path = payload_dir / app_bundle_path.name
+
+            # Copy the .app bundle into Payload (preserve symlinks, permissions, etc.)
+            shutil.copytree(app_bundle_path, dest_app_path, symlinks=True)
+
+            # Create the IPA file using zip to preserve symlinks and metadata
+            try:
+                subprocess.run(
+                    ["zip", "-r", "-y", str(output_path), "Payload"],  # Recursive  # Store symlinks as symlinks
+                    cwd=temp_dir_path,
+                    check=True,
+                )
+
+                logger.info(f"IPA file generated successfully: {output_path}")
+                return output_path
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError(f"Failed to generate IPA file with zip: {e}")
+            except FileNotFoundError:
+                raise RuntimeError("zip command not found. This tool is required for IPA generation.")
 
     def get_provisioning_profile(self) -> dict[str, Any] | None:
         if self._provisioning_profile is not None:
