@@ -42,62 +42,31 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Build Docker image with test fixtures
+        run: docker build --build-arg TEST_BUILD=true -t launchpad-test .
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-          cache-dependency-glob: pyproject.toml
-
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: 17
-          distribution: adopt
-
-      - name: Setup bundletool
+      - name: Run all tests in Docker
         run: |
-          curl https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar -4 -sL -o 'bundletool.jar'
-          echo '#!/bin/bash' > bundletool
-          echo 'java -jar "$(dirname "$0")/bundletool.jar" "$@"' >> bundletool
-          chmod +x bundletool
-          echo "$(pwd)" >> $GITHUB_PATH
-          ./bundletool version
+          docker run --rm \
+            -e LAUNCHPAD_ENV=development \
+            -e LAUNCHPAD_HOST=localhost \
+            -e LAUNCHPAD_PORT=2218 \
+            -e KAFKA_BOOTSTRAP_SERVERS="localhost:9092" \
+            -e KAFKA_GROUP_ID="launchpad-test" \
+            -e KAFKA_TOPICS="preprod-artifact-events" \
+            launchpad-test python -m pytest tests/ -v --tb=short
 
-      - name: Setup cwebp
+      - name: Test CLI installation and basic functionality in Docker
         run: |
-          curl -L https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0-linux-x86-64.tar.gz -o webp.tar.gz
-          tar -xzf webp.tar.gz
-          echo "$(pwd)/libwebp-1.5.0-linux-x86-64/bin" >> $GITHUB_PATH
-          ./libwebp-1.5.0-linux-x86-64/bin/cwebp -version
-
-      - name: Test cwebp
-        run: cwebp -version
-
-      - name: Install dependencies
-        run: make install-dev
-
-      - name: Run unit tests
-        run: make test-unit
-
-      - name: Run integration tests
-        run: make test-integration
-
-      - name: Test CLI installation and basic functionality
-        run: |
-          make run-cli ARGS="--help"
+          docker run --rm \
+            -e LAUNCHPAD_ENV=development \
+            -e LAUNCHPAD_HOST=localhost \
+            -e LAUNCHPAD_PORT=2218 \
+            launchpad-test launchpad --help
 
   build:
     runs-on: ubuntu-latest
