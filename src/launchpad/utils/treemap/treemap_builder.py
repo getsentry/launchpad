@@ -9,7 +9,9 @@ from typing import Dict, List, Literal
 from ...models.apple import MachOBinaryAnalysis
 from ...models.common import FileAnalysis, FileInfo
 from ...models.treemap import TreemapElement, TreemapResults, TreemapType
+from ...parsers.android.dex.types import ClassDefinition
 from ...utils.file_utils import calculate_aligned_install_size
+from ...utils.treemap.dex_element_builder import DexElementBuilder
 from ...utils.treemap.treemap_element_builder import TreemapElementBuilder
 from ..logging import get_logger
 from .default_file_element_builder import DefaultFileElementBuilder
@@ -27,6 +29,7 @@ class TreemapBuilder:
         filesystem_block_size: int | None = None,
         # TODO: We should try to move iOS-specific logic out of this class's constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
+        class_definitions: list[ClassDefinition] | None = None,
     ) -> None:
         """Initialize the treemap builder.
 
@@ -41,6 +44,7 @@ class TreemapBuilder:
         self.platform = platform
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
         self.binary_analysis_map = binary_analysis_map or {}
+        self.class_definitions = class_definitions or []
 
         if filesystem_block_size is not None:
             self.filesystem_block_size = filesystem_block_size
@@ -87,9 +91,15 @@ class TreemapBuilder:
         match file_info.file_type:
             case "macho":
                 element_builder = MachOElementBuilder(
+                    binary_analysis_map=self.binary_analysis_map,
                     download_compression_ratio=self.download_compression_ratio,
                     filesystem_block_size=self.filesystem_block_size,
-                    binary_analysis_map=self.binary_analysis_map,
+                )
+            case "dex":
+                element_builder = DexElementBuilder(
+                    class_definitions=self.class_definitions,
+                    download_compression_ratio=self.download_compression_ratio,
+                    filesystem_block_size=self.filesystem_block_size,
                 )
 
         logger.debug(f"Using {element_builder.__class__.__name__} for {file_info.file_type}")
@@ -207,6 +217,12 @@ class TreemapBuilder:
         for dir_path in sorted(top_level_dirs):
             dir_element = build_directory(dir_path)
             elements.append(dir_element)
+
+        # for element in elements:
+        #     if not isinstance(element, TreemapElement):
+        #         logger.error(f"Invalid element type: {type(element)}, expected TreemapElement")
+        #         raise ValueError(f"Invalid element type: {type(element)}, expected TreemapElement")
+        #     logger.info(f"Validated element: {element.name}")
 
         return elements
 

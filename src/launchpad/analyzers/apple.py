@@ -110,6 +110,7 @@ class AppleAppAnalyzer:
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
             treemap_builder = TreemapBuilder(
+                extract_path=artifact.get_extract_path(),
                 app_name=app_info.name,
                 platform="ios",
                 download_compression_ratio=0.8,  # TODO: implement this

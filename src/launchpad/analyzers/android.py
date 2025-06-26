@@ -16,6 +16,7 @@ from ..models.android import (
 )
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
+from ..parsers.android.dex.types import ClassDefinition
 from ..utils.file_utils import calculate_file_hash
 from ..utils.logging import get_logger
 from ..utils.treemap.treemap_builder import TreemapBuilder
@@ -65,11 +66,13 @@ class AndroidAnalyzer:
         logger.debug("Found %d APKs", len(apks))
 
         file_analysis = self._get_file_analysis(apks)
+        class_definitions = self._get_class_definitions(apks)
         treemap_builder = TreemapBuilder(
             app_name=app_info.name,
             platform="android",
             # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
             download_compression_ratio=1.0,
+            class_definitions=class_definitions,
         )
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
@@ -123,6 +126,7 @@ class AndroidAnalyzer:
                     # If we've seen this path before, merge the sizes to simplify the treemap
                     # This is intentional as things like the AndroidManifest.xml are duplicated
                     # across APKs, but to users that's not relevant so we'll group.
+                    # TODO: Merge dex files
                     if relative_path in path_to_file_info:
                         existing_info = path_to_file_info[relative_path]
                         merged_size = existing_info.size + file_size
@@ -169,3 +173,13 @@ class AndroidAnalyzer:
         return FileAnalysis(
             files=file_infos,
         )
+
+    def _get_class_definitions(self, apks: list[APK]) -> list[ClassDefinition]:
+        class_definitions: list[ClassDefinition] = []
+        for apk in apks:
+            class_definitions.extend(apk.get_class_definitions())
+
+        logger.debug(f"Found {len(class_definitions)} class definitions")
+        for i, class_def in enumerate(class_definitions):
+            logger.debug(f"Class {i}: {class_def.signature}")
+        return class_definitions

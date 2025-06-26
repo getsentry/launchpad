@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 
-from ..buffer_wrapper import BufferWrapper
+from ....parsers.buffer_wrapper import BufferWrapper
 from .types import (
     ChunkHeader,
     ChunkType,
@@ -252,7 +252,11 @@ class AndroidBinaryParser:
 
             if chunk_header.chunk_type == ChunkType.TABLE_TYPE:
                 types.append(self.read_type_chunk(chunk_header, types_string_pool, keys_string_pool))
-            elif chunk_header.chunk_type in (ChunkType.TABLE_LIBRARY, ChunkType.TABLE_TYPE_SPEC, ChunkType.NULL):
+            elif chunk_header.chunk_type in (
+                ChunkType.TABLE_LIBRARY,
+                ChunkType.TABLE_TYPE_SPEC,
+                ChunkType.NULL,
+            ):
                 self.buffer_wrapper.cursor = chunk_header.start_offset + chunk_header.chunk_size
             else:
                 self.buffer_wrapper.cursor = chunk_header.start_offset + chunk_header.chunk_size
@@ -264,7 +268,10 @@ class AndroidBinaryParser:
         )
 
     def read_type_chunk(
-        self, header: ChunkHeader, type_strings_pool: StringPool, keys_string_pool: StringPool
+        self,
+        header: ChunkHeader,
+        type_strings_pool: StringPool,
+        keys_string_pool: StringPool,
     ) -> ResourceTableType:
         """Read a type chunk from the buffer."""
         id_val = self.buffer_wrapper.read_u8()
