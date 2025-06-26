@@ -7,7 +7,9 @@ name = "launchpad"
 version = "1.0.0"
 description = "CLI tool for analyzing iOS and Android app bundle sizes"
 readme = "README.md"
-license = {file = "LICENSE"}
+# Update to "FSL-1.1-ALv2" once the next version of SPDX comes out,
+# see: https://github.com/spdx/license-list-XML/issues/2459
+license-files = ["LICENSE"]
 authors = [
     {name = "Sentry Team", email = "engineering@sentry.io"},
 ]
@@ -15,7 +17,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
