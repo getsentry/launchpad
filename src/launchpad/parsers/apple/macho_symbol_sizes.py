@@ -4,6 +4,7 @@ from typing import Generator
 import lief
 
 from launchpad.utils.logging import get_logger
+from launchpad.utils.swift_demangle import SwiftDemangler
 
 from .macho_parser import MachOParser
 
@@ -12,7 +13,8 @@ logger = get_logger(__name__)
 
 @dataclass
 class SymbolSize:
-    name: str
+    mangled_name: str
+    demangled_name: str
     section: lief.MachO.Section | None
     address: int
     size: int
@@ -27,7 +29,27 @@ class MachOSymbolSizes:
 
     def get_symbol_sizes(self) -> list[SymbolSize]:
         """Get the symbol sizes."""
-        symbol_sizes = list(self._symbol_sizes(self.binary))
+        symbol_tuples = list(self._symbol_sizes(self.binary))
+        swift_demangler = SwiftDemangler()
+
+        mangled_names = [name for name, _, _, _ in symbol_tuples]
+        for name in mangled_names:
+            swift_demangler.add_name(name)
+        demangled_results = swift_demangler.demangle_all()
+
+        symbol_sizes: list[SymbolSize] = []
+        for mangled_name, section, address, size in symbol_tuples:
+            demangled_name = demangled_results.get(mangled_name, mangled_name)
+            symbol_sizes.append(
+                SymbolSize(
+                    mangled_name=mangled_name,
+                    demangled_name=demangled_name,
+                    section=section,
+                    address=address,
+                    size=size,
+                )
+            )
+
         logger.info(f"Found {len(symbol_sizes)} symbol sizes")
         return symbol_sizes
 
@@ -39,7 +61,7 @@ class MachOSymbolSizes:
             and sym.value > 0
         )
 
-    def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[SymbolSize, None, None]:
+    def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[tuple[str, lief.MachO.Section | None, int, int]]:
         """Yield (name, addr, size) via the distance-to-next-symbol heuristic."""
 
         # sort symbols by their address so we can calculate the distance between them
@@ -62,4 +84,4 @@ class MachOSymbolSizes:
             else:
                 end = syms[idx + 1].value
 
-            yield SymbolSize(sym.demangled_name or str(sym.name), section, start, end - start)
+            yield (str(sym.name), section, start, end - start)
