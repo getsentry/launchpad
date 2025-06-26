@@ -62,7 +62,7 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "module": "launchpad.cli",
       "args": [
-        "apple-app",
+        "size",
         "--verbose",
         "tests/_fixtures/ios/HackerNews.xcarchive.zip"
       ],
@@ -80,7 +80,7 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "module": "launchpad.cli",
       "args": [
-        "android",
+        "size",
         "--verbose",
         "tests/_fixtures/android/zipped_aab.zip"
       ],
