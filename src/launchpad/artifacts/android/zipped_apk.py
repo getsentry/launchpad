@@ -7,8 +7,8 @@ from .manifest.manifest import AndroidManifest
 
 
 class ZippedAPK(AndroidArtifact):
-    def __init__(self, path: Path, content: bytes) -> None:
-        super().__init__(content)
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
         self.path = path
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()

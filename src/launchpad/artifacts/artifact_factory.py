@@ -39,34 +39,34 @@ class ArtifactFactory:
                 # Check if zip contains a Info.plist in the root of the .xcarchive folder (ZippedXCArchive)
                 plist_files = [f for f in zip_file.namelist() if f.endswith(".xcarchive/Info.plist")]
                 if plist_files:
-                    return ZippedXCArchive(path, content)
+                    return ZippedXCArchive(path)
 
                 apk_files = [f for f in zip_file.namelist() if f.endswith(".apk")]
                 if len(apk_files) == 1:
-                    return ZippedAPK(path, content)
+                    return ZippedAPK(path)
 
                 aab_files = [f for f in zip_file.namelist() if f.endswith(".aab")]
                 if len(aab_files) == 1:
-                    return ZippedAAB(path, content)
+                    return ZippedAAB(path)
 
                 # Check if zip contains base/manifest/AndroidManifest.xml (AAB)
                 manifest_files = [f for f in zip_file.namelist() if f.endswith("base/manifest/AndroidManifest.xml")]
                 if manifest_files:
-                    return AAB(path, content)
+                    return AAB(path)
 
                 # Check if zip contains AndroidManifest.xml (APK)
                 manifest_files = [f for f in zip_file.namelist() if f.endswith("AndroidManifest.xml")]
                 if manifest_files:
-                    return APK(path, content)
+                    return APK(path)
 
         # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations
         try:
             with ZipFile(BytesIO(content)) as zip_file:
                 if any(f.endswith("base/manifest/AndroidManifest.xml") for f in zip_file.namelist()):
-                    return AAB(path, content)
+                    return AAB(path)
 
                 if any(f.endswith("AndroidManifest.xml") for f in zip_file.namelist()):
-                    return APK(path, content)
+                    return APK(path)
         except Exception:
             pass
 

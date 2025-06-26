@@ -16,15 +16,8 @@ logger = get_logger(__name__)
 
 
 class APK(AndroidArtifact):
-    """Represents an Android APK file that can be analyzed."""
-
-    def __init__(self, path: Path, content: bytes) -> None:
-        """Initialize APK with file path.
-
-        Args:
-            path: Path to the APK file
-        """
-        super().__init__(content)
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
         self._path = path
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
@@ -32,14 +25,6 @@ class APK(AndroidArtifact):
         self._resource_table: BinaryResourceTable | None = None
 
     def get_manifest(self) -> AndroidManifest:
-        """Get the Android manifest information.
-
-        Returns:
-            Dictionary containing manifest information
-
-        Raises:
-            ValueError: If manifest cannot be found or parsed
-        """
         if self._manifest is not None:
             return self._manifest
 
@@ -59,14 +44,6 @@ class APK(AndroidArtifact):
         return self._manifest
 
     def get_resource_tables(self) -> list[BinaryResourceTable]:  # type: ignore[override]
-        """Get the resource tables from the artifact.
-
-        Returns:
-            List of resource table dictionaries
-
-        Raises:
-            ValueError: If resource tables cannot be found or parsed
-        """
         if self._resource_table is not None:
             return [self._resource_table]
 

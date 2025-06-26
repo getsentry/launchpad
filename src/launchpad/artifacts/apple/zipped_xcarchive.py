@@ -27,10 +27,8 @@ class BinaryInfo:
 
 
 class ZippedXCArchive(AppleArtifact):
-    """A zipped XCArchive file."""
-
-    def __init__(self, path: Path, content: bytes) -> None:
-        super().__init__(content)
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._app_bundle_path: Path | None = None
@@ -39,7 +37,6 @@ class ZippedXCArchive(AppleArtifact):
         self._dsym_files: dict[str, Path] | None = None
 
     def get_plist(self) -> dict[str, Any]:
-        """Get the Info.plist contents."""
         if self._plist is not None:
             return self._plist
 
