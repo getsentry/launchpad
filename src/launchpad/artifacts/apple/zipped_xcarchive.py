@@ -1,3 +1,4 @@
+import json
 import os
 import plistlib
 import shutil
@@ -17,6 +18,16 @@ from ..artifact import AppleArtifact
 from ..providers.zip_provider import ZipProvider
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class AssetCatalogElement:
+    name: str
+    imageId: str
+    size: int
+    type: str
+    vector: bool
+    filename: str
 
 
 @dataclass
@@ -214,6 +225,47 @@ class ZippedXCArchive(AppleArtifact):
                         logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
 
         return binaries
+
+    def get_asset_catalog_details(self, relative_path: Path) -> List[AssetCatalogElement]:
+        """Get the details of an asset catalog file (Assets.car) by returning the
+        parsed JSON from ParsedAssets."""
+        try:
+            app_bundle_path = self.get_app_bundle_path()
+            json_name = relative_path.with_suffix(".json")
+            xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
+            app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
+
+            file_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / json_name
+
+            if not file_path.exists():
+                logger.warning(f"Assets.json not found at {file_path}")
+                return []
+
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            return [self._parse_asset_element(item) for item in data]
+        except Exception as e:
+            logger.warning(f"Failed to get asset catalog details for {relative_path}: {e}")
+            return []
+
+    def _parse_asset_element(self, item: dict[str, Any]) -> AssetCatalogElement:
+        """Parse a dictionary item into an AssetCatalogElement."""
+        name = item.get("name", "")
+        image_id = item.get("imageId", "")
+        size = item.get("size", 0)
+        asset_type = item.get("type", "")
+        is_vector = item.get("vector", False)
+        filename = item.get("filename", "")
+
+        return AssetCatalogElement(
+            name=name,
+            imageId=image_id,
+            size=size,
+            type=asset_type,
+            vector=is_vector,
+            filename=filename,
+        )
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:
         try:
