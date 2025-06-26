@@ -82,6 +82,7 @@ class AndroidAnalyzer:
                 file_analysis=file_analysis,
                 treemap=treemap,
                 binary_analysis=[],
+                image_insights=[],
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),

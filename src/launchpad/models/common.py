@@ -91,3 +91,12 @@ class BaseAnalysisResults(BaseModel):
         data = self.model_dump()
         data["generated_at"] = self.generated_at.isoformat()
         return data
+
+
+class ImageInsight(BaseModel):
+    """Image optimization potential insight."""
+
+    model_config = ConfigDict(frozen=True)
+
+    image_path: str = Field(..., description="Relative path in the artifact")
+    insight: str = Field(..., description="Insight about the image")
