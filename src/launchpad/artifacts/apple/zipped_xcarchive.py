@@ -88,7 +88,13 @@ class ZippedXCArchive(AppleArtifact):
             # Create the IPA file using zip to preserve symlinks and metadata
             try:
                 subprocess.run(
-                    ["zip", "-r", "-y", str(output_path), "Payload"],  # Recursive  # Store symlinks as symlinks
+                    [
+                        "zip",
+                        "-r",
+                        "-y",
+                        str(output_path),
+                        "Payload",
+                    ],  # Recursive  # Store symlinks as symlinks
                     cwd=temp_dir_path,
                     check=True,
                 )
@@ -137,7 +143,7 @@ class ZippedXCArchive(AppleArtifact):
         if self._app_bundle_path is not None:
             return self._app_bundle_path
 
-        for path in self._extract_dir.rglob("*.app"):
+        for path in self._extract_dir.rglob("*.xcarchive/Products/**/*.app"):
             if path.is_dir() and "__MACOSX" not in str(path):
                 logger.debug(f"Found Apple app bundle: {path}")
                 return path
@@ -200,7 +206,13 @@ class ZippedXCArchive(AppleArtifact):
                             extension_uuid = self._extract_binary_uuid(extension_binary_path)
                             extension_dsym_path = dsym_files.get(extension_uuid) if extension_uuid else None
 
-                            binaries.append(BinaryInfo(extension_name, extension_binary_path, extension_dsym_path))
+                            binaries.append(
+                                BinaryInfo(
+                                    extension_name,
+                                    extension_binary_path,
+                                    extension_dsym_path,
+                                )
+                            )
                     except Exception as e:
                         logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
 
