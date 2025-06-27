@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import tempfile
+
 from datetime import datetime, timezone
+from pathlib import Path
+
+from launchpad.models.insights import ImageOptimizationInsightResult
 
 from ..artifacts.android.aab import AAB
 from ..artifacts.android.apk import APK
@@ -9,14 +14,11 @@ from ..artifacts.android.zipped_apk import ZippedAPK
 from ..artifacts.artifact import AndroidArtifact
 from ..insights.common import DuplicateFilesInsight
 from ..insights.insight import InsightsInput
-from ..models.android import (
-    AndroidAnalysisResults,
-    AndroidAppInfo,
-    AndroidInsightResults,
-)
+from ..models.android import AndroidAnalysisResults, AndroidAppInfo, AndroidInsightResults
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..parsers.android.dex.types import ClassDefinition
+from ..utils.android.cwebp import Cwebp
 from ..utils.file_utils import calculate_file_hash
 from ..utils.logging import get_logger
 from ..utils.treemap.treemap_builder import TreemapBuilder
@@ -86,8 +88,11 @@ class AndroidAnalyzer:
                 treemap=treemap,
                 binary_analysis=[],
             )
+            image_optimization_insight = self._get_image_optimization_insight(apks)
+
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
+                image_optimization=image_optimization_insight,
             )
 
         return AndroidAnalysisResults(
@@ -215,3 +220,90 @@ class AndroidAnalyzer:
         for apk in apks:
             class_definitions.extend(apk.get_class_definitions())
         return class_definitions
+
+    def _get_image_optimization_insight(self, apks: list[APK]) -> ImageOptimizationInsightResult:
+        """Analyze images for WebP optimization opportunities.
+
+        Args:
+            apks: List of APKs to analyze
+
+        Returns:
+            ImageOptimizationInsightResult with optimizable images
+        """
+
+        SUPPORTED_IMAGE_FORMATS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+        MIN_SAVINGS_THRESHOLD = 500
+
+        optimizable_images = []
+        total_savings = 0
+
+        cwebp = Cwebp()
+
+        for apk in apks:
+            extract_path = apk.get_extract_path()
+
+            for directory in ["res", "assets"]:
+                dir_path = extract_path / directory
+                if not dir_path.exists():
+                    continue
+
+                for file_path in dir_path.rglob("*"):
+                    if not file_path.is_file():
+                        continue
+
+                    if file_path.suffix.lower() not in SUPPORTED_IMAGE_FORMATS:
+                        continue
+
+                    if file_path.suffix.lower() == ".webp":
+                        continue
+
+                    if file_path.name.endswith(".9.png"):
+                        continue
+
+                    try:
+                        original_size = file_path.stat().st_size
+                        relative_path = str(file_path.relative_to(extract_path))
+
+                        with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as temp_output:
+                            temp_output_path = Path(temp_output.name)
+
+                        try:
+                            success = cwebp.convert_to_webp(file_path, temp_output_path)
+
+                            if success and temp_output_path.exists():
+                                webp_size = temp_output_path.stat().st_size
+                                potential_savings = original_size - webp_size
+
+                                if potential_savings >= MIN_SAVINGS_THRESHOLD:
+                                    file_info = FileInfo(
+                                        path=relative_path,
+                                        size=potential_savings,
+                                        file_type=file_path.suffix.lstrip(".").lower(),
+                                        treemap_type=TreemapType.ASSETS,
+                                        hash_md5="",  # Not needed for webp insight
+                                    )
+                                    optimizable_images.append(file_info)
+                                    total_savings += potential_savings
+
+                                    logger.debug(
+                                        f"Image {relative_path} can save {potential_savings} bytes "
+                                        f"({original_size} -> {webp_size})"
+                                    )
+                        finally:
+                            # Clean up temporary file
+                            try:
+                                temp_output_path.unlink(missing_ok=True)
+                            except Exception:
+                                pass
+
+                    except Exception as e:
+                        logger.debug(f"Failed to analyze image {file_path}: {e}")
+                        continue
+
+        # Sort by potential savings (largest first)
+        optimizable_images.sort(key=lambda x: x.size, reverse=True)
+
+        return ImageOptimizationInsightResult(
+            images=optimizable_images,
+            total_savings=total_savings,
+        )

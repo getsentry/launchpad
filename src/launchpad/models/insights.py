@@ -22,3 +22,9 @@ class DuplicateFilesInsightResult(BaseInsightResult):
     def duplicate_count(self) -> int:
         """Number of duplicate files (excluding the original)."""
         return len(self.files) - 1
+
+
+class ImageOptimizationInsightResult(BaseInsightResult):
+    """Results from image optimization analysis."""
+
+    images: List[FileInfo] = Field(..., description="List of images that could be optimized")

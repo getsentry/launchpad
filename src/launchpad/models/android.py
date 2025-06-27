@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo
-from .insights import DuplicateFilesInsightResult
+from .insights import DuplicateFilesInsightResult, ImageOptimizationInsightResult
 
 
 class AndroidAppInfo(BaseAppInfo):
@@ -13,6 +13,7 @@ class AndroidInsightResults(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
+    image_optimization: ImageOptimizationInsightResult | None = Field(None, description="WebP Optimization analysis")
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):
