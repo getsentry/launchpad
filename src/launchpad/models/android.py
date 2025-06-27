@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo
-from .insights import DuplicateFilesInsightResult
+from .insights import DuplicateFilesInsightResult, LargeFileInsightResult
 
 
 class AndroidAppInfo(BaseAppInfo):
@@ -13,6 +13,7 @@ class AndroidInsightResults(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
+    large_files: LargeFileInsightResult | None = Field(None, description="Large files analysis")
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):
