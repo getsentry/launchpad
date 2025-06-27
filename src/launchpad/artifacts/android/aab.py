@@ -19,15 +19,8 @@ logger = get_logger(__name__)
 
 
 class AAB(AndroidArtifact):
-    """Represents an Android AAB file that can be analyzed."""
-
-    def __init__(self, path: Path, content: bytes) -> None:
-        """Initialize AAB with file path.
-
-        Args:
-            path: Path to the AAB file
-        """
-        super().__init__(content)
+    def __init__(self, path: Path) -> None:
+        super().__init__(path)
         self._path = path
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
@@ -36,14 +29,6 @@ class AAB(AndroidArtifact):
         self._primary_apks: list[APK] | None = None
 
     def get_manifest(self) -> AndroidManifest:
-        """Get the Android manifest information.
-
-        Returns:
-            Dictionary containing manifest information
-
-        Raises:
-            ValueError: If manifest cannot be found or parsed
-        """
         if self._manifest is not None:
             return self._manifest
 
@@ -63,14 +48,6 @@ class AAB(AndroidArtifact):
         return self._manifest
 
     def get_resource_tables(self) -> list[ProtobufResourceTable]:  # type: ignore[override]
-        """Get the resource tables from the artifact.
-
-        Returns:
-            List of resource table dictionaries
-
-        Raises:
-            ValueError: If resource tables cannot be found or parsed
-        """
         if self._resource_table is not None:
             return [self._resource_table]
 
@@ -88,11 +65,6 @@ class AAB(AndroidArtifact):
         return [self._resource_table]
 
     def get_primary_apks(self, device_spec: DeviceSpec = DeviceSpec()) -> list[APK]:
-        """Split the AAB into APKS.
-
-        Args:
-            device_spec: Device specification for APK splitting
-        """
         if self._primary_apks is not None:
             return self._primary_apks
 
@@ -103,7 +75,7 @@ class AAB(AndroidArtifact):
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
-                apks.append(APK(apk_path, apk_path.read_bytes()))
+                apks.append(APK(apk_path))
 
             self._primary_apks = apks
             return apks

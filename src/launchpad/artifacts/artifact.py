@@ -8,8 +8,8 @@ from .android.resources.resource_table import ResourceTable
 class Artifact:
     """Base class for all artifacts that can be analyzed."""
 
-    def __init__(self, content: bytes) -> None:
-        self.content = content
+    def __init__(self, path: Path) -> None:
+        self.path = path
 
 
 class AndroidArtifact(Artifact):
