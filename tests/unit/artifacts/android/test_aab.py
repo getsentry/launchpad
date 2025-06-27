@@ -12,8 +12,7 @@ def test_aab_path() -> Path:
 
 @pytest.fixture
 def test_aab(test_aab_path: Path) -> AAB:
-    with open(test_aab_path, "rb") as f:
-        return AAB(test_aab_path, f.read())
+    return AAB(test_aab_path)
 
 
 class TestAAB:

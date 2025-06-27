@@ -12,8 +12,7 @@ def test_zipped_apk_path() -> Path:
 
 @pytest.fixture
 def test_zipped_apk(test_zipped_apk_path: Path) -> ZippedAPK:
-    with open(test_zipped_apk_path, "rb") as f:
-        return ZippedAPK(test_zipped_apk_path, f.read())
+    return ZippedAPK(test_zipped_apk_path)
 
 
 class TestZippedAPK:

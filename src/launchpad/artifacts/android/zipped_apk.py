@@ -23,7 +23,7 @@ class ZippedAPK(AndroidArtifact):
 
         for path in self._extract_dir.rglob("*.apk"):
             if path.is_file():
-                self._primary_apk = APK(path, path.read_bytes())
+                self._primary_apk = APK(path)
                 return self._primary_apk
 
         raise FileNotFoundError(f"No primary APK found in {self._extract_dir}")

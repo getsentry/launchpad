@@ -23,7 +23,7 @@ class ZippedAAB(AndroidArtifact):
 
         for path in self._extract_dir.rglob("*.aab"):
             if path.is_file():
-                self._aab = AAB(path, path.read_bytes())
+                self._aab = AAB(path)
                 return self._aab
 
         raise FileNotFoundError(f"No AAB found in {self._extract_dir}")

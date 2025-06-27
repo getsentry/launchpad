@@ -75,7 +75,7 @@ class AAB(AndroidArtifact):
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
-                apks.append(APK(apk_path, apk_path.read_bytes()))
+                apks.append(APK(apk_path))
 
             self._primary_apks = apks
             return apks

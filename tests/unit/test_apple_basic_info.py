@@ -11,8 +11,7 @@ class TestAppleBasicInfo:
         """Test that range mapping is enabled by default."""
         analyzer = AppleAppAnalyzer()
         path = Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
-        with open(path, "rb") as f:
-            archive = ZippedXCArchive(path, f.read())
+        archive = ZippedXCArchive(path)
 
         basic_info = analyzer.preprocess(archive)
         assert basic_info.name == "HackerNews"
