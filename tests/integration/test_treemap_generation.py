@@ -413,6 +413,7 @@ class TestTreemapGeneration:
         assert assets.install_size == 4788224
         assert assets.download_size == 3830579
         assert assets.element_type == "assets"
+        assert len(assets.children) == 14
 
         # Verify category breakdown
         assert treemap.category_breakdown["files"] == {"install": 118784, "download": 95022}

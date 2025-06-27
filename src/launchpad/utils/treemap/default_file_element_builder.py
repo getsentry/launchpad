@@ -25,4 +25,5 @@ class DefaultFileElementBuilder(TreemapElementBuilder):
             path=file_info.path,
             is_directory=False,
             details=details,
+            children=file_info.children,
         )

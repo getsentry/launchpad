@@ -13,9 +13,15 @@ from ..artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from ..artifacts.artifact import AppleArtifact
 from ..insights.common import DuplicateFilesInsight
 from ..insights.insight import InsightsInput
-from ..models.apple import AppleAnalysisResults, AppleAppInfo, AppleInsightResults, MachOBinaryAnalysis, SwiftMetadata
+from ..models.apple import (
+    AppleAnalysisResults,
+    AppleAppInfo,
+    AppleInsightResults,
+    MachOBinaryAnalysis,
+    SwiftMetadata,
+)
 from ..models.common import FileAnalysis, FileInfo
-from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
+from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
 from ..parsers.apple.macho_parser import MachOParser
 from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
 from ..utils.code_signature_validator import CodeSignatureValidator
@@ -297,17 +303,59 @@ class AppleAppAnalyzer:
             # if file_type.lower() in {"png", "jpg", "jpeg", "webp"}:
             #     image_analysis_result = self._analyze_image(file_path, file_size)
 
+            children = []
+            if file_type == "car":
+                children = self._analyze_asset_catalog(xcarchive, relative_path)
+                children_size = sum([child.install_size for child in children])
+                children.append(
+                    TreemapElement(
+                        name="Other",
+                        install_size=file_size - children_size,
+                        download_size=0,
+                        element_type=TreemapType.ASSETS,
+                        path=str(relative_path) + "/Other",
+                        is_directory=False,
+                        children=[],
+                        details={},
+                    )
+                )
+
             file_info = FileInfo(
                 path=str(relative_path),
                 size=file_size,
                 file_type=file_type or "unknown",
                 hash_md5=file_hash,
                 treemap_type=FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.FILES),
+                children=children,
             )
 
             files.append(file_info)
 
         return FileAnalysis(files=files)
+
+    def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[TreemapElement]:
+        """Analyze an asset catalog file."""
+        catalog_details = xcarchive.get_asset_catalog_details(relative_path)
+        return [
+            TreemapElement(
+                name=element.name,
+                install_size=element.size,
+                # TODO: This field should be nullable, it doesn’t make sense
+                # to talk about download size of individual assets
+                # since they are all in one .car file.
+                download_size=0,
+                element_type=TreemapType.ASSETS,
+                path=str(relative_path) + "/" + element.name,
+                is_directory=False,
+                children=[],
+                details={
+                    "type": element.type,
+                    "vector": element.vector,
+                    "filename": element.filename,
+                },
+            )
+            for element in catalog_details
+        ]
 
     def _analyze_binary(self, binary_path: Path, skip_swift_metadata: bool = False) -> MachOBinaryAnalysis:
         """Analyze a binary file using LIEF.
