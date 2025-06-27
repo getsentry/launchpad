@@ -37,7 +37,7 @@ check-format:  ## Check code format without modifying files
 	$(PYTHON_VENV) -m ruff format --check src/ tests/
 
 check-types:  ## Run type checking with ty
-	$(PYTHON_VENV) -m ty check src
+	$(PYTHON_VENV) -m ty check --error-on-warning src
 
 fix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
 	$(PYTHON_VENV) -m ruff format src/ tests/
