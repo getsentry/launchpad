@@ -12,7 +12,7 @@ from aiohttp import web
 from aiohttp.typedefs import Handler
 from aiohttp.web import Application, Request, Response, StreamResponse, middleware
 
-from launchpad.utils.logging import get_logger
+from .utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -149,9 +149,10 @@ class LaunchpadServer:
 
 def get_server_config() -> Dict[str, Any]:
     """Get server configuration from environment."""
-    environment = os.getenv("LAUNCHPAD_ENV").lower()
+    environment = os.getenv("LAUNCHPAD_ENV")
     if not environment:
         raise ValueError("LAUNCHPAD_ENV environment variable is required")
+    environment = environment.lower()
 
     environment = environment
     is_production = environment == "production"
