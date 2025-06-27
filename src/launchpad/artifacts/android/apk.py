@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from launchpad.utils.logging import get_logger
-
+from ...parsers.android.dex.dex_file_parser import DexFileParser
+from ...parsers.android.dex.types import ClassDefinition
+from ...utils.logging import get_logger
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .manifest.axml import AxmlUtils
@@ -23,6 +24,7 @@ class APK(AndroidArtifact):
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
+        self._class_definitions: list[ClassDefinition] | None = None
 
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
@@ -61,6 +63,25 @@ class APK(AndroidArtifact):
 
         self._resource_table = BinaryResourceTable(arsc_buffer)
         return [self._resource_table]
+
+    def get_class_definitions(self) -> list[ClassDefinition]:
+        if self._class_definitions is not None:
+            return self._class_definitions
+
+        self._class_definitions = []
+        dex_files = list(self._extract_dir.rglob("classes*.dex"))
+        for dex_file in dex_files:
+            try:
+                with open(dex_file, "rb") as f:
+                    dex_buffer = f.read()
+                dex_parser = DexFileParser(dex_buffer)
+                class_definitions = dex_parser.get_class_definitions()
+                self._class_definitions.extend(class_definitions)
+            except (OSError, IOError) as e:
+                logger.error(f"Failed to read DEX file {dex_file}: {e}")
+                continue
+
+        return self._class_definitions
 
     def get_extract_path(self) -> Path:
         return self._extract_dir

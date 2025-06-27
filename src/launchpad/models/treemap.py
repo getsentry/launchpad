@@ -88,8 +88,6 @@ FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
 
 
 class TreemapElement(BaseModel):
-    """Hierarchical element in the treemap for size visualization."""
-
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(..., description="Display name of the element")

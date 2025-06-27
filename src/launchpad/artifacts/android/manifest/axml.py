@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, List, Sequence
 
-from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
+from launchpad.parsers.android.binary.android_binary_parser import AndroidBinaryParser
 from launchpad.utils.logging import get_logger
 
 from ..resources.binary import BinaryResourceTable

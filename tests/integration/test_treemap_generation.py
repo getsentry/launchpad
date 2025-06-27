@@ -44,7 +44,7 @@ class TestTreemapGeneration:
         assert results.treemap is not None
         treemap = results.treemap
         assert treemap.file_count == 177
-        assert treemap.total_install_size == 9175040
+        assert treemap.total_install_size == 9896078
         # assert treemap.total_download_size > 0
 
         # Verify root element
@@ -53,8 +53,8 @@ class TestTreemapGeneration:
         assert len(root.children) == 14
 
         # Verify size calculations work
-        assert root.total_install_size == 9175040
-        assert root.total_download_size == 9175040
+        assert root.total_install_size == 9896078
+        assert root.total_download_size == 9896078
         assert root.total_download_size <= root.total_install_size  # Download should be <= install
 
         # Verify platform
@@ -84,7 +84,7 @@ class TestTreemapGeneration:
         # Verify classes.dex exists
         classes_dex = find_node_by_path(treemap.root, "classes.dex")
         assert classes_dex is not None
-        assert classes_dex.install_size == 4366336
+        assert classes_dex.install_size == 4363232
         assert classes_dex.element_type == "dex_files"
 
         # Verify resources.arsc exists
@@ -94,8 +94,8 @@ class TestTreemapGeneration:
         assert resources.element_type == "resources"
 
         # Verify expected totals
-        assert treemap.total_install_size == 9175040
-        assert treemap.total_download_size == 9175040
+        assert treemap.total_install_size == 9896078
+        assert treemap.total_download_size == 9896078
         assert treemap.file_count == 177
 
         # Verify category breakdown exists
@@ -115,8 +115,8 @@ class TestTreemapGeneration:
         assert results.treemap is not None
         treemap = results.treemap
         assert treemap.file_count == 169
-        assert treemap.total_install_size == 7221248
-        assert treemap.total_download_size == 7221248
+        assert treemap.total_install_size == 7942286
+        assert treemap.total_download_size == 7942286
 
         # Verify root element
         root = treemap.root
@@ -124,8 +124,8 @@ class TestTreemapGeneration:
         assert len(root.children) == 14
 
         # Verify size calculations work
-        assert root.total_install_size == 7221248
-        assert root.total_download_size == 7221248
+        assert root.total_install_size == 7942286
+        assert root.total_download_size == 7942286
         assert root.total_download_size <= root.total_install_size  # Download should be <= install
 
         # Verify platform
@@ -155,7 +155,7 @@ class TestTreemapGeneration:
         # Verify classes.dex exists
         classes_dex = find_node_by_path(treemap.root, "classes.dex")
         assert classes_dex is not None
-        assert classes_dex.install_size == 4366336
+        assert classes_dex.install_size == 4363232
         assert classes_dex.element_type == "dex_files"
 
         # Verify resources.arsc exists
@@ -165,8 +165,8 @@ class TestTreemapGeneration:
         assert resources.element_type == "resources"
 
         # Verify expected totals
-        assert treemap.total_install_size == 7221248
-        assert treemap.total_download_size == 7221248
+        assert treemap.total_install_size == 7942286
+        assert treemap.total_download_size == 7942286
         assert treemap.file_count == 169
 
         # Verify category breakdown exists

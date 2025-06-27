@@ -16,6 +16,7 @@ from ..models.android import (
 )
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
+from ..parsers.android.dex.types import ClassDefinition
 from ..utils.file_utils import calculate_file_hash
 from ..utils.logging import get_logger
 from ..utils.treemap.treemap_builder import TreemapBuilder
@@ -65,11 +66,13 @@ class AndroidAnalyzer:
         logger.debug("Found %d APKs", len(apks))
 
         file_analysis = self._get_file_analysis(apks)
+        class_definitions = self._get_class_definitions(apks)
         treemap_builder = TreemapBuilder(
             app_name=app_info.name,
             platform="android",
             # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
             download_compression_ratio=1.0,
+            class_definitions=class_definitions,
         )
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
@@ -120,6 +123,43 @@ class AndroidAnalyzer:
                     file_size = file_path.stat().st_size
                     total_size += file_size
 
+                    # Special handling for DEX files - merge all dex files into one representation
+                    # This is intentional as there could be multiple DEX files in an APK
+                    # and we want to group them by package/classes vs by file
+                    if file_type == "dex":
+                        if "classes.dex" not in path_to_file_info:
+                            # First DEX file - create the merged representation
+                            file_hash = calculate_file_hash(file_path, algorithm="md5")
+                            merged_dex_info = FileInfo(
+                                path="classes.dex",
+                                size=file_size,
+                                file_type=file_type,
+                                treemap_type=treemap_type,
+                                hash_md5=file_hash,
+                            )
+                            path_to_file_info["classes.dex"] = merged_dex_info
+                            logger.debug("Created merged DEX representation: %s", relative_path)
+                        else:
+                            # Additional DEX file - merge into existing representation
+                            existing_info = path_to_file_info["classes.dex"]
+                            merged_size = existing_info.size + file_size
+                            logger.debug(
+                                "Merging DEX file %s into classes.dex",
+                                relative_path,
+                            )
+
+                            # Update the merged DEX file info
+                            merged_dex_info = FileInfo(
+                                path="classes.dex",
+                                size=merged_size,
+                                file_type=file_type,
+                                treemap_type=treemap_type,
+                                # Intentionally ignoring hash of merged file
+                                hash_md5="",
+                            )
+                            path_to_file_info["classes.dex"] = merged_dex_info
+                        continue
+
                     # If we've seen this path before, merge the sizes to simplify the treemap
                     # This is intentional as things like the AndroidManifest.xml are duplicated
                     # across APKs, but to users that's not relevant so we'll group.
@@ -169,3 +209,9 @@ class AndroidAnalyzer:
         return FileAnalysis(
             files=file_infos,
         )
+
+    def _get_class_definitions(self, apks: list[APK]) -> list[ClassDefinition]:
+        class_definitions: list[ClassDefinition] = []
+        for apk in apks:
+            class_definitions.extend(apk.get_class_definitions())
+        return class_definitions

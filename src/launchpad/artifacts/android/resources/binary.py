@@ -1,7 +1,11 @@
 from typing import List
 
-from launchpad.parsers.android.android_binary_parser import AndroidBinaryParser
-from launchpad.parsers.android.types import ResourceTablePackage, ResourceTableType, TypedValue
+from launchpad.parsers.android.binary.android_binary_parser import AndroidBinaryParser
+from launchpad.parsers.android.binary.types import (
+    ResourceTablePackage,
+    ResourceTableType,
+    TypedValue,
+)
 
 from .resource_table import DEFAULT_PACKAGE_ID, ResourceTable
 
