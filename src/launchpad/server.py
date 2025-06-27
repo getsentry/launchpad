@@ -149,11 +149,11 @@ class LaunchpadServer:
 
 def get_server_config() -> Dict[str, Any]:
     """Get server configuration from environment."""
-    environment = os.getenv("LAUNCHPAD_ENV").lower()
+    environment = os.getenv("LAUNCHPAD_ENV")
     if not environment:
         raise ValueError("LAUNCHPAD_ENV environment variable is required")
 
-    environment = environment
+    environment = environment.lower()
     is_production = environment == "production"
 
     host = os.getenv("LAUNCHPAD_HOST")
