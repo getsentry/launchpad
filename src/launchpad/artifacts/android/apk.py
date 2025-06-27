@@ -71,11 +71,15 @@ class APK(AndroidArtifact):
         self._class_definitions = []
         dex_files = list(self._extract_dir.rglob("classes*.dex"))
         for dex_file in dex_files:
-            with open(dex_file, "rb") as f:
-                dex_buffer = f.read()
-            dex_parser = DexFileParser(dex_buffer)
-            class_definitions = dex_parser.get_class_definitions()
-            self._class_definitions.extend(class_definitions)
+            try:
+                with open(dex_file, "rb") as f:
+                    dex_buffer = f.read()
+                dex_parser = DexFileParser(dex_buffer)
+                class_definitions = dex_parser.get_class_definitions()
+                self._class_definitions.extend(class_definitions)
+            except (OSError, IOError) as e:
+                logger.warning(f"Failed to read DEX file {dex_file}: {e}")
+                continue
 
         return self._class_definitions
 

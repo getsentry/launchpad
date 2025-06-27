@@ -214,8 +214,4 @@ class AndroidAnalyzer:
         class_definitions: list[ClassDefinition] = []
         for apk in apks:
             class_definitions.extend(apk.get_class_definitions())
-
-        logger.debug(f"Found {len(class_definitions)} class definitions")
-        for i, class_def in enumerate(class_definitions):
-            logger.debug(f"Class {i}: {class_def.signature}")
         return class_definitions
