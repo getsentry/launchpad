@@ -2,7 +2,7 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Protocol, Sequence, TypeVar
 
-from launchpad.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
+from launchpad.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis, ImageInsight
 from launchpad.models.treemap import TreemapResults
 
 T_co = TypeVar("T_co", covariant=True)
@@ -14,6 +14,7 @@ class InsightsInput:
     file_analysis: FileAnalysis
     treemap: TreemapResults | None
     binary_analysis: Sequence[BaseBinaryAnalysis]
+    image_insights: Sequence[ImageInsight]
 
 
 class Insight(Protocol[T_co]):
