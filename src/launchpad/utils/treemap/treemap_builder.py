@@ -31,15 +31,6 @@ class TreemapBuilder:
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
     ) -> None:
-        """Initialize the treemap builder.
-
-        Args:
-            app_name: Name of the root app element
-            platform: Platform name (ios, android, etc.)
-            download_compression_ratio: Ratio of download size to install size (0.0-1.0)
-            filesystem_block_size: Filesystem block size in bytes, or None to use platform default
-            binary_analysis_map: Optional mapping of binary names to their analysis results
-        """
         self.app_name = app_name
         self.platform = platform
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
@@ -55,7 +46,6 @@ class TreemapBuilder:
         logger.debug(f"Download compression ratio: {self.download_compression_ratio:.1%}")
 
     def build_file_treemap(self, file_analysis: FileAnalysis) -> TreemapResults:
-        """Build a treemap from file analysis results."""
         logger.info(f"Building file-based treemap for {self.platform} platform")
 
         children = self._build_file_hierarchy(file_analysis)
@@ -217,12 +207,6 @@ class TreemapBuilder:
         for dir_path in sorted(top_level_dirs):
             dir_element = build_directory(dir_path)
             elements.append(dir_element)
-
-        # for element in elements:
-        #     if not isinstance(element, TreemapElement):
-        #         logger.error(f"Invalid element type: {type(element)}, expected TreemapElement")
-        #         raise ValueError(f"Invalid element type: {type(element)}, expected TreemapElement")
-        #     logger.info(f"Validated element: {element.name}")
 
         return elements
 

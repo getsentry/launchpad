@@ -58,7 +58,7 @@ def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
 
     if not verbose:
         # Reduce noise from some libraries
-        logging.getLogger("aiohttp.access").setLevel(logging.INFO)
+        logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 
     mode_display = "Development" if mode == "development" else "Production"
     console.print(f"[bold blue]Launchpad {mode_display} Server v{__version__}[/bold blue]")

@@ -75,7 +75,6 @@ class APK(AndroidArtifact):
                 dex_buffer = f.read()
             dex_parser = DexFileParser(dex_buffer)
             class_definitions = dex_parser.get_class_definitions()
-            logger.debug(f"Found {len(class_definitions)} class definitions")
             self._class_definitions.extend(class_definitions)
 
         return self._class_definitions

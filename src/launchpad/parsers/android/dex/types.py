@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any
 
+# Types taken from https://source.android.com/docs/core/runtime/dex-format
+
 
 @dataclass
 class DexFileHeader:
@@ -200,8 +202,6 @@ class ClassDefinition:
 
 
 class EncodedValueType(IntEnum):
-    """Encoded value types for DEX format."""
-
     BYTE = 0x00
     SHORT = 0x02
     CHAR = 0x03
@@ -223,16 +223,12 @@ class EncodedValueType(IntEnum):
 
 
 class AnnotationVisibility(IntEnum):
-    """Annotation visibility types."""
-
     BUILD = 0x00
     RUNTIME = 0x01
     SYSTEM = 0x02
 
 
 class AccessFlag(IntEnum):
-    """Access flags for classes, methods, and fields."""
-
     PUBLIC = 0x1
     PRIVATE = 0x2
     PROTECTED = 0x4

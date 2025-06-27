@@ -26,6 +26,7 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+# https://source.android.com/docs/core/runtime/dex-format
 class DexFileParser:
     def __init__(self, buffer: bytes) -> None:
         self.buffer_wrapper = BufferWrapper(buffer)
