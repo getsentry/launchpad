@@ -78,7 +78,7 @@ class APK(AndroidArtifact):
                 class_definitions = dex_parser.get_class_definitions()
                 self._class_definitions.extend(class_definitions)
             except (OSError, IOError) as e:
-                logger.warning(f"Failed to read DEX file {dex_file}: {e}")
+                logger.error(f"Failed to read DEX file {dex_file}: {e}")
                 continue
 
         return self._class_definitions
