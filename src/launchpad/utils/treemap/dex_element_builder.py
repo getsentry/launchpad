@@ -60,7 +60,7 @@ class DexElementBuilder(TreemapElementBuilder):
         package_classes: Dict[str, List[ClassDefinition]] = defaultdict(list)
 
         for class_def in self.class_definitions:
-            package_name = self._extract_package_name(class_def.fqn())
+            package_name = self._extract_package_name(class_def)
             package_classes[package_name].append(class_def)
 
         return dict(package_classes)
@@ -72,7 +72,7 @@ class DexElementBuilder(TreemapElementBuilder):
             # Join all parts except the last one (class name)
             return ".".join(parts[:-1])
         else:
-            raise ValueError(f"Invalid class definition: {class_def.fqn()}")
+            raise ValueError(f"Invalid class definition: {fqn}")
 
     def _create_package_element(self, package_name: str, classes: List[ClassDefinition]) -> TreemapElement:
         class_elements = []

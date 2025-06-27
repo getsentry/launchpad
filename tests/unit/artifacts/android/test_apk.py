@@ -17,7 +17,6 @@ def test_apk(test_apk_path: Path) -> APK:
 
 class TestAPK:
     def test_get_manifest(self, test_apk: APK) -> None:
-        """Test parsing valid APK manifest."""
         """Implicitly tests that the resource table is parsed correctly with correct values of label and icon_path"""
         manifest = test_apk.get_manifest().model_dump()
 
@@ -26,3 +25,10 @@ class TestAPK:
         assert manifest["application"]["label"] == "Hacker News"
         assert manifest["application"]["icon_path"] == "res/BW.xml"
         assert manifest["package_name"] == "com.emergetools.hackernews"
+
+    def test_get_class_definitions(self, test_apk: APK) -> None:
+        class_definitions = test_apk.get_class_definitions()
+
+        assert len(class_definitions) == 4755
+        assert class_definitions[0].fqn() == "android.app.ServiceStartNotAllowedException"
+        assert class_definitions[-1].fqn() == "retrofit2.http.Url"
