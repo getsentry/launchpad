@@ -10,7 +10,7 @@ from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.artifact import AndroidArtifact
 from launchpad.parsers.android.dex.types import ClassDefinition
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
-from launchpad.size.insights.common import DuplicateFilesInsight
+from launchpad.size.insights.common import DuplicateFilesInsight, LargeImageFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.android import (
     AndroidAnalysisResults,
@@ -92,6 +92,7 @@ class AndroidAnalyzer:
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
                 webp_optimization=WebPOptimizationInsight().generate(insights_input),
+                large_files=LargeImageFileInsight().generate(insights_input),
             )
 
         return AndroidAnalysisResults(
