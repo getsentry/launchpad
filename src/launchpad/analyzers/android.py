@@ -7,7 +7,7 @@ from ..artifacts.android.apk import APK
 from ..artifacts.android.zipped_aab import ZippedAAB
 from ..artifacts.android.zipped_apk import ZippedAPK
 from ..artifacts.artifact import AndroidArtifact
-from ..insights.common import DuplicateFilesInsight
+from ..insights.common import DuplicateFilesInsight, LargeFileInsight
 from ..insights.insight import InsightsInput
 from ..models.android import (
     AndroidAnalysisResults,
@@ -88,6 +88,7 @@ class AndroidAnalyzer:
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
+                large_files=LargeFileInsight().generate(insights_input),
             )
 
         return AndroidAnalysisResults(
