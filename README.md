@@ -1,3 +1,5 @@
+Trivial change.
+
 # Launchpad
 
 A microservice for analyzing iOS and Android apps.
@@ -156,3 +158,4 @@ make fix
 # Full CI pipeline
 make ci
 ```
+
