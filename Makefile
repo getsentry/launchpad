@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status check-deps
+.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status check-deps coverage
 
 # Default target
 help:
@@ -29,6 +29,9 @@ test-unit:
 
 test-integration:
 	$(PYTHON_VENV) -m pytest tests/integration/ -v --tb=short
+
+coverage:
+	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v --tb=short --cov --cov-branch --cov-report=xml
 
 # Code quality targets (using ruff and ty)
 check-lint:
