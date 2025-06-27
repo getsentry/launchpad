@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from launchpad.models.insights import ImageOptimizationInsightResult
+
 from ..artifacts.android.aab import AAB
 from ..artifacts.android.apk import APK
 from ..artifacts.android.zipped_aab import ZippedAAB
@@ -9,11 +11,7 @@ from ..artifacts.android.zipped_apk import ZippedAPK
 from ..artifacts.artifact import AndroidArtifact
 from ..insights.common import DuplicateFilesInsight
 from ..insights.insight import InsightsInput
-from ..models.android import (
-    AndroidAnalysisResults,
-    AndroidAppInfo,
-    AndroidInsightResults,
-)
+from ..models.android import AndroidAnalysisResults, AndroidAppInfo, AndroidInsightResults
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from ..utils.file_utils import calculate_file_hash
@@ -83,8 +81,11 @@ class AndroidAnalyzer:
                 treemap=treemap,
                 binary_analysis=[],
             )
+            image_optimization_insight = self._get_image_optimization_insight(apks)
+
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
+                image_optimization=image_optimization_insight,
             )
 
         return AndroidAnalysisResults(
@@ -168,4 +169,10 @@ class AndroidAnalyzer:
 
         return FileAnalysis(
             files=file_infos,
+        )
+
+    def _get_image_optimization_insight(self, apks: list[APK]) -> ImageOptimizationInsightResult:
+        return ImageOptimizationInsightResult(
+            images=[],
+            total_savings=0,
         )
