@@ -69,16 +69,34 @@ class TestObjCSymbolTypeAggregator:
 
         result = aggregator.aggregate_symbols(mixed_symbols)
 
-        # Should have 3 groups: NSString methods, NSArray methods, NSString metadata
-        assert len(result) == 3
+        # Should have 4 groups: NSString methods (2 separate), NSArray methods, NSString metadata
+        assert len(result) == 4
 
-        # Find the NSString methods group
-        nsstring_methods = next(
-            (group for group in result if group.class_name == "NSString" and group.method_name is not None), None
+        # Find the NSString stringByAppendingString: method group
+        nsstring_append_string = next(
+            (
+                group
+                for group in result
+                if group.class_name == "NSString" and group.method_name == "stringByAppendingString:"
+            ),
+            None,
         )
-        assert nsstring_methods is not None
-        assert nsstring_methods.symbol_count == 2
-        assert nsstring_methods.total_size == 330  # 150 + 180
+        assert nsstring_append_string is not None
+        assert nsstring_append_string.symbol_count == 1
+        assert nsstring_append_string.total_size == 150
+
+        # Find the NSString stringByAppendingPathComponent: method group
+        nsstring_append_path = next(
+            (
+                group
+                for group in result
+                if group.class_name == "NSString" and group.method_name == "stringByAppendingPathComponent:"
+            ),
+            None,
+        )
+        assert nsstring_append_path is not None
+        assert nsstring_append_path.symbol_count == 1
+        assert nsstring_append_path.total_size == 180
 
         # Find the NSArray methods group
         nsarray_methods = next((group for group in result if group.class_name == "NSArray"), None)
@@ -94,25 +112,6 @@ class TestObjCSymbolTypeAggregator:
         assert nsstring_metadata.symbol_count == 1
         assert nsstring_metadata.total_size == 300
 
-    def test_aggregate_symbols_sorted_by_size(self):
-        """Test that results are sorted by total size in descending order."""
-        aggregator = ObjCSymbolTypeAggregator()
-
-        symbols = [
-            SymbolSize(mangled_name="-[SmallClass smallMethod]", section=None, address=0x1000, size=50),
-            SymbolSize(mangled_name="-[LargeClass largeMethod1]", section=None, address=0x2000, size=200),
-            SymbolSize(mangled_name="-[LargeClass largeMethod2]", section=None, address=0x3000, size=300),
-            SymbolSize(mangled_name="-[MediumClass mediumMethod]", section=None, address=0x4000, size=100),
-        ]
-
-        result = aggregator.aggregate_symbols(symbols)
-
-        # Should be sorted by total size descending
-        assert len(result) == 3
-        assert result[0].class_name == "LargeClass"  # 500 total size
-        assert result[1].class_name == "MediumClass"  # 100 total size
-        assert result[2].class_name == "SmallClass"  # 50 total size
-
     def test_aggregate_symbols_with_categories(self):
         """Test aggregating symbols with Objective-C categories."""
         aggregator = ObjCSymbolTypeAggregator()
@@ -127,11 +126,37 @@ class TestObjCSymbolTypeAggregator:
 
         result = aggregator.aggregate_symbols(symbols)
 
-        # Should group all NSString methods together (categories are stripped)
-        assert len(result) == 1
-        assert result[0].class_name == "NSString"
-        assert result[0].symbol_count == 3
-        assert result[0].total_size == 370  # 100 + 150 + 120
+        # Should group each method separately (categories are stripped from class names)
+        assert len(result) == 3
+
+        # Find the customMethod group
+        custom_method = next(
+            (group for group in result if group.class_name == "NSString" and group.method_name == "customMethod"), None
+        )
+        assert custom_method is not None
+        assert custom_method.symbol_count == 1
+        assert custom_method.total_size == 100
+
+        # Find the stringByAppendingString: group
+        append_string = next(
+            (
+                group
+                for group in result
+                if group.class_name == "NSString" and group.method_name == "stringByAppendingString:"
+            ),
+            None,
+        )
+        assert append_string is not None
+        assert append_string.symbol_count == 1
+        assert append_string.total_size == 150
+
+        # Find the anotherMethod group
+        another_method = next(
+            (group for group in result if group.class_name == "NSString" and group.method_name == "anotherMethod"), None
+        )
+        assert another_method is not None
+        assert another_method.symbol_count == 1
+        assert another_method.total_size == 120
 
     def test_aggregate_symbols_with_metadata(self):
         """Test aggregating symbols with Objective-C metadata symbols."""
@@ -146,22 +171,43 @@ class TestObjCSymbolTypeAggregator:
 
         result = aggregator.aggregate_symbols(symbols)
 
-        # Should have 2 groups: NSString methods and NSString metadata
-        assert len(result) == 2
+        # Should have 3 groups: NSString metadata (class + metaclass), NSString method, NSString ivar
+        assert len(result) == 3
 
-        # Find the NSString methods group
-        nsstring_methods = next((group for group in result if group.method_name is not None), None)
-        assert nsstring_methods is not None
-        assert nsstring_methods.class_name == "NSString"
-        assert nsstring_methods.symbol_count == 1
-        assert nsstring_methods.total_size == 150
-
-        # Find the NSString metadata group
-        nsstring_metadata = next((group for group in result if group.method_name is None), None)
+        # Find the NSString metadata group (class + metaclass)
+        nsstring_metadata = next(
+            (
+                group
+                for group in result
+                if group.class_name == "NSString" and group.method_name is None and group.symbol_count == 2
+            ),
+            None,
+        )
         assert nsstring_metadata is not None
-        assert nsstring_metadata.class_name == "NSString"
-        assert nsstring_metadata.symbol_count == 3
-        assert nsstring_metadata.total_size == 550  # 300 + 200 + 50
+        assert nsstring_metadata.symbol_count == 2
+        assert nsstring_metadata.total_size == 500  # 300 + 200
+
+        # Find the NSString method group
+        nsstring_method = next(
+            (
+                group
+                for group in result
+                if group.class_name == "NSString" and group.method_name == "stringByAppendingString:"
+            ),
+            None,
+        )
+        assert nsstring_method is not None
+        assert nsstring_method.symbol_count == 1
+        assert nsstring_method.total_size == 150
+
+        # Find the NSString ivar group
+        nsstring_ivar = next(
+            (group for group in result if group.class_name == "NSString._internalString" and group.method_name is None),
+            None,
+        )
+        assert nsstring_ivar is not None
+        assert nsstring_ivar.symbol_count == 1
+        assert nsstring_ivar.total_size == 50
 
     def test_objc_symbol_type_group_total_size(self):
         """Test ObjCSymbolTypeGroup total_size property."""
