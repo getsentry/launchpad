@@ -61,17 +61,23 @@ class TestCwlDemangler:
             "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
         ]
         assert isinstance(first_result, CwlDemangleResult)
-        assert first_result.mangled == "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
+        assert (
+            first_result.mangled
+            == "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
+        )
 
         second_result = result[
             "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
         ]
         assert isinstance(second_result, CwlDemangleResult)
-        assert second_result.mangled == "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
+        assert (
+            second_result.mangled
+            == "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
+        )
 
     def test_demangle_all_chunked_processing(self):
         """Test that chunked processing works with many names."""
-        demangler = CwlDemangler()
+        demangler = CwlDemangler(continue_on_error=True)
 
         # Add more than 500 names to test chunking
         for i in range(600):
