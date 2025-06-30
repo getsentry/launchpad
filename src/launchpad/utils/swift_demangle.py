@@ -127,6 +127,7 @@ class SwiftDemangler:
             if os.uname().sysname == "Darwin":  # macOS
                 return "xcrun swift-demangle"
             elif os.uname().sysname == "Linux":  # Linux
+                # TODO: Implement Linux swift-demangle binary
                 # For now, raise an error as mentioned in the requirements
                 raise RuntimeError("Linux swift-demangle binary not yet available")
             else:

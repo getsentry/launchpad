@@ -38,10 +38,8 @@ class SymbolTypeAggregator:
         Returns:
             List of SymbolTypeGroup objects with aggregated sizes
         """
-        # Collect all mangled names for batch demangling
         mangled_names = [symbol.mangled_name for symbol in symbol_sizes]
 
-        # Add names to demangler and perform batch demangling
         for name in mangled_names:
             self.demangler.add_name(name)
         demangled_results = self.demangler.demangle_all()
@@ -54,19 +52,18 @@ class SymbolTypeAggregator:
 
             if demangled_result:
                 # Use module and type from demangled result
-                module = demangled_result.module or "Unknown"
-                type_name = demangled_result.typeName or demangled_result.type or "Unknown"
+                module = demangled_result.module or "Unattributed"
+                type_name = demangled_result.typeName or demangled_result.type or "Unattributed"
             else:
                 # Fallback for symbols that couldn't be demangled
-                module = "Unknown"
-                type_name = "Unknown"
+                module = "Unattributed"
+                type_name = "Unattributed"
 
             key = (module, type_name)
             if key not in type_groups:
                 type_groups[key] = []
             type_groups[key].append(symbol)
 
-        # Convert to SymbolTypeGroup objects
         result: list[SymbolTypeGroup] = []
         for (module, type_name), symbols in type_groups.items():
             result.append(

@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import tempfile
 import uuid
@@ -56,6 +57,10 @@ class CwlDemangler:
         Returns:
             A dictionary mapping original names to their CwlDemangleResult instances
         """
+        # TODO: Implement Linux cwl-demangle binary
+        if os.uname().sysname == "Darwin":
+            return {}
+
         if not self.queue:
             return {}
 
@@ -126,9 +131,6 @@ class CwlDemangler:
 
     def _get_binary_path(self) -> str:
         """Get the path to the cwl-demangle binary."""
-        import platform
-
-        if platform.system() != "Darwin":
-            raise RuntimeError("cwl-demangle is only supported on macOS/Darwin")
+        # TODO: Implement Linux cwl-demangle binary
 
         return "bin/darwin/cwl-demangle"

@@ -363,15 +363,6 @@ class AppleAppAnalyzer:
     def _analyze_binary(
         self, binary_path: Path, dwarf_binary_path: Path | None = None, skip_swift_metadata: bool = False
     ) -> MachOBinaryAnalysis:
-        """Analyze a binary file using LIEF.
-
-        Args:
-            binary_path: Path to the binary file
-            skip_swift_metadata: Whether to skip Swift metadata extraction
-
-        Returns:
-            Binary analysis results
-        """
         if not binary_path.exists():
             logger.warning(f"Binary not found: {binary_path}")
             return MachOBinaryAnalysis(
