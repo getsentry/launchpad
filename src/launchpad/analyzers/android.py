@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
 
 from ..artifacts.android.aab import AAB
 from ..artifacts.android.apk import APK
@@ -85,6 +86,7 @@ class AndroidAnalyzer:
                 file_analysis=file_analysis,
                 treemap=treemap,
                 binary_analysis=[],
+                image_files=self._get_images(apks),
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -215,3 +217,9 @@ class AndroidAnalyzer:
         for apk in apks:
             class_definitions.extend(apk.get_class_definitions())
         return class_definitions
+
+    def _get_images(self, apks: list[APK]) -> list[Path]:
+        images: list[Path] = []
+        for apk in apks:
+            images.extend(apk.get_images())
+        return images

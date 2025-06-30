@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Protocol, Sequence, TypeVar
+from pathlib import Path
+from typing import List, Protocol, Sequence, TypeVar
 
 from launchpad.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
 from launchpad.models.treemap import TreemapResults
@@ -14,6 +15,7 @@ class InsightsInput:
     file_analysis: FileAnalysis
     treemap: TreemapResults | None
     binary_analysis: Sequence[BaseBinaryAnalysis]
+    image_files: List[Path]
 
 
 class Insight(Protocol[T_co]):
