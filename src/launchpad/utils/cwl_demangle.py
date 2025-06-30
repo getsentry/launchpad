@@ -59,7 +59,8 @@ class CwlDemangler:
             A dictionary mapping original names to their CwlDemangleResult instances
         """
         # TODO: Implement Linux cwl-demangle binary
-        if os.uname().sysname == "Darwin":
+        if os.uname().sysname != "Darwin":
+            logger.warning("cwl-demangle is only supported on macOS/Darwin")
             return {}
 
         if not self.queue:

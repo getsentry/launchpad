@@ -9,7 +9,7 @@ import pytest
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
-from launchpad.parsers.apple.swift_symbol_type_aggregator import SymbolTypeAggregator
+from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 
 
 def is_darwin() -> bool:
@@ -58,7 +58,7 @@ class TestSymbolTypeAggregator:
 
     def test_init(self):
         """Test SymbolTypeAggregator initialization."""
-        aggregator = SymbolTypeAggregator()
+        aggregator = SwiftSymbolTypeAggregator()
         assert aggregator.demangler is not None
 
     def test_aggregate_symbols_with_real_binary(self, sample_app_path: Path) -> None:
@@ -66,7 +66,7 @@ class TestSymbolTypeAggregator:
         symbol_sizes = create_symbol_sizes_from_xcarchive(sample_app_path)
         assert len(symbol_sizes) == 24466
 
-        aggregator = SymbolTypeAggregator()
+        aggregator = SwiftSymbolTypeAggregator()
         result = aggregator.aggregate_symbols(symbol_sizes)
         assert len(result) == 708
 
@@ -85,7 +85,7 @@ class TestSymbolTypeAggregator:
 
     def test_aggregate_symbols_empty_input(self) -> None:
         """Test aggregation with empty input."""
-        aggregator = SymbolTypeAggregator()
+        aggregator = SwiftSymbolTypeAggregator()
         result = aggregator.aggregate_symbols([])
 
         assert result == []
