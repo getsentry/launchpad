@@ -1,16 +1,10 @@
 import re
 
-from dataclasses import dataclass
-
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
-from launchpad.utils.logging import get_logger
-
-logger = get_logger(__name__)
-
-
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import List, Tuple
 
+from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
