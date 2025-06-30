@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from launchpad.insights.android.image_optimization import WebPOptimizationInsight
+
 from ..artifacts.android.aab import AAB
 from ..artifacts.android.apk import APK
 from ..artifacts.android.zipped_aab import ZippedAAB
@@ -90,6 +92,7 @@ class AndroidAnalyzer:
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
+                webp_optimization=WebPOptimizationInsight().generate(insights_input),
             )
 
         return AndroidAnalysisResults(
