@@ -141,10 +141,12 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         fontSize: 18,
         fontWeight: 'bold',
         color: COLORS.gray500,
+        fontFamily: 'Rubik',
       },
       subtextStyle: {
         fontSize: 14,
         color: COLORS.gray400,
+        fontFamily: 'Rubik',
       },
     },
     tooltip: {
@@ -154,6 +156,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       borderWidth: 1,
       textStyle: {
         color: COLORS.gray500,
+        fontFamily: 'Rubik',
       },
       formatter: function (info: { name: string; value: number }) {
         const value = info.value;
@@ -179,6 +182,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
           fontSize: 12,
           fontWeight: 'bold',
           color: COLORS.white,
+          fontFamily: 'Rubik',
         },
         itemStyle: {
           borderColor: COLORS.white,
@@ -201,6 +205,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               backgroundColor: COLORS.red300,
               borderRadius: 3,
               padding: [4, 8],
+              fontFamily: 'Rubik',
             },
             label: {
               show: true,
@@ -208,6 +213,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               fontSize: 12,
               fontWeight: 'bold',
               color: COLORS.white,
+              fontFamily: 'Rubik',
             },
           },
           {
@@ -226,6 +232,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               backgroundColor: COLORS.red300,
               borderRadius: 2,
               padding: [3, 6],
+              fontFamily: 'Rubik',
             },
             label: {
               show: true,
@@ -233,6 +240,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               fontSize: 11,
               fontWeight: 'bold',
               color: COLORS.white,
+              fontFamily: 'Rubik',
             },
             emphasis: {
               itemStyle: {
@@ -257,12 +265,14 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               backgroundColor: COLORS.red300,
               borderRadius: 2,
               padding: [2, 4],
+              fontFamily: 'Rubik',
             },
             label: {
               show: true,
               position: 'inside',
               fontSize: 10,
               color: COLORS.white,
+              fontFamily: 'Rubik',
             },
             emphasis: {
               itemStyle: {
