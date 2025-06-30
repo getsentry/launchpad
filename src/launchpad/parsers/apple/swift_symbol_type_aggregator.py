@@ -40,7 +40,11 @@ class SwiftSymbolTypeAggregator:
             List of SymbolTypeGroup objects with aggregated sizes
         """
         # Filter to only Swift symbols
-        swift_symbols = [symbol for symbol in symbol_sizes if symbol.mangled_name.startswith("_$s")]
+        swift_symbols = [
+            symbol
+            for symbol in symbol_sizes
+            if symbol.mangled_name.startswith("_$s") or symbol.mangled_name.startswith("_Tt")
+        ]
         logger.info(f"Found {len(swift_symbols)} Swift symbols out of {len(symbol_sizes)} total symbols")
 
         mangled_names = [symbol.mangled_name for symbol in swift_symbols]
