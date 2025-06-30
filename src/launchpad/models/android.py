@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo
@@ -9,10 +11,23 @@ class AndroidAppInfo(BaseAppInfo):
     package_name: str = Field(..., description="Android package name")
 
 
+class OptimizeableImageFile(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    file_path: Path = Field(..., description="File path")
+    potential_savings: int = Field(..., description="Potential savings")
+
+
+class WebPOptimizationInsightResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    # list of file paths and their potential savings
+    optimizeable_image_files: list[OptimizeableImageFile] = Field(..., description="Optimizeable image files")
+
+
 class AndroidInsightResults(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
+    webp_optimization: WebPOptimizationInsightResult | None = Field(None, description="WebP optimization analysis")
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):
