@@ -399,7 +399,7 @@ class AppleAppAnalyzer:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
                 type_groups = SymbolTypeAggregator().aggregate_symbols(symbol_sizes)
-                print(type_groups)
+                logger.info(f"Found {len(type_groups)} type groups")
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
                 symbol_sizes = []
