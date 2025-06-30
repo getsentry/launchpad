@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Tuple
 import lief
 
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
-from launchpad.parsers.apple.symbol_type_aggregator import SymbolTypeAggregator
+from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 
 from ..artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from ..artifacts.artifact import AppleArtifact
@@ -398,7 +398,7 @@ class AppleAppAnalyzer:
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
-                type_groups = SymbolTypeAggregator().aggregate_symbols(symbol_sizes)
+                type_groups = SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes)
                 logger.info(f"Found {len(type_groups)} type groups")
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")

@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class SymbolTypeGroup:
+class SwiftSymbolTypeGroup:
     """Represents a group of symbols with the same module/type."""
 
     module: str
@@ -22,13 +22,13 @@ class SymbolTypeGroup:
         return sum(symbol.size for symbol in self.symbols)
 
 
-class SymbolTypeAggregator:
+class SwiftSymbolTypeAggregator:
     """Aggregates symbols by their module/type after demangling."""
 
     def __init__(self) -> None:
         self.demangler = CwlDemangler()
 
-    def aggregate_symbols(self, symbol_sizes: list[SymbolSize]) -> list[SymbolTypeGroup]:
+    def aggregate_symbols(self, symbol_sizes: list[SymbolSize]) -> list[SwiftSymbolTypeGroup]:
         """
         Group symbols by their module/type and calculate total sizes.
 
@@ -64,10 +64,10 @@ class SymbolTypeAggregator:
                 type_groups[key] = []
             type_groups[key].append(symbol)
 
-        result: list[SymbolTypeGroup] = []
+        result: list[SwiftSymbolTypeGroup] = []
         for (module, type_name), symbols in type_groups.items():
             result.append(
-                SymbolTypeGroup(module=module, type_name=type_name, symbol_count=len(symbols), symbols=symbols)
+                SwiftSymbolTypeGroup(module=module, type_name=type_name, symbol_count=len(symbols), symbols=symbols)
             )
 
         # Sort by total size (descending)

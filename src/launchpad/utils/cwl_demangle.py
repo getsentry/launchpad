@@ -40,6 +40,7 @@ class CwlDemangler:
         self.is_type = is_type
         self.queue: List[str] = []
         self.continue_on_error = continue_on_error
+        self.uuid = uuid.uuid4()
 
     def add_name(self, name: str) -> None:
         """
@@ -73,12 +74,12 @@ class CwlDemangler:
 
         for i in range(0, len(names), chunk_size):
             chunk = names[i : i + chunk_size]
-            chunk_results = self._demangle_chunk(chunk)
+            chunk_results = self._demangle_chunk(chunk, i)
             results.update(chunk_results)
 
         return results
 
-    def _demangle_chunk(self, names: List[str]) -> Dict[str, CwlDemangleResult]:
+    def _demangle_chunk(self, names: List[str], i: int) -> Dict[str, CwlDemangleResult]:
         if not names:
             logger.warning("No names to demangle")
             return {}
@@ -86,12 +87,12 @@ class CwlDemangler:
         binary_path = self._get_binary_path()
         results: Dict[str, CwlDemangleResult] = {}
 
-        # Create a temporary file for the names
-        with tempfile.NamedTemporaryFile(mode="w", prefix=f"cwl-demangle-{uuid.uuid4()}-", suffix=".txt") as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix=f"cwl-demangle-{self.uuid}-chunk-{i}-", suffix=".txt"
+        ) as temp_file:
             temp_file.write("\n".join(names))
             temp_file.flush()
 
-            # Build the command for batch processing with JSON output
             command_parts = [
                 binary_path,
                 "batch",
@@ -106,12 +107,14 @@ class CwlDemangler:
             if self.continue_on_error:
                 command_parts.append("--continue-on-error")
 
-            result = subprocess.run(command_parts, capture_output=True, text=True, check=True)
+            try:
+                result = subprocess.run(command_parts, capture_output=True, text=True, check=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"cwl-demangle failed: {e}")
+                return {}
 
-            # Parse JSON output
             batch_result = json.loads(result.stdout)
 
-            # Process successful results
             for symbol_result in batch_result.get("results", []):
                 mangled = symbol_result.get("mangled", "")
                 if mangled in names:
