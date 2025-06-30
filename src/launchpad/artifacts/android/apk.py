@@ -85,3 +85,9 @@ class APK(AndroidArtifact):
 
     def get_extract_path(self) -> Path:
         return self._extract_dir
+
+    def get_images(self) -> list[Path]:
+        images: list[Path] = []
+        for format in ["png", "bmp", "jpg", "jpeg"]:  # image files for webp analysis
+            images.extend(list(self.get_extract_path().rglob(f"*.{format}")))
+        return images
