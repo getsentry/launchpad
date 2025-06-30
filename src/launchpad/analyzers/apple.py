@@ -9,7 +9,8 @@ from typing import Any, Dict, List, Tuple
 
 import lief
 
-from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes, SymbolTypeAggregator
+from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
+from launchpad.parsers.apple.symbol_type_aggregator import SymbolTypeAggregator
 
 from ..artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from ..artifacts.artifact import AppleArtifact
