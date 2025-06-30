@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status
+.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status check-deps
 
 # Default target
 help:
@@ -15,9 +15,10 @@ $(VENV_DIR):
 	$(UV) venv
 
 # Just used for CI
-install-dev: $(VENV_DIR)  ## Install development dependencies
+install-dev: $(VENV_DIR)
 	$(UV) pip install -r requirements-dev.txt
 	$(UV) pip install -e .
+	$(PYTHON_VENV) scripts/deps
 	$(VENV_DIR)/bin/pre-commit install
 
 test:
@@ -38,6 +39,9 @@ check-format:  ## Check code format without modifying files
 
 check-types:  ## Run type checking with ty
 	$(PYTHON_VENV) -m ty check --error-on-warning src
+
+check-deps:
+	$(PYTHON_VENV) scripts/deps --check
 
 fix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
 	$(PYTHON_VENV) -m ruff format src/ tests/
@@ -65,7 +69,7 @@ clean:
 	rm -rf $(VENV_DIR)
 
 # Combined targets for CI
-check: check-lint check-format check-types
+check: check-lint check-format check-types check-deps
 
 ci: install-dev check test
 

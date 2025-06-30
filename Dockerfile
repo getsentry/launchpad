@@ -28,16 +28,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Setup bundletool
-RUN curl https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar -4 -sL -o /usr/local/bin/bundletool.jar && \
-    echo '#!/bin/bash' > /usr/local/bin/bundletool && \
-    echo 'java -jar /usr/local/bin/bundletool.jar "$@"' >> /usr/local/bin/bundletool && \
-    chmod +x /usr/local/bin/bundletool
-
-# Setup cwebp
-RUN curl -L https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0-linux-x86-64.tar.gz -o /tmp/webp.tar.gz && \
-    tar -xzf /tmp/webp.tar.gz -C /usr/local --strip-components=1 && \
-    rm /tmp/webp.tar.gz
+COPY .devenv/all/bin /usr/local/bin/
+COPY .devenv/x86_64-linux/bin /usr/local/bin/
 
 # Set working directory
 WORKDIR /app
