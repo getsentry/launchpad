@@ -28,6 +28,9 @@ class BundletoolError(Exception):
         self.stdout = stdout
         self.stderr = stderr
 
+    def __str__(self):
+        return f"{super().__str__()}\n\nstdout:\n{self.stdout}\n\nstderr:\n{self.stderr}"
+
 
 class Bundletool:
     """Wrapper around Android's bundletool CLI utility."""
