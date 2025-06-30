@@ -31,6 +31,7 @@ class SwiftSymbolTypeAggregator:
     def aggregate_symbols(self, symbol_sizes: list[SymbolSize]) -> list[SwiftSymbolTypeGroup]:
         """
         Group symbols by their module/type and calculate total sizes.
+        Only processes Swift symbols (those starting with '_$s').
 
         Args:
             symbol_sizes: List of SymbolSize objects from MachOSymbolSizes
@@ -38,7 +39,11 @@ class SwiftSymbolTypeAggregator:
         Returns:
             List of SymbolTypeGroup objects with aggregated sizes
         """
-        mangled_names = [symbol.mangled_name for symbol in symbol_sizes]
+        # Filter to only Swift symbols
+        swift_symbols = [symbol for symbol in symbol_sizes if symbol.mangled_name.startswith("_$s")]
+        logger.info(f"Found {len(swift_symbols)} Swift symbols out of {len(symbol_sizes)} total symbols")
+
+        mangled_names = [symbol.mangled_name for symbol in swift_symbols]
 
         for name in mangled_names:
             self.demangler.add_name(name)
@@ -47,7 +52,7 @@ class SwiftSymbolTypeAggregator:
         # Group symbols by module/type
         type_groups: dict[tuple[str, str], list[SymbolSize]] = {}
 
-        for symbol in symbol_sizes:
+        for symbol in swift_symbols:
             demangled_result = demangled_results.get(symbol.mangled_name)
 
             if demangled_result:
@@ -73,5 +78,5 @@ class SwiftSymbolTypeAggregator:
         # Sort by total size (descending)
         result.sort(key=lambda x: x.total_size, reverse=True)
 
-        logger.info(f"Aggregated {len(symbol_sizes)} symbols into {len(result)} type groups")
+        logger.info(f"Aggregated {len(swift_symbols)} Swift symbols into {len(result)} type groups")
         return result

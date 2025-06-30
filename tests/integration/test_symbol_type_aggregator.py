@@ -9,7 +9,7 @@ import pytest
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
-from launchpad.parsers.apple.symbol_type_aggregator import SymbolTypeAggregator
+from launchpad.parsers.apple.swift_symbol_type_aggregator import SymbolTypeAggregator
 
 
 def is_darwin() -> bool:
