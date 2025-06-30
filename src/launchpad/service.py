@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import signal
 
 from concurrent.futures import ThreadPoolExecutor
@@ -13,6 +14,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 )
 
 from launchpad.utils.logging import get_logger
+from launchpad.utils.statsd import DogStatsd, get_statsd
 
 from .kafka import KafkaConsumer, LaunchpadMessage, get_kafka_config
 from .server import LaunchpadServer, get_server_config
@@ -32,11 +34,15 @@ class LaunchpadService:
         self._task_executor = ThreadPoolExecutor(max_workers=4)  # Adjust based on resources
         self._background_tasks: set[asyncio.Task[Any]] = set()
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._statsd: DogStatsd | None = None
 
     async def setup(self) -> None:
         """Set up the service components."""
         # Store reference to the event loop for use in message handlers
         self._loop = asyncio.get_running_loop()
+
+        service_config = get_service_config()
+        self._statsd = get_statsd(host=service_config["statsd_host"], port=service_config["statsd_port"])
 
         # Setup HTTP server
         server_config = get_server_config()
@@ -126,6 +132,8 @@ class LaunchpadService:
         artifact_id = payload["artifact_id"]  # Guaranteed by schema
         project_id = payload["project_id"]  # Guaranteed by schema
         organization_id = payload["organization_id"]  # Guaranteed by schema
+
+        self._statsd.increment("launchpad.do_analysis")
 
         logger.info(f"Processing analysis request for artifact {artifact_id}")
         logger.info(f"Project ID: {project_id}, Organization ID: {organization_id}")
@@ -283,6 +291,21 @@ class LaunchpadService:
         health_status["components"]["server"] = {"status": "ok" if self.server else "not_initialized"}
 
         return health_status
+
+
+def get_service_config() -> Dict[str, Any]:
+    statsd_host = os.getenv("STATSD_HOST", "127.0.0.1")
+    statsd_port_str = os.getenv("STATSD_PORT", "8125")
+
+    try:
+        statsd_port = int(statsd_port_str)
+    except ValueError:
+        raise ValueError(f"STATSD_PORT must be a valid integer, got: {statsd_port_str}")
+
+    return {
+        "statsd_host": statsd_host,
+        "statsd_port": statsd_port,
+    }
 
 
 async def run_service() -> None:
