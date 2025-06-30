@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Tuple
 
 import lief
 
+from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
+
 from ..artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from ..artifacts.artifact import AppleArtifact
 from ..insights.common import DuplicateFilesInsight
@@ -110,7 +112,7 @@ class AppleAppAnalyzer:
                 logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
                 if binary_info.dsym_path:
                     logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
-                binary = self._analyze_binary(binary_info.path)
+                binary = self._analyze_binary(binary_info.path, binary_info.dsym_path)
                 if binary.range_map is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
@@ -357,7 +359,9 @@ class AppleAppAnalyzer:
             for element in catalog_details
         ]
 
-    def _analyze_binary(self, binary_path: Path, skip_swift_metadata: bool = False) -> MachOBinaryAnalysis:
+    def _analyze_binary(
+        self, binary_path: Path, dwarf_binary_path: Path | None = None, skip_swift_metadata: bool = False
+    ) -> MachOBinaryAnalysis:
         """Analyze a binary file using LIEF.
 
         Args:
@@ -396,6 +400,19 @@ class AppleAppAnalyzer:
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
         swift_protocol_conformances = parser.parse_swift_protocol_conformances()
+
+        if dwarf_binary_path:
+            dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
+            if dwarf_fat_binary:
+                dwarf_binary = dwarf_fat_binary.at(0)
+                symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
+                print(symbol_sizes)
+            else:
+                logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
+                symbol_sizes = []
+        else:
+            logger.info("No dwarf binary path provided, skipping symbol sizes")
+            symbol_sizes = []
 
         # Extract Swift metadata if enabled
         swift_metadata = None

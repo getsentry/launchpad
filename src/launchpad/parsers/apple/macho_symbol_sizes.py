@@ -3,10 +3,8 @@ from typing import Generator
 
 import lief
 
+from launchpad.utils.cwl_demangle import CwlDemangler
 from launchpad.utils.logging import get_logger
-from launchpad.utils.swift_demangle import SwiftDemangler
-
-from .macho_parser import MachOParser
 
 logger = get_logger(__name__)
 
@@ -23,14 +21,13 @@ class SymbolSize:
 class MachOSymbolSizes:
     """Calculates the size of each symbol in the binary by using the distance-to-next-symbol heuristic."""
 
-    def __init__(self, binary: lief.MachO.Binary, macho_parser: "MachOParser") -> None:
+    def __init__(self, binary: lief.MachO.Binary) -> None:
         self.binary = binary
-        self.macho_parser = macho_parser
 
     def get_symbol_sizes(self) -> list[SymbolSize]:
         """Get the symbol sizes."""
         symbol_tuples = list(self._symbol_sizes(self.binary))
-        swift_demangler = SwiftDemangler()
+        swift_demangler = CwlDemangler()
 
         mangled_names = [name for name, _, _, _ in symbol_tuples]
         for name in mangled_names:
@@ -39,11 +36,11 @@ class MachOSymbolSizes:
 
         symbol_sizes: list[SymbolSize] = []
         for mangled_name, section, address, size in symbol_tuples:
-            demangled_name = demangled_results.get(mangled_name, mangled_name)
+            demangled_name = demangled_results.get(mangled_name)
             symbol_sizes.append(
                 SymbolSize(
                     mangled_name=mangled_name,
-                    demangled_name=demangled_name,
+                    demangled_name=demangled_name.description if demangled_name else mangled_name,
                     section=section,
                     address=address,
                     size=size,
