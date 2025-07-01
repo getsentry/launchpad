@@ -133,22 +133,6 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
   const totalSize = sizeMode === 'install' ? data.total_install_size : data.total_download_size;
 
   const option = {
-    title: {
-      text: `${data.platform.toUpperCase()} Size Analysis - ${sizeMode === 'install' ? 'Install' : 'Download'} Size`,
-      subtext: `Total: ${formatBytes(totalSize)} | Files: ${data.file_count}`,
-      left: 'center',
-      textStyle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.gray500,
-        fontFamily: 'Rubik',
-      },
-      subtextStyle: {
-        fontSize: 14,
-        color: COLORS.gray400,
-        fontFamily: 'Rubik',
-      },
-    },
     tooltip: {
       trigger: 'item',
       backgroundColor: COLORS.white,
@@ -174,7 +158,17 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       {
         name: 'Size Analysis',
         type: 'treemap',
-        visibleMin: 300,
+        animationEasing: 'quarticOut',
+        animationDuration: 500,
+        height: `100%`,
+        width: `100%`,
+        scaleLimit: {
+          // Allow zooming in and out
+          // min: 0.5,
+          // max: 1.5,
+        },
+        zoomToNodeRatio: 0.1,
+        visibleMin: 800,
         label: {
           show: true,
           formatter: '{b}',
