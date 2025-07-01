@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
-import time
 
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping
 
 from arroyo import Message, Topic
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
 from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
-from arroyo.types import BrokerValue, Commit, Partition
+from arroyo.processing.strategies.commit import CommitOffsets
+from arroyo.processing.strategies.healthcheck import Healthcheck
+from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
+from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
-from sentry_kafka_schemas.codecs import ValidationError
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
@@ -29,234 +29,92 @@ logger = get_logger(__name__)
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
-class LaunchpadMessage:
-    """Represents a processed Kafka message for Launchpad."""
+class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
+    """Factory for creating the processing strategy chain."""
 
     def __init__(
         self,
-        topic: str,
-        partition: int,
-        offset: int,
-        key: bytes | None,
-        value: bytes,
-        timestamp: float | None = None,
+        message_handler: Callable[[PreprodArtifactEvents], Any],
+        concurrency: int = 4,
+        max_pending_futures: int = 100,
+        healthcheck_file: str | None = None,
     ) -> None:
-        self.topic = topic
-        self.partition = partition
-        self.offset = offset
-        self.key = key
-        self.value = value
-        self.timestamp = timestamp
-
-    def get_validated_payload(self) -> PreprodArtifactEvents | None:
-        """Parse and validate the message using the schema."""
-        try:
-            decoded = PREPROD_ARTIFACT_SCHEMA.decode(self.value)
-            return decoded  # type: ignore[no-any-return]
-        except ValidationError as e:
-            logger.error(f"Schema validation failed for message: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to decode message: {e}")
-            return None
-
-    def is_valid_preprod_artifact_event(self) -> bool:
-        """Check if this message is a valid preprod artifact event."""
-        return self.get_validated_payload() is not None
-
-    def __str__(self) -> str:
-        return f"LaunchpadMessage(topic={self.topic}, partition={self.partition}, offset={self.offset})"
-
-
-class MessageProcessingStrategy(ProcessingStrategy[KafkaPayload]):
-    """Strategy to process Kafka messages."""
-
-    def __init__(self, message_handler: Callable[[LaunchpadMessage], Any] | None = None) -> None:
         self.message_handler = message_handler
-
-    def poll(self) -> None:
-        pass
-
-    def submit(self, message: Message[KafkaPayload]) -> None:
-        """Process a single message."""
-        try:
-            # Convert Arroyo message to Launchpad message
-            kafka_payload = message.payload
-
-            # Assume we're getting BrokerValue from Kafka consumer
-            broker_value = message.value
-            if isinstance(broker_value, BrokerValue):
-                launchpad_msg = LaunchpadMessage(
-                    topic=broker_value.partition.topic.name,
-                    partition=broker_value.partition.index,
-                    offset=broker_value.offset,
-                    key=kafka_payload.key,
-                    value=kafka_payload.value,
-                    timestamp=(broker_value.timestamp.timestamp() if broker_value.timestamp else None),
-                )
-            else:
-                logger.error(f"Expected BrokerValue but got {type(broker_value)}")
-                return
-
-            logger.debug(f"Processing message: {launchpad_msg}")
-
-            if self.message_handler:
-                try:
-                    result = self.message_handler(launchpad_msg)
-                    # Note: In synchronous context, we can't handle async handlers
-                    # The handler should be synchronous or handle its own async scheduling
-                    if asyncio.iscoroutine(result):
-                        logger.warning("Message handler returned a coroutine but we're in sync context - ignoring")
-                except Exception as e:
-                    logger.error(f"Error in message handler: {e}", exc_info=True)
-            else:
-                logger.info(f"No handler set, received message: {launchpad_msg}")
-                if launchpad_msg.is_valid_preprod_artifact_event():
-                    payload = launchpad_msg.get_validated_payload()
-                    logger.info(f"Valid preprod artifact event: {payload}")
-                else:
-                    logger.warning(f"Invalid or malformed message received on topic {launchpad_msg.topic}")
-
-        except Exception as e:
-            logger.error(f"Error processing message: {e}", exc_info=True)
-
-    def close(self) -> None:
-        pass
-
-    def terminate(self) -> None:
-        pass
-
-    def join(self, timeout: float | None = None) -> None:
-        pass
-
-
-class MessageProcessingStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
-    """Factory for creating message processing strategies."""
-
-    def __init__(self, message_handler: Optional[Callable[[LaunchpadMessage], Any]] = None) -> None:
-        self.message_handler = message_handler
+        self.concurrency = concurrency
+        self.max_pending_futures = max_pending_futures
+        self.healthcheck_file = healthcheck_file
 
     def create_with_partitions(
         self,
         commit: Commit,
         partitions: Mapping[Partition, int],
     ) -> ProcessingStrategy[KafkaPayload]:
-        """Create a processing strategy with partition information."""
-        # Use the message processing strategy directly
-        return MessageProcessingStrategy(self.message_handler)
+        """Create the processing strategy chain."""
+        # Start with the commit strategy (always last in chain)
+        next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
 
+        # Add healthcheck if configured
+        if self.healthcheck_file:
+            next_step = Healthcheck(self.healthcheck_file, next_step)
 
-class KafkaConsumer:
-    """Arroyo-based Kafka consumer for Launchpad."""
-
-    def __init__(
-        self,
-        topics: List[str],
-        group_id: str,
-        bootstrap_servers: str | None = None,
-        message_handler: Optional[Callable[[LaunchpadMessage], Any]] = None,
-    ) -> None:
-        self.topics = topics
-        self.group_id = group_id
-        # Ensure bootstrap_servers is always a string
-        self.bootstrap_servers: str = bootstrap_servers or os.getenv("KAFKA_BOOTSTRAP_SERVERS")  # type: ignore[assignment]
-        if not self.bootstrap_servers:
-            raise ValueError("KAFKA_BOOTSTRAP_SERVERS environment variable must be set")
-        self.message_handler = message_handler
-        self._processor: StreamProcessor[KafkaPayload] | None = None
-        self._shutdown_requested = False
-
-        logger.info(f"Initialized Arroyo Kafka consumer for topics: {topics}")
-        logger.info(f"Group ID: {group_id}")
-        logger.info(f"Bootstrap servers: {self.bootstrap_servers}")
-
-    def run(self) -> None:
-        """Run the Kafka consumer (blocking, like Snuba)."""
-        while not self._shutdown_requested:
+        # Use RunTaskInThreads for concurrent processing
+        def process_message(msg: Message[KafkaPayload]) -> Any:
             try:
-                # Create Arroyo consumer - minimal config for Arroyo
-                # TODO: When we're closer to production, we'll need a way to disable this logic as
-                # topics, partitions and kafka clusters are configured through getsentry/ops.
-                # We will work with the streaming teams to get this set up.
-                consumer_config = {
-                    "bootstrap.servers": self.bootstrap_servers,
-                    "group.id": self.group_id,
-                    "auto.offset.reset": "latest",
-                    "enable.auto.commit": False,  # Arroyo manages commits via strategies
-                    "enable.auto.offset.store": False,  # Arroyo manages offset storage
-                }
-
-                # Create topics list for Arroyo
-                arroyo_topics = [Topic(topic) for topic in self.topics]
-
-                arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
-
-                # Create processing strategy factory
-                strategy_factory = MessageProcessingStrategyFactory(self.message_handler)
-
-                # Create stream processor
-                self._processor = StreamProcessor(
-                    consumer=arroyo_consumer,
-                    topic=arroyo_topics[0] if arroyo_topics else Topic("default"),
-                    processor_factory=strategy_factory,
-                )
-
-                logger.info("Arroyo Kafka consumer started, calling processor.run()...")
-
-                # This blocks until shutdown is signaled (exactly like Snuba)
-                self._processor.run()
-
-                logger.info("Processor.run() completed")
-                break
-
+                decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
+                return self.message_handler(decoded)  # type: ignore[no-any-return]
             except Exception as e:
-                if not self._shutdown_requested:
-                    logger.error(f"Error in Kafka consumer: {e}", exc_info=True)
-                    # Sleep a bit before retrying (like Snuba)
-                    time.sleep(1.0)
-                else:
-                    # This else branch is theoretically unreachable due to loop condition
-                    logger.info(  # type: ignore[unreachable]
-                        "Kafka consumer shutting down due to error during shutdown"
-                    )
-                    break
+                logger.error(f"Failed to decode message: {e}")
+                raise  # Re-raise the exception to prevent processing invalid messages
 
-        logger.info("Kafka consumer run loop completed")
+        return RunTaskInThreads(
+            processing_function=process_message,
+            concurrency=self.concurrency,
+            max_pending_futures=self.max_pending_futures,
+            next_step=next_step,
+        )
 
-    def shutdown(self) -> None:
-        """Signal shutdown to the Kafka consumer."""
-        logger.info("Shutdown requested for Kafka consumer")
-        self._shutdown_requested = True
 
-        if self._processor:
-            try:
-                logger.info("Calling signal_shutdown on processor")
-                self._processor.signal_shutdown()
-            except Exception as e:
-                logger.warning(f"Error signaling processor shutdown: {e}")
+def create_kafka_consumer(
+    message_handler: Callable[[PreprodArtifactEvents], Any],
+) -> StreamProcessor[KafkaPayload]:
+    """Create and configure a Kafka consumer using environment variables."""
+    # Get configuration from environment
+    config = get_kafka_config()
 
-    def set_message_handler(self, handler: Callable[[LaunchpadMessage], Any]) -> None:
-        """Set the message handler function."""
-        self.message_handler = handler
-        # If processor is already created, we'd need to recreate it
-        # For now, this should be called before start()
-        if self._shutdown_requested:
-            logger.warning("Cannot change message handler while consumer is running")
+    # Create Arroyo consumer
+    # TODO: When we're closer to production, we'll need a way to disable this logic as
+    # topics, partitions and kafka clusters are configured through getsentry/ops.
+    # We will work with the streaming teams to get this set up.
+    consumer_config = {
+        "bootstrap.servers": config["bootstrap_servers"],
+        "group.id": config["group_id"],
+        "auto.offset.reset": "latest",
+        "enable.auto.commit": False,
+        "enable.auto.offset.store": False,
+    }
 
-    async def health_check(self) -> Dict[str, Any]:
-        """Check the health of the Kafka connection."""
-        return {
-            "status": "running" if not self._shutdown_requested else "stopped",
-            "topics": self.topics,
-            "group_id": self.group_id,
-            "bootstrap_servers": self.bootstrap_servers,
-            "processor_active": self._processor is not None,
-        }
+    arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
+
+    # Create strategy factory
+    strategy_factory = LaunchpadStrategyFactory(
+        message_handler=message_handler,
+        concurrency=config["concurrency"],
+        max_pending_futures=config["max_pending_futures"],
+        healthcheck_file=config.get("healthcheck_file"),
+    )
+
+    # Create and return stream processor
+    topics = [Topic(topic) for topic in config["topics"]]
+    return StreamProcessor(
+        consumer=arroyo_consumer,
+        topic=topics[0] if topics else Topic("default"),
+        processor_factory=strategy_factory,
+    )
 
 
 def get_kafka_config() -> Dict[str, Any]:
-    """Get Kafka configuration from environment."""
-
+    """Get Kafka configuration from environment variables."""
+    # Required configuration
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
     if not bootstrap_servers:
         raise ValueError("KAFKA_BOOTSTRAP_SERVERS env var is required")
@@ -269,9 +127,12 @@ def get_kafka_config() -> Dict[str, Any]:
     if not topics_env:
         raise ValueError("KAFKA_TOPICS env var is required")
 
-    topics = topics_env.split(",")
+    # Optional configuration with defaults
     return {
         "bootstrap_servers": bootstrap_servers,
         "group_id": group_id,
-        "topics": topics,
+        "topics": topics_env.split(","),
+        "concurrency": int(os.getenv("KAFKA_CONCURRENCY", "4")),
+        "max_pending_futures": int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
+        "healthcheck_file": os.getenv("KAFKA_HEALTHCHECK_FILE"),
     }
