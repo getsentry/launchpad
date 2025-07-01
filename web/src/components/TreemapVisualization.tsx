@@ -162,6 +162,30 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         animationDuration: 500,
         height: `100%`,
         width: `100%`,
+        breadcrumb: {
+          show: false,
+          left: '0',
+          top: '0',
+          emphasis: {
+            itemStyle: {
+              color: COLORS.white,
+              textStyle: {
+                fontSize: 12,
+                fontWeight: 'bold',
+                fontFamily: 'Rubik',
+                color: COLORS.gray400,
+              },
+            },
+          },
+          itemStyle: {
+            textStyle: {
+              fontSize: 12,
+              fontWeight: 'bold',
+              fontFamily: 'Rubik',
+              color: COLORS.gray400,
+            },
+          },
+        },
         scaleLimit: {
           // Allow zooming in and out
           // min: 0.5,
