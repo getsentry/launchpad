@@ -78,26 +78,7 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
         exclude=True,
     )
     symbol_info: SymbolInfo | None = Field(None, description="Symbol information", exclude=True)
-
-    @property
-    def has_range_mapping(self) -> bool:
-        """Check if range mapping is available."""
-        return self.range_map is not None
-
-    @property
-    def unmapped_size(self) -> int:
-        """Get size of unmapped regions, if range mapping is available."""
-        if self.range_map is not None:
-            return int(self.range_map.unmapped_size)
-        return 0
-
-    @property
-    def coverage_percentage(self) -> float:
-        """Get coverage percentage, if range mapping is available."""
-        if self.range_map is not None:
-            report = self.range_map.get_coverage_report()
-            return float(report.get("coverage_percentage", 0.0))
-        return 0.0
+    objc_method_names: List[str] = Field(default_factory=list, description="Objective-C method names", exclude=True)
 
 
 class SwiftMetadata(BaseModel):

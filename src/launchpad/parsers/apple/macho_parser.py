@@ -7,6 +7,7 @@ from typing import Dict, List
 import lief
 
 from ...utils.logging import get_logger
+from .binary_utils import parse_null_terminated_strings
 from .chained_fixups_parser import ChainedFixupsParser
 from .code_signature_parser import CodeSignatureParser, CodeSignInformation
 from .swift_protocol_parser import SwiftProtocolParser
@@ -80,7 +81,7 @@ class MachOParser:
             return content[offset : offset + size]
 
         except Exception as e:
-            logger.debug(f"Failed to get section bytes at offset for {section_name}: {e}")
+            logger.error(f"Failed to get section bytes at offset for {section_name}: {e}")
             return None
 
     def get_section_bytes(self, section_name: str) -> bytes | None:
@@ -106,7 +107,7 @@ class MachOParser:
             return None
 
         except Exception as e:
-            logger.debug(f"Failed to get section content for {section_name}: {e}")
+            logger.error(f"Failed to get section content for {section_name}: {e}")
             return None
 
     def is_encrypted(self) -> bool:
@@ -123,7 +124,7 @@ class MachOParser:
             # If encryption_info exists and crypt_id is non-zero, the binary is encrypted
             return bool(self.binary.encryption_info.crypt_id)
         except Exception as e:
-            logger.debug(f"Failed to check encryption status: {e}")
+            logger.error(f"Failed to check encryption status: {e}")
             return False
 
     def parse_swift_protocol_conformances(self) -> List[str]:
@@ -169,3 +170,26 @@ class MachOParser:
         self._imported_symbols_cache = parser.parse_imported_symbols()
 
         return self._imported_symbols_cache
+
+    def parse_objc_method_names(self) -> List[str]:
+        """Parse Objective-C method names from the __objc_methname section.
+
+        Extracts all null-terminated strings from the __objc_methname section,
+        which contains the method names used in the Objective-C runtime.
+
+        Returns:
+            List of method names found in the section, or empty list if section not found
+        """
+        try:
+            content = self.get_section_bytes("__objc_methname")
+            if content is None:
+                logger.debug("__objc_methname section not found")
+                return []
+
+            method_names = parse_null_terminated_strings(content)
+            logger.debug(f"Parsed {len(method_names)} Objective-C method names")
+            return method_names
+
+        except Exception as e:
+            logger.error(f"Failed to parse Objective-C method names: {e}")
+            return []
