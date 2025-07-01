@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import List
+
 import lief
 
 from ...utils.logging import get_logger
@@ -59,3 +61,24 @@ def read_null_terminated_string(binary: lief.MachO.Binary, offset: int) -> str |
     except Exception as e:
         logger.debug(f"Failed to read null-terminated string at offset {offset}: {e}")
         return None
+
+
+def parse_null_terminated_strings(content: bytes) -> List[str]:
+    """Parse multiple null-terminated strings from a byte array.
+
+    Args:
+        content: Raw bytes containing null-terminated strings
+
+    Returns:
+        List of parsed strings, excluding empty strings
+    """
+    try:
+        strings = [
+            part.decode("utf-8")
+            for part in content.split(b"\x00")
+            if part  # Filter out empty parts
+        ]
+        return strings
+    except UnicodeDecodeError as e:
+        logger.error(f"Failed to decode strings: {e}")
+        return []

@@ -396,6 +396,7 @@ class AppleAppAnalyzer:
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
         swift_protocol_conformances = parser.parse_swift_protocol_conformances()
+        objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
         if dwarf_binary_path:
@@ -433,4 +434,5 @@ class AppleAppAnalyzer:
             swift_metadata=swift_metadata,
             range_map=range_map,
             symbol_info=symbol_info,
+            objc_method_names=objc_method_names,
         )
