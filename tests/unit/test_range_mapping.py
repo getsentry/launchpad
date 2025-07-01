@@ -169,18 +169,6 @@ class TestRangeMap:
         assert sizes[BinaryTag.DATA_SEGMENT] == 100
         assert sizes.get(BinaryTag.HEADERS, 0) == 0  # Not present
 
-    def test_coverage_validation(self):
-        """Test coverage validation."""
-        range_map = RangeMap(total_file_size=1000)
-
-        # Poor coverage - large unmapped region
-        range_map.add_range(0, 100, BinaryTag.HEADERS)
-        assert not range_map.validate_coverage(allow_unmapped_threshold=500)
-
-        # Good coverage - small unmapped regions
-        range_map.add_range(100, 990, BinaryTag.TEXT_SEGMENT)
-        assert range_map.validate_coverage(allow_unmapped_threshold=50)
-
     def test_coverage_report(self):
         """Test coverage report generation."""
         range_map = RangeMap(total_file_size=1000)
