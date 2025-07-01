@@ -334,12 +334,12 @@ class TestTreemapGeneration:
 
         # Verify main executable sections
         main_exe_sections = {child.name: child for child in main_exe.children}
-        assert "text_segment" in main_exe_sections
-        assert main_exe_sections["text_segment"].install_size == 1842548
-        assert "objc_classes" in main_exe_sections
-        assert main_exe_sections["objc_classes"].install_size == 430336
-        assert "data_segment" in main_exe_sections
-        assert main_exe_sections["data_segment"].install_size == 114666
+        assert "__text" in main_exe_sections
+        assert main_exe_sections["__text"].install_size == 1828412
+        assert "__objc_classlist" in main_exe_sections
+        assert main_exe_sections["__objc_classlist"].install_size == 3096
+        assert "__data" in main_exe_sections
+        assert main_exe_sections["__data"].install_size == 82005
 
         # Verify Frameworks directory
         frameworks = find_node_by_path(treemap.root, "Frameworks")
