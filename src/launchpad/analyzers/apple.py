@@ -23,6 +23,7 @@ from ..models.apple import (
     AppleInsightResults,
     MachOBinaryAnalysis,
     SwiftMetadata,
+    SymbolInfo,
 )
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
@@ -345,7 +346,7 @@ class AppleAppAnalyzer:
             TreemapElement(
                 name=element.name,
                 install_size=element.size,
-                # TODO: This field should be nullable, it doesn’t make sense
+                # TODO: This field should be nullable, it doesn't make sense
                 # to talk about download size of individual assets
                 # since they are all in one .car file.
                 download_size=0,
@@ -374,6 +375,7 @@ class AppleAppAnalyzer:
                 sections={},
                 swift_metadata=None,
                 range_map=None,
+                symbol_info=None,
             )
 
         logger.debug(f"Analyzing binary: {binary_path}")
@@ -395,24 +397,21 @@ class AppleAppAnalyzer:
         sections = parser.extract_sections()
         swift_protocol_conformances = parser.parse_swift_protocol_conformances()
 
+        # Initialize symbol analysis variables
+        symbol_info = None
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
-
-                swift_type_groups = SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes)
-                logger.info(f"Found {len(swift_type_groups)} Swift type groups")
-
-                aggregator = ObjCSymbolTypeAggregator()
-                objc_groups = aggregator.aggregate_symbols(symbol_sizes)
-                logger.info(f"Found {len(objc_groups)} Objective-C type groups")
+                symbol_info = SymbolInfo(
+                    swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                    objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                )
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
-                symbol_sizes = []
         else:
             logger.info("No dwarf binary path provided, skipping symbol sizes")
-            symbol_sizes = []
 
         # Extract Swift metadata if enabled
         swift_metadata = None
@@ -421,10 +420,14 @@ class AppleAppAnalyzer:
                 protocol_conformances=swift_protocol_conformances,
             )
 
-        # Build range mapping for binary content
+        # Build range mapping for binary content with symbol information
         range_map = None
         if not self.skip_range_mapping:
-            range_builder = RangeMappingBuilder(parser, executable_size)
+            range_builder = RangeMappingBuilder(
+                parser,
+                executable_size,
+                symbol_analysis=symbol_analysis,
+            )
             range_map = range_builder.build_range_mapping()
 
         return MachOBinaryAnalysis(
@@ -434,4 +437,5 @@ class AppleAppAnalyzer:
             sections=sections,
             swift_metadata=swift_metadata,
             range_map=range_map,
+            symbol_info=symbol_info,
         )
