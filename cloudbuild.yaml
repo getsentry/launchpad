@@ -1,21 +1,85 @@
 steps:
   - name: "gcr.io/cloud-builders/docker"
-    entrypoint: bash
+    id: "create-builder"
+    waitFor: ["-"]
     args:
-      - "-euxc"
-      - |
-        docker buildx create --use
-        docker buildx build \
-            --load \
-            -t us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:latest \
-            -t us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:$COMMIT_SHA \
-            --build-arg launchpad_VERSION_SHA=$COMMIT_SHA \
-            --cache-to 'type=registry,ref=us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:cache,mode=max' \
-            --cache-from 'type=registry,ref=us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend:cache' \
-            .
-        if [ "$BRANCH_NAME" = "main" ]; then
-          docker push --all-tags us-central1-docker.pkg.dev/$PROJECT_ID/launchpad/backend
-        fi
+      [
+        "buildx",
+        "create",
+        "--driver",
+        "docker-container",
+        "--name",
+        "container",
+        "--use",
+      ]
 
-timeout: 3600s
-logsBucket: "gs://sentryio-cloudbuild-logs/launchpad/"
+  # Authenticate with Docker Hub
+  - name: "gcr.io/cloud-builders/docker"
+    id: "dockerhub-auth"
+    waitFor: ["create-builder"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - "docker login --username=$$DOCKERHUB_USERNAME --password-stdin <<< $$DOCKERHUB_PAT"
+    secretEnv: ["DOCKERHUB_USERNAME", "DOCKERHUB_PAT"]
+
+
+  # Login to GHCR
+  - name: "gcr.io/cloud-builders/docker"
+    id: "ghcr-login"
+    waitFor: ["dockerhub-auth"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - "docker login ghcr.io --username $$GHCR_USER --password-stdin <<< $$GHCR_PAT"
+    secretEnv: ["GHCR_USER", "GHCR_PAT"]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-image"
+    waitFor: ["ghcr-login"]
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        #!/bin/bash
+        set -euxo pipefail
+        docker buildx build \
+            --push \
+            --platform linux/amd64,linux/arm64 \
+            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$COMMIT_SHA \
+            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$SHORT_SHA \
+            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:nightly \
+            -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:$COMMIT_SHA \
+            -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:$SHORT_SHA \
+            -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:nightly \
+            -t $_DOCKERHUB_OWNER/$REPO_NAME:$COMMIT_SHA \
+            -t $_DOCKERHUB_OWNER/$REPO_NAME:$SHORT_SHA \
+            -t $_DOCKERHUB_OWNER/$REPO_NAME:nightly \
+            --label org.opencontainers.image.revision=$COMMIT_SHA \
+            --label org.opencontainers.image.version=$COMMIT_SHA \
+            --label org.opencontainers.image.title=$REPO_NAME \
+            --label org.opencontainers.image.source="https://github.com/$REPO_FULL_NAME"
+            --label org.opencontainers.vendor="Sentry" \
+            --label org.opencontainers.image.url=$REPO_FULL_NAME \
+            --cache-from $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:latest \
+            --sbom true \
+            --provenance="mode=max" \
+            .
+
+logsBucket: "gs://sentryio-cloudbuild-logs-wf7jff"
+
+availableSecrets:
+  secretManager:
+    - versionName: "projects/${PROJECT_ID}/secrets/dockerhub_pat/versions/1"
+      env: "DOCKERHUB_PAT"
+    - versionName: "projects/${PROJECT_ID}/secrets/dockerhub_username/versions/1"
+      env: "DOCKERHUB_USERNAME"
+    - versionName: "projects/${PROJECT_ID}/secrets/ghcr_user/versions/1"
+      env: "GHCR_USER"
+    - versionName: "projects/${PROJECT_ID}/secrets/ghcr_pat/versions/1"
+      env: "GHCR_PAT"
+
+substitutions:
+  _DOCKERHUB_OWNER: "getsentry"
+  _GHCR_OWNER: "getsentry"
+
