@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import signal
+<<<<<<< HEAD
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, Union
+=======
+import tempfile
+import time
+
+from pathlib import Path
+from typing import Any, Dict
+>>>>>>> 7ac852b (hodl)
 
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
@@ -16,8 +25,14 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import DogStatsd, get_statsd
 
+<<<<<<< HEAD
 from .kafka import KafkaConsumer, LaunchpadMessage, get_kafka_config
+=======
+from .kafka import create_kafka_consumer
+from .sentry_client import SentryClient
+>>>>>>> 7ac852b (hodl)
 from .server import LaunchpadServer, get_server_config
+from .size.runner import do_size
 
 logger = get_logger(__name__)
 
@@ -59,58 +74,74 @@ class LaunchpadService:
 
         logger.info("Service components initialized")
 
-    def handle_kafka_message(self, message: LaunchpadMessage) -> None:
-        """Handle incoming Kafka messages - immediately queue for background processing."""
+    def _download_and_analyze_artifact(self, org_id: str, project_id: str, artifact_id: str) -> Dict[str, Any]:
+        """Download artifact and run size analysis."""
+        if not self._sentry_client:
+            raise RuntimeError("Sentry client not initialized")
+
+        # Download the artifact
+        logger.info(f"Downloading artifact {artifact_id} from Sentry...")
+        download_result = self._sentry_client.download_artifact(
+            org=org_id,
+            project=project_id,
+            artifact_id=artifact_id,
+        )
+
+        if "error" in download_result:
+            raise RuntimeError(f"Failed to download artifact: {download_result['error']}")
+
+        file_content = download_result.get("file_content")
+        if not file_content:
+            raise RuntimeError("Downloaded artifact has no content")
+
+        file_size = download_result.get("file_size_bytes", len(file_content))
+        logger.info(f"Downloaded artifact: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
+
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_file:
+            tmp_file.write(file_content)
+            tmp_path = Path(tmp_file.name)
+
         try:
-            logger.info(f"Received message from topic {message.topic}")
+            logger.info(f"Running size analysis on {tmp_path}")
 
-            # Validate and parse message payload using schema
-            payload = message.get_validated_payload()
-            if not payload:
-                raw_content = message.value.decode("utf-8", errors="replace")[:1000]
-                logger.error(f"Invalid preprod artifact event. Raw: {raw_content}")
-                return
+            # Run the size analysis
+            results = do_size(tmp_path)
 
-            # Queue analysis task immediately - don't block the consumer
-            # Use call_soon_threadsafe since we're being called from the Kafka consumer thread
-            if self._loop:
-                self._loop.call_soon_threadsafe(self._queue_analysis, payload)
-            else:
-                logger.error("Event loop not available for queueing analysis")
+            # Log summary of results
+            logger.info(
+                f"Analysis complete: "
+                f"platform={results.platform}, "
+                f"total_size={results.total_size}, "
+                f"duration={results.analysis_duration:.2f}s"
+            )
 
-        except Exception as e:
-            logger.error(f"Error handling Kafka message: {e}", exc_info=True)
+            # Convert results to dict for easier handling
+            results_dict = results.to_dict()
 
-    def _queue_analysis(self, payload: PreprodArtifactEvents) -> None:
-        """Queue analysis for background processing."""
-        try:
-            if not self._loop:
-                raise RuntimeError("Event loop not initialized")
+            # Print detailed results for debugging
+            logger.info(f"Full analysis results:\n{json.dumps(results_dict, indent=2)}")
 
-            # Create background task using stored loop reference
-            task = self._loop.create_task(self._handle_analysis_async(payload))
-            self._background_tasks.add(task)
+            return {
+                "success": True,
+                "results": results_dict,
+                "artifact_id": artifact_id,
+                "file_size": file_size,
+            }
 
-            # Clean up completed tasks with error logging (platform will be determined later)
-            def task_done_callback(completed_task: asyncio.Task[Any]) -> None:
-                self._background_tasks.discard(completed_task)
-                if completed_task.exception():
-                    logger.error(f"Analysis task failed: {completed_task.exception()}")
+        finally:
+            # Clean up temporary file
+            if tmp_path.exists():
+                tmp_path.unlink()
+                logger.debug(f"Cleaned up temporary file: {tmp_path}")
 
-            task.add_done_callback(task_done_callback)
-
-            artifact_id = payload["artifact_id"]  # This is guaranteed by schema
-            project_id = payload["project_id"]  # This is guaranteed by schema
-            logger.info(f"Queued analysis task for artifact: {artifact_id} (project: {project_id})")
-
-        except Exception as e:
-            logger.error(f"Failed to queue analysis: {e}", exc_info=True)
-
-    async def _handle_analysis_async(self, payload: PreprodArtifactEvents) -> None:
-        """Handle analysis in background thread."""
-        artifact_id = payload["artifact_id"]  # Guaranteed by schema
-        project_id = payload["project_id"]  # Guaranteed by schema
-        organization_id = payload["organization_id"]  # Guaranteed by schema
+    def handle_kafka_message(self, payload: PreprodArtifactEvents) -> None:
+        """
+        Handle incoming Kafka messages.
+        """
+        artifact_id = payload["artifact_id"]
+        project_id = payload["project_id"]
+        organization_id = payload["organization_id"]
 
         try:
             logger.info(
