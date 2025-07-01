@@ -146,10 +146,13 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
   const option = {
     tooltip: {
       trigger: 'item',
-      position: 'inside',
       backgroundColor: COLORS.white,
       borderColor: COLORS.gray200,
       borderWidth: 1,
+      hideDelay: 0,
+      transitionDuration: 0,
+      padding: 12,
+      extraCssText: 'border-radius: 6px;',
       textStyle: {
         color: COLORS.gray500,
         fontFamily: 'Rubik',
@@ -158,10 +161,16 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         const value = info.value;
         const percent = ((value / totalSize) * 100).toFixed(2);
         return `
-          <div style="padding: 8px;">
-            <strong>${info.name}</strong><br/>
-            Size: ${formatBytes(value)}<br/>
-            Percentage: ${percent}%
+          <div>
+            <div style="display: flex; align-items: center; font-size: 12px; font-family: Rubik; font-weight: bold; line-height: 1;">
+              <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${info.data?.itemStyle?.borderColor || COLORS.gray300}; margin-right: 4px;"></div>
+              <span style="color: ${COLORS.gray300}">File Type</span>
+            </div>
+            <div style="font-family: Rubik; line-height: 1;">
+              <p style="font-size: 14px; font-weight: bold; margin-bottom: -2px;">${info.name}</p>
+              <p style="font-size: 12px; margin-bottom: -4px;">Size: ${formatBytes(value)}</p>
+              <p style="font-size: 12px;">Percentage: ${percent}%</p>
+            </div>
           </div>
         `;
       },
