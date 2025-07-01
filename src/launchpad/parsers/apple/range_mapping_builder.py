@@ -72,7 +72,7 @@ class RangeMappingBuilder:
                 command.command_offset,
                 command.command_offset + cmd_size,
                 BinaryTag.LOAD_COMMANDS,
-                f"load_command_{i}_{cmd_name}",
+                cmd_name,
             )
 
             try:
@@ -133,7 +133,7 @@ class RangeMappingBuilder:
             # Each symbol entry is typically 16 bytes (64-bit)
             symbol_size = command.numberof_symbols * 16
             range_map.add_range(
-                command.symbol_offset, command.symbol_offset + symbol_size, BinaryTag.DEBUG_INFO, "symbol_table"
+                command.symbol_offset, command.symbol_offset + symbol_size, BinaryTag.DEBUG_INFO, command.command.name
             )
 
         # Map string table
@@ -142,7 +142,7 @@ class RangeMappingBuilder:
                 command.strings_offset,
                 command.strings_offset + command.strings_size,
                 BinaryTag.DYLD_STRING_TABLE,
-                "string_table",
+                command.command.name,
             )
 
     def _map_dyld_info_command(self, range_map: RangeMap, command: lief.MachO.DyldInfo) -> None:
@@ -154,13 +154,13 @@ class RangeMappingBuilder:
                 rebase_offset,
                 rebase_offset + rebase_size,
                 BinaryTag.DYLD_REBASE,
-                "dyld_rebase_info",
+                command.command.name,
             )
 
         # Bind information
         bind_offset, bind_size = command.bind
         if bind_offset > 0 and bind_size > 0:
-            range_map.add_range(bind_offset, bind_offset + bind_size, BinaryTag.DYLD_BIND, "dyld_bind_info")
+            range_map.add_range(bind_offset, bind_offset + bind_size, BinaryTag.DYLD_BIND, command.command.name)
 
         # Weak bind information
         weak_bind_offset, weak_bind_size = command.weak_bind
@@ -169,7 +169,7 @@ class RangeMappingBuilder:
                 weak_bind_offset,
                 weak_bind_offset + weak_bind_size,
                 BinaryTag.DYLD_BIND,
-                "dyld_weak_bind_info",
+                command.command.name,
             )
 
         # Lazy bind information
@@ -179,7 +179,7 @@ class RangeMappingBuilder:
                 lazy_bind_offset,
                 lazy_bind_offset + lazy_bind_size,
                 BinaryTag.DYLD_LAZY_BIND,
-                "dyld_lazy_bind_info",
+                command.command.name,
             )
 
         # Export information
@@ -189,7 +189,7 @@ class RangeMappingBuilder:
                 export_offset,
                 export_offset + export_size,
                 BinaryTag.DYLD_EXPORTS,
-                "dyld_export_info",
+                command.command.name,
             )
 
     def _map_function_starts_command(self, range_map: RangeMap, command: lief.MachO.FunctionStarts) -> None:
@@ -198,7 +198,7 @@ class RangeMappingBuilder:
             command.data_offset,
             command.data_offset + command.data_size,
             BinaryTag.FUNCTION_STARTS,
-            "function_starts",
+            command.command.name,
         )
 
     def _map_code_signature_command(self, range_map: RangeMap, command: lief.MachO.CodeSignature) -> None:
@@ -207,7 +207,7 @@ class RangeMappingBuilder:
             command.data_offset,
             command.data_offset + command.data_size,
             BinaryTag.CODE_SIGNATURE,
-            "code_signature",
+            command.command.name,
         )
 
     def _map_data_in_code_command(self, range_map: RangeMap, command: lief.MachO.DataInCode) -> None:
@@ -216,7 +216,7 @@ class RangeMappingBuilder:
             command.data_offset,
             command.data_offset + command.data_size,
             BinaryTag.DEBUG_INFO,
-            "data_in_code",
+            command.command.name,
         )
 
         # Parse individual data-in-code entries
@@ -237,7 +237,7 @@ class RangeMappingBuilder:
                 command.data_offset,
                 command.data_offset + (num_entries * entry_size),
                 BinaryTag.DEBUG_INFO,
-                "data_in_code_entries",
+                command.command.name,
             )
 
     def _map_dylib_code_sign_drs_command(self, range_map: RangeMap, command: Any) -> None:
@@ -248,7 +248,7 @@ class RangeMappingBuilder:
                     command.data_offset,
                     command.data_offset + command.data_size,
                     BinaryTag.CODE_SIGNATURE,
-                    "dylib_code_sign_drs",
+                    command.command.name,
                 )
         except Exception as e:
             logger.debug(f"Failed to map dylib code sign DRs command: {e}")
@@ -261,7 +261,7 @@ class RangeMappingBuilder:
                     command.data_offset,
                     command.data_offset + command.data_size,
                     BinaryTag.DEBUG_INFO,
-                    "linker_optimization_hints",
+                    command.command.name,
                 )
         except Exception as e:
             logger.debug(f"Failed to map linker optimization hint command: {e}")
@@ -274,7 +274,7 @@ class RangeMappingBuilder:
                     command.data_offset,
                     command.data_offset + command.data_size,
                     BinaryTag.DYLD_EXPORTS,
-                    "dyld_exports_trie",
+                    command.command.name,
                 )
         except Exception as e:
             logger.debug(f"Failed to map exports trie command: {e}")
@@ -285,7 +285,7 @@ class RangeMappingBuilder:
             command.data_offset,
             command.data_offset + command.data_size,
             BinaryTag.DYLD_FIXUPS,
-            "dyld_chained_fixups",
+            command.command.name,
         )
 
     def _map_segments_and_sections(self, range_map: RangeMap) -> None:
@@ -303,7 +303,7 @@ class RangeMappingBuilder:
                     continue
 
                 tag = self._categorize_section(section_name)
-                range_map.add_range(section.offset, section.offset + section.size, tag, f"section_{section_name}")
+                range_map.add_range(section.offset, section.offset + section.size, tag, section_name)
 
             except Exception as e:
                 logger.debug(f"Failed to map section {section_name}: {e}")
@@ -315,7 +315,7 @@ class RangeMappingBuilder:
                 command.command_offset,
                 command.command_offset + command.size,
                 BinaryTag.C_STRINGS,
-                "rpath_string",
+                command.command.name,
             )
 
     def _map_dylib_command(self, range_map: RangeMap, command: lief.MachO.DylibCommand) -> None:
@@ -325,7 +325,7 @@ class RangeMappingBuilder:
                 command.command_offset,
                 command.command_offset + command.size,
                 BinaryTag.C_STRINGS,
-                "dylib_name",
+                command.command.name,
             )
 
     def _categorize_section(self, section_name: str) -> BinaryTag:

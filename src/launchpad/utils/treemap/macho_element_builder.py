@@ -34,7 +34,7 @@ class MachOElementBuilder(TreemapElementBuilder):
     def _build_binary_treemap(
         self, name: str, file_path: str, binary_analysis: MachOBinaryAnalysis
     ) -> TreemapElement | None:
-        # Group ranges by tag (like DEX builder groups by package)
+        # Group ranges by description name instead of tag value
         range_map = binary_analysis.range_map
         symbol_info = binary_analysis.symbol_info
         symbol_groups = symbol_info.get_symbols_by_section() if symbol_info else {}
@@ -43,61 +43,65 @@ class MachOElementBuilder(TreemapElementBuilder):
             logger.warning(f"Binary {name} has no range mapping")
             return None
 
-        ranges_by_tag: dict[str, list[Range]] = {}
+        ranges_by_name: dict[str, list[Range]] = {}
         for range_obj in range_map.ranges:
-            tag = range_obj.tag.value
-            if tag not in ranges_by_tag:
-                ranges_by_tag[tag] = []
-            ranges_by_tag[tag].append(range_obj)
+            # Use the description as the key, fallback to tag value if no description
+            range_name = range_obj.description or range_obj.tag.value
+            if range_name not in ranges_by_name:
+                ranges_by_name[range_name] = []
+            ranges_by_name[range_name].append(range_obj)
 
-        # Create child elements for each tag
+        # Create child elements for each name
         children: list[TreemapElement] = []
         dyld_children: list[TreemapElement] = []
 
-        logger.debug(f"Processing tags: {list(ranges_by_tag.keys())}")
+        logger.debug(f"Processing names: {list(ranges_by_name.keys())}")
 
-        for tag, ranges in ranges_by_tag.items():
+        for range_name, ranges in ranges_by_name.items():
             total_size = sum(r.size for r in ranges)
+
+            # Use the first range's tag to determine element type
+            first_tag = ranges[0].tag.value
 
             # Determine element type based on tag
             element_type = TreemapType.EXECUTABLES  # Default
-            if tag.startswith("dyld_"):
+            if first_tag.startswith("dyld_"):
                 element_type = TreemapType.DYLD
-            elif tag == "unmapped":
+            elif first_tag == "unmapped":
                 element_type = TreemapType.UNMAPPED
-            elif tag == "code_signature":
+            elif first_tag == "code_signature":
                 element_type = TreemapType.CODE_SIGNATURE
-            elif tag == "function_starts":
+            elif first_tag == "function_starts":
                 element_type = TreemapType.FUNCTION_STARTS
-            elif tag == "external_methods":
+            elif first_tag == "external_methods":
                 element_type = TreemapType.EXTERNAL_METHODS
 
             # Check if we have symbol info for this section
             symbol_children = []
-            section_name = self._tag_to_section_name(tag)
-            if section_name and symbol_groups:
-                section_symbols = symbol_groups.get(section_name, [])
+            # Use the range_name directly since it's now the actual section name
+            if range_name.startswith("__") and symbol_groups:
+                section_symbols = symbol_groups.get(range_name, [])
                 symbol_children = self._create_symbol_elements(section_symbols)
             else:
-                logger.warning(f"No section name found for tag {tag}")
+                logger.debug(f"No symbol lookup for range {range_name} (not a section)")
 
             element = TreemapElement(
-                name=tag,
+                name=range_name,
                 install_size=total_size,
                 download_size=total_size,  # TODO: add download size
                 element_type=element_type,
                 path=None,
                 is_directory=bool(symbol_children),
                 children=symbol_children,
-                details={"tag": tag},
+                details={"tag": first_tag, "range_name": range_name},
             )
 
             # Group DYLD-related tags under a parent DYLD element
-            if tag.startswith("dyld_"):
-                logger.debug(f"Adding {tag} to DYLD group")
+            if first_tag.startswith("dyld_"):
+                logger.debug(f"Adding {range_name} to DYLD group")
                 dyld_children.append(element)
             else:
-                logger.debug(f"Adding {tag} to regular children")
+                logger.debug(f"Adding {range_name} to regular children")
                 children.append(element)
 
         # Create parent DYLD element if we have DYLD children
@@ -142,20 +146,6 @@ class MachOElementBuilder(TreemapElementBuilder):
             children=children,
             details={},
         )
-
-    def _tag_to_section_name(self, tag: str) -> str | None:
-        """Convert a binary tag to a section name for symbol lookup."""
-        # Map binary tags to section names
-        tag_to_section = {
-            "text_segment": "__text",
-            "data_segment": "__data",
-            "const_data": "__const",
-            "swift_metadata": "__swift5_types",
-            "objc_classes": "__objc_classlist",
-            "c_strings": "__cstring",
-            "cfstrings": "__cfstring",
-        }
-        return tag_to_section.get(tag)
 
     def _create_symbol_elements(self, symbols: list[tuple[str, str, int, int]]) -> list[TreemapElement]:
         """Create treemap elements for symbols, grouped by module name with type names as children."""
