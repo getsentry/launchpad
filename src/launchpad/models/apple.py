@@ -120,3 +120,57 @@ class AppleInsightResults(BaseModel):
 class SymbolInfo:
     swift_type_groups: List[SwiftSymbolTypeGroup]
     objc_type_groups: List[ObjCSymbolTypeGroup]
+
+    def get_symbols_by_section(self) -> dict[str, list[tuple[str, str, int, int]]]:
+        """Group symbols by their section name.
+
+        Returns:
+            Dictionary mapping section names to lists of (module, name, address, size) tuples
+        """
+        symbols_by_section: dict[str, list[tuple[str, str, int, int]]] = {}
+
+        # Add Swift symbol ranges
+        for group in self.swift_type_groups:
+            for symbol in group.symbols:
+                section_name = str(symbol.section.name) if symbol.section else "unknown"
+                if section_name not in symbols_by_section:
+                    symbols_by_section[section_name] = []
+
+                symbols_by_section[section_name].append((group.module, group.type_name, symbol.address, symbol.size))
+
+        # Add ObjC symbol ranges
+        for group in self.objc_type_groups:
+            for symbol in group.symbols:
+                section_name = str(symbol.section.name) if symbol.section else "unknown"
+                if section_name not in symbols_by_section:
+                    symbols_by_section[section_name] = []
+
+                method_name = group.method_name or "class"
+                symbols_by_section[section_name].append((group.class_name, method_name, symbol.address, symbol.size))
+
+        return symbols_by_section
+
+    def get_symbol_ranges(self) -> list[tuple[str, int, int]]:
+        """Convert symbol groups to (name, address, size) tuples for range mapping.
+
+        Returns:
+            List of (name, address, size) tuples that can be added to range mapping
+        """
+        symbol_ranges: list[tuple[str, int, int]] = []
+
+        # Add Swift symbol ranges
+        for group in self.swift_type_groups:
+            for symbol in group.symbols:
+                symbol_ranges.append(
+                    (f"{group.module}.{group.type_name}.{symbol.mangled_name}", symbol.address, symbol.size)
+                )
+
+        # Add ObjC symbol ranges
+        for group in self.objc_type_groups:
+            for symbol in group.symbols:
+                method_name = group.method_name or "class"
+                symbol_ranges.append(
+                    (f"{group.class_name}.{method_name}.{symbol.mangled_name}", symbol.address, symbol.size)
+                )
+
+        return symbol_ranges
