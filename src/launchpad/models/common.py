@@ -31,17 +31,6 @@ class BaseBinaryAnalysis(BaseModel):
     sections: Dict[str, int] = Field(default_factory=dict, description="Binary sections and their sizes")
 
 
-class SymbolInfo(BaseModel):
-    """Information about a binary symbol."""
-
-    model_config = ConfigDict(frozen=True)
-
-    name: str = Field(..., description="Symbol name")
-    mangled_name: str | None = Field(None, description="Mangled symbol name")
-    size: int = Field(..., ge=0, description="Symbol size in bytes")
-    type: str = Field(..., description="Symbol type")
-
-
 class FileAnalysis(BaseModel):
     """Analysis results for files in the app bundle."""
 

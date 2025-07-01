@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
+from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .insights import DuplicateFilesInsightResult
@@ -73,6 +77,7 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
         description="Range mapping for binary content categorization",
         exclude=True,
     )
+    symbol_info: SymbolInfo | None = Field(None, description="Symbol information", exclude=True)
 
     @property
     def has_range_mapping(self) -> bool:
@@ -109,3 +114,36 @@ class AppleInsightResults(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
+
+
+@dataclass
+class SymbolInfo:
+    swift_type_groups: List[SwiftSymbolTypeGroup]
+    objc_type_groups: List[ObjCSymbolTypeGroup]
+
+    def get_symbols_by_section(self) -> dict[str, list[tuple[str, str, int, int]]]:
+        """Group symbols by their section name.
+
+        Returns:
+            Dictionary mapping section names to lists of (module, name, address, size) tuples
+        """
+        symbols_by_section: dict[str, list[tuple[str, str, int, int]]] = {}
+
+        for group in self.swift_type_groups:
+            for symbol in group.symbols:
+                section_name = str(symbol.section.name) if symbol.section else "unknown"
+                if section_name not in symbols_by_section:
+                    symbols_by_section[section_name] = []
+
+                symbols_by_section[section_name].append((group.module, group.type_name, symbol.address, symbol.size))
+
+        for group in self.objc_type_groups:
+            for symbol in group.symbols:
+                section_name = str(symbol.section.name) if symbol.section else "unknown"
+                if section_name not in symbols_by_section:
+                    symbols_by_section[section_name] = []
+
+                method_name = group.method_name or "class"
+                symbols_by_section[section_name].append((group.class_name, method_name, symbol.address, symbol.size))
+
+        return symbols_by_section

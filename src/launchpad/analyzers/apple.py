@@ -23,6 +23,7 @@ from ..models.apple import (
     AppleInsightResults,
     MachOBinaryAnalysis,
     SwiftMetadata,
+    SymbolInfo,
 )
 from ..models.common import FileAnalysis, FileInfo
 from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
@@ -374,6 +375,7 @@ class AppleAppAnalyzer:
                 sections={},
                 swift_metadata=None,
                 range_map=None,
+                symbol_info=None,
             )
 
         logger.debug(f"Analyzing binary: {binary_path}")
@@ -395,24 +397,20 @@ class AppleAppAnalyzer:
         sections = parser.extract_sections()
         swift_protocol_conformances = parser.parse_swift_protocol_conformances()
 
+        symbol_info = None
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
-
-                swift_type_groups = SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes)
-                logger.info(f"Found {len(swift_type_groups)} Swift type groups")
-
-                aggregator = ObjCSymbolTypeAggregator()
-                objc_groups = aggregator.aggregate_symbols(symbol_sizes)
-                logger.info(f"Found {len(objc_groups)} Objective-C type groups")
+                symbol_info = SymbolInfo(
+                    swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                    objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                )
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
-                symbol_sizes = []
         else:
             logger.info("No dwarf binary path provided, skipping symbol sizes")
-            symbol_sizes = []
 
         # Extract Swift metadata if enabled
         swift_metadata = None
@@ -434,4 +432,5 @@ class AppleAppAnalyzer:
             sections=sections,
             swift_metadata=swift_metadata,
             range_map=range_map,
+            symbol_info=symbol_info,
         )
