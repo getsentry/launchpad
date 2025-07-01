@@ -34,7 +34,6 @@ class MachOElementBuilder(TreemapElementBuilder):
     def _build_binary_treemap(
         self, name: str, file_path: str, binary_analysis: MachOBinaryAnalysis
     ) -> TreemapElement | None:
-        # Group ranges by description name instead of tag value
         range_map = binary_analysis.range_map
         symbol_info = binary_analysis.symbol_info
         symbol_groups = symbol_info.get_symbols_by_section() if symbol_info else {}
@@ -63,8 +62,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             # Use the first range's tag to determine element type
             first_tag = ranges[0].tag.value
 
-            # Determine element type based on tag
-            element_type = TreemapType.EXECUTABLES  # Default
+            element_type = TreemapType.EXECUTABLES
             if first_tag.startswith("dyld_"):
                 element_type = TreemapType.DYLD
             elif first_tag == "unmapped":
@@ -76,9 +74,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             elif first_tag == "external_methods":
                 element_type = TreemapType.EXTERNAL_METHODS
 
-            # Check if we have symbol info for this section
             symbol_children = []
-            # Use the range_name directly since it's now the actual section name
             if range_name.startswith("__") and symbol_groups:
                 section_symbols = symbol_groups.get(range_name, [])
                 symbol_children = self._create_symbol_elements(section_symbols)
@@ -136,7 +132,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                 )
             )
 
-        # Create root element
         total_size = sum(child.install_size for child in children)
         return TreemapElement(
             name=name,
@@ -151,7 +146,6 @@ class MachOElementBuilder(TreemapElementBuilder):
 
     def _create_symbol_elements(self, symbols: list[tuple[str, str, int, int]]) -> list[TreemapElement]:
         """Create treemap elements for symbols, grouped by module name with type names as children."""
-        # Group symbols by module name
         modules: dict[str, list[tuple[str, int, int]]] = {}
 
         for module, name, address, size in symbols:
@@ -159,11 +153,8 @@ class MachOElementBuilder(TreemapElementBuilder):
                 modules[module] = []
             modules[module].append((name, address, size))
 
-        # Create module elements with their symbol children
         module_elements: list[TreemapElement] = []
-
         for module_name, module_symbols in modules.items():
-            # Create child elements for each symbol in the module
             symbol_children: list[TreemapElement] = []
             module_total_size = 0
 
@@ -181,7 +172,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                 symbol_children.append(symbol_element)
                 module_total_size += size
 
-            # Create the module element
             module_element = TreemapElement(
                 name=module_name,
                 install_size=module_total_size,

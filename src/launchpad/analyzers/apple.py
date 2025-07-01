@@ -346,7 +346,7 @@ class AppleAppAnalyzer:
             TreemapElement(
                 name=element.name,
                 install_size=element.size,
-                # TODO: This field should be nullable, it doesn't make sense
+                # TODO: This field should be nullable, it doesn’t make sense
                 # to talk about download size of individual assets
                 # since they are all in one .car file.
                 download_size=0,
@@ -397,7 +397,6 @@ class AppleAppAnalyzer:
         sections = parser.extract_sections()
         swift_protocol_conformances = parser.parse_swift_protocol_conformances()
 
-        # Initialize symbol analysis variables
         symbol_info = None
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
@@ -420,13 +419,10 @@ class AppleAppAnalyzer:
                 protocol_conformances=swift_protocol_conformances,
             )
 
-        # Build range mapping for binary content with symbol information
+        # Build range mapping for binary content
         range_map = None
         if not self.skip_range_mapping:
-            range_builder = RangeMappingBuilder(
-                parser,
-                executable_size,
-            )
+            range_builder = RangeMappingBuilder(parser, executable_size)
             range_map = range_builder.build_range_mapping()
 
         return MachOBinaryAnalysis(
