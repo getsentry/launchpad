@@ -105,16 +105,27 @@ function convertToEChartsData(
     name: element.name,
     value: totalSize,
     itemStyle: {
-      color: color,
+      borderColor: color,
+      borderRadius: 4
     },
     label: {
       show: true,
       position: 'inside',
+      formatter: '{b}',
+      fontSize: 12,
+      fontWeight: 'bold',
+      color: COLORS.white,
+      fontFamily: 'Rubik',
     },
     upperLabel: {
       show: true,
-      backgroundColor: color,
       color: COLORS.white,
+      height: 24,
+      fontSize: 12,
+      fontWeight: 'bold',
+      borderRadius: [2, 2, 0, 0],
+      padding: [2, 2],
+      fontFamily: 'Rubik',
     },
   };
 
@@ -135,6 +146,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
   const option = {
     tooltip: {
       trigger: 'item',
+      position: 'inside',
       backgroundColor: COLORS.white,
       borderColor: COLORS.gray200,
       borderWidth: 1,
@@ -186,108 +198,45 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
             },
           },
         },
-        scaleLimit: {
-          // Allow zooming in and out
-          // min: 0.5,
-          // max: 1.5,
-        },
         zoomToNodeRatio: 0.1,
-        visibleMin: 800,
-        label: {
-          show: true,
-          formatter: '{b}',
-          position: 'inside',
-          fontSize: 12,
-          fontWeight: 'bold',
-          color: COLORS.white,
-          fontFamily: 'Rubik',
-        },
+        visibleMin: 300,
         itemStyle: {
-          borderColor: COLORS.white,
-          borderWidth: 1,
+          borderWidth: 6,
         },
         levels: [
           {
-            // Root level - minimal styling
             itemStyle: {
-              borderColor: COLORS.gray200,
-              borderWidth: 0,
-              gapWidth: 1,
-            },
-            label: {
-              show: true,
-              position: 'inside',
-              fontSize: 12,
-              fontWeight: 'bold',
-              color: COLORS.white,
-              fontFamily: 'Rubik',
-            },
+              gapWidth: 4,
+            }
           },
           {
-            // First level - category groups
+            colorSaturation: [0.2, 0.4],
             itemStyle: {
-              borderColor: COLORS.gray300,
-              borderWidth: 1,
-              gapWidth: 1,
-            },
-            upperLabel: {
-              show: true,
-              height: 20,
-              fontSize: 12,
-              fontWeight: 'bold',
-              color: COLORS.white,
-              backgroundColor: COLORS.red300,
-              borderRadius: 2,
-              padding: [3, 6],
-              fontFamily: 'Rubik',
-            },
-            label: {
-              show: true,
-              position: 'inside',
-              fontSize: 11,
-              fontWeight: 'bold',
-              color: COLORS.white,
-              fontFamily: 'Rubik',
-            },
-            emphasis: {
-              itemStyle: {
-                borderColor: COLORS.gray400,
-                borderWidth: 2,
-              },
-            },
+              gapWidth: 2
+            }
           },
           {
-            // Second level - individual files
+            colorSaturation: [0.3, 0.5],
             itemStyle: {
-              borderColor: COLORS.gray100,
-              borderWidth: 1,
-              gapWidth: 1,
-            },
-            upperLabel: {
-              show: true,
-              height: 18,
-              fontSize: 10,
-              fontWeight: 'normal',
-              color: COLORS.white,
-              backgroundColor: COLORS.red300,
-              borderRadius: 2,
-              padding: [2, 4],
-              fontFamily: 'Rubik',
-            },
-            label: {
-              show: true,
-              position: 'inside',
-              fontSize: 10,
-              color: COLORS.white,
-              fontFamily: 'Rubik',
-            },
-            emphasis: {
-              itemStyle: {
-                borderColor: COLORS.gray300,
-                borderWidth: 2,
-              },
-            },
+              borderColorSaturation: 0.6,
+              gapWidth: 2
+            }
           },
+          {
+            colorSaturation: [0.3, 0.5],
+            itemStyle: {
+              borderColorSaturation: 0.6,
+              gapWidth: 1
+            }
+          },
+          {
+            colorSaturation: [0.3, 0.5],
+            itemStyle: {
+              borderColor: COLORS.white,
+              borderColorSaturation: 0.6,
+              gapWidth: 1
+            }
+          }
         ],
         data: chartData.children || [chartData],
       },
@@ -299,7 +248,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       <ReactECharts
         option={option}
         style={{ height: '100%', width: '100%' }}
-        opts={{ renderer: 'svg' }}
+        opts={{ renderer: 'canvas' }}
       />
     </div>
   );
