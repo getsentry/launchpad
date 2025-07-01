@@ -1,5 +1,3 @@
-from typing import List
-
 from launchpad.models.apple import MachOBinaryAnalysis
 
 from ...models.common import FileInfo
@@ -160,20 +158,48 @@ class MachOElementBuilder(TreemapElementBuilder):
         return tag_to_section.get(tag)
 
     def _create_symbol_elements(self, symbols: list[tuple[str, str, int, int]]) -> list[TreemapElement]:
-        """Create treemap elements for symbols, similar to DEX builder's _create_class_element."""
-        symbol_elements: List[TreemapElement] = []
+        """Create treemap elements for symbols, grouped by module name with type names as children."""
+        # Group symbols by module name
+        modules: dict[str, list[tuple[str, int, int]]] = {}
 
         for module, name, address, size in symbols:
-            symbol_element = TreemapElement(
-                name=f"{module}.{name}",
-                install_size=size,
-                download_size=size,
+            if module not in modules:
+                modules[module] = []
+            modules[module].append((name, address, size))
+
+        # Create module elements with their symbol children
+        module_elements: list[TreemapElement] = []
+
+        for module_name, module_symbols in modules.items():
+            # Create child elements for each symbol in the module
+            symbol_children: list[TreemapElement] = []
+            module_total_size = 0
+
+            for name, address, size in module_symbols:
+                symbol_element = TreemapElement(
+                    name=name,
+                    install_size=size,
+                    download_size=size,
+                    element_type=TreemapType.MODULES,
+                    path=None,
+                    is_directory=False,
+                    children=[],
+                    details={"symbol_name": name, "address": address, "size": size},
+                )
+                symbol_children.append(symbol_element)
+                module_total_size += size
+
+            # Create the module element
+            module_element = TreemapElement(
+                name=module_name,
+                install_size=module_total_size,
+                download_size=module_total_size,
                 element_type=TreemapType.MODULES,
                 path=None,
-                is_directory=False,
-                children=[],
-                details={"symbol_name": name, "address": address, "size": size},
+                is_directory=True,
+                children=symbol_children,
+                details={"module_name": module_name, "symbol_count": len(module_symbols)},
             )
-            symbol_elements.append(symbol_element)
+            module_elements.append(module_element)
 
-        return symbol_elements
+        return module_elements
