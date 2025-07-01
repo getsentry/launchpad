@@ -75,6 +75,7 @@ class SwiftSymbolTypeAggregator:
 
         result: list[SwiftSymbolTypeGroup] = []
         for (module, type_name), symbols in type_groups.items():
+            symbols.sort(key=lambda x: x.size, reverse=True)
             result.append(
                 SwiftSymbolTypeGroup(module=module, type_name=type_name, symbol_count=len(symbols), symbols=symbols)
             )
