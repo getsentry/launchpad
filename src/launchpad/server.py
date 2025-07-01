@@ -10,11 +10,22 @@ from typing import Any, Dict
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
-from aiohttp.web import Application, Request, Response, StreamResponse, middleware
+from aiohttp.web import (
+    AppKey,
+    Application,
+    Request,
+    Response,
+    StreamResponse,
+    middleware,
+)
 
 from .utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Define app keys using AppKey
+APP_KEY_DEBUG = AppKey("debug", bool)
+APP_KEY_ENVIRONMENT = AppKey("environment", str)
 
 
 @middleware
@@ -23,7 +34,7 @@ async def security_headers_middleware(request: Request, handler: Handler) -> Str
     response = await handler(request)
 
     # Only add security headers in production
-    if not request.app.get("debug", False):
+    if not request.app.get(APP_KEY_DEBUG, False):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
@@ -80,13 +91,12 @@ class LaunchpadServer:
         middlewares = [security_headers_middleware] if not self.config["debug"] else []
 
         app = web.Application(
-            debug=self.config["debug"],
             middlewares=middlewares,
         )
 
-        # Store config in app for middleware access
-        app["debug"] = self.config["debug"]
-        app["environment"] = self.config["environment"]
+        # Store config in app using AppKey
+        app[APP_KEY_DEBUG] = self.config["debug"]
+        app[APP_KEY_ENVIRONMENT] = self.config["environment"]
 
         # Health check routes
         app.router.add_get("/health", self.health_check)
