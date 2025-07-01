@@ -96,8 +96,10 @@ class MachOElementBuilder(TreemapElementBuilder):
                 details={"tag": first_tag, "range_name": range_name},
             )
 
-            # Group DYLD-related tags under a parent DYLD element
-            if first_tag.startswith("dyld_"):
+            # Group DYLD-related load commands under a parent DYLD element
+            # Check both the tag and the range_name for DYLD patterns
+            is_dyld = first_tag.startswith("dyld_") or range_name.startswith("LC_DYLD_") or "DYLD" in range_name.upper()
+            if is_dyld:
                 logger.debug(f"Adding {range_name} to DYLD group")
                 dyld_children.append(element)
             else:
