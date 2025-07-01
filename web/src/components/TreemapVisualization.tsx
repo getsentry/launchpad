@@ -190,17 +190,6 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               borderWidth: 0,
               gapWidth: 1,
             },
-            upperLabel: {
-              show: true,
-              height: 24,
-              fontSize: 13,
-              fontWeight: 'bold',
-              color: COLORS.white,
-              backgroundColor: COLORS.red300,
-              borderRadius: 3,
-              padding: [4, 8],
-              fontFamily: 'Rubik',
-            },
             label: {
               show: true,
               position: 'inside',
