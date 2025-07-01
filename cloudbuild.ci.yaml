@@ -1,0 +1,27 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'create-builder'
+    waitFor: ['-']
+    args: ['buildx', 'create', '--driver', 'docker-container', '--name', 'container', '--use']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    waitFor: ['create-builder']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        #!/bin/bash
+        set -euxo pipefail
+        docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$COMMIT_SHA \
+            --label org.opencontainers.image.revision=$COMMIT_SHA \
+            --label org.opencontainers.image.version=$COMMIT_SHA \
+            --label org.opencontainers.image.title=$REPO_NAME \
+            --label org.opencontainers.vendor="Sentry" \
+            --label org.opencontainers.image.source=https://github.com/$REPO_FULL_NAME \
+            --label org.opencontainers.image.url=https://github.com/$REPO_FULL_NAME \
+            .
+
+logsBucket: "gs://sentryio-cloudbuild-logs-wf7jff"
