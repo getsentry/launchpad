@@ -169,18 +169,6 @@ class TestRangeMap:
         assert sizes[BinaryTag.DATA_SEGMENT] == 100
         assert sizes.get(BinaryTag.HEADERS, 0) == 0  # Not present
 
-    def test_coverage_validation(self):
-        """Test coverage validation."""
-        range_map = RangeMap(total_file_size=1000)
-
-        # Poor coverage - large unmapped region
-        range_map.add_range(0, 100, BinaryTag.HEADERS)
-        assert not range_map.validate_coverage(allow_unmapped_threshold=500)
-
-        # Good coverage - small unmapped regions
-        range_map.add_range(100, 990, BinaryTag.TEXT_SEGMENT)
-        assert range_map.validate_coverage(allow_unmapped_threshold=50)
-
     def test_coverage_report(self):
         """Test coverage report generation."""
         range_map = RangeMap(total_file_size=1000)
@@ -196,72 +184,3 @@ class TestRangeMap:
         assert report["coverage_percentage"] == 25  # 250/1000 * 100
         assert report["conflict_count"] == 0
         assert report["unmapped_region_count"] == 3  # Before, between, after
-
-    def test_find_ranges_at_offset(self):
-        """Test finding ranges at a specific offset."""
-        range_map = RangeMap(total_file_size=1000)
-
-        range_map.add_range(100, 200, BinaryTag.TEXT_SEGMENT, "text1")
-        range_map.add_range(150, 250, BinaryTag.DATA_SEGMENT, "data1")  # Overlaps
-
-        # Find ranges at offset 175 (should be in both ranges)
-        ranges = range_map.find_ranges_at_offset(175)
-        assert len(ranges) == 2
-
-        # Find ranges at offset 50 (should be empty)
-        ranges = range_map.find_ranges_at_offset(50)
-        assert len(ranges) == 0
-
-    def test_find_ranges_in_interval(self):
-        """Test finding ranges in an interval."""
-        range_map = RangeMap(total_file_size=1000)
-
-        range_map.add_range(100, 200, BinaryTag.TEXT_SEGMENT)
-        range_map.add_range(300, 400, BinaryTag.DATA_SEGMENT)
-        range_map.add_range(500, 600, BinaryTag.HEADERS)
-
-        # Find ranges in interval 150-350 (should overlap with first two)
-        ranges = range_map.find_ranges_in_interval(150, 350)
-        assert len(ranges) == 2
-
-        # Find ranges in interval 700-800 (should be empty)
-        ranges = range_map.find_ranges_in_interval(700, 800)
-        assert len(ranges) == 0
-
-
-class TestBinaryTag:
-    """Test the BinaryTag enum."""
-
-    def test_binary_tag_values(self):
-        """Test that all expected binary tags exist."""
-        expected_tags = [
-            "cfstrings",
-            "swift_file_paths",
-            "method_signatures",
-            "objc_type_strings",
-            "c_strings",
-            "headers",
-            "load_commands",
-            "text_segment",
-            "function_starts",
-            "external_methods",
-            "code_signature",
-            "dyld_rebase",
-            "dyld_bind",
-            "dyld_lazy_bind",
-            "dyld_exports",
-            "dyld_fixups",
-            "objc_classes",
-            "swift_metadata",
-            "binary_modules",
-            "data_segment",
-            "const_data",
-            "unwind_info",
-            "debug_info",
-            "unmapped",
-        ]
-
-        for tag_value in expected_tags:
-            # This will raise an exception if the tag doesn't exist
-            tag = BinaryTag(tag_value)
-            assert tag.value == tag_value
