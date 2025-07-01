@@ -90,6 +90,15 @@ test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
 test-kafka-multiple:  ## Send multiple test messages to Kafka
 	$(PYTHON_VENV) scripts/test_kafka.py --count 5 --interval 0
 
+test-download-artifact:
+	$(PYTHON_VENV) scripts/test_download_artifact.py --verbose
+
+test-artifact-update:
+	$(PYTHON_VENV) scripts/test_artifact_update.py --build-version "1.0.0" --build-number 42 --verbose
+
+test-artifact-size-analysis-upload:
+	$(PYTHON_VENV) scripts/test_artifact_size_analysis_upload.py --verbose
+
 test-service-integration:  ## Run full integration test with devservices
 	@echo "Starting Kafka services via devservices..."
 	@devservices up
