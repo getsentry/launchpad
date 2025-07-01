@@ -426,7 +426,6 @@ class AppleAppAnalyzer:
             range_builder = RangeMappingBuilder(
                 parser,
                 executable_size,
-                symbol_analysis=symbol_analysis,
             )
             range_map = range_builder.build_range_mapping()
 
