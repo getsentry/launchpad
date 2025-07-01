@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status migrate-dev-env
+.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status
 
 # Default target
 help:
@@ -121,22 +121,3 @@ status:
 	@echo "Virtual environment: $$(if [ -d $(VENV_DIR) ]; then echo 'exists'; else echo 'missing'; fi)"
 	@echo "Pre-commit hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"
 	@echo "UV version: $$($(UV) --version 2>/dev/null || echo 'not installed')"
-
-migrate-dev-env:  ## Migrate to the new dev environment (uv, ruff, ty, etc)
-	@echo "[1/5] Cleaning up old virtualenv and caches..."
-	rm -rf .venv .mypy_cache .flake8 .isort.cfg .black .pytest_cache .tox
-	@echo "[2/5] Checking for uv..."
-	@if ! command -v uv >/dev/null 2>&1; then \
-		echo >&2 "[ERROR] 'uv' is not installed. Please install it with 'brew install uv' or 'pipx install uv' and re-run this command."; \
-		exit 1; \
-	fi
-	@echo "[3/5] Creating new uv virtualenv..."
-	uv venv
-	@echo "[4/5] Installing dev requirements..."
-	uv pip install -r requirements-dev.txt
-	@echo "[4.5/5] Installing package in editable mode..."
-	uv pip install -e .
-	@echo "[5/5] Installing pre-commit hooks..."
-	.venv/bin/pre-commit install
-	@echo "\nMigration complete! Your environment now uses uv, ruff, and ty."
-	@echo "Run 'make check' and 'make test' to verify your setup."
