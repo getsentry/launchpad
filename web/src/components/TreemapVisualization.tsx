@@ -68,7 +68,6 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.FUNCTION_STARTS]: COLORS.purple300, // binary breakdown
   [TreemapType.CODE_SIGNATURE]: COLORS.blue400,
   [TreemapType.EXTERNAL_METHODS]: COLORS.pink300,
-  [TreemapType.NATIVE_CODE]: COLORS.blue300,
   [TreemapType.OTHER]: COLORS.gray300,
   [TreemapType.UNMAPPED]: COLORS.gray200,
 };
