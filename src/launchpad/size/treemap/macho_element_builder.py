@@ -66,6 +66,8 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         if symbol_info:
             # Group Swift symbols by their module
+            # TODO: group types by their components to handle nested types
+            # beware there are some bugs with CwlDemangle to handle
             swift_modules: dict[str, list[tuple[str, int]]] = {}
             for group in symbol_info.swift_type_groups:
                 module = group.module
