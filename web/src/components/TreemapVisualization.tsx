@@ -10,69 +10,63 @@ interface TreemapVisualizationProps {
 
 // Sentry color constants, see: https://develop.sentry.dev/frontend/component-library/
 const COLORS = {
-  // Grays
-  gray500: '#2B2233',
-  gray400: '#3E3446',
-  gray300: '#71637E',
-  gray200: '#E0DCE5',
-  gray100: '#F0ECF3',
+  // Base colors
+  gray900: '#0F0C13',
+  gray700: '#1E1825',
+  gray500: '#2D2435', 
+  gray300: '#4A3B57',
+  gray200: '#ddd',
+  gray100: '#E8E2ED',
+  
+  border: 'rgba(0, 0, 0, 0.8)',
 
-  // Purples
-  purple400: '#6559C5',
-  purple300: '#6C5FC7',
+  purple: 'rgba(117, 83, 255, 0.7))',
+  indigo: 'rgba(90, 32, 188, 0.56)',
+  pink: 'rgba(245, 58, 159, 0.5)',
+  salmon: 'rgba(252, 116, 111, 0.5)',
+  orange: 'rgba(255, 152, 56, 0.5)',
+  kiwi: 'rgba(186, 206, 5, 0.5)',
+  cyan: 'rgba(0, 169, 210, 0.5)',
 
-  // Blues
-  blue400: '#2562D4',
-  blue300: '#3C74DD',
-
-  // Greens
-  green400: '#207964',
-  green300: '#2BA185',
-
-  // Yellows
-  yellow400: '#856C00',
-  yellow300: '#EBC000',
-
-  // Reds
-  red400: '#CF2126',
-  red300: '#F55459',
-
-  // Pinks
-  pink400: '#D1056B',
-  pink300: '#F14499',
-
-  // Whites
   white: '#FFFFFF',
 } as const;
 
 const TYPE_COLORS: Record<TreemapType, string> = {
-  [TreemapType.FILES]: COLORS.blue400,
-  [TreemapType.EXECUTABLES]: COLORS.purple400, // binary breakdown
-  [TreemapType.RESOURCES]: COLORS.blue300, // asset catalog
-  [TreemapType.ASSETS]: COLORS.blue400, // asset catalog
-  [TreemapType.FONTS]: COLORS.green300,
-  [TreemapType.MANIFESTS]: COLORS.purple400,
-  [TreemapType.SIGNATURES]: COLORS.blue300,
-  [TreemapType.FRAMEWORKS]: COLORS.red300,
-  [TreemapType.PLISTS]: COLORS.gray400,
-  [TreemapType.DEX_FILES]: COLORS.pink400,
-  [TreemapType.NATIVE_LIBRARIES]: COLORS.purple400,
-  [TreemapType.COMPILED_RESOURCES]: COLORS.blue300, // asset catalog
-  [TreemapType.MODULES]: COLORS.blue300,
-  [TreemapType.CLASSES]: COLORS.purple300, // binary breakdown
-  [TreemapType.METHODS]: COLORS.purple400, // binary breakdown
-  [TreemapType.STRINGS]: COLORS.purple300, // binary breakdown
-  [TreemapType.SYMBOLS]: COLORS.purple400, // binary breakdown
-  [TreemapType.DYLD]: COLORS.pink300,
-  [TreemapType.MACHO]: COLORS.purple300, // binary breakdown
-  [TreemapType.FUNCTION_STARTS]: COLORS.purple300, // binary breakdown
-  [TreemapType.CODE_SIGNATURE]: COLORS.blue400,
-  [TreemapType.EXTERNAL_METHODS]: COLORS.pink300,
-  [TreemapType.DEX_CLASSES]: COLORS.purple300, // binary breakdown
-  [TreemapType.DEX_METHODS]: COLORS.purple400, // binary breakdown
-  [TreemapType.NATIVE_CODE]: COLORS.blue300,
-  [TreemapType.OTHER]: COLORS.gray300,
-  [TreemapType.UNMAPPED]: COLORS.gray200,
+  // File Types
+  [TreemapType.FILES]: COLORS.purple,
+  [TreemapType.EXECUTABLES]: COLORS.purple,
+  [TreemapType.RESOURCES]: COLORS.purple,
+  [TreemapType.ASSETS]: COLORS.purple,
+  
+  // Platform Assets
+  [TreemapType.MANIFESTS]: COLORS.indigo,
+  [TreemapType.SIGNATURES]: COLORS.indigo,
+  [TreemapType.FONTS]: COLORS.indigo,
+  
+  // iOS Specific
+  [TreemapType.FRAMEWORKS]: COLORS.pink,
+  [TreemapType.PLISTS]: COLORS.pink,
+  [TreemapType.DYLD]: COLORS.pink,
+  [TreemapType.MACHO]: COLORS.pink,
+  [TreemapType.FUNCTION_STARTS]: COLORS.pink,
+  [TreemapType.CODE_SIGNATURE]: COLORS.pink,
+  
+  // Android Specific
+  [TreemapType.DEX_FILES]: COLORS.kiwi,
+  [TreemapType.NATIVE_LIBRARIES]: COLORS.kiwi,
+  [TreemapType.COMPILED_RESOURCES]: COLORS.kiwi,
+  
+  // Binary Analysis
+  [TreemapType.MODULES]: COLORS.cyan,
+  [TreemapType.CLASSES]: COLORS.cyan,
+  [TreemapType.METHODS]: COLORS.cyan,
+  [TreemapType.STRINGS]: COLORS.cyan,
+  [TreemapType.SYMBOLS]: COLORS.cyan,
+  [TreemapType.EXTERNAL_METHODS]: COLORS.cyan,
+  
+  // Catch-all
+  [TreemapType.OTHER]: COLORS.cyan,
+  [TreemapType.UNMAPPED]: COLORS.cyan,
 };
 
 function formatBytes(bytes: number): string {
@@ -146,6 +140,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
   const option = {
     tooltip: {
       trigger: 'item',
+      borderWidth: 0,
       backgroundColor: COLORS.white,
       borderColor: COLORS.gray200,
       borderWidth: 1,
@@ -180,7 +175,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         name: 'Size Analysis',
         type: 'treemap',
         animationEasing: 'quarticOut',
-        animationDuration: 500,
+        animationDuration: 300,
         height: `100%`,
         width: `100%`,
         breadcrumb: {
@@ -194,7 +189,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
                 fontSize: 12,
                 fontWeight: 'bold',
                 fontFamily: 'Rubik',
-                color: COLORS.gray400,
+                color: COLORS.gray500,
               },
             },
           },
@@ -203,7 +198,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               fontSize: 12,
               fontWeight: 'bold',
               fontFamily: 'Rubik',
-              color: COLORS.gray400,
+              color: COLORS.gray500,
             },
           },
         },

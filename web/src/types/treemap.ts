@@ -35,11 +35,6 @@ export enum TreemapType {
   CODE_SIGNATURE = "code_signature",
   EXTERNAL_METHODS = "external_methods",
 
-  // Android binary categories
-  DEX_CLASSES = "dex_classes",
-  DEX_METHODS = "dex_methods",
-  NATIVE_CODE = "native_code",
-
   // Generic categories
   OTHER = "other",
   UNMAPPED = "unmapped",
