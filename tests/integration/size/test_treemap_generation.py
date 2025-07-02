@@ -85,7 +85,7 @@ class TestTreemapGeneration:
         classes_dex = find_node_by_path(treemap.root, "classes.dex")
         assert classes_dex is not None
         assert classes_dex.install_size == 4363232
-        assert classes_dex.element_type == "dex_files"
+        assert classes_dex.element_type == "dex"
 
         # Verify resources.arsc exists
         resources = find_node_by_path(treemap.root, "resources.arsc")
@@ -99,7 +99,7 @@ class TestTreemapGeneration:
         assert treemap.file_count == 177
 
         # Verify category breakdown exists
-        assert "dex_files" in treemap.category_breakdown
+        assert "dex" in treemap.category_breakdown
         assert "resources" in treemap.category_breakdown
         assert "manifests" in treemap.category_breakdown
 
@@ -156,7 +156,7 @@ class TestTreemapGeneration:
         classes_dex = find_node_by_path(treemap.root, "classes.dex")
         assert classes_dex is not None
         assert classes_dex.install_size == 4363232
-        assert classes_dex.element_type == "dex_files"
+        assert classes_dex.element_type == "dex"
 
         # Verify resources.arsc exists
         resources = find_node_by_path(treemap.root, "resources.arsc")
@@ -170,7 +170,7 @@ class TestTreemapGeneration:
         assert treemap.file_count == 169
 
         # Verify category breakdown exists
-        assert "dex_files" in treemap.category_breakdown
+        assert "dex" in treemap.category_breakdown
         assert "resources" in treemap.category_breakdown
         assert "manifests" in treemap.category_breakdown
 
@@ -400,7 +400,8 @@ class TestTreemapGeneration:
 
         # Verify widget binary
         widget_binary = find_node_by_path(
-            treemap.root, "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension"
+            treemap.root,
+            "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension",
         )
         assert widget_binary is not None
         assert widget_binary.install_size == 153016
@@ -416,11 +417,26 @@ class TestTreemapGeneration:
         assert len(assets.children) == 14
 
         # Verify category breakdown
-        assert treemap.category_breakdown["files"] == {"install": 118784, "download": 95022}
-        assert treemap.category_breakdown["assets"] == {"install": 4841472, "download": 3873176}
-        assert treemap.category_breakdown["plists"] == {"install": 28672, "download": 22932}
-        assert treemap.category_breakdown["executables"] == {"download": 2886859, "install": 3608576}
-        assert treemap.category_breakdown["fonts"] == {"download": 858520, "install": 1073152}
+        assert treemap.category_breakdown["files"] == {
+            "install": 118784,
+            "download": 95022,
+        }
+        assert treemap.category_breakdown["assets"] == {
+            "install": 4841472,
+            "download": 3873176,
+        }
+        assert treemap.category_breakdown["plists"] == {
+            "install": 28672,
+            "download": 22932,
+        }
+        assert treemap.category_breakdown["executables"] == {
+            "download": 2886859,
+            "install": 3608576,
+        }
+        assert treemap.category_breakdown["fonts"] == {
+            "download": 858520,
+            "install": 1073152,
+        }
 
         # Verify totals
         # assert treemap.total_install_size == 13278496

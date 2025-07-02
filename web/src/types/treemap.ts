@@ -17,7 +17,7 @@ export enum TreemapType {
   PLISTS = "plists",
 
   // Android-specific categories
-  DEX_FILES = "dex_files",
+  DEX = "dex",
   NATIVE_LIBRARIES = "native_libraries",
   COMPILED_RESOURCES = "compiled_resources",
 
@@ -34,11 +34,6 @@ export enum TreemapType {
   FUNCTION_STARTS = "function_starts",
   CODE_SIGNATURE = "code_signature",
   EXTERNAL_METHODS = "external_methods",
-
-  // Android binary categories
-  DEX_CLASSES = "dex_classes",
-  DEX_METHODS = "dex_methods",
-  NATIVE_CODE = "native_code",
 
   // Generic categories
   OTHER = "other",

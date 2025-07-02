@@ -26,7 +26,7 @@ class TreemapType(str, Enum):
     EXTENSIONS = "extensions"  # App extensions and plugins
 
     # Android-specific categories
-    DEX_FILES = "dex_files"
+    DEX = "dex"
     NATIVE_LIBRARIES = "native_libraries"
     COMPILED_RESOURCES = "compiled_resources"
 
@@ -44,11 +44,6 @@ class TreemapType(str, Enum):
     CODE_SIGNATURE = "code_signature"
     EXTERNAL_METHODS = "external_methods"
 
-    # Android binary categories
-    DEX_CLASSES = "dex_classes"
-    DEX_METHODS = "dex_methods"
-    NATIVE_CODE = "native_code"
-
     # Binary section categories
     BINARY = "binary"
 
@@ -62,7 +57,7 @@ FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
     # Binary types
     "macho": TreemapType.EXECUTABLES,
     "executable": TreemapType.EXECUTABLES,
-    "dex": TreemapType.DEX_FILES,
+    "dex": TreemapType.DEX,
     # Asset types
     "png": TreemapType.ASSETS,
     "jpg": TreemapType.ASSETS,
