@@ -55,7 +55,7 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.SIGNATURES]: COLORS.blue300,
   [TreemapType.FRAMEWORKS]: COLORS.red300,
   [TreemapType.PLISTS]: COLORS.gray400,
-  [TreemapType.DEX_FILES]: COLORS.pink400,
+  [TreemapType.DEX]: COLORS.pink400,
   [TreemapType.NATIVE_LIBRARIES]: COLORS.purple400,
   [TreemapType.COMPILED_RESOURCES]: COLORS.blue300, // asset catalog
   [TreemapType.MODULES]: COLORS.blue300,
@@ -68,8 +68,6 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.FUNCTION_STARTS]: COLORS.purple300, // binary breakdown
   [TreemapType.CODE_SIGNATURE]: COLORS.blue400,
   [TreemapType.EXTERNAL_METHODS]: COLORS.pink300,
-  [TreemapType.DEX_CLASSES]: COLORS.purple300, // binary breakdown
-  [TreemapType.DEX_METHODS]: COLORS.purple400, // binary breakdown
   [TreemapType.NATIVE_CODE]: COLORS.blue300,
   [TreemapType.OTHER]: COLORS.gray300,
   [TreemapType.UNMAPPED]: COLORS.gray200,
