@@ -125,7 +125,7 @@ DEPS = [
     ),
     Dep(
         "webp.tar.gz",
-        "http://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0-rc1-mac-arm64.tar.gz",
+        "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0-rc1-mac-arm64.tar.gz",
         "246acaba42a4e945811046ec382a7923cc1925b049cec45d2d1dda052e772afa",
         architecture="aarch64",
         system="darwin",
