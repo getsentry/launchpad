@@ -1,6 +1,7 @@
 """Integration tests for treemap generation."""
 
 import json
+import platform
 
 from pathlib import Path
 from typing import cast
@@ -427,6 +428,19 @@ class TestTreemapGeneration:
         # assert treemap.total_download_size == 12061966
         assert treemap.file_count == 31
         assert treemap.platform == "ios"
+
+    @pytest.mark.skipif(platform.system() != "Darwin", reason="CwlDemangle tool only available on macOS")
+    def test_apple_treemap_swift_symbols_darwin_only(self, sample_ios_app_path: Path) -> None:
+        """Test Swift symbol demangling functionality (Darwin only due to CwlDemangle dependency)."""
+
+        analyzer = AppleAppAnalyzer(skip_treemap=False)
+        artifact = ArtifactFactory.from_path(sample_ios_app_path)
+
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
+
+        # Verify treemap was generated
+        assert results.treemap is not None
+        treemap = results.treemap
 
         # Helper function to find a node by name (for Swift types)
         def find_node_by_name(root: TreemapElement, name: str) -> TreemapElement | None:
