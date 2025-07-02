@@ -35,7 +35,6 @@ class MachOElementBuilder(TreemapElementBuilder):
     ) -> TreemapElement | None:
         range_map = binary_analysis.range_map
         symbol_info = binary_analysis.symbol_info
-        symbol_groups = symbol_info.get_symbols_by_section() if symbol_info else {}
 
         if range_map is None:
             logger.warning(f"Binary {name} has no range mapping")
@@ -49,14 +48,121 @@ class MachOElementBuilder(TreemapElementBuilder):
                 ranges_by_name[range_name] = []
             ranges_by_name[range_name].append(range_obj)
 
-        # Create child elements for each name
         children: list[TreemapElement] = []
         dyld_children: list[TreemapElement] = []
 
         logger.debug(f"Processing names: {list(ranges_by_name.keys())}")
 
+        # Calculate initial section sizes
+        # When we eventually loop over individual types, we subtract the type size from the section
+        # to avoid double-counting.
+        section_sizes: dict[str, int] = {}
         for range_name, ranges in ranges_by_name.items():
             total_size = sum(r.size for r in ranges)
+            section_sizes[range_name] = total_size
+
+        symbol_children: list[TreemapElement] = []
+        section_subtractions: dict[str, int] = {}
+
+        if symbol_info:
+            # Group Swift symbols by their module
+            # TODO: group types by their components to handle nested types
+            # beware there are some bugs with CwlDemangle to handle
+            swift_modules: dict[str, list[tuple[str, int]]] = {}
+            for group in symbol_info.swift_type_groups:
+                module = group.module
+                if module not in swift_modules:
+                    swift_modules[module] = []
+                swift_modules[module].append((group.type_name, group.total_size))
+
+                for symbol in group.symbols:
+                    if symbol.section:
+                        section_name = str(symbol.section.name)
+                        section_subtractions[section_name] = section_subtractions.get(section_name, 0) + symbol.size
+
+            # Create Swift module elements
+            for module_name, type_groups in swift_modules.items():
+                module_children: list[TreemapElement] = []
+                module_total_size = 0
+
+                for type_name, total_size in type_groups:
+                    type_element = TreemapElement(
+                        name=type_name,
+                        install_size=total_size,
+                        download_size=total_size,
+                        element_type=TreemapType.MODULES,
+                        path=None,
+                        is_directory=False,
+                        children=[],
+                    )
+                    module_children.append(type_element)
+                    module_total_size += total_size
+
+                module_element = TreemapElement(
+                    name=module_name,
+                    install_size=module_total_size,
+                    download_size=module_total_size,
+                    element_type=TreemapType.MODULES,
+                    path=None,
+                    is_directory=True,
+                    children=module_children,
+                )
+                symbol_children.append(module_element)
+
+            # Group ObjC symbols by class
+            objc_classes: dict[str, list[tuple[str, int]]] = {}
+            for group in symbol_info.objc_type_groups:
+                class_name = group.class_name
+                if class_name not in objc_classes:
+                    objc_classes[class_name] = []
+                method_name = group.method_name or "class"
+                objc_classes[class_name].append((method_name, group.total_size))
+
+                for symbol in group.symbols:
+                    if symbol.section:
+                        section_name = str(symbol.section.name)
+                        section_subtractions[section_name] = section_subtractions.get(section_name, 0) + symbol.size
+
+            # Create ObjC class elements
+            for class_name, method_groups in objc_classes.items():
+                class_children: list[TreemapElement] = []
+                class_total_size = 0
+
+                for method_name, total_size in method_groups:
+                    method_element = TreemapElement(
+                        name=method_name,
+                        install_size=total_size,
+                        download_size=total_size,
+                        element_type=TreemapType.MODULES,
+                        path=None,
+                        is_directory=False,
+                        children=[],
+                    )
+                    class_children.append(method_element)
+                    class_total_size += total_size
+
+                class_element = TreemapElement(
+                    name=class_name,
+                    install_size=class_total_size,
+                    download_size=class_total_size,
+                    element_type=TreemapType.MODULES,
+                    path=None,
+                    is_directory=True,
+                    children=class_children,
+                )
+                symbol_children.append(class_element)
+
+        # Create section elements (excluding those with zero or negative size)
+        for range_name, ranges in ranges_by_name.items():
+            original_size = section_sizes.get(range_name, 0)
+            subtraction = section_subtractions.get(range_name, 0)
+            adjusted_size = original_size - subtraction
+
+            if adjusted_size <= 0:
+                logger.debug(
+                    f"Skipping section {range_name} with adjusted size {adjusted_size} (original: {original_size}, subtraction: {subtraction})"
+                )
+                continue
 
             # Use the first range's tag to determine element type
             first_tag = ranges[0].tag.value
@@ -73,22 +179,15 @@ class MachOElementBuilder(TreemapElementBuilder):
             elif first_tag == "external_methods":
                 element_type = TreemapType.EXTERNAL_METHODS
 
-            symbol_children = []
-            if range_name.startswith("__") and symbol_groups:
-                section_symbols = symbol_groups.get(range_name, [])
-                symbol_children = self._create_symbol_elements(section_symbols)
-            else:
-                logger.debug(f"No symbol lookup for range {range_name} (not a section)")
-
             element = TreemapElement(
                 name=range_name,
-                install_size=total_size,
-                download_size=total_size,  # TODO: add download size
+                install_size=adjusted_size,
+                download_size=adjusted_size,  # TODO: add download size
                 element_type=element_type,
                 path=None,
-                is_directory=bool(symbol_children),
-                children=symbol_children,
-                details={"tag": first_tag, "range_name": range_name},
+                is_directory=False,
+                children=[],
+                details={"tag": first_tag, "range_name": range_name, "adjusted_size": adjusted_size},
             )
 
             # Group DYLD-related load commands under a parent DYLD element
@@ -131,7 +230,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                 )
             )
 
-        total_size = sum(child.install_size for child in children)
+        total_size = sum(child.install_size for child in children) + sum(
+            child.install_size for child in symbol_children
+        )
         return TreemapElement(
             name=name,
             install_size=total_size,
@@ -139,7 +240,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             element_type=TreemapType.EXECUTABLES,
             path=file_path,
             is_directory=True,
-            children=children,
+            children=children + symbol_children,
             details={},
         )
 

@@ -327,19 +327,19 @@ class TestTreemapGeneration:
         # Verify main executable
         main_exe = find_node_by_path(treemap.root, "HackerNews")
         assert main_exe is not None
-        assert main_exe.install_size == 3152944
-        assert main_exe.download_size == 3152944
+        assert main_exe.install_size == 3190648
+        assert main_exe.download_size == 3190648
         assert main_exe.element_type == "executables"
         assert main_exe.is_directory is True
 
         # Verify main executable sections
         main_exe_sections = {child.name: child for child in main_exe.children}
         assert "__text" in main_exe_sections
-        assert main_exe_sections["__text"].install_size == 1828412
+        assert main_exe_sections["__text"].install_size == 154660
         assert "__objc_classlist" in main_exe_sections
         assert main_exe_sections["__objc_classlist"].install_size == 3096
         assert "__data" in main_exe_sections
-        assert main_exe_sections["__data"].install_size == 82005
+        assert main_exe_sections["__data"].install_size == 4541
 
         # Verify Frameworks directory
         frameworks = find_node_by_path(treemap.root, "Frameworks")
@@ -369,8 +369,8 @@ class TestTreemapGeneration:
         # Verify Common binary
         common_binary = find_node_by_path(treemap.root, "Frameworks/Common.framework/Common")
         assert common_binary is not None
-        assert common_binary.install_size == 189840
-        assert common_binary.download_size == 189840
+        assert common_binary.install_size == 199376
+        assert common_binary.download_size == 199376
         assert common_binary.element_type == "executables"
 
         # Verify Reaper framework
@@ -403,8 +403,8 @@ class TestTreemapGeneration:
             treemap.root, "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension"
         )
         assert widget_binary is not None
-        assert widget_binary.install_size == 152288
-        assert widget_binary.download_size == 152288
+        assert widget_binary.install_size == 153016
+        assert widget_binary.download_size == 153016
         assert widget_binary.element_type == "executables"
 
         # Verify Assets.car
