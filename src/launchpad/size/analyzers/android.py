@@ -3,26 +3,25 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from launchpad.insights.android.image_optimization import WebPOptimizationInsight
-
-from ..artifacts.android.aab import AAB
-from ..artifacts.android.apk import APK
-from ..artifacts.android.zipped_aab import ZippedAAB
-from ..artifacts.android.zipped_apk import ZippedAPK
-from ..artifacts.artifact import AndroidArtifact
-from ..insights.common import DuplicateFilesInsight
-from ..insights.insight import InsightsInput
-from ..models.android import (
+from launchpad.artifacts.android.aab import AAB
+from launchpad.artifacts.android.apk import APK
+from launchpad.artifacts.android.zipped_aab import ZippedAAB
+from launchpad.artifacts.android.zipped_apk import ZippedAPK
+from launchpad.artifacts.artifact import AndroidArtifact
+from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
+from launchpad.size.insights.common import DuplicateFilesInsight
+from launchpad.size.insights.insight import InsightsInput
+from launchpad.size.models.android import (
     AndroidAnalysisResults,
     AndroidAppInfo,
     AndroidInsightResults,
 )
-from ..models.common import FileAnalysis, FileInfo
-from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
-from ..parsers.android.dex.types import ClassDefinition
-from ..utils.file_utils import calculate_file_hash
-from ..utils.logging import get_logger
-from ..utils.treemap.treemap_builder import TreemapBuilder
+from launchpad.size.models.common import FileAnalysis, FileInfo
+from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
+from launchpad.size.treemap.treemap_builder import TreemapBuilder
+from launchpad.utils.file_utils import calculate_file_hash
+from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

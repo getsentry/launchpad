@@ -6,9 +6,9 @@ from typing import Any
 
 import lief
 
-from ...models.range_mapping import BinaryTag, RangeMap
-from ...utils.logging import get_logger
-from .macho_parser import MachOParser
+from launchpad.parsers.apple.macho_parser import MachOParser
+from launchpad.size.models.range_mapping import BinaryTag, RangeMap
+from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

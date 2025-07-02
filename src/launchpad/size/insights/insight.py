@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Protocol, Sequence, TypeVar
 
-from launchpad.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
-from launchpad.models.treemap import TreemapResults
+from launchpad.size.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
+from launchpad.size.models.treemap import TreemapResults
 
 T_co = TypeVar("T_co", covariant=True)
 

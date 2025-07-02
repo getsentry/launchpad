@@ -6,14 +6,15 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Literal
 
-from ...models.apple import MachOBinaryAnalysis
-from ...models.common import FileAnalysis, FileInfo
-from ...models.treemap import TreemapElement, TreemapResults, TreemapType
-from ...parsers.android.dex.types import ClassDefinition
-from ...utils.file_utils import calculate_aligned_install_size
-from ...utils.treemap.dex_element_builder import DexElementBuilder
-from ...utils.treemap.treemap_element_builder import TreemapElementBuilder
-from ..logging import get_logger
+from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.models.apple import MachOBinaryAnalysis
+from launchpad.size.models.common import FileAnalysis, FileInfo
+from launchpad.size.models.treemap import TreemapElement, TreemapResults, TreemapType
+from launchpad.size.treemap.dex_element_builder import DexElementBuilder
+from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
+from launchpad.utils.file_utils import calculate_aligned_install_size
+from launchpad.utils.logging import get_logger
+
 from .default_file_element_builder import DefaultFileElementBuilder
 from .macho_element_builder import MachOElementBuilder
 
