@@ -92,7 +92,7 @@ class TestIOSAnalyzerRangeMapping:
     def test_coverage_report_structure(self) -> None:
         """Test that coverage report has the expected structure."""
         # Create a simple range map for testing
-        from launchpad.models.range_mapping import RangeMap
+        from launchpad.size.models.range_mapping import RangeMap
 
         range_map = RangeMap(total_file_size=1000)
         range_map.add_range(0, 100, BinaryTag.HEADERS, "header")
