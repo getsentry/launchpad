@@ -48,24 +48,24 @@ class MachOElementBuilder(TreemapElementBuilder):
                 ranges_by_name[range_name] = []
             ranges_by_name[range_name].append(range_obj)
 
-        # Create child elements for each name
         children: list[TreemapElement] = []
         dyld_children: list[TreemapElement] = []
 
         logger.debug(f"Processing names: {list(ranges_by_name.keys())}")
 
         # Calculate initial section sizes
+        # When we eventually loop over individual types, we subtract the type size from the section
+        # to avoid double-counting.
         section_sizes: dict[str, int] = {}
         for range_name, ranges in ranges_by_name.items():
             total_size = sum(r.size for r in ranges)
             section_sizes[range_name] = total_size
 
-            # Track symbol elements and build section subtraction map
         symbol_children: list[TreemapElement] = []
         section_subtractions: dict[str, int] = {}
 
         if symbol_info:
-            # Group Swift symbols by module
+            # Group Swift symbols by their module
             swift_modules: dict[str, list[tuple[str, int]]] = {}
             for group in symbol_info.swift_type_groups:
                 module = group.module
@@ -73,7 +73,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                     swift_modules[module] = []
                 swift_modules[module].append((group.type_name, group.total_size))
 
-                # Track how much to subtract from each section
                 for symbol in group.symbols:
                     if symbol.section:
                         section_name = str(symbol.section.name)
@@ -93,16 +92,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                         path=None,
                         is_directory=False,
                         children=[],
-                        details={
-                            "identifier": f"Swift:{module_name}:{type_name}",
-                            "total_size": total_size,
-                        },
                     )
                     module_children.append(type_element)
                     module_total_size += total_size
-
-                # Sort type children by size (descending)
-                module_children.sort(key=lambda x: x.install_size, reverse=True)
 
                 module_element = TreemapElement(
                     name=module_name,
@@ -112,10 +104,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                     path=None,
                     is_directory=True,
                     children=module_children,
-                    details={
-                        "module_name": module_name,
-                        "type_count": len(type_groups),
-                    },
                 )
                 symbol_children.append(module_element)
 
@@ -128,7 +116,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                 method_name = group.method_name or "class"
                 objc_classes[class_name].append((method_name, group.total_size))
 
-                # Track how much to subtract from each section
                 for symbol in group.symbols:
                     if symbol.section:
                         section_name = str(symbol.section.name)
@@ -148,16 +135,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                         path=None,
                         is_directory=False,
                         children=[],
-                        details={
-                            "identifier": f"ObjC:{class_name}:{method_name}",
-                            "total_size": total_size,
-                        },
                     )
                     class_children.append(method_element)
                     class_total_size += total_size
-
-                # Sort method children by size (descending)
-                class_children.sort(key=lambda x: x.install_size, reverse=True)
 
                 class_element = TreemapElement(
                     name=class_name,
@@ -167,10 +147,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                     path=None,
                     is_directory=True,
                     children=class_children,
-                    details={
-                        "class_name": class_name,
-                        "method_count": len(method_groups),
-                    },
                 )
                 symbol_children.append(class_element)
 
@@ -251,9 +227,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                     details={},
                 )
             )
-
-            # Sort symbol children by size (descending)
-        symbol_children.sort(key=lambda x: x.install_size, reverse=True)
 
         total_size = sum(child.install_size for child in children) + sum(
             child.install_size for child in symbol_children
