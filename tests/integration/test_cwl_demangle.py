@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from launchpad.utils.cwl_demangle import CwlDemangler, CwlDemangleResult
+from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
 
 def is_darwin() -> bool:

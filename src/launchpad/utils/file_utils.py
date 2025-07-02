@@ -6,7 +6,8 @@ import tempfile
 
 from pathlib import Path
 
-from ..models.common import FileInfo
+from launchpad.size.models.common import FileInfo
+
 from .logging import get_logger
 
 logger = get_logger(__name__)

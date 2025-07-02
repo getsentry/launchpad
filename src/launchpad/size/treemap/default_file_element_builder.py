@@ -1,7 +1,7 @@
-from ...models.common import FileInfo
-from ...models.treemap import TreemapElement
-from ...utils.file_utils import calculate_aligned_install_size
-from .treemap_element_builder import TreemapElementBuilder
+from launchpad.size.models.common import FileInfo
+from launchpad.size.models.treemap import TreemapElement
+from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
+from launchpad.utils.file_utils import calculate_aligned_install_size
 
 
 class DefaultFileElementBuilder(TreemapElementBuilder):

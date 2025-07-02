@@ -1,5 +1,5 @@
-from launchpad.insights.insight import Insight, InsightsInput
-from launchpad.models.android import WebPOptimizationInsightResult
+from launchpad.size.insights.insight import Insight, InsightsInput
+from launchpad.size.models.android import WebPOptimizationInsightResult
 
 
 class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):

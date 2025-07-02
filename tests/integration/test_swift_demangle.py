@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from launchpad.utils.swift_demangle import SwiftDemangler
+from launchpad.utils.apple.swift_demangle import SwiftDemangler
 
 
 def is_darwin() -> bool:

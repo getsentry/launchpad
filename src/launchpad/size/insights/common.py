@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List
 
-from launchpad.insights.insight import Insight, InsightsInput
-from launchpad.models.common import FileInfo
-from launchpad.models.insights import DuplicateFilesInsightResult
+from launchpad.size.insights.insight import Insight, InsightsInput
+from launchpad.size.models.common import FileInfo
+from launchpad.size.models.insights import DuplicateFilesInsightResult
 
 
 class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):

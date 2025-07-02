@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
-from launchpad.utils.cwl_demangle import CwlDemangler
+from launchpad.utils.apple.cwl_demangle import CwlDemangler
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)

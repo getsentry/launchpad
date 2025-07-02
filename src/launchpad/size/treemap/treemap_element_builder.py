@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from ...models.common import FileInfo
-from ...models.treemap import TreemapElement
-from ..logging import get_logger
+from launchpad.size.models.common import FileInfo
+from launchpad.size.models.treemap import TreemapElement
+from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

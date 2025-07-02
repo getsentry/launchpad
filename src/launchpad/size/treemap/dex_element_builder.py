@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List
 
-from ...models.common import FileInfo
-from ...models.treemap import TreemapElement, TreemapType
-from ...parsers.android.dex.types import ClassDefinition
-from ...utils.logging import get_logger
-from .treemap_element_builder import TreemapElementBuilder
+from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.models.common import FileInfo
+from launchpad.size.models.treemap import TreemapElement, TreemapType
+from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
+from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

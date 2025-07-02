@@ -7,10 +7,10 @@ from typing import Any, Dict, cast
 
 import pytest
 
-from launchpad.analyzers.apple import AppleAppAnalyzer
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
-from launchpad.models.range_mapping import BinaryTag
+from launchpad.size.analyzers.apple import AppleAppAnalyzer
+from launchpad.size.models.range_mapping import BinaryTag
 
 
 class TestIOSRangeMapping:

@@ -6,8 +6,11 @@ from launchpad.parsers.android.binary.types import (
     ResourceTableType,
     TypedValue,
 )
+from launchpad.utils.logging import get_logger
 
 from .resource_table import DEFAULT_PACKAGE_ID, ResourceTable
+
+logger = get_logger(__name__)
 
 
 class BinaryResourceTable(ResourceTable):
@@ -92,12 +95,12 @@ class BinaryResourceTable(ResourceTable):
         """Get all resource types with the given ID."""
         resource_package = self._get_application_package()
         if not resource_package:
-            print("No resource package found in the resource table.")
+            logger.debug("No resource package found in the resource table.")
             return []
 
         types = [type_ for type_ in resource_package.types if type_.id == id_val]
         if not types:
-            print(f"No types found in the resource package matching id: {id_val:02x}")
+            logger.debug(f"No types found in the resource package matching id: {id_val:02x}")
             return []
         return types
 

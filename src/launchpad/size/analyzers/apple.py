@@ -9,14 +9,22 @@ from typing import Any, Dict, List, Tuple
 
 import lief
 
+from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.artifact import AppleArtifact
+from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
+from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
+from launchpad.size.insights.common import DuplicateFilesInsight
+from launchpad.size.insights.insight import InsightsInput
+from launchpad.size.models.common import FileAnalysis, FileInfo
+from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
+from launchpad.size.treemap.treemap_builder import TreemapBuilder
+from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
+from launchpad.utils.file_utils import calculate_file_hash, get_file_size
+from launchpad.utils.logging import get_logger
 
-from ..artifacts.apple.zipped_xcarchive import ZippedXCArchive
-from ..artifacts.artifact import AppleArtifact
-from ..insights.common import DuplicateFilesInsight
-from ..insights.insight import InsightsInput
 from ..models.apple import (
     AppleAnalysisResults,
     AppleAppInfo,
@@ -25,14 +33,6 @@ from ..models.apple import (
     SwiftMetadata,
     SymbolInfo,
 )
-from ..models.common import FileAnalysis, FileInfo
-from ..models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
-from ..parsers.apple.macho_parser import MachOParser
-from ..parsers.apple.range_mapping_builder import RangeMappingBuilder
-from ..utils.code_signature_validator import CodeSignatureValidator
-from ..utils.file_utils import calculate_file_hash, get_file_size
-from ..utils.logging import get_logger
-from ..utils.treemap.treemap_builder import TreemapBuilder
 
 logger = get_logger(__name__)
 

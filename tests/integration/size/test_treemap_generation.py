@@ -7,11 +7,11 @@ from typing import cast
 
 import pytest
 
-from launchpad.analyzers.android import AndroidAnalyzer
-from launchpad.analyzers.apple import AppleAppAnalyzer
 from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
-from launchpad.models.treemap import TreemapElement
+from launchpad.size.analyzers.android import AndroidAnalyzer
+from launchpad.size.analyzers.apple import AppleAppAnalyzer
+from launchpad.size.models.treemap import TreemapElement
 
 
 class TestTreemapGeneration:

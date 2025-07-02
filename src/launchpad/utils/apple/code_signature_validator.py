@@ -18,7 +18,7 @@ from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.code_signature_parser import CodeSignInformation
 from launchpad.parsers.apple.macho_parser import MachOParser
 
-from .logging import get_logger
+from ..logging import get_logger
 
 logger = get_logger(__name__)
 

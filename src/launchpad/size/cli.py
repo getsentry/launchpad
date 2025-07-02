@@ -7,12 +7,12 @@ import click
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from ..models.android import AndroidAnalysisResults
-from ..models.apple import AppleAnalysisResults
-from ..models.common import BaseAnalysisResults, FileAnalysis
-from ..utils.console import console
-from ..utils.logging import setup_logging
-from .runner import do_size, write_results_as_json
+from launchpad.size.models.android import AndroidAnalysisResults
+from launchpad.size.models.apple import AppleAnalysisResults
+from launchpad.size.models.common import BaseAnalysisResults, FileAnalysis
+from launchpad.size.runner import do_size, write_results_as_json
+from launchpad.utils.console import console
+from launchpad.utils.logging import setup_logging
 
 
 @click.command(name="size")

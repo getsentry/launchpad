@@ -2,7 +2,7 @@
 
 import pytest
 
-from launchpad.models.range_mapping import BinaryTag, Range, RangeConflict, RangeMap
+from launchpad.size.models.range_mapping import BinaryTag, Range, RangeConflict, RangeMap
 
 
 class TestRange:

@@ -1,10 +1,9 @@
-from launchpad.models.apple import MachOBinaryAnalysis
-
-from ...models.common import FileInfo
-from ...models.range_mapping import Range
-from ...models.treemap import TreemapElement, TreemapType
-from ..logging import get_logger
-from .treemap_element_builder import TreemapElementBuilder
+from launchpad.size.models.apple import MachOBinaryAnalysis
+from launchpad.size.models.common import FileInfo
+from launchpad.size.models.range_mapping import Range
+from launchpad.size.models.treemap import TreemapElement, TreemapType
+from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
+from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

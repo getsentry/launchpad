@@ -2,10 +2,10 @@
 
 from unittest.mock import Mock
 
-from launchpad.analyzers.apple import AppleAppAnalyzer
-from launchpad.models.range_mapping import BinaryTag
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
+from launchpad.size.analyzers.apple import AppleAppAnalyzer
+from launchpad.size.models.range_mapping import BinaryTag
 
 
 class TestIOSAnalyzerRangeMapping:

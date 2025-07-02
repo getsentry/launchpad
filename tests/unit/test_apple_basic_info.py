@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from launchpad.analyzers.apple import AppleAppAnalyzer
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.size.analyzers.apple import AppleAppAnalyzer
 
 
 class TestAppleBasicInfo:
