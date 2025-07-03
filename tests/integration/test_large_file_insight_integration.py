@@ -15,8 +15,8 @@ class TestLargeFileInsightIntegration:
         results = analyzer.analyze(artifact)
 
         assert results.insights is not None
-        assert results.insights.large_files is not None
+        assert results.insights.large_images is not None
 
         # The HackerNews APK doesn't have anything larger than 10MB,
         # We check for a valid structure.
-        assert results.insights.large_files.total_savings >= 0
+        assert results.insights.large_images.total_savings >= 0
