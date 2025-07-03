@@ -41,7 +41,7 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_files=[],
+            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -74,7 +74,7 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_files=[],
+            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -90,7 +90,7 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_files=[],
+            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -114,7 +114,7 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_files=[],
+            image_map={},
         )
 
         result = self.insight.generate(insights_input)

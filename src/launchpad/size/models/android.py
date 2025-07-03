@@ -1,8 +1,6 @@
-from pathlib import Path
-
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo
+from .common import BaseAnalysisResults, BaseAppInfo, FileInfo
 from .insights import DuplicateFilesInsightResult, LargeImageFileInsightResult
 
 
@@ -13,7 +11,7 @@ class AndroidAppInfo(BaseAppInfo):
 
 class OptimizeableImageFile(BaseModel):
     model_config = ConfigDict(frozen=True)
-    file_path: Path = Field(..., description="File path")
+    file_info: FileInfo = Field(..., description="File info")
     potential_savings: int = Field(..., description="Potential savings")
 
 

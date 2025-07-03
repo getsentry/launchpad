@@ -87,7 +87,7 @@ class AndroidAnalyzer:
                 file_analysis=file_analysis,
                 treemap=treemap,
                 binary_analysis=[],
-                image_files=self._get_images(apks),
+                image_map=self._get_images(apks, file_analysis),
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -221,8 +221,13 @@ class AndroidAnalyzer:
             class_definitions.extend(apk.get_class_definitions())
         return class_definitions
 
-    def _get_images(self, apks: list[APK]) -> list[Path]:
-        images: list[Path] = []
+    def _get_images(self, apks: list[APK], file_analysis: FileAnalysis) -> dict[Path, FileInfo]:
+        image_map = {}
         for apk in apks:
-            images.extend(apk.get_images())
-        return images
+            for image_file in apk.get_images():
+                image_map[image_file] = next(
+                    (file_info for file_info in file_analysis.files if str(image_file).endswith(file_info.path)), None
+                )
+                if image_map[image_file] is None:
+                    logger.warning(f"Image file {image_file} not found in file analysis")
+        return image_map
