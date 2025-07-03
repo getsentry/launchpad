@@ -22,3 +22,9 @@ class DuplicateFilesInsightResult(BaseInsightResult):
     def duplicate_count(self) -> int:
         """Number of duplicate files (excluding the original)."""
         return len(self.files) - 1
+
+
+class LargeImageFileInsightResult(BaseInsightResult):
+    """Results from large image files analysis."""
+
+    files: List[FileInfo] = Field(..., description="Image files larger than 10MB")

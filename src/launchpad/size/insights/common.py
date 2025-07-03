@@ -1,4 +1,4 @@
-"""Base classes for app bundle insights."""
+"""Base classes for app artifact insights."""
 
 from __future__ import annotations
 
@@ -7,24 +7,21 @@ from typing import Dict, List
 
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.insights import DuplicateFilesInsightResult
+from launchpad.size.models.insights import DuplicateFilesInsightResult, LargeImageFileInsightResult
 
 
 class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
     def generate(self, input: InsightsInput) -> DuplicateFilesInsightResult:
-        # Group files by hash
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
         for file in input.file_analysis.files:
             if file.hash_md5:
                 files_by_hash[file.hash_md5].append(file)
 
-        # Find all duplicate files
         duplicate_files: List[FileInfo] = []
         total_savings = 0
 
         for file_list in files_by_hash.values():
             if len(file_list) > 1:
-                # Calculate potential savings (all files except one)
                 total_file_size = sum(f.size for f in file_list)
                 savings = total_file_size - file_list[0].size
 
@@ -37,3 +34,40 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
             files=duplicate_files,
             total_savings=total_savings,
         )
+
+
+class LargeImageFileInsight(Insight[LargeImageFileInsightResult]):
+    """Insight for identifying image files larger than 10MB."""
+
+    def generate(self, input: InsightsInput) -> LargeImageFileInsightResult:
+        size_threshold_bytes = 10 * 1024 * 1024  # 10MB
+
+        # Android supported image types: https://developer.android.com/media/platform/supported-formats#image-formats
+        # Apple supported image types: https://developer.apple.com/library/archive/documentation/2DDrawing/Conceptual/DrawingPrintingiOS/LoadingImages/LoadingImages.html#//apple_ref/doc/uid/TP40010156-CH17-SW7
+        image_types = [
+            "png",
+            "jpg",
+            "jpeg",
+            "webp",
+            "bmp",
+            "gif",
+            "heif",
+            "avif",
+            "tif",
+            "tiff",
+            "ico",
+            "heic",
+            "cur",
+            "xbm",
+        ]
+        image_files = [file for file in input.file_analysis.files if file.file_type in image_types]
+
+        large_files = [file for file in image_files if file.size > size_threshold_bytes]
+
+        # Sort by largest first
+        large_files.sort(key=lambda f: f.size, reverse=True)
+
+        # Calculate total potential savings (assuming files can be optimized to 50% of their size)
+        total_savings = sum(file.size // 2 for file in large_files)
+
+        return LargeImageFileInsightResult(files=large_files, total_savings=total_savings)
