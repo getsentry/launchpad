@@ -28,3 +28,9 @@ class LargeImageFileInsightResult(BaseInsightResult):
     """Results from large image files analysis."""
 
     files: List[FileInfo] = Field(..., description="Image files larger than 10MB")
+
+
+class LargeVideoFileInsightResult(BaseInsightResult):
+    """Results from large video files analysis."""
+
+    files: List[FileInfo] = Field(..., description="Video files larger than 10MB")
