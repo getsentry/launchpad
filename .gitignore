@@ -37,6 +37,7 @@ legacy/ios/sizeAnalysis/.build/
 
 # Codecov
 coverage.xml
+junit.xml
 
 # devenv cached downloads
 /.devenv
@@ -45,4 +46,3 @@ install-devenv.sh
 
 # Local environment variable overrides set by the user.
 .env
-
