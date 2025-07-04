@@ -16,6 +16,7 @@ class InsightsInput:
     treemap: TreemapResults | None
     binary_analysis: Sequence[BaseBinaryAnalysis]
     image_map: dict[Path, FileInfo]
+    binary_map: dict[Path, FileInfo]
 
 
 class Insight(Protocol[T_co]):

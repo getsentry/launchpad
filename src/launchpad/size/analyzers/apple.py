@@ -137,6 +137,7 @@ class AppleAppAnalyzer:
                 binary_analysis=binary_analysis,
                 treemap=treemap,
                 image_map={},
+                binary_map=self._get_macho_binaries(artifact, file_analysis),
             )
             insights = AppleInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -436,3 +437,14 @@ class AppleAppAnalyzer:
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
         )
+
+    def _get_macho_binaries(self, artifact: AppleArtifact, file_analysis: FileAnalysis) -> dict[Path, FileInfo]:
+        binary_map = {}
+        app_bundle_path = artifact.get_app_bundle_path()
+
+        for file_info in file_analysis.files:
+            if file_info.file_type == "macho":
+                binary_path = app_bundle_path / file_info.path
+                binary_map[binary_path] = file_info
+
+        return binary_map
