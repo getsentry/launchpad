@@ -16,7 +16,12 @@ from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
-from launchpad.size.insights.common import DuplicateFilesInsight
+from launchpad.size.insights.common import (
+    DuplicateFilesInsight,
+    LargeAudioFileInsight,
+    LargeImageFileInsight,
+    LargeVideoFileInsight,
+)
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
@@ -140,6 +145,9 @@ class AppleAppAnalyzer:
             )
             insights = AppleInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
+                large_audio=LargeAudioFileInsight().generate(insights_input),
+                large_images=LargeImageFileInsight().generate(insights_input),
+                large_videos=LargeVideoFileInsight().generate(insights_input),
             )
 
         results = AppleAnalysisResults(

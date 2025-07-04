@@ -1,7 +1,12 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo, FileInfo
-from .insights import DuplicateFilesInsightResult, LargeImageFileInsightResult, LargeVideoFileInsightResult
+from .insights import (
+    DuplicateFilesInsightResult,
+    LargeAudioFileInsightResult,
+    LargeImageFileInsightResult,
+    LargeVideoFileInsightResult,
+)
 
 
 class AndroidAppInfo(BaseAppInfo):
@@ -28,6 +33,7 @@ class AndroidInsightResults(BaseModel):
     webp_optimization: WebPOptimizationInsightResult | None = Field(None, description="WebP optimization analysis")
     large_images: LargeImageFileInsightResult | None = Field(None, description="Large images analysis")
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large videos analysis")
+    large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):
