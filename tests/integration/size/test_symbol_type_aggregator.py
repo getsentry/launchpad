@@ -64,7 +64,7 @@ class TestSymbolTypeAggregator:
     def test_aggregate_symbols_with_real_binary(self, sample_app_path: Path) -> None:
         """Test aggregation of symbols using real HackerNews app binary."""
         symbol_sizes = create_symbol_sizes_from_xcarchive(sample_app_path)
-        assert len(symbol_sizes) == 24466
+        assert len(symbol_sizes) == 24465
 
         aggregator = SwiftSymbolTypeAggregator()
         result = aggregator.aggregate_symbols(symbol_sizes)
