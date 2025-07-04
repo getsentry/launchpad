@@ -11,7 +11,12 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGr
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
-from .insights import DuplicateFilesInsightResult
+from .insights import (
+    DuplicateFilesInsightResult,
+    LargeAudioFileInsightResult,
+    LargeImageFileInsightResult,
+    LargeVideoFileInsightResult,
+)
 from .range_mapping import RangeMap
 
 
@@ -95,6 +100,9 @@ class AppleInsightResults(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
+    large_images: LargeImageFileInsightResult | None = Field(None, description="Large image files analysis")
+    large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large video files analysis")
+    large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
 
 
 @dataclass
