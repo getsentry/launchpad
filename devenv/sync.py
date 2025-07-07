@@ -1,6 +1,10 @@
-from devenv.lib import config, venv, fs  # type: ignore
+import os
 import subprocess
 import sys
+
+from devenv.lib import config, venv, fs  # type: ignore
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def run_uv_command(cmd: list[str], cwd: str) -> None:
     """Run a uv command and handle errors."""
@@ -40,5 +44,9 @@ def main(context: dict[str, str]) -> int:
             )
 
     fs.ensure_symlink("../../config/hooks/post-merge", f"{reporoot}/.git/hooks/post-merge")  # type: ignore
+
+
+    deps_path = os.path.join(ROOT_DIR, "scripts", "deps")
+    subprocess.check_output([deps_path])
 
     return 0

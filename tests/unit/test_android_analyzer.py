@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from launchpad.analyzers.android import AndroidAnalyzer
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.size.analyzers.android import AndroidAnalyzer
 
 
 @pytest.fixture

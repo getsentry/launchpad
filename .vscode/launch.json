@@ -64,7 +64,9 @@
       "args": [
         "size",
         "--verbose",
-        "tests/_fixtures/ios/HackerNews.xcarchive.zip"
+        "tests/_fixtures/ios/HackerNews.xcarchive.zip",
+        "--output",
+        "apple-size-output.json"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",

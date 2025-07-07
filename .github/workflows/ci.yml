@@ -40,11 +40,28 @@ jobs:
       - name: Check types
         run: make check-types
 
+      - name: Check deps
+        run: make check-deps
+
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install dependencies
+        run: make install-dev
 
       - name: Build Docker image with test fixtures
         run: docker build --build-arg TEST_BUILD=true -t launchpad-test .
@@ -67,6 +84,45 @@ jobs:
             -e LAUNCHPAD_HOST=localhost \
             -e LAUNCHPAD_PORT=2218 \
             launchpad-test launchpad --help
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install dependencies
+        run: make install-dev
+
+      - name: Install dependencies
+        run: ./scripts/deps --print-paths >> "$GITHUB_PATH"
+
+      - name: Coverage
+        run: make coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: getsentry/launchpad
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: junit.xml
 
   build:
     runs-on: ubuntu-latest

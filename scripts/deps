@@ -1,0 +1,313 @@
+#!/usr/bin/env python
+
+"""
+Handles downloading and ensuring the runtime dependencies of launchpad
+are up-to-date. We require various dependencies
+(cwebp, bundletool, etc). Some of these are architecture/OS dependant
+and some are not. There are three situations to care about:
+local development, CI, and production. We ideally want use the same
+pinned version of the dependencies in three situations and specify
+those versions in a single place.
+
+This script can be invoked from: devenv, make, and, manually.
+"""
+
+from dataclasses import dataclass
+from typing import Optional, List
+import argparse
+import os
+import platform
+import sys
+import hashlib
+import subprocess
+import shutil
+import stat
+import textwrap
+
+# Don't add non-standard library dependencies since this can be ran
+# prior to the venv getting set up.
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEPS_DIR = os.path.join(ROOT_DIR, ".devenv")
+KNOWN_ARCHITECTURES = {"x86_64", "aarch64"}
+KNOWN_SYSTEMS = {"darwin", "linux"}
+
+
+@dataclass
+class Bin:
+    text: Optional[str] = None
+    source: Optional[str] = None
+    target: str = ""
+
+    def __post_init__(self):
+        assert bool(self.text) != bool(self.source), f"{self} must define text xor source"
+        assert self.target, f"{self} must define target"
+
+
+@dataclass
+class Dep:
+    name: str
+    url: str
+    hash: str
+    architecture: Optional[str] = None
+    system: Optional[str] = None
+    binaries: Optional[List[Bin]] = None
+
+    def __post_init__(self):
+        assert self.architecture and self.system or (not self.architecture and not self.system), (
+            f"{self!r} must set both architecture and system or neither."
+        )
+        assert self.architecture is None or self.architecture in KNOWN_ARCHITECTURES, f"{self.architecture} not known"
+        assert self.system is None or self.system in KNOWN_SYSTEMS, f"{self.system} not known"
+
+    def __str__(self):
+        if self.is_machine_dependent():
+            return f"{self.name}-{self.architecture}-{self.system}"
+        else:
+            return f"{self.name}"
+
+    def is_archive(self):
+        return self.name.endswith(".tar.gz")
+
+    def is_machine_dependent(self):
+        return self.architecture or self.system
+
+    def directory(self):
+        if self.is_machine_dependent():
+            return os.path.join(DEPS_DIR, f"{self.architecture}-{self.system}")
+        else:
+            return os.path.join(DEPS_DIR, "all")
+
+    def bin_directory(self):
+        return os.path.join(self.directory(), "bin")
+
+    def get_binary_source_path(self, binary):
+        assert binary.source
+        return os.path.join(self.directory(), binary.source)
+
+    def get_binary_target_path(self, binary):
+        return os.path.join(self.bin_directory(), binary.target)
+
+    def target_path(self):
+        assert self.is_archive()
+        return os.path.join(self.directory(), self.name.split(".")[0])
+
+    def download_path(self):
+        return os.path.join(self.directory(), self.name)
+
+    def get_binaries(self):
+        return self.binaries or []
+
+
+BUNDLETOOL_SHIM = """#!/bin/sh
+java -jar $(dirname "$(realpath $0)")/bundletool.jar "$@"
+"""
+
+DEPS = [
+    Dep(
+        "bundletool.jar",
+        "https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar",
+        "675786493983787ffa11550bdb7c0715679a44e1643f3ff980a529e9c822595c",
+        binaries=[
+            Bin(source="bundletool.jar", target="bundletool.jar"),
+            Bin(text=BUNDLETOOL_SHIM, target="bundletool"),
+        ],
+    ),
+    Dep(
+        "webp.tar.gz",
+        "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0-linux-x86-64.tar.gz",
+        "f4bf49f85991f50e86a5404d16f15b72a053bb66768ed5cc0f6d042277cc2bb8",
+        architecture="x86_64",
+        system="linux",
+        binaries=[
+            Bin(source="webp/bin/cwebp", target="cwebp"),
+        ],
+    ),
+    Dep(
+        "webp.tar.gz",
+        "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.5.0-rc1-mac-arm64.tar.gz",
+        "246acaba42a4e945811046ec382a7923cc1925b049cec45d2d1dda052e772afa",
+        architecture="aarch64",
+        system="darwin",
+        binaries=[
+            Bin(source="webp/bin/cwebp", target="cwebp"),
+        ],
+    ),
+]
+
+
+# See https://mcyoung.xyz/2025/04/14/target-triples we normalize to
+# the preferred LLVM name.
+def get_architecture():
+    architecture = platform.machine().lower()
+    match architecture:
+        case "arm64":
+            return "aarch64"
+        case "aarch64":
+            return "aarch64"
+        case "x86_64":
+            return "x86_64"
+        case "amd64":
+            return "x86_64"
+    raise ValueError(f"Unknown architecture {architecture}")
+
+
+# See https://mcyoung.xyz/2025/04/14/target-triples
+def get_system():
+    system = platform.system().lower()
+    if system in KNOWN_SYSTEMS:
+        return system
+    raise ValueError(f"Unknown system {system}")
+
+
+def hash_file(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def check_call(*args, **kwargs):
+    try:
+        return subprocess.check_call(args, **kwargs)
+    except subprocess.CalledProcessError as e:
+        cmd = " ".join(e.cmd)
+        print(f"Command: '{cmd}' exited with status '{e.returncode}'", file=sys.stderr)
+        sys.exit(1)
+
+
+def ensure_good_binary(dep, binary):
+    target_path = dep.get_binary_target_path(binary)
+    assert os.path.exists(target_path), f"Expected file at {target_path}"
+
+    if binary.text:
+        with open(target_path) as f:
+            assert f.read() == binary.text, f"{target_path} does not match {binary.text}"
+    else:
+        source_path = dep.get_binary_source_path(binary)
+        assert hash_file(source_path) == hash_file(target_path)
+    assert os.stat(target_path).st_mode & stat.S_IEXEC
+
+
+def ensure_good_dep(dep):
+    download_path = dep.download_path()
+    assert os.path.exists(download_path)
+    actual = hash_file(download_path)
+    expected = dep.hash
+    assert actual == expected, f"Expected hash for {dep} to be {expected} was {actual}"
+    if dep.is_archive():
+        assert os.path.exists(dep.target_path())
+    for binary in dep.get_binaries():
+        ensure_good_binary(dep, binary)
+
+
+def is_good_dep(dep):
+    try:
+        ensure_good_dep(dep)
+    except AssertionError as e:
+        return False
+    else:
+        return True
+
+
+def get_bad_deps():
+    """Return list of 'bad' deps. Deps are bad if they are missing or out-of-date."""
+    return [dep for dep in DEPS if not is_good_dep(dep)]
+
+
+def download_url(url, path):
+    return check_call("curl", "-L", "-#", "-o", path, url)
+
+
+def ensure_dir(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
+def remove_tree(path):
+    if not os.path.exists(path):
+        return
+    if os.path.isdir(path):
+        shutil.rmtree(path)
+    else:
+        os.remove(path)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--print-paths", action="store_true", help="Print paths that should be added to PATH")
+    parser.add_argument(
+        "--check", action="store_true", help="Don't download dependencies just check if they are up-to-date"
+    )
+    parser.add_argument(
+        "--local-architecture",
+        default=get_architecture(),
+        choices=KNOWN_ARCHITECTURES,
+        help="Override the current architecture (%(default)s)",
+    )
+    parser.add_argument(
+        "--local-system", default=get_system(), choices=KNOWN_SYSTEMS, help="Override the current system (%(default)s)"
+    )
+    args = parser.parse_args()
+
+    if args.print_paths:
+        print(os.path.join(DEPS_DIR, "all", "bin"))
+        print(os.path.join(DEPS_DIR, f"{args.local_architecture}-{args.local_system}", "bin"))
+        return 0
+
+    bad_deps = get_bad_deps()
+    bad_names = ", ".join(str(d) for d in bad_deps)
+
+    if not bad_deps:
+        # All clean so nothing to do.
+        return 0
+    elif args.check:
+        # We have some bad dependencies but the user passed --check so
+        # just list those.
+        assert bad_deps
+        argz = " ".join([a for a in sys.argv[1:] if a != "--check"])
+        print(f"\033[91mBuild deps ({bad_names}) are stale. Please run: scripts/deps {argz}\033[0m")
+        return 1
+    else:
+        print(f"The following deps are stale: {bad_names}")
+        for dep in bad_deps:
+            ensure_dir(dep.directory())
+            download_path = dep.download_path()
+            download_url(dep.url, download_path)
+
+            if dep.is_archive():
+                target_path = dep.target_path()
+                remove_tree(target_path)
+                ensure_dir(target_path)
+                check_call("tar", "-oxf", download_path, cwd=target_path)
+
+                # If the archive contains one root folder, rebase one level up moving all
+                # its sub files and folders inside target_path.
+                if os.path.isdir(target_path):
+                    children = os.listdir(target_path)
+                    if len(children) == 1:
+                        child = os.path.join(target_path, children[0])
+                        if os.path.isdir(child):
+                            for p in os.listdir(child):
+                                shutil.move(os.path.join(child, p), target_path)
+                        remove_tree(child)
+
+            for binary in dep.get_binaries():
+                ensure_dir(dep.bin_directory())
+                target_path = dep.get_binary_target_path(binary)
+                if binary.text:
+                    with open(target_path, "w") as f:
+                        f.write(binary.text)
+                else:
+                    source_path = dep.get_binary_source_path(binary)
+                    shutil.copyfile(source_path, target_path)
+                os.chmod(target_path, 0o755)
+
+            ensure_good_dep(dep)
+
+        # Now everything ought to be up-to-date. If not error to avoid
+        # situations where we are constantly re-downloading a dep.
+        assert not get_bad_deps()
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

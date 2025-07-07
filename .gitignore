@@ -35,6 +35,12 @@ android-analysis-report.json
 *_treemap_cli.json
 legacy/ios/sizeAnalysis/.build/
 
+# Codecov
+coverage.xml
+junit.xml
+
+# devenv cached downloads
+/.devenv
 # in case the user is installing devenv for the first time
 install-devenv.sh
 

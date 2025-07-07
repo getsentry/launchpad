@@ -38,6 +38,7 @@ class MachOSymbolSizes:
             )
 
         logger.info(f"Found {len(symbol_sizes)} symbol sizes")
+        symbol_sizes.sort(key=lambda x: x.size, reverse=True)
         return symbol_sizes
 
     def _is_measurable(self, sym: lief.MachO.Symbol) -> bool:
@@ -58,7 +59,12 @@ class MachOSymbolSizes:
             start = sym.value
 
             section = bin.section_from_virtual_address(start)
-            max_section_addr = section.virtual_address + section.size if section else None
+            if section:
+                max_section_addr = section.virtual_address + section.size
+            else:
+                max_section_addr = None
+                logger.warning(f"Symbol {sym.name} not found in any section, skipping")
+                continue
 
             # Only calculate the distance between symbols in the same section
             if max_section_addr:
@@ -71,4 +77,13 @@ class MachOSymbolSizes:
             else:
                 end = syms[idx + 1].value
 
-            yield (str(sym.name), section, start, end - start)
+            # Convert virtual addresses to file offsets to calculate the disk size
+            offset_end = bin.virtual_address_to_offset(end)
+            offset_start = bin.virtual_address_to_offset(start)
+            size = 0
+            if not isinstance(offset_end, lief.lief_errors) and not isinstance(offset_start, lief.lief_errors):
+                size = offset_end - offset_start
+            else:
+                logger.warning(f"Failed to calculate size for symbol {sym.name}")
+
+            yield (str(sym.name), section, start, size)

@@ -4,11 +4,11 @@ import time
 from pathlib import Path
 from typing import Any, TextIO, cast
 
-from ..analyzers.android import AndroidAnalyzer
-from ..analyzers.apple import AppleAppAnalyzer
-from ..artifacts.artifact import AndroidArtifact, AppleArtifact
-from ..artifacts.artifact_factory import ArtifactFactory
-from ..models.common import BaseAnalysisResults
+from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact
+from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.size.analyzers.android import AndroidAnalyzer
+from launchpad.size.analyzers.apple import AppleAppAnalyzer
+from launchpad.size.models.common import BaseAnalysisResults
 
 
 def do_size(path: Path, **flags: Any) -> BaseAnalysisResults:

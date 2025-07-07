@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from launchpad.utils.cwl_demangle import CwlDemangler, CwlDemangleResult
+from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
 
 def is_darwin() -> bool:
@@ -79,17 +79,31 @@ class TestCwlDemangler:
         """Test that chunked processing works with many names."""
         demangler = CwlDemangler(continue_on_error=True)
 
-        # Add more than 500 names to test chunking
-        for i in range(600):
-            demangler.add_name(f"_$s3foo3bar{i}Baz")
+        # Generate Swift mangled names by cycling through letters
+        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        symbols_needed = 600
+
+        for i in range(symbols_needed):
+            letter1 = letters[i % len(letters)]
+            letter2 = letters[(i // len(letters)) % len(letters)]
+            letter3 = letters[(i // (len(letters) * len(letters))) % len(letters)]
+            module_name = f"Test{letter1}{letter2}"
+            symbol_name = f"Symbol{letter3}{i % 100}"
+            mangled_name = f"_$s{len(module_name)}{module_name}{len(symbol_name)}{symbol_name}"
+            demangler.add_name(mangled_name)
 
         result = demangler.demangle_all()
 
-        # Should process all names
-        assert len(result) == 600
-        # All names should be processed (even if some fail, they should be in the result)
-        for i in range(600):
-            mangled_name = f"_$s3foo3bar{i}Baz"
+        assert len(result) == symbols_needed
+        for i in range(symbols_needed):
+            letter1 = letters[i % len(letters)]
+            letter2 = letters[(i // len(letters)) % len(letters)]
+            letter3 = letters[(i // (len(letters) * len(letters))) % len(letters)]
+
+            module_name = f"Test{letter1}{letter2}"
+            symbol_name = f"Symbol{letter3}{i % 100}"
+            mangled_name = f"_$s{len(module_name)}{module_name}{len(symbol_name)}{symbol_name}"
+
             assert mangled_name in result
             # Check that each result is a CwlDemangleResult instance
             assert isinstance(result[mangled_name], CwlDemangleResult)

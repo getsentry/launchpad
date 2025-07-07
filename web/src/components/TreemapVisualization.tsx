@@ -52,11 +52,9 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.CODE_SIGNATURE]: COLORS.pink,
   
   // Android Specific
-  [TreemapType.DEX_FILES]: COLORS.kiwi,
+  [TreemapType.DEX]: COLORS.kiwi,
   [TreemapType.NATIVE_LIBRARIES]: COLORS.kiwi,
   [TreemapType.COMPILED_RESOURCES]: COLORS.kiwi,
-  [TreemapType.DEX_CLASSES]: COLORS.kiwi,
-  [TreemapType.DEX_METHODS]: COLORS.kiwi,
   [TreemapType.NATIVE_CODE]: COLORS.kiwi,
   
   // Binary Analysis
