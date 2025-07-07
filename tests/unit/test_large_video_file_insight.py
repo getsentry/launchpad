@@ -14,6 +14,7 @@ class TestLargeVideoFileInsight:
     def test_generate_with_large_files(self):
         large_video_1 = FileInfo(
             path="assets/large_video.mp4",
+            absolute_path="assets/large_video.mp4",
             size=25 * 1024 * 1024,  # 25MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
@@ -21,6 +22,7 @@ class TestLargeVideoFileInsight:
         )
         large_video_2 = FileInfo(
             path="assets/large_video.mov",
+            absolute_path="assets/large_video.mov",
             size=18 * 1024 * 1024,  # 18MB
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
@@ -28,6 +30,7 @@ class TestLargeVideoFileInsight:
         )
         small_video = FileInfo(
             path="assets/small_video.mp4",
+            absolute_path="assets/small_video.mp4",
             size=5 * 1024 * 1024,  # 5MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
@@ -35,6 +38,7 @@ class TestLargeVideoFileInsight:
         )
         image_file = FileInfo(
             path="assets/large_image.png",
+            absolute_path="assets/large_image.png",
             size=15 * 1024 * 1024,  # 15MB (should be ignored)
             file_type="png",
             treemap_type=TreemapType.ASSETS,
@@ -69,6 +73,7 @@ class TestLargeVideoFileInsight:
     def test_generate_with_no_large_files(self):
         small_video_1 = FileInfo(
             path="assets/small_video1.mp4",
+            absolute_path="assets/small_video1.mp4",
             size=5 * 1024 * 1024,  # 5MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
@@ -76,6 +81,7 @@ class TestLargeVideoFileInsight:
         )
         small_video_2 = FileInfo(
             path="assets/small_video2.mov",
+            absolute_path="assets/small_video2.mov",
             size=8 * 1024 * 1024,  # 8MB
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
@@ -118,6 +124,7 @@ class TestLargeVideoFileInsight:
     def test_generate_with_exactly_threshold_size(self):
         threshold_file = FileInfo(
             path="assets/threshold_video.mp4",
+            absolute_path="assets/threshold_video.mp4",
             size=10 * 1024 * 1024,  # Exactly 10MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
@@ -143,6 +150,7 @@ class TestLargeVideoFileInsight:
     def test_generate_with_different_video_formats(self):
         mp4_file = FileInfo(
             path="assets/video.mp4",
+            absolute_path="assets/video.mp4",
             size=15 * 1024 * 1024,  # 15MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
@@ -150,6 +158,7 @@ class TestLargeVideoFileInsight:
         )
         mov_file = FileInfo(
             path="assets/video.mov",
+            absolute_path="assets/video.mov",
             size=12 * 1024 * 1024,  # 12MB
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
@@ -157,6 +166,7 @@ class TestLargeVideoFileInsight:
         )
         webm_file = FileInfo(
             path="assets/video.webm",
+            absolute_path="assets/video.webm",
             size=20 * 1024 * 1024,  # 20MB
             file_type="webm",
             treemap_type=TreemapType.ASSETS,
@@ -164,6 +174,7 @@ class TestLargeVideoFileInsight:
         )
         mkv_file = FileInfo(
             path="assets/video.mkv",
+            absolute_path="assets/video.mkv",
             size=8 * 1024 * 1024,  # 8MB (below threshold)
             file_type="mkv",
             treemap_type=TreemapType.ASSETS,
@@ -197,6 +208,7 @@ class TestLargeVideoFileInsight:
     def test_generate_ignores_non_video_files(self):
         video_file = FileInfo(
             path="assets/video.mp4",
+            absolute_path="assets/video.mp4",
             size=15 * 1024 * 1024,  # 15MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
@@ -204,6 +216,7 @@ class TestLargeVideoFileInsight:
         )
         image_file = FileInfo(
             path="assets/image.png",
+            absolute_path="assets/image.png",
             size=20 * 1024 * 1024,  # 20MB (should be ignored)
             file_type="png",
             treemap_type=TreemapType.ASSETS,
@@ -211,6 +224,7 @@ class TestLargeVideoFileInsight:
         )
         text_file = FileInfo(
             path="assets/data.txt",
+            absolute_path="assets/data.txt",
             size=25 * 1024 * 1024,  # 25MB (should be ignored)
             file_type="txt",
             treemap_type=TreemapType.ASSETS,
