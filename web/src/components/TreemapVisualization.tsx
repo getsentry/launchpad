@@ -20,13 +20,13 @@ const COLORS = {
   
   border: 'hsla(0, 0.00%, 0.00%, 0.8)',
   shadow: 'hsla(0, 0.00%, 0.00%, 0.4)',
-  purple: 'hsla(252, 100%, 66%, 0.8)',
-  indigo: 'hsla(265, 71%, 43%, 0.8)',
-  pink: 'hsla(324, 91%, 59%, 0.8)',
-  salmon: 'hsla(2, 95%, 71%, 0.8)',
-  orange: 'hsla(33, 100%, 61%, 0.8)',
-  kiwi: 'hsla(69, 95%, 41%, 0.8)',
-  cyan: 'hsla(192, 100%, 41%, 0.8)',
+  purple: 'hsla(252, 100%, 66%, 0.7)',
+  indigo: 'hsla(265, 71%, 43%, 0.7)',
+  pink: 'hsla(324, 91%, 59%, 0.7)',
+  salmon: 'hsla(2, 95%, 71%, 0.7)',
+  orange: 'hsla(33, 100%, 61%, 0.7)',
+  kiwi: 'hsla(69, 94.50%, 35.90%, 0.70)',
+  cyan: 'hsla(192, 100.00%, 49.80%, 0.70)',
 
   white: '#FFFFFF',
 } as const;
