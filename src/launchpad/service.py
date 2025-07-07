@@ -7,7 +7,7 @@ import os
 import signal
 import time
 
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
 from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
@@ -191,11 +191,14 @@ class LaunchpadService:
 
     async def health_check(self) -> HealthCheckResponse:
         """Get overall service health status."""
-        health_status: HealthCheckResponse = {
-            "service": "launchpad",
-            "status": "ok",
-            "components": {},
-        }
+        health_status = cast(
+            HealthCheckResponse,
+            {
+                "service": "launchpad",
+                "status": "ok",
+                "components": {},
+            },
+        )
 
         # Check Kafka health via healthcheck file
         kafka_health: Dict[str, Any] = {"status": "unknown"}
