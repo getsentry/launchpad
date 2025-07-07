@@ -13,11 +13,11 @@ const COLORS = {
   // Base colors
   gray900: '#0F0C13',
   gray700: '#1E1825',
-  gray500: '#2D2435', 
+  gray500: '#2D2435',
   gray300: '#4A3B57',
   gray200: '#ddd',
   gray100: 'hsla(270, 20%, 50%, 0.5)',
-  
+
   border: 'hsla(0, 0.00%, 0.00%, 0.8)',
   shadow: 'hsla(0, 0.00%, 0.00%, 0.4)',
   purple: 'hsla(252, 85%, 60%, 0.7)',
@@ -37,12 +37,12 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.EXECUTABLES]: COLORS.gray100,
   [TreemapType.RESOURCES]: COLORS.gray100,
   [TreemapType.ASSETS]: COLORS.gray100,
-  
+
   // Platform Assets
   [TreemapType.MANIFESTS]: COLORS.cyan,
   [TreemapType.SIGNATURES]: COLORS.cyan,
   [TreemapType.FONTS]: COLORS.cyan,
-  
+
   // iOS Specific
   [TreemapType.FRAMEWORKS]: COLORS.pink,
   [TreemapType.PLISTS]: COLORS.pink,
@@ -50,13 +50,12 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.MACHO]: COLORS.pink,
   [TreemapType.FUNCTION_STARTS]: COLORS.pink,
   [TreemapType.CODE_SIGNATURE]: COLORS.pink,
-  
+
   // Android Specific
   [TreemapType.DEX]: COLORS.kiwi,
   [TreemapType.NATIVE_LIBRARIES]: COLORS.kiwi,
   [TreemapType.COMPILED_RESOURCES]: COLORS.kiwi,
-  [TreemapType.NATIVE_CODE]: COLORS.kiwi,
-  
+
   // Binary Analysis
   [TreemapType.MODULES]: COLORS.cyan,
   [TreemapType.CLASSES]: COLORS.cyan,
@@ -64,7 +63,7 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.STRINGS]: COLORS.cyan,
   [TreemapType.SYMBOLS]: COLORS.cyan,
   [TreemapType.EXTERNAL_METHODS]: COLORS.cyan,
-  
+
   // Catch-all
   [TreemapType.OTHER]: COLORS.purple,
   [TreemapType.UNMAPPED]: COLORS.purple,
@@ -184,10 +183,11 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         animationDuration: 300,
         height: `100%`,
         width: `100%`,
+        top: '22',
 
         // Hide breadcrumb nav for now
         breadcrumb: {
-          show: false,
+          show: true, // Intentionally back on for debugging
           left: '0',
           top: '0',
           emphasis: {
@@ -206,7 +206,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
               fontSize: 12,
               fontWeight: 'bold',
               fontFamily: 'Rubik',
-              color: COLORS.gray500,
+              color: COLORS.white,
             },
           },
         },

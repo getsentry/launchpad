@@ -189,6 +189,14 @@ class BufferWrapper:
             shift += 7
         return result
 
+    def next_uleb128_size(self) -> int:
+        """Peek the size of the next LEB128 encoded integer."""
+        original_cursor = self.cursor
+        self.read_uleb128()
+        size = self.cursor - original_cursor
+        self.cursor = original_cursor
+        return size
+
     def read_leb128(self) -> int:
         """Read signed LEB128 integer."""
         result = 0
