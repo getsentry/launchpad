@@ -317,7 +317,6 @@ class AppleAppAnalyzer:
             # if file_type.lower() in {"png", "jpg", "jpeg", "webp"}:
             #     image_analysis_result = self._analyze_image(file_path, file_size)
 
-            # Check if this is a Hermes bytecode file
             if is_hermes_file(file_path):
                 logger.info(f"Detected Hermes bytecode file: {relative_path}")
                 file_type = "hermes"
