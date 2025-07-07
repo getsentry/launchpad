@@ -84,11 +84,7 @@ class HermesSizeReporter:
         }
 
         if not header:
-            return {
-                "sections": sections,
-                "unattributed": {"bytes": 0, "percentage": 0.0},
-                "file_size": file_size,
-            }
+            return HermesReport(sections=sections, unattributed={"bytes": 0, "percentage": 0.0}, file_size=file_size)
 
         # Header is always 128 bytes
         sections["Header"]["bytes"] = 128
@@ -160,16 +156,11 @@ class HermesSizeReporter:
             )
 
         unattributed_size = file_size - attributed_size
-        unattributed: SectionInfo = {
-            "bytes": unattributed_size,
-            "percentage": (unattributed_size / file_size * 100) if file_size > 0 else 0,
-        }
+        unattributed = SectionInfo(
+            bytes=unattributed_size, percentage=(unattributed_size / file_size * 100) if file_size > 0 else 0
+        )
 
-        return {
-            "sections": sections,
-            "unattributed": unattributed,
-            "file_size": file_size,
-        }
+        return HermesReport(sections=sections, unattributed=unattributed, file_size=file_size)
 
     def print_report(self) -> None:
         """Print formatted size report to console."""

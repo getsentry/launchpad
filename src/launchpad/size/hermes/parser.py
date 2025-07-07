@@ -250,8 +250,7 @@ class HermesBytecodeParser:
 
                 saved_position = self.buffer.cursor
                 self.buffer.seek(large_header_offset)
-                large_header = self._parse_large_function_header()
-                large_header = FunctionHeader(**{**large_header.__dict__, "header_size": header.header_size})
+                large_header = self._parse_large_function_header(header.header_size)
                 headers.append(large_header)
 
                 self.buffer.seek(saved_position)
@@ -309,7 +308,7 @@ class HermesBytecodeParser:
             overflowed=(byte & 0b00100000) != 0,
         )
 
-    def _parse_large_function_header(self) -> FunctionHeader:
+    def _parse_large_function_header(self, header_size: int) -> FunctionHeader:
         """Parse large function header."""
         starting_position = self.buffer.cursor
 
@@ -339,7 +338,7 @@ class HermesBytecodeParser:
             highest_write_cache_index=highest_write_cache_index,
             flags=flags,
             large_header_size=end_position - starting_position,
-            header_size=0,
+            header_size=header_size,
             type="large",
         )
 
