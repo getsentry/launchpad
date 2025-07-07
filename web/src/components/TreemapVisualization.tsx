@@ -104,9 +104,8 @@ function convertToEChartsData(
     itemStyle: {
       color: 'transparent',
       borderColor: color,
-      borderWidth: 4,
-      borderRadius: 2,
-      gapWidth: 4, // Base gap width
+      borderWidth: 6,
+      gapWidth: 2, // Base gap width
     },
     label: {
       fontSize: 12,
@@ -223,17 +222,32 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         levels: [
           {
             itemStyle: {
-              gapWidth: 4,
+              gapWidth: 6,
+              borderRadius: 6,
             },
             colorSaturation: [0.3, 0.5],
           },
           {
             itemStyle: {
+              borderRadius: 6,
             },
             colorSaturation: [0.4, 0.6],
           },
           {
             itemStyle: {
+              borderRadius: 4,
+            },
+            colorSaturation: [0.4, 0.6],
+          },
+          {
+            itemStyle: {
+              borderRadius: 2,
+            },
+            colorSaturation: [0.4, 0.6],
+          },
+          {
+            itemStyle: {
+              borderRadius: 1,
             },
             colorSaturation: [0.4, 0.6],
           },
