@@ -122,13 +122,11 @@ class AndroidAnalyzer:
             for file_path in extract_path.rglob("*"):
                 if file_path.is_file():
                     logger.debug("Processing file: %s", file_path)
-                    # Get relative path from extract directory
                     relative_path = str(file_path.relative_to(extract_path))
 
                     # Get file extension or use 'unknown' if none
                     file_type = file_path.suffix.lstrip(".").lower() or "unknown"
 
-                    # Check if this is a Hermes bytecode file
                     if is_hermes_file(file_path):
                         logger.info(f"Detected Hermes bytecode file: {relative_path}")
                         file_type = "hermes"
