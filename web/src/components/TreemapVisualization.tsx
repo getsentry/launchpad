@@ -16,32 +16,32 @@ const COLORS = {
   gray500: '#2D2435', 
   gray300: '#4A3B57',
   gray200: '#ddd',
-  gray100: '#E8E2ED',
+  gray100: 'hsla(270, 20%, 50%, 0.5)',
   
   border: 'hsla(0, 0.00%, 0.00%, 0.8)',
   shadow: 'hsla(0, 0.00%, 0.00%, 0.4)',
-  purple: 'hsla(252, 100%, 66%, 0.7)',
+  purple: 'hsla(252, 85%, 60%, 0.7)',
   indigo: 'hsla(265, 71%, 43%, 0.7)',
   pink: 'hsla(324, 91%, 59%, 0.7)',
   salmon: 'hsla(2, 95%, 71%, 0.7)',
   orange: 'hsla(33, 100%, 61%, 0.7)',
-  kiwi: 'hsla(69, 94.50%, 35.90%, 0.70)',
-  cyan: 'hsla(192, 100.00%, 49.80%, 0.70)',
+  kiwi: 'hsla(69, 80%, 40%, 0.60)',
+  cyan: 'hsla(192, 100%, 50%, 0.5)',
 
   white: '#FFFFFF',
 } as const;
 
 const TYPE_COLORS: Record<TreemapType, string> = {
   // File Types
-  [TreemapType.FILES]: COLORS.purple,
-  [TreemapType.EXECUTABLES]: COLORS.purple,
-  [TreemapType.RESOURCES]: COLORS.purple,
-  [TreemapType.ASSETS]: COLORS.purple,
+  [TreemapType.FILES]: COLORS.gray100,
+  [TreemapType.EXECUTABLES]: COLORS.gray100,
+  [TreemapType.RESOURCES]: COLORS.gray100,
+  [TreemapType.ASSETS]: COLORS.gray100,
   
   // Platform Assets
-  [TreemapType.MANIFESTS]: COLORS.indigo,
-  [TreemapType.SIGNATURES]: COLORS.indigo,
-  [TreemapType.FONTS]: COLORS.indigo,
+  [TreemapType.MANIFESTS]: COLORS.cyan,
+  [TreemapType.SIGNATURES]: COLORS.cyan,
+  [TreemapType.FONTS]: COLORS.cyan,
   
   // iOS Specific
   [TreemapType.FRAMEWORKS]: COLORS.pink,
@@ -55,6 +55,9 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.DEX_FILES]: COLORS.kiwi,
   [TreemapType.NATIVE_LIBRARIES]: COLORS.kiwi,
   [TreemapType.COMPILED_RESOURCES]: COLORS.kiwi,
+  [TreemapType.DEX_CLASSES]: COLORS.kiwi,
+  [TreemapType.DEX_METHODS]: COLORS.kiwi,
+  [TreemapType.NATIVE_CODE]: COLORS.kiwi,
   
   // Binary Analysis
   [TreemapType.MODULES]: COLORS.cyan,
@@ -65,12 +68,8 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.EXTERNAL_METHODS]: COLORS.cyan,
   
   // Catch-all
-  [TreemapType.OTHER]: COLORS.cyan,
-  [TreemapType.UNMAPPED]: COLORS.cyan,
-
-  [TreemapType.DEX_CLASSES]: COLORS.kiwi, // binary breakdown
-  [TreemapType.DEX_METHODS]: COLORS.kiwi, // binary breakdown
-  [TreemapType.NATIVE_CODE]: COLORS.kiwi,
+  [TreemapType.OTHER]: COLORS.purple,
+  [TreemapType.UNMAPPED]: COLORS.purple,
 };
 
 function formatBytes(bytes: number): string {
@@ -105,9 +104,9 @@ function convertToEChartsData(
     itemStyle: {
       color: 'transparent',
       borderColor: color,
-      borderWidth: 6,
+      borderWidth: 4,
       borderRadius: 2,
-      gapWidth: 2, // Base gap width
+      gapWidth: 4, // Base gap width
     },
     label: {
       fontSize: 12,
@@ -118,6 +117,9 @@ function convertToEChartsData(
       textShadowBlur: 2,
       textShadowColor: COLORS.shadow,
       textShadowOffsetY: .5,
+      borderColor: 'transparent',
+      borderWidth: .5,
+      backgroundColor: 'transparent',
     },
     upperLabel: {
       show: true,
@@ -221,7 +223,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         levels: [
           {
             itemStyle: {
-              gapWidth: 6,
+              gapWidth: 4,
             },
             colorSaturation: [0.3, 0.5],
           },
