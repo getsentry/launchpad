@@ -413,7 +413,7 @@ class HermesBytecodeParser:
                 string_bytes = storage[offset : offset + byte_length]
 
                 if entry.is_utf16:
-                    strings.append(string_bytes.hex())
+                    strings.append(string_bytes.decode('utf-16'))
                 else:
                     strings.append(string_bytes.decode("utf-8"))
             except Exception as e:
