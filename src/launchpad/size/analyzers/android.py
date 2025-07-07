@@ -25,7 +25,7 @@ from launchpad.size.models.android import (
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
-from launchpad.utils.file_utils import calculate_file_hash
+from launchpad.utils.file_utils import calculate_file_hash, is_hermes_file
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -121,17 +121,22 @@ class AndroidAnalyzer:
             for file_path in extract_path.rglob("*"):
                 if file_path.is_file():
                     logger.debug("Processing file: %s", file_path)
+                    # Get relative path from extract directory
+                    relative_path = str(file_path.relative_to(extract_path))
+
                     # Get file extension or use 'unknown' if none
                     file_type = file_path.suffix.lstrip(".").lower() or "unknown"
+
+                    # Check if this is a Hermes bytecode file
+                    if is_hermes_file(file_path):
+                        logger.info(f"Detected Hermes bytecode file: {relative_path}")
+                        file_type = "hermes"
 
                     # Some files have special overrides for the treemap type
                     if file_path.name in FILE_NAME_TO_TREEMAP_TYPE:
                         treemap_type = FILE_NAME_TO_TREEMAP_TYPE[file_path.name]
                     else:
                         treemap_type = FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.OTHER)
-
-                    # Get relative path from extract directory
-                    relative_path = str(file_path.relative_to(extract_path))
                     file_size = file_path.stat().st_size
                     total_size += file_size
 

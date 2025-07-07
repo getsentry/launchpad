@@ -16,6 +16,7 @@ from launchpad.utils.file_utils import calculate_aligned_install_size
 from launchpad.utils.logging import get_logger
 
 from .default_file_element_builder import DefaultFileElementBuilder
+from .hermes_element_builder import HermesElementBuilder
 from .macho_element_builder import MachOElementBuilder
 
 logger = get_logger(__name__)
@@ -89,6 +90,11 @@ class TreemapBuilder:
             case "dex":
                 element_builder = DexElementBuilder(
                     class_definitions=self.class_definitions,
+                    download_compression_ratio=self.download_compression_ratio,
+                    filesystem_block_size=self.filesystem_block_size,
+                )
+            case "hermes":
+                element_builder = HermesElementBuilder(
                     download_compression_ratio=self.download_compression_ratio,
                     filesystem_block_size=self.filesystem_block_size,
                 )

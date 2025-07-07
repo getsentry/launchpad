@@ -27,7 +27,7 @@ from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
-from launchpad.utils.file_utils import calculate_file_hash, get_file_size
+from launchpad.utils.file_utils import calculate_file_hash, get_file_size, is_hermes_file
 from launchpad.utils.logging import get_logger
 
 from ..models.apple import (
@@ -316,6 +316,11 @@ class AppleAppAnalyzer:
             # image_analysis_result = None
             # if file_type.lower() in {"png", "jpg", "jpeg", "webp"}:
             #     image_analysis_result = self._analyze_image(file_path, file_size)
+
+            # Check if this is a Hermes bytecode file
+            if is_hermes_file(file_path):
+                logger.info(f"Detected Hermes bytecode file: {relative_path}")
+                file_type = "hermes"
 
             children = []
             if file_type == "car":
