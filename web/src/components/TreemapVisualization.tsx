@@ -116,9 +116,6 @@ function convertToEChartsData(
       textShadowBlur: 2,
       textShadowColor: COLORS.shadow,
       textShadowOffsetY: .5,
-      borderColor: 'transparent',
-      borderWidth: .5,
-      backgroundColor: 'transparent',
     },
     upperLabel: {
       show: true,
