@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.utils.apple.cwl_demangle import CwlDemangler
@@ -11,8 +12,12 @@ logger = get_logger(__name__)
 class SwiftSymbolTypeGroup:
     """Represents a group of symbols with the same module/type."""
 
+    # E.g. HackerNews
     module: str
+    # E.g. AppViewModel
     type_name: str
+    # E.g. ['HackerNews', 'AppViewModel']
+    components: List[str]
     symbol_count: int
     symbols: list[SymbolSize]
 
@@ -76,8 +81,19 @@ class SwiftSymbolTypeAggregator:
         result: list[SwiftSymbolTypeGroup] = []
         for (module, type_name), symbols in type_groups.items():
             symbols.sort(key=lambda x: x.size, reverse=True)
+            demangled_result = demangled_results.get(symbols[0].mangled_name)
+            if demangled_result:
+                components = demangled_result.testName
+            else:
+                components = []
             result.append(
-                SwiftSymbolTypeGroup(module=module, type_name=type_name, symbol_count=len(symbols), symbols=symbols)
+                SwiftSymbolTypeGroup(
+                    module=module,
+                    type_name=type_name,
+                    components=components,
+                    symbol_count=len(symbols),
+                    symbols=symbols,
+                )
             )
 
         # Sort by total size (descending)
