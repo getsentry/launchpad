@@ -66,9 +66,7 @@ function App() {
           <div>
             {/* Treemap Visualization */}
             <div style={{
-              border: '1px solid rgb(209, 209, 209)',
-              overflow: 'hidden',
-              borderRadius: '6px'
+              overflow: 'hidden'
             }}>
               <TreemapVisualization data={treemapData} sizeMode={sizeMode} />
             </div>
