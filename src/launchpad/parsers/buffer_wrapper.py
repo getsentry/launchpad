@@ -17,10 +17,12 @@ class DebugLogContext:
     """Context manager for debug logging groups."""
 
     name: str
+    enabled: bool
 
     def __enter__(self) -> None:
         """Enter debug group."""
-        logger.debug("=== %s ===", self.name)
+        if self.enabled:
+            logger.debug("=== %s ===", self.name)
 
     def __exit__(
         self,
@@ -29,13 +31,14 @@ class DebugLogContext:
         exc_tb: types.TracebackType | None,
     ) -> None:
         """Exit debug group."""
-        logger.debug("=== End %s ===", self.name)
+        if self.enabled:
+            logger.debug("=== End %s ===", self.name)
 
 
 class BufferWrapper:
     """Wrapper for binary buffer parsing with cursor tracking and debugging."""
 
-    def __init__(self, buffer: bytes) -> None:
+    def __init__(self, buffer: bytes, debug: bool = False) -> None:
         """Initialize buffer wrapper.
 
         Args:
@@ -44,6 +47,7 @@ class BufferWrapper:
         """
         self.buffer = buffer
         self.cursor = 0
+        self.debug = debug
 
     def seek(self, offset: int) -> None:
         """Set cursor position.
@@ -70,68 +74,82 @@ class BufferWrapper:
         Returns:
             Debug context manager
         """
-        return DebugLogContext(name)
+        return DebugLogContext(name, self.debug)
 
     def read_u8(self) -> int:
         """Read unsigned 8-bit integer."""
         with self._debug_group("read_u8"):
-            logger.debug(f"cursor: {self.cursor}")
+            if self.debug:
+                logger.debug(f"cursor: {self.cursor}")
             val = self.buffer[self.cursor]
-            logger.debug(f"value: {val}")
+            if self.debug:
+                logger.debug(f"value: {val}")
             self.cursor += 1
             return val
 
     def read_s8(self) -> int:
         """Read signed 8-bit integer."""
         with self._debug_group("read_s8"):
-            logger.debug(f"cursor: {self.cursor}")
+            if self.debug:
+                logger.debug(f"cursor: {self.cursor}")
             val = struct.unpack("<b", self.buffer[self.cursor : self.cursor + 1])[0]
-            logger.debug(f"value: {val}")
+            if self.debug:
+                logger.debug(f"value: {val}")
             self.cursor += 1
             return val  # type: ignore[no-any-return]
 
     def read_u16(self) -> int:
         """Read unsigned 16-bit integer (little-endian)."""
         with self._debug_group("read_u16"):
-            logger.debug(f"cursor: {self.cursor}")
+            if self.debug:
+                logger.debug(f"cursor: {self.cursor}")
             val = struct.unpack("<H", self.buffer[self.cursor : self.cursor + 2])[0]
-            logger.debug(f"value: {val}")
+            if self.debug:
+                logger.debug(f"value: {val}")
             self.cursor += 2
             return val  # type: ignore[no-any-return]
 
     def read_s32(self) -> int:
         """Read signed 32-bit integer (little-endian)."""
         with self._debug_group("read_s32"):
-            logger.debug(f"cursor: {self.cursor}")
+            if self.debug:
+                logger.debug(f"cursor: {self.cursor}")
             val = struct.unpack("<i", self.buffer[self.cursor : self.cursor + 4])[0]
-            logger.debug(f"value: {val}")
+            if self.debug:
+                logger.debug(f"value: {val}")
             self.cursor += 4
             return val  # type: ignore[no-any-return]
 
     def read_u32(self) -> int:
         """Read unsigned 32-bit integer (little-endian)."""
         with self._debug_group("read_u32"):
-            logger.debug(f"cursor: {self.cursor}")
+            if self.debug:
+                logger.debug(f"cursor: {self.cursor}")
             val = struct.unpack("<I", self.buffer[self.cursor : self.cursor + 4])[0]
-            logger.debug(f"value: {val} 0x{val:08x}")
+            if self.debug:
+                logger.debug(f"value: {val} 0x{val:08x}")
             self.cursor += 4
             return val  # type: ignore[no-any-return]
 
     def read_u32be(self) -> int:
         """Read unsigned 32-bit integer (big-endian)."""
         with self._debug_group("read_u32be"):
-            logger.debug(f"cursor: {self.cursor}")
+            if self.debug:
+                logger.debug(f"cursor: {self.cursor}")
             val = struct.unpack(">I", self.buffer[self.cursor : self.cursor + 4])[0]
-            logger.debug(f"value: {val} 0x{val:08x}")
+            if self.debug:
+                logger.debug(f"value: {val} 0x{val:08x}")
             self.cursor += 4
             return val  # type: ignore[no-any-return]
 
     def read_u64(self) -> int:
         """Read unsigned 64-bit integer (little-endian)."""
         with self._debug_group("read_u64"):
-            logger.debug(f"cursor: {self.cursor}")
+            if self.debug:
+                logger.debug(f"cursor: {self.cursor}")
             val = struct.unpack("<Q", self.buffer[self.cursor : self.cursor + 8])[0]
-            logger.debug(f"value: {val} 0x{val:016x}")
+            if self.debug:
+                logger.debug(f"value: {val} 0x{val:016x}")
             self.cursor += 8
             return val  # type: ignore[no-any-return]
 
@@ -141,7 +159,8 @@ class BufferWrapper:
             length = self.read_u8()
             if length & 0x80:
                 length = ((length & 0x7F) << 8) | self.read_u8()
-            logger.debug(f"length: {length}")
+            if self.debug:
+                logger.debug(f"length: {length}")
             return length
 
     def read_length16(self) -> int:
@@ -150,7 +169,8 @@ class BufferWrapper:
             length = self.read_u16()
             if length & 0x8000:
                 length = ((length & 0x7FFF) << 16) | self.read_u16()
-            logger.debug(f"length: {length}")
+            if self.debug:
+                logger.debug(f"length: {length}")
             return length
 
     def read_uleb128(self) -> int:

@@ -9,6 +9,8 @@ from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.artifact import AndroidArtifact
 from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.hermes.reporter import HermesReport
+from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
@@ -75,12 +77,14 @@ class AndroidAnalyzer:
 
         file_analysis = self._get_file_analysis(apks)
         class_definitions = self._get_class_definitions(apks)
+        hermes_reports = self._get_hermes_reports(apks)
         treemap_builder = TreemapBuilder(
             app_name=app_info.name,
             platform="android",
             # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
             download_compression_ratio=1.0,
             class_definitions=class_definitions,
+            hermes_reports=hermes_reports,
         )
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
@@ -122,6 +126,8 @@ class AndroidAnalyzer:
             for file_path in extract_path.rglob("*"):
                 if file_path.is_file():
                     logger.debug("Processing file: %s", file_path)
+                    relative_path = str(file_path.relative_to(extract_path))
+
                     # Get file extension or use 'unknown' if none
                     file_type = file_path.suffix.lstrip(".").lower() or "unknown"
 
@@ -130,9 +136,6 @@ class AndroidAnalyzer:
                         treemap_type = FILE_NAME_TO_TREEMAP_TYPE[file_path.name]
                     else:
                         treemap_type = FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.OTHER)
-
-                    # Get relative path from extract directory
-                    relative_path = str(file_path.relative_to(extract_path))
                     file_size = file_path.stat().st_size
                     total_size += file_size
 
@@ -228,6 +231,18 @@ class AndroidAnalyzer:
         for apk in apks:
             class_definitions.extend(apk.get_class_definitions())
         return class_definitions
+
+    def _get_hermes_reports(self, apks: list[APK]) -> dict[str, HermesReport]:
+        """Get Hermes reports from all APKs and combine them."""
+        all_reports: dict[str, HermesReport] = {}
+        for apk in apks:
+            extract_path = apk.get_extract_path()
+            apk_reports = make_hermes_reports(extract_path)
+            for relative_path, report in apk_reports.items():
+                if relative_path in all_reports:
+                    logger.warning(f"Duplicate Hermes report key found: {relative_path}, overwriting")
+                all_reports[relative_path] = report
+        return all_reports
 
     def _get_images(self, apks: list[APK], file_analysis: FileAnalysis) -> dict[Path, FileInfo]:
         image_map = {}

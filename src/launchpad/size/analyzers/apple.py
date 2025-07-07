@@ -16,6 +16,7 @@ from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
+from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
     LargeAudioFileInsight,
@@ -125,11 +126,14 @@ class AppleAppAnalyzer:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
+            hermes_reports = make_hermes_reports(app_bundle_path)
+
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
                 download_compression_ratio=0.8,  # TODO: implement this
                 binary_analysis_map=binary_analysis_map,
+                hermes_reports=hermes_reports,
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
@@ -232,6 +236,8 @@ class AppleAppAnalyzer:
                 return "directory"
             elif "symbolic link" in file_type:
                 return "symlink"
+            elif "hermes javascript bytecode" in file_type:
+                return "hermes"
             elif "empty" in file_type:
                 return "empty"
 
