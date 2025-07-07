@@ -12,17 +12,17 @@ those versions in a single place.
 This script can be invoked from: devenv, make, and, manually.
 """
 
-from dataclasses import dataclass
-from typing import Optional, List
 import argparse
+import hashlib
 import os
 import platform
-import sys
-import hashlib
-import subprocess
 import shutil
 import stat
-import textwrap
+import subprocess
+import sys
+
+from dataclasses import dataclass
+from typing import List, Optional
 
 # Don't add non-standard library dependencies since this can be ran
 # prior to the venv getting set up.
@@ -67,7 +67,7 @@ class Dep:
             return f"{self.name}"
 
     def is_archive(self):
-        return self.name.endswith(".tar.gz")
+        return self.name.endswith(".tar.gz") or self.name.endswith(".zip")
 
     def is_machine_dependent(self):
         return self.architecture or self.system
@@ -103,6 +103,17 @@ BUNDLETOOL_SHIM = """#!/bin/sh
 java -jar $(dirname "$(realpath $0)")/bundletool.jar "$@"
 """
 
+APKSIGNER_SHIM = """#!/bin/sh
+java -jar $(dirname "$(realpath $0)")/apksigner.jar "$@"
+"""
+
+SDKMANAGER_SHIM = """#!/bin/sh
+$(dirname "$(realpath $0)")/sdkmanager "$@"
+"""
+
+# Android SDK build tools version - this should match what's commonly used
+ANDROID_BUILD_TOOLS_VERSION = "36.0.0"
+
 DEPS = [
     Dep(
         "bundletool.jar",
@@ -111,6 +122,26 @@ DEPS = [
         binaries=[
             Bin(source="bundletool.jar", target="bundletool.jar"),
             Bin(text=BUNDLETOOL_SHIM, target="bundletool"),
+        ],
+    ),
+    Dep(
+        "commandlinetools.zip",
+        "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip",
+        "7ec965280a073311c339e571cd5de778b9975026cfcbe79f2b1cdcb1e15317ee",
+        architecture="x86_64",
+        system="linux",
+        binaries=[
+            Bin(source="commandlinetools/bin/sdkmanager", target="sdkmanager"),
+        ],
+    ),
+    Dep(
+        "commandlinetools.zip",
+        "https://dl.google.com/android/repository/commandlinetools-mac-13114758_latest.zip",
+        "5673201e6f3869f418eeed3b5cb6c4be7401502bd0aae1b12a29d164d647a54e",
+        architecture="x86_64",
+        system="darwin",
+        binaries=[
+            Bin(source="commandlinetools/bin/sdkmanager", target="sdkmanager"),
         ],
     ),
     Dep(
@@ -231,6 +262,87 @@ def remove_tree(path):
         os.remove(path)
 
 
+def install_android_build_tools():
+    print("Installing Android build tools...")
+    sdkmanager_path = None
+    for dep in DEPS:
+        if "commandlinetools" in dep.name:
+            sdkmanager_path = dep.get_binary_target_path(
+                Bin(source="commandlinetools/bin/sdkmanager", target="sdkmanager")
+            )
+            if os.path.exists(sdkmanager_path):
+                break
+
+    if not sdkmanager_path or not os.path.exists(sdkmanager_path):
+        print("sdkmanager not found, skipping build tools installation")
+        return
+
+    # Set up Android SDK environment
+    android_home = os.path.join(DEPS_DIR, "android-sdk")
+    os.environ["ANDROID_HOME"] = android_home
+    os.environ["ANDROID_SDK_ROOT"] = android_home
+
+    # Create SDK directories
+    sdk_cmdline_tools = os.path.join(android_home, "cmdline-tools", "latest")
+    os.makedirs(sdk_cmdline_tools, exist_ok=True)
+
+    # Copy command line tools to the expected location
+    for dep in DEPS:
+        if "commandlinetools" in dep.name and dep.is_machine_dependent():
+            source_dir = dep.target_path()
+            if os.path.exists(source_dir):
+                # Copy commandlinetools contents to the expected location
+                cmdline_tools_source = os.path.join(source_dir)
+                if os.path.exists(cmdline_tools_source):
+                    for item in os.listdir(cmdline_tools_source):
+                        source_item = os.path.join(cmdline_tools_source, item)
+                        target_item = os.path.join(sdk_cmdline_tools, item)
+                        if os.path.exists(target_item):
+                            remove_tree(target_item)
+                        shutil.move(source_item, target_item)
+                break
+
+    # Install build tools using sdkmanager
+    print(f"Installing Android build tools {ANDROID_BUILD_TOOLS_VERSION}...")
+    try:
+        # Accept all licenses first
+        print("Accepting Android SDK licenses...")
+        subprocess.run(
+            f"yes | {os.path.join(sdk_cmdline_tools, 'bin', 'sdkmanager')} --licenses",
+            shell=True,
+            check=True,
+            timeout=60,
+        )
+
+        # Install build tools
+        check_call(
+            os.path.join(sdk_cmdline_tools, "bin", "sdkmanager"),
+            f"build-tools;{ANDROID_BUILD_TOOLS_VERSION}",
+            "--sdk_root=" + android_home,
+        )
+
+        # Copy apksigner to the bin directory
+        apksigner_source = os.path.join(android_home, "build-tools", ANDROID_BUILD_TOOLS_VERSION, "apksigner.jar")
+        if os.path.exists(apksigner_source):
+            for dep in DEPS:
+                if "commandlinetools" in dep.name and dep.is_machine_dependent():
+                    bin_dir = dep.bin_directory()
+                    apksigner_target = os.path.join(bin_dir, "apksigner.jar")
+                    shutil.copy2(apksigner_source, apksigner_target)
+
+                    # Create apksigner wrapper
+                    apksigner_wrapper = os.path.join(bin_dir, "apksigner")
+                    with open(apksigner_wrapper, "w") as f:
+                        f.write(APKSIGNER_SHIM)
+                    os.chmod(apksigner_wrapper, 0o755)
+                    break
+            print("apksigner installed successfully")
+        else:
+            print(f"apksigner not found at {apksigner_source}")
+    except Exception as e:
+        print(f"Failed to install build tools: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--print-paths", action="store_true", help="Print paths that should be added to PATH")
@@ -277,7 +389,11 @@ def main():
                 target_path = dep.target_path()
                 remove_tree(target_path)
                 ensure_dir(target_path)
-                check_call("tar", "-oxf", download_path, cwd=target_path)
+
+                if dep.name.endswith(".zip"):
+                    check_call("unzip", "-q", download_path, "-d", target_path)
+                else:
+                    check_call("tar", "-oxf", download_path, cwd=target_path)
 
                 # If the archive contains one root folder, rebase one level up moving all
                 # its sub files and folders inside target_path.
@@ -302,6 +418,9 @@ def main():
                 os.chmod(target_path, 0o755)
 
             ensure_good_dep(dep)
+
+        # Install Android build tools if command line tools were downloaded
+        install_android_build_tools()
 
         # Now everything ought to be up-to-date. If not error to avoid
         # situations where we are constantly re-downloading a dep.
