@@ -58,7 +58,6 @@ class HermesElementBuilder(TreemapElementBuilder):
 
     def _build_hermes_treemap(
         self,
-        *,
         name: str,
         file_path: str,
         report: HermesReport,
