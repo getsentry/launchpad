@@ -10,66 +10,64 @@ interface TreemapVisualizationProps {
 
 // Sentry color constants, see: https://develop.sentry.dev/frontend/component-library/
 const COLORS = {
-  // Grays
-  gray500: '#2B2233',
-  gray400: '#3E3446',
-  gray300: '#71637E',
-  gray200: '#E0DCE5',
-  gray100: '#F0ECF3',
+  // Base colors
+  gray900: '#0F0C13',
+  gray700: '#1E1825',
+  gray500: '#2D2435', 
+  gray300: '#4A3B57',
+  gray200: '#ddd',
+  gray100: 'hsla(270, 20%, 50%, 0.5)',
+  
+  border: 'hsla(0, 0.00%, 0.00%, 0.8)',
+  shadow: 'hsla(0, 0.00%, 0.00%, 0.4)',
+  purple: 'hsla(252, 85%, 60%, 0.7)',
+  indigo: 'hsla(265, 71%, 43%, 0.7)',
+  pink: 'hsla(324, 91%, 59%, 0.7)',
+  salmon: 'hsla(2, 95%, 71%, 0.7)',
+  orange: 'hsla(33, 100%, 61%, 0.7)',
+  kiwi: 'hsla(69, 80%, 40%, 0.60)',
+  cyan: 'hsla(192, 100%, 50%, 0.5)',
 
-  // Purples
-  purple400: '#6559C5',
-  purple300: '#6C5FC7',
-
-  // Blues
-  blue400: '#2562D4',
-  blue300: '#3C74DD',
-
-  // Greens
-  green400: '#207964',
-  green300: '#2BA185',
-
-  // Yellows
-  yellow400: '#856C00',
-  yellow300: '#EBC000',
-
-  // Reds
-  red400: '#CF2126',
-  red300: '#F55459',
-
-  // Pinks
-  pink400: '#D1056B',
-  pink300: '#F14499',
-
-  // Whites
   white: '#FFFFFF',
 } as const;
 
 const TYPE_COLORS: Record<TreemapType, string> = {
-  [TreemapType.FILES]: COLORS.blue400,
-  [TreemapType.EXECUTABLES]: COLORS.purple400, // binary breakdown
-  [TreemapType.RESOURCES]: COLORS.blue300, // asset catalog
-  [TreemapType.ASSETS]: COLORS.blue400, // asset catalog
-  [TreemapType.FONTS]: COLORS.green300,
-  [TreemapType.MANIFESTS]: COLORS.purple400,
-  [TreemapType.SIGNATURES]: COLORS.blue300,
-  [TreemapType.FRAMEWORKS]: COLORS.red300,
-  [TreemapType.PLISTS]: COLORS.gray400,
-  [TreemapType.DEX]: COLORS.pink400,
-  [TreemapType.NATIVE_LIBRARIES]: COLORS.purple400,
-  [TreemapType.COMPILED_RESOURCES]: COLORS.blue300, // asset catalog
-  [TreemapType.MODULES]: COLORS.blue300,
-  [TreemapType.CLASSES]: COLORS.purple300, // binary breakdown
-  [TreemapType.METHODS]: COLORS.purple400, // binary breakdown
-  [TreemapType.STRINGS]: COLORS.purple300, // binary breakdown
-  [TreemapType.SYMBOLS]: COLORS.purple400, // binary breakdown
-  [TreemapType.DYLD]: COLORS.pink300,
-  [TreemapType.MACHO]: COLORS.purple300, // binary breakdown
-  [TreemapType.FUNCTION_STARTS]: COLORS.purple300, // binary breakdown
-  [TreemapType.CODE_SIGNATURE]: COLORS.blue400,
-  [TreemapType.EXTERNAL_METHODS]: COLORS.pink300,
-  [TreemapType.OTHER]: COLORS.gray300,
-  [TreemapType.UNMAPPED]: COLORS.gray200,
+  // File Types
+  [TreemapType.FILES]: COLORS.gray100,
+  [TreemapType.EXECUTABLES]: COLORS.gray100,
+  [TreemapType.RESOURCES]: COLORS.gray100,
+  [TreemapType.ASSETS]: COLORS.gray100,
+  
+  // Platform Assets
+  [TreemapType.MANIFESTS]: COLORS.cyan,
+  [TreemapType.SIGNATURES]: COLORS.cyan,
+  [TreemapType.FONTS]: COLORS.cyan,
+  
+  // iOS Specific
+  [TreemapType.FRAMEWORKS]: COLORS.pink,
+  [TreemapType.PLISTS]: COLORS.pink,
+  [TreemapType.DYLD]: COLORS.pink,
+  [TreemapType.MACHO]: COLORS.pink,
+  [TreemapType.FUNCTION_STARTS]: COLORS.pink,
+  [TreemapType.CODE_SIGNATURE]: COLORS.pink,
+  
+  // Android Specific
+  [TreemapType.DEX]: COLORS.kiwi,
+  [TreemapType.NATIVE_LIBRARIES]: COLORS.kiwi,
+  [TreemapType.COMPILED_RESOURCES]: COLORS.kiwi,
+  [TreemapType.NATIVE_CODE]: COLORS.kiwi,
+  
+  // Binary Analysis
+  [TreemapType.MODULES]: COLORS.cyan,
+  [TreemapType.CLASSES]: COLORS.cyan,
+  [TreemapType.METHODS]: COLORS.cyan,
+  [TreemapType.STRINGS]: COLORS.cyan,
+  [TreemapType.SYMBOLS]: COLORS.cyan,
+  [TreemapType.EXTERNAL_METHODS]: COLORS.cyan,
+  
+  // Catch-all
+  [TreemapType.OTHER]: COLORS.purple,
+  [TreemapType.UNMAPPED]: COLORS.purple,
 };
 
 function formatBytes(bytes: number): string {
@@ -102,16 +100,34 @@ function convertToEChartsData(
     name: element.name,
     value: totalSize,
     itemStyle: {
-      color: color,
+      color: 'transparent',
+      borderColor: color,
+      borderWidth: 6,
+      gapWidth: 2, // Base gap width
     },
     label: {
-      show: true,
-      position: 'inside',
+      fontSize: 12,
+      fontWeight: 'bold',
+      color: COLORS.white,
+      fontFamily: 'Rubik',
+      padding: 0,
+      textShadowBlur: 2,
+      textShadowColor: COLORS.shadow,
+      textShadowOffsetY: .5,
     },
     upperLabel: {
       show: true,
-      backgroundColor: color,
       color: COLORS.white,
+      backgroundColor: 'transparent',
+      height: 24,
+      fontSize: 12,
+      fontWeight: 'bold',
+      borderRadius: [2, 2, 0, 0],
+      fontFamily: 'Rubik',
+      padding: 0,
+      textShadowBlur: 2,
+      textShadowColor: COLORS.shadow,
+      textShadowOffsetY: .5,
     },
   };
 
@@ -130,36 +146,32 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
   const totalSize = sizeMode === 'install' ? data.total_install_size : data.total_download_size;
 
   const option = {
-    title: {
-      text: `${data.platform.toUpperCase()} Size Analysis - ${sizeMode === 'install' ? 'Install' : 'Download'} Size`,
-      subtext: `Total: ${formatBytes(totalSize)} | Files: ${data.file_count}`,
-      left: 'center',
-      textStyle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.gray500,
-      },
-      subtextStyle: {
-        fontSize: 14,
-        color: COLORS.gray400,
-      },
-    },
     tooltip: {
       trigger: 'item',
+      borderWidth: 0,
       backgroundColor: COLORS.white,
-      borderColor: COLORS.gray200,
-      borderWidth: 1,
+      hideDelay: 0,
+      transitionDuration: 0,
+      padding: 12,
+      extraCssText: 'border-radius: 6px;',
       textStyle: {
         color: COLORS.gray500,
+        fontFamily: 'Rubik',
       },
       formatter: function (info: { name: string; value: number }) {
         const value = info.value;
         const percent = ((value / totalSize) * 100).toFixed(2);
         return `
-          <div style="padding: 8px;">
-            <strong>${info.name}</strong><br/>
-            Size: ${formatBytes(value)}<br/>
-            Percentage: ${percent}%
+          <div>
+            <div style="display: flex; align-items: center; font-size: 12px; font-family: Rubik; font-weight: bold; line-height: 1;">
+              <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${info.data?.itemStyle?.borderColor || COLORS.gray300}; margin-right: 4px;"></div>
+              <span style="color: ${COLORS.gray300}">Category Name</span>
+            </div>
+            <div style="font-family: Rubik; line-height: 1;">
+              <p style="font-size: 14px; font-weight: bold; margin-bottom: -2px;">${info.name}</p>
+              <p style="font-size: 12px; margin-bottom: -4px;">Size: ${formatBytes(value)}</p>
+              <p style="font-size: 12px;">Percentage: ${percent}%</p>
+            </div>
           </div>
         `;
       },
@@ -168,110 +180,87 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       {
         name: 'Size Analysis',
         type: 'treemap',
+        animationEasing: 'quarticOut',
+        animationDuration: 300,
+        height: `100%`,
+        width: `100%`,
+
+        // Hide breadcrumb nav for now
+        breadcrumb: {
+          show: false,
+          left: '0',
+          top: '0',
+          emphasis: {
+            itemStyle: {
+              color: COLORS.white,
+              textStyle: {
+                fontSize: 12,
+                fontWeight: 'bold',
+                fontFamily: 'Rubik',
+                color: COLORS.gray500,
+              },
+            },
+          },
+          itemStyle: {
+            textStyle: {
+              fontSize: 12,
+              fontWeight: 'bold',
+              fontFamily: 'Rubik',
+              color: COLORS.gray500,
+            },
+          },
+        },
+        zoomToNodeRatio: 0.1,
         visibleMin: 300,
-        label: {
-          show: true,
-          formatter: '{b}',
-          position: 'inside',
-          fontSize: 12,
-          fontWeight: 'bold',
-          color: COLORS.white,
-        },
-        itemStyle: {
-          borderColor: COLORS.white,
-          borderWidth: 1,
-        },
+
+        // Customize styles for each level
         levels: [
           {
-            // Root level - minimal styling
             itemStyle: {
-              borderColor: COLORS.gray200,
-              borderWidth: 0,
-              gapWidth: 1,
+              gapWidth: 6,
+              borderRadius: 6,
             },
-            upperLabel: {
-              show: true,
-              height: 24,
-              fontSize: 13,
-              fontWeight: 'bold',
-              color: COLORS.white,
-              backgroundColor: COLORS.red300,
-              borderRadius: 3,
-              padding: [4, 8],
-            },
-            label: {
-              show: true,
-              position: 'inside',
-              fontSize: 12,
-              fontWeight: 'bold',
-              color: COLORS.white,
-            },
+            colorSaturation: [0.3, 0.5],
           },
           {
-            // First level - category groups
             itemStyle: {
-              borderColor: COLORS.gray300,
-              borderWidth: 1,
-              gapWidth: 1,
+              borderRadius: 6,
             },
-            upperLabel: {
-              show: true,
-              height: 20,
-              fontSize: 12,
-              fontWeight: 'bold',
-              color: COLORS.white,
-              backgroundColor: COLORS.red300,
-              borderRadius: 2,
-              padding: [3, 6],
-            },
-            label: {
-              show: true,
-              position: 'inside',
-              fontSize: 11,
-              fontWeight: 'bold',
-              color: COLORS.white,
-            },
-            emphasis: {
-              itemStyle: {
-                borderColor: COLORS.gray400,
-                borderWidth: 2,
-              },
-            },
+            colorSaturation: [0.4, 0.6],
           },
           {
-            // Second level - individual files
             itemStyle: {
-              borderColor: COLORS.gray100,
-              borderWidth: 1,
-              gapWidth: 1,
+              borderRadius: 4,
             },
-            upperLabel: {
-              show: true,
-              height: 18,
-              fontSize: 10,
-              fontWeight: 'normal',
-              color: COLORS.white,
-              backgroundColor: COLORS.red300,
+            colorSaturation: [0.4, 0.6],
+          },
+          {
+            itemStyle: {
               borderRadius: 2,
-              padding: [2, 4],
             },
-            label: {
-              show: true,
-              position: 'inside',
-              fontSize: 10,
-              color: COLORS.white,
+            colorSaturation: [0.4, 0.6],
+          },
+          {
+            itemStyle: {
+              borderRadius: 1,
             },
-            emphasis: {
-              itemStyle: {
-                borderColor: COLORS.gray300,
-                borderWidth: 2,
-              },
-            },
+            colorSaturation: [0.4, 0.6],
           },
         ],
         data: chartData.children || [chartData],
       },
     ],
+    visualMap: {
+      show: false,
+      type: 'continuous',
+      dimension: 1,
+      min: 0,
+      max: 1000, // calculate or hardcode
+      inRange: {
+        colorSaturation: [0.1, 1]
+      },
+      seriesIndex: 0
+    }
   };
 
   return (
@@ -279,7 +268,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       <ReactECharts
         option={option}
         style={{ height: '100%', width: '100%' }}
-        opts={{ renderer: 'svg' }}
+        opts={{ renderer: 'canvas' }}
       />
     </div>
   );
