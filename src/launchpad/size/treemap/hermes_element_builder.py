@@ -31,7 +31,7 @@ class HermesElementBuilder(TreemapElementBuilder):
     def build_element(self, file_info: FileInfo, display_name: str) -> TreemapElement | None:
         """Build a TreemapElement for a Hermes bytecode file."""
         try:
-            file_path = Path(file_info.path)
+            file_path = Path(file_info.absolute_path)
             data = file_path.read_bytes()
 
             if not HermesBytecodeParser.is_hermes_file(data):

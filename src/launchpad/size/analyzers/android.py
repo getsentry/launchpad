@@ -150,6 +150,7 @@ class AndroidAnalyzer:
                             file_hash = calculate_file_hash(file_path, algorithm="md5")
                             merged_dex_info = FileInfo(
                                 path="classes.dex",
+                                absolute_path=str(file_path),
                                 size=file_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
@@ -169,6 +170,7 @@ class AndroidAnalyzer:
                             # Update the merged DEX file info
                             merged_dex_info = FileInfo(
                                 path="classes.dex",
+                                absolute_path=str(file_path),
                                 size=merged_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
@@ -195,6 +197,7 @@ class AndroidAnalyzer:
                         # Create new FileInfo with merged size
                         merged_file_info = FileInfo(
                             path=relative_path,
+                            absolute_path=str(file_path),
                             size=merged_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
@@ -207,6 +210,7 @@ class AndroidAnalyzer:
                         # First time seeing this path
                         file_info = FileInfo(
                             path=relative_path,
+                            absolute_path=str(file_path),
                             size=file_size,
                             file_type=file_type,
                             treemap_type=treemap_type,

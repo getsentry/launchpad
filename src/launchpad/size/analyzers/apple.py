@@ -341,6 +341,7 @@ class AppleAppAnalyzer:
 
             file_info = FileInfo(
                 path=str(relative_path),
+                absolute_path=str(file_path),
                 size=file_size,
                 file_type=file_type or "unknown",
                 hash_md5=file_hash,
