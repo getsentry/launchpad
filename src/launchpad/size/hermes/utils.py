@@ -16,6 +16,7 @@ def make_hermes_reports(file_path: Path) -> Dict[str, HermesReport]:
     for hermes_file in hermes_files:
         report = make_hermes_report(hermes_file)
         if report is not None:
+            # TODO: Add absolute path support to FileInfo so we can use the absolute path here
             reports[str(hermes_file.relative_to(file_path))] = report
     return reports
 

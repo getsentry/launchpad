@@ -9,6 +9,7 @@ from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.artifact import AndroidArtifact
 from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
 from launchpad.size.insights.common import (
@@ -76,8 +77,7 @@ class AndroidAnalyzer:
 
         file_analysis = self._get_file_analysis(apks)
         class_definitions = self._get_class_definitions(apks)
-        extract_path = artifact.get_extract_path()  # type: ignore
-        hermes_reports = make_hermes_reports(extract_path)  # type: ignore
+        hermes_reports = self._get_hermes_reports(apks)
         treemap_builder = TreemapBuilder(
             app_name=app_info.name,
             platform="android",
@@ -231,6 +231,18 @@ class AndroidAnalyzer:
         for apk in apks:
             class_definitions.extend(apk.get_class_definitions())
         return class_definitions
+
+    def _get_hermes_reports(self, apks: list[APK]) -> dict[str, HermesReport]:
+        """Get Hermes reports from all APKs and combine them."""
+        all_reports: dict[str, HermesReport] = {}
+        for apk in apks:
+            extract_path = apk.get_extract_path()
+            apk_reports = make_hermes_reports(extract_path)
+            for relative_path, report in apk_reports.items():
+                if relative_path in all_reports:
+                    logger.warning(f"Duplicate Hermes report key found: {relative_path}, overwriting")
+                all_reports[relative_path] = report
+        return all_reports
 
     def _get_images(self, apks: list[APK], file_analysis: FileAnalysis) -> dict[Path, FileInfo]:
         image_map = {}
