@@ -38,6 +38,12 @@ export enum TreemapType {
   // Generic categories
   OTHER = "other",
   UNMAPPED = "unmapped",
+
+    // Android binary categories
+    DEX_CLASSES = "dex_classes",
+    DEX_METHODS = "dex_methods",
+    NATIVE_CODE = "native_code",
+  
 }
 
 export interface TreemapElement {

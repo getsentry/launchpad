@@ -18,15 +18,15 @@ const COLORS = {
   gray200: '#ddd',
   gray100: '#E8E2ED',
   
-  border: 'rgba(0, 0, 0, 0.8)',
-
-  purple: 'rgba(117, 83, 255, 0.7))',
-  indigo: 'rgba(90, 32, 188, 0.56)',
-  pink: 'rgba(245, 58, 159, 0.5)',
-  salmon: 'rgba(252, 116, 111, 0.5)',
-  orange: 'rgba(255, 152, 56, 0.5)',
-  kiwi: 'rgba(186, 206, 5, 0.5)',
-  cyan: 'rgba(0, 169, 210, 0.5)',
+  border: 'hsla(0, 0.00%, 0.00%, 0.8)',
+  shadow: 'hsla(0, 0.00%, 0.00%, 0.4)',
+  purple: 'hsla(252, 100%, 66%, 0.8)',
+  indigo: 'hsla(265, 71%, 43%, 0.8)',
+  pink: 'hsla(324, 91%, 59%, 0.8)',
+  salmon: 'hsla(2, 95%, 71%, 0.8)',
+  orange: 'hsla(33, 100%, 61%, 0.8)',
+  kiwi: 'hsla(69, 95%, 41%, 0.8)',
+  cyan: 'hsla(192, 100%, 41%, 0.8)',
 
   white: '#FFFFFF',
 } as const;
@@ -67,6 +67,10 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   // Catch-all
   [TreemapType.OTHER]: COLORS.cyan,
   [TreemapType.UNMAPPED]: COLORS.cyan,
+
+  [TreemapType.DEX_CLASSES]: COLORS.kiwi, // binary breakdown
+  [TreemapType.DEX_METHODS]: COLORS.kiwi, // binary breakdown
+  [TreemapType.NATIVE_CODE]: COLORS.kiwi,
 };
 
 function formatBytes(bytes: number): string {
@@ -99,27 +103,35 @@ function convertToEChartsData(
     name: element.name,
     value: totalSize,
     itemStyle: {
+      color: 'transparent',
       borderColor: color,
-      borderRadius: 4
+      borderWidth: 6,
+      borderRadius: 2,
+      gapWidth: 2, // Base gap width
     },
     label: {
-      show: true,
-      position: 'inside',
-      formatter: '{b}',
       fontSize: 12,
       fontWeight: 'bold',
       color: COLORS.white,
       fontFamily: 'Rubik',
+      padding: 0,
+      textShadowBlur: 2,
+      textShadowColor: COLORS.shadow,
+      textShadowOffsetY: .5,
     },
     upperLabel: {
       show: true,
       color: COLORS.white,
+      backgroundColor: 'transparent',
       height: 24,
       fontSize: 12,
       fontWeight: 'bold',
       borderRadius: [2, 2, 0, 0],
-      padding: [2, 2],
       fontFamily: 'Rubik',
+      padding: 0,
+      textShadowBlur: 2,
+      textShadowColor: COLORS.shadow,
+      textShadowOffsetY: .5,
     },
   };
 
@@ -142,8 +154,6 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       trigger: 'item',
       borderWidth: 0,
       backgroundColor: COLORS.white,
-      borderColor: COLORS.gray200,
-      borderWidth: 1,
       hideDelay: 0,
       transitionDuration: 0,
       padding: 12,
@@ -159,7 +169,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
           <div>
             <div style="display: flex; align-items: center; font-size: 12px; font-family: Rubik; font-weight: bold; line-height: 1;">
               <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${info.data?.itemStyle?.borderColor || COLORS.gray300}; margin-right: 4px;"></div>
-              <span style="color: ${COLORS.gray300}">File Type</span>
+              <span style="color: ${COLORS.gray300}">Category Name</span>
             </div>
             <div style="font-family: Rubik; line-height: 1;">
               <p style="font-size: 14px; font-weight: bold; margin-bottom: -2px;">${info.name}</p>
@@ -178,6 +188,8 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         animationDuration: 300,
         height: `100%`,
         width: `100%`,
+
+        // Hide breadcrumb nav for now
         breadcrumb: {
           show: false,
           left: '0',
@@ -204,47 +216,40 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         },
         zoomToNodeRatio: 0.1,
         visibleMin: 300,
-        itemStyle: {
-          borderWidth: 6,
-        },
+
+        // Customize styles for each level
         levels: [
           {
             itemStyle: {
-              gapWidth: 4,
-            }
-          },
-          {
-            colorSaturation: [0.2, 0.4],
-            itemStyle: {
-              gapWidth: 2
-            }
-          },
-          {
+              gapWidth: 6,
+            },
             colorSaturation: [0.3, 0.5],
-            itemStyle: {
-              borderColorSaturation: 0.6,
-              gapWidth: 2
-            }
           },
           {
-            colorSaturation: [0.3, 0.5],
             itemStyle: {
-              borderColorSaturation: 0.6,
-              gapWidth: 1
-            }
+            },
+            colorSaturation: [0.4, 0.6],
           },
           {
-            colorSaturation: [0.3, 0.5],
             itemStyle: {
-              borderColor: COLORS.white,
-              borderColorSaturation: 0.6,
-              gapWidth: 1
-            }
-          }
+            },
+            colorSaturation: [0.4, 0.6],
+          },
         ],
         data: chartData.children || [chartData],
       },
     ],
+    visualMap: {
+      show: false,
+      type: 'continuous',
+      dimension: 1,
+      min: 0,
+      max: 1000, // calculate or hardcode
+      inRange: {
+        colorSaturation: [0.1, 1]
+      },
+      seriesIndex: 0
+    }
   };
 
   return (
