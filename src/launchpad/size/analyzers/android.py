@@ -41,6 +41,7 @@ class AndroidAnalyzer:
     def __init__(
         self,
         skip_insights: bool = False,
+        **kwargs,
     ) -> None:
         """Args:
         skip_insights: Skip insights generation for faster analysis
