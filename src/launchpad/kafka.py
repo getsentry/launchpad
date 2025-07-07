@@ -29,6 +29,47 @@ logger = get_logger(__name__)
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
+def create_kafka_consumer(
+    message_handler: Callable[[PreprodArtifactEvents], Any],
+) -> StreamProcessor[KafkaPayload]:
+    """Create and configure a Kafka consumer using environment variables."""
+    # Get configuration from environment
+    config = get_kafka_config()
+
+    # Create Arroyo consumer
+    # TODO: When we're closer to production, we'll need a way to disable this logic as
+    # topics, partitions and kafka clusters are configured through getsentry/ops.
+    # We will work with the streaming teams to get this set up.
+    consumer_config = {
+        "bootstrap.servers": config["bootstrap_servers"],
+        "group.id": config["group_id"],
+        "auto.offset.reset": "latest",
+        "enable.auto.commit": False,
+        "enable.auto.offset.store": False,
+    }
+
+    arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
+
+    # Create strategy factory
+    strategy_factory = LaunchpadStrategyFactory(
+        message_handler=message_handler,
+        concurrency=config["concurrency"],
+        max_pending_futures=config["max_pending_futures"],
+        healthcheck_file=config.get("healthcheck_file"),
+    )
+
+    # Create and return stream processor
+    topic_name = config.get("topics")
+    if not topic_name:
+        raise ValueError("KAFKA_TOPICS environment variable is required")
+    topic = Topic(topic_name)
+    return StreamProcessor(
+        consumer=arroyo_consumer,
+        topic=topic,
+        processor_factory=strategy_factory,
+    )
+
+
 class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     """Factory for creating the processing strategy chain."""
 
@@ -72,44 +113,6 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
             max_pending_futures=self.max_pending_futures,
             next_step=next_step,
         )
-
-
-def create_kafka_consumer(
-    message_handler: Callable[[PreprodArtifactEvents], Any],
-) -> StreamProcessor[KafkaPayload]:
-    """Create and configure a Kafka consumer using environment variables."""
-    # Get configuration from environment
-    config = get_kafka_config()
-
-    # Create Arroyo consumer
-    # TODO: When we're closer to production, we'll need a way to disable this logic as
-    # topics, partitions and kafka clusters are configured through getsentry/ops.
-    # We will work with the streaming teams to get this set up.
-    consumer_config = {
-        "bootstrap.servers": config["bootstrap_servers"],
-        "group.id": config["group_id"],
-        "auto.offset.reset": "latest",
-        "enable.auto.commit": False,
-        "enable.auto.offset.store": False,
-    }
-
-    arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
-
-    # Create strategy factory
-    strategy_factory = LaunchpadStrategyFactory(
-        message_handler=message_handler,
-        concurrency=config["concurrency"],
-        max_pending_futures=config["max_pending_futures"],
-        healthcheck_file=config.get("healthcheck_file"),
-    )
-
-    # Create and return stream processor
-    topics = [Topic(topic) for topic in config["topics"]]
-    return StreamProcessor(
-        consumer=arroyo_consumer,
-        topic=topics[0] if topics else Topic("default"),
-        processor_factory=strategy_factory,
-    )
 
 
 def get_kafka_config() -> Dict[str, Any]:

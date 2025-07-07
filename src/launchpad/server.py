@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, TypedDict
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
@@ -26,6 +26,18 @@ logger = get_logger(__name__)
 # Define app keys using AppKey
 APP_KEY_DEBUG = AppKey("debug", bool)
 APP_KEY_ENVIRONMENT = AppKey("environment", str)
+
+
+class HealthCheckResponse(TypedDict, total=False):
+    """Health check response with minimal required fields."""
+
+    status: str  # Required: "ok", "degraded", "error"
+    service: str
+    components: Dict[str, Dict[str, Any]]
+    environment: str
+    version: str
+    error: str
+    warning: str
 
 
 @middleware
@@ -52,7 +64,7 @@ class LaunchpadServer:
         port: int | None = None,
         config: Dict[str, Any] | None = None,
         setup_logging: bool = True,
-        health_check_callback: Optional[Callable[[], Any]] = None,
+        health_check_callback: (Callable[[], Awaitable[HealthCheckResponse]] | None) = None,
     ) -> None:
         self.app: Application | None = None
         self._shutdown_event = asyncio.Event()
@@ -113,17 +125,27 @@ class LaunchpadServer:
         try:
             # Get health status from the service if callback is provided
             if self.health_check_callback:
-                health_data = await self.health_check_callback()
+                try:
+                    health_data = await self.health_check_callback()
 
-                # Determine HTTP status code based on health status
-                if health_data.get("status") == "ok":
-                    status_code = 200
-                elif health_data.get("status") == "degraded":
-                    status_code = 503  # Service Unavailable
-                else:
-                    status_code = 500  # Internal Server Error
+                    # Basic validation - just ensure we have a status
+                    if not isinstance(health_data, dict) or "status" not in health_data:
+                        raise ValueError("Invalid health check response")
 
-                return web.json_response(health_data, status=status_code)
+                    # Map status to HTTP code
+                    status_code = {"ok": 200, "degraded": 503}.get(health_data["status"], 500)
+                    return web.json_response(health_data, status=status_code)
+
+                except Exception as e:
+                    logger.error(f"Health check callback failed: {e}", exc_info=True)
+                    return web.json_response(
+                        {
+                            "status": "error",
+                            "service": "launchpad",
+                            "error": str(e),
+                        },
+                        status=500,
+                    )
             else:
                 # Fallback to basic health check if no callback
                 return web.json_response(

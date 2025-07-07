@@ -14,7 +14,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
 
-from launchpad.server import LaunchpadServer
+from launchpad.server import HealthCheckResponse, LaunchpadServer
 from launchpad.service import LaunchpadService
 
 
@@ -25,7 +25,7 @@ class TestLaunchpadServer(AioHTTPTestCase):
         """Create the application for testing."""
 
         # Create a mock health check callback
-        async def mock_health_check():
+        async def mock_health_check() -> HealthCheckResponse:
             return {
                 "service": "launchpad",
                 "status": "ok",

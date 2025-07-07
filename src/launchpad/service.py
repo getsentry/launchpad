@@ -19,7 +19,7 @@ from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import DogStatsd, get_statsd
 
 from .kafka import create_kafka_consumer
-from .server import LaunchpadServer, get_server_config
+from .server import HealthCheckResponse, LaunchpadServer, get_server_config
 
 logger = get_logger(__name__)
 
@@ -189,12 +189,16 @@ class LaunchpadService:
 
         logger.info("Service cleanup completed")
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> HealthCheckResponse:
         """Get overall service health status."""
-        health_status = {"service": "launchpad", "status": "ok", "components": {}}
+        health_status: HealthCheckResponse = {
+            "service": "launchpad",
+            "status": "ok",
+            "components": {},
+        }
 
         # Check Kafka health via healthcheck file
-        kafka_health = {"status": "unknown"}
+        kafka_health: Dict[str, Any] = {"status": "unknown"}
         if self._healthcheck_file:
             try:
                 if os.path.exists(self._healthcheck_file):
