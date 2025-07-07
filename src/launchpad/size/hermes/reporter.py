@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from typing import Dict, Literal, TypedDict
 
+from launchpad.utils.logging import get_logger
+
 from .parser import HermesBytecodeParser
+
+logger = get_logger(__name__)
 
 HermesSectionNames = Literal[
     "Header",
@@ -138,14 +142,16 @@ class HermesSizeReporter:
         function_source_table = self.hermes.get_function_source_table()
         sections["Function Source table"]["bytes"] = len(function_source_table) * 8  # Each entry is 8 bytes
 
-        # Validate and calculate percentages
+        # Validate and calculate percentages to catch any bad math
         attributed_size = 0
         for section_name in section_order:
-            # Ensure non-negative sizes
             if sections[section_name]["bytes"] < 0:
+                logger.warning(f"Section {section_name} has negative size: {sections[section_name]['bytes']}")
                 sections[section_name]["bytes"] = 0
-            # Ensure size doesn't exceed file size
             if sections[section_name]["bytes"] > file_size:
+                logger.warning(
+                    f"Section {section_name} has size greater than file size: {sections[section_name]['bytes']}"
+                )
                 sections[section_name]["bytes"] = 0
 
             attributed_size += sections[section_name]["bytes"]
@@ -154,7 +160,7 @@ class HermesSizeReporter:
             )
 
         unattributed_size = file_size - attributed_size
-        unattributed = {
+        unattributed: SectionInfo = {
             "bytes": unattributed_size,
             "percentage": (unattributed_size / file_size * 100) if file_size > 0 else 0,
         }

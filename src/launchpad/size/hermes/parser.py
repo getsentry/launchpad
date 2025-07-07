@@ -344,7 +344,6 @@ class HermesBytecodeParser:
         )
 
     def _parse_string_kinds(self, count: int) -> List[StringKindEntry]:
-        """Parse string kinds."""
         entries: List[StringKindEntry] = []
         for _ in range(count):
             packed_value = self.buffer.read_u32()
@@ -354,11 +353,9 @@ class HermesBytecodeParser:
         return entries
 
     def _parse_identifier_hashes(self, count: int) -> List[int]:
-        """Parse identifier hashes."""
         return [self.buffer.read_u32() for _ in range(count)]
 
     def _parse_string_table_entries(self, count: int) -> List[StringTableEntry]:
-        """Parse string table entries."""
         entries: List[StringTableEntry] = []
         for _ in range(count):
             packed_value = self.buffer.read_u32()
@@ -375,7 +372,6 @@ class HermesBytecodeParser:
         return entries
 
     def _parse_overflow_string_table_entries(self, count: int) -> List[OverflowStringTableEntry]:
-        """Parse overflow string table entries."""
         entries: List[OverflowStringTableEntry] = []
         for _ in range(count):
             offset = self.buffer.read_u32()
@@ -389,7 +385,6 @@ class HermesBytecodeParser:
         overflow_string_table: List[OverflowStringTableEntry],
         size: int,
     ) -> List[str]:
-        """Parse string storage."""
         strings: List[str] = []
         if size == 0:
             return strings
@@ -427,7 +422,6 @@ class HermesBytecodeParser:
         return strings
 
     def _parse_debug_info(self) -> DebugInfoResult:
-        """Parse debug info."""
         if not self.header:
             raise ValueError("No bytecode header found")
 
@@ -496,7 +490,6 @@ class HermesBytecodeParser:
         debug_string_table: List[DebugStringTableEntry],
         debug_string_storage: bytes,
     ) -> List[str]:
-        """Extract filenames from debug info."""
         result: List[str] = []
         for entry in debug_string_table:
             if entry.offset + entry.length > len(debug_string_storage):
@@ -507,7 +500,6 @@ class HermesBytecodeParser:
         return result
 
     def _parse_reg_exp_table(self, count: int) -> List[RegExpTableEntry]:
-        """Parse regular expression table."""
         entries: List[RegExpTableEntry] = []
         for _ in range(count):
             offset = self.buffer.read_u32()
@@ -516,13 +508,11 @@ class HermesBytecodeParser:
         return entries
 
     def _parse_reg_exp_storage(self, size: int) -> bytes:
-        """Parse regular expression storage."""
         if size == 0:
             return b""
         return self.buffer.slice(size)
 
     def _parse_cjs_module_table(self, count: int) -> List[CJSModuleTableEntry]:
-        """Parse CommonJS module table."""
         entries: List[CJSModuleTableEntry] = []
         for _ in range(count):
             first = self.buffer.read_u32()
@@ -531,7 +521,6 @@ class HermesBytecodeParser:
         return entries
 
     def _parse_function_source_table(self, count: int) -> List[FunctionSourceTableEntry]:
-        """Parse function source table."""
         entries: List[FunctionSourceTableEntry] = []
         for _ in range(count):
             function_id = self.buffer.read_u32()

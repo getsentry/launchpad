@@ -121,7 +121,6 @@ def is_hermes_file(file_path: Path) -> bool:
         # Import here to avoid circular imports
         from launchpad.size.hermes.parser import HermesBytecodeParser
 
-        # Read first 8 bytes to check magic number
         with open(file_path, "rb") as f:
             data = f.read(8)
             return HermesBytecodeParser.is_hermes_file(data)

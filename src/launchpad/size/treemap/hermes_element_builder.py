@@ -31,22 +31,18 @@ class HermesElementBuilder(TreemapElementBuilder):
     def build_element(self, file_info: FileInfo, display_name: str) -> TreemapElement | None:
         """Build a TreemapElement for a Hermes bytecode file."""
         try:
-            # Read the file data
             file_path = Path(file_info.path)
             data = file_path.read_bytes()
 
-            # Verify it's a Hermes file
             if not HermesBytecodeParser.is_hermes_file(data):
                 logger.warning("File %s is not a valid Hermes bytecode file", file_info.path)
                 return None
 
-            # Parse the bytecode
             parser = HermesBytecodeParser(data)
             if not parser.parse():
                 logger.warning("Failed to parse Hermes bytecode file %s", file_info.path)
                 return None
 
-            # Generate size report
             reporter = HermesSizeReporter(parser)
             report = reporter.report()
 
@@ -57,7 +53,7 @@ class HermesElementBuilder(TreemapElementBuilder):
             )
 
         except Exception as e:
-            logger.warning("Error building Hermes treemap element for %s: %s", file_info.path, e)
+            logger.error("Error building Hermes treemap element for %s: %s", file_info.path, e)
             return None
 
     def _build_hermes_treemap(
@@ -79,7 +75,6 @@ class HermesElementBuilder(TreemapElementBuilder):
             if section_info["bytes"] <= 0:
                 continue
 
-            # Map section names to appropriate treemap types
             treemap_type = self._get_treemap_type_for_section(section_name)
 
             element = TreemapElement(
@@ -96,7 +91,6 @@ class HermesElementBuilder(TreemapElementBuilder):
                 },
             )
 
-            # Categorize sections
             if "string" in section_name.lower() or "identifier" in section_name.lower():
                 string_sections.append(element)
             elif "function" in section_name.lower():
@@ -142,7 +136,7 @@ class HermesElementBuilder(TreemapElementBuilder):
         # Add other sections directly
         section_children.extend(other_sections)
 
-        # Add unattributed section if significant
+        # Add unattributed section only if present
         if report["unattributed"]["bytes"] > 0:
             section_children.append(
                 TreemapElement(
@@ -160,7 +154,6 @@ class HermesElementBuilder(TreemapElementBuilder):
                 )
             )
 
-        # Calculate total size
         total_size = sum(c.install_size for c in section_children)
 
         return TreemapElement(
