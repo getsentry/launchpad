@@ -16,6 +16,7 @@ from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
+from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
     LargeAudioFileInsight,
@@ -27,7 +28,7 @@ from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
-from launchpad.utils.file_utils import calculate_file_hash, get_file_size, is_hermes_file
+from launchpad.utils.file_utils import calculate_file_hash, get_file_size
 from launchpad.utils.logging import get_logger
 
 from ..models.apple import (
@@ -125,11 +126,14 @@ class AppleAppAnalyzer:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
+            hermes_reports = make_hermes_reports(app_bundle_path)
+
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
                 download_compression_ratio=0.8,  # TODO: implement this
                 binary_analysis_map=binary_analysis_map,
+                hermes_reports=hermes_reports,
             )
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
@@ -232,6 +236,8 @@ class AppleAppAnalyzer:
                 return "directory"
             elif "symbolic link" in file_type:
                 return "symlink"
+            elif "hermes javascript bytecode" in file_type:
+                return "hermes"
             elif "empty" in file_type:
                 return "empty"
 
@@ -317,10 +323,6 @@ class AppleAppAnalyzer:
             # if file_type.lower() in {"png", "jpg", "jpeg", "webp"}:
             #     image_analysis_result = self._analyze_image(file_path, file_size)
 
-            if is_hermes_file(file_path):
-                logger.info(f"Detected Hermes bytecode file: {relative_path}")
-                file_type = "hermes"
-
             children = []
             if file_type == "car":
                 children = self._analyze_asset_catalog(xcarchive, relative_path)
@@ -340,7 +342,6 @@ class AppleAppAnalyzer:
 
             file_info = FileInfo(
                 path=str(relative_path),
-                absolute_path=str(file_path),
                 size=file_size,
                 file_type=file_type or "unknown",
                 hash_md5=file_hash,

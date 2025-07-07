@@ -60,7 +60,6 @@ class FileInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     path: str = Field(..., description="Relative path in the bundle")
-    absolute_path: str = Field(..., description="Absolute path in the bundle", exclude=True)
     size: int = Field(..., ge=0, description="File size in bytes")
     file_type: str = Field(..., description="File type/extension")
     hash_md5: str = Field(..., description="MD5 hash of file contents")

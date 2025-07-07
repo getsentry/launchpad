@@ -12,8 +12,6 @@ from .logging import get_logger
 
 logger = get_logger(__name__)
 
-HERMES_EXTENSIONS = {".jsbundle", ".hbc"}
-
 
 def calculate_file_hash(file_path: Path, algorithm: str = "md5") -> str:
     """Calculate hash of a file.
@@ -108,26 +106,3 @@ def calculate_aligned_install_size(file_info: FileInfo, filesystem_block_size: i
 
     # Round up to nearest filesystem block boundary
     return ((file_size - 1) // filesystem_block_size + 1) * filesystem_block_size
-
-
-def is_hermes_file(file_path: Path) -> bool:
-    """Check if a file is a Hermes bytecode file.
-
-    Args:
-        file_path: Path to the file to check
-
-    Returns:
-        True if the file is a valid Hermes bytecode file, False otherwise
-    """
-    if file_path.suffix.lower() not in HERMES_EXTENSIONS:
-        return False
-
-    try:
-        # Import here to avoid circular imports
-        from launchpad.size.hermes.parser import HermesBytecodeParser
-
-        with open(file_path, "rb") as f:
-            data = f.read(8)
-            return HermesBytecodeParser.is_hermes_file(data)
-    except Exception:
-        return False

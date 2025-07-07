@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Dict, List, Literal
 
 from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.hermes.reporter import HermesReport
+from launchpad.size.hermes.utils import HERMES_EXTENSIONS
 from launchpad.size.models.apple import MachOBinaryAnalysis
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapResults, TreemapType
@@ -32,12 +34,14 @@ class TreemapBuilder:
         # TODO: We should try to move iOS-specific logic out of this class's constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
+        hermes_reports: Dict[str, HermesReport] | None = None,
     ) -> None:
         self.app_name = app_name
         self.platform = platform
         self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
         self.binary_analysis_map = binary_analysis_map or {}
         self.class_definitions = class_definitions or []
+        self.hermes_reports = hermes_reports or {}
 
         if filesystem_block_size is not None:
             self.filesystem_block_size = filesystem_block_size
@@ -93,10 +97,11 @@ class TreemapBuilder:
                     download_compression_ratio=self.download_compression_ratio,
                     filesystem_block_size=self.filesystem_block_size,
                 )
-            case "hermes":
+            case _ if file_info.file_type.lower() in HERMES_EXTENSIONS:
                 element_builder = HermesElementBuilder(
                     download_compression_ratio=self.download_compression_ratio,
                     filesystem_block_size=self.filesystem_block_size,
+                    hermes_reports=self.hermes_reports,
                 )
 
         logger.debug(f"Using {element_builder.__class__.__name__} for {file_info.file_type}")

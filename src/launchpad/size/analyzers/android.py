@@ -9,6 +9,7 @@ from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.artifact import AndroidArtifact
 from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
@@ -25,7 +26,7 @@ from launchpad.size.models.android import (
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
-from launchpad.utils.file_utils import calculate_file_hash, is_hermes_file
+from launchpad.utils.file_utils import calculate_file_hash
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -75,12 +76,15 @@ class AndroidAnalyzer:
 
         file_analysis = self._get_file_analysis(apks)
         class_definitions = self._get_class_definitions(apks)
+        extract_path = artifact.get_extract_path()  # type: ignore
+        hermes_reports = make_hermes_reports(extract_path)  # type: ignore
         treemap_builder = TreemapBuilder(
             app_name=app_info.name,
             platform="android",
             # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
             download_compression_ratio=1.0,
             class_definitions=class_definitions,
+            hermes_reports=hermes_reports,
         )
 
         treemap = treemap_builder.build_file_treemap(file_analysis)
@@ -127,10 +131,6 @@ class AndroidAnalyzer:
                     # Get file extension or use 'unknown' if none
                     file_type = file_path.suffix.lstrip(".").lower() or "unknown"
 
-                    if is_hermes_file(file_path):
-                        logger.info(f"Detected Hermes bytecode file: {relative_path}")
-                        file_type = "hermes"
-
                     # Some files have special overrides for the treemap type
                     if file_path.name in FILE_NAME_TO_TREEMAP_TYPE:
                         treemap_type = FILE_NAME_TO_TREEMAP_TYPE[file_path.name]
@@ -148,7 +148,6 @@ class AndroidAnalyzer:
                             file_hash = calculate_file_hash(file_path, algorithm="md5")
                             merged_dex_info = FileInfo(
                                 path="classes.dex",
-                                absolute_path=str(file_path),
                                 size=file_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
@@ -168,7 +167,6 @@ class AndroidAnalyzer:
                             # Update the merged DEX file info
                             merged_dex_info = FileInfo(
                                 path="classes.dex",
-                                absolute_path=str(file_path),
                                 size=merged_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
@@ -195,7 +193,6 @@ class AndroidAnalyzer:
                         # Create new FileInfo with merged size
                         merged_file_info = FileInfo(
                             path=relative_path,
-                            absolute_path=str(file_path),
                             size=merged_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
@@ -208,7 +205,6 @@ class AndroidAnalyzer:
                         # First time seeing this path
                         file_info = FileInfo(
                             path=relative_path,
-                            absolute_path=str(file_path),
                             size=file_size,
                             file_type=file_type,
                             treemap_type=treemap_type,

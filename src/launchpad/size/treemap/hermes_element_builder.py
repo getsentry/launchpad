@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import List
+from typing import Dict, List
 
-from launchpad.size.hermes.parser import HermesBytecodeParser
-from launchpad.size.hermes.reporter import HermesReport, HermesSizeReporter
+from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
@@ -22,7 +20,9 @@ class HermesElementBuilder(TreemapElementBuilder):
         self,
         download_compression_ratio: float,
         filesystem_block_size: int,
+        hermes_reports: Dict[str, HermesReport],
     ) -> None:
+        self.hermes_reports = hermes_reports
         super().__init__(
             download_compression_ratio=download_compression_ratio,
             filesystem_block_size=filesystem_block_size,
@@ -31,25 +31,14 @@ class HermesElementBuilder(TreemapElementBuilder):
     def build_element(self, file_info: FileInfo, display_name: str) -> TreemapElement | None:
         """Build a TreemapElement for a Hermes bytecode file."""
         try:
-            file_path = Path(file_info.absolute_path)
-            data = file_path.read_bytes()
-
-            if not HermesBytecodeParser.is_hermes_file(data):
-                logger.warning("File %s is not a valid Hermes bytecode file", file_info.path)
+            if file_info.path not in self.hermes_reports:
+                logger.warning("Binary %s found but not in hermes reports", file_info.path)
                 return None
-
-            parser = HermesBytecodeParser(data)
-            if not parser.parse():
-                logger.warning("Failed to parse Hermes bytecode file %s", file_info.path)
-                return None
-
-            reporter = HermesSizeReporter(parser)
-            report = reporter.report()
 
             return self._build_hermes_treemap(
                 name=display_name,
-                file_path=str(file_info.path),
-                report=report,
+                file_path=file_info.path,
+                report=self.hermes_reports[file_info.path],
             )
 
         except Exception as e:
