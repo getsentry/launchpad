@@ -59,10 +59,8 @@ def create_kafka_consumer(
     )
 
     # Create and return stream processor
-    topic_name = config.get("topics")
-    if not topic_name:
-        raise ValueError("KAFKA_TOPICS environment variable is required")
-    topic = Topic(topic_name)
+    topics = [Topic(topic) for topic in config["topics"]]
+    topic = topics[0] if topics else Topic("default")
     return StreamProcessor(
         consumer=arroyo_consumer,
         topic=topic,
