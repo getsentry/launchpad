@@ -25,41 +25,24 @@ class SentryClient:
         self.base_url = base_url.rstrip("/")
         self.shared_secret = os.getenv("LAUNCHPAD_RPC_SHARED_SECRET")
         if not self.shared_secret:
-            raise RuntimeError("LAUNCHPAD_RPC_SHARED_SECRET must be provided or set as environment variable")
+            raise RuntimeError(
+                "LAUNCHPAD_RPC_SHARED_SECRET must be provided or set as environment variable"
+            )
 
-    def assemble_size_analysis(
-        self,
-        org: str | int,
-        project: str | int,
-        artifact_id: str | int,
-        checksum: str,
-        chunks: list[str],
+    def download_artifact(
+        self, org: str, project: str, artifact_id: str
     ) -> Dict[str, Any]:
-        """Call the assemble size analysis endpoint."""
-        # Validate hex strings
-        if not re.match(r"^[a-fA-F0-9]+$", checksum):
-            raise ValueError("Invalid checksum format")
-        for chunk in chunks:
-            if not re.match(r"^[a-fA-F0-9]+$", chunk):
-                raise ValueError("Invalid chunk format")
-
-        data = {
-            "checksum": checksum,
-            "chunks": chunks,
-            "assemble_type": "size_analysis",
-        }
-
-        endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/assemble-generic/"
-        return self._make_json_request("POST", endpoint, data, operation="Assemble request")
-
-    def download_artifact(self, org: str, project: str, artifact_id: str) -> Dict[str, Any]:
         """Download preprod artifact."""
-        endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
+        endpoint = (
+            f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
+        )
         url = self._build_url(endpoint)
 
         try:
             logger.debug(f"GET {url}")
-            response = requests.get(url, headers=self._get_auth_headers(), timeout=120, stream=True)
+            response = requests.get(
+                url, headers=self._get_auth_headers(), timeout=120, stream=True
+            )
 
             if response.status_code != 200:
                 return self._handle_error_response(response, "Download")
@@ -83,7 +66,9 @@ class SentryClient:
             logger.error(f"Download failed: {e}")
             return {"error": str(e)}
 
-    def update_artifact(self, org: str, project: str, artifact_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    def update_artifact(
+        self, org: str, project: str, artifact_id: str, data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Update preprod artifact."""
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/"
         return self._make_json_request("PUT", endpoint, data, operation="Update")
@@ -107,13 +92,17 @@ class SentryClient:
         with open(path, "rb") as f:
             content = f.read()
 
-        logger.info(f"Uploading {file_path} ({len(content)} bytes, {len(content) / 1024 / 1024:.2f} MB)")
+        logger.info(
+            f"Uploading {file_path} ({len(content)} bytes, {len(content) / 1024 / 1024:.2f} MB)"
+        )
 
         # Step 1: Get chunk upload options from server
         logger.debug("Getting chunk upload options...")
         options_result = self._get_chunk_upload_options(org)
         if "error" in options_result:
-            return {"error": f"Failed to get chunk upload options: {options_result['error']}"}
+            return {
+                "error": f"Failed to get chunk upload options: {options_result['error']}"
+            }
 
         chunk_options = options_result.get("chunking", {})
         chunk_size = chunk_options.get("chunk_size", 8 * 1024 * 1024)  # fallback to 8MB
@@ -136,7 +125,7 @@ class SentryClient:
         for attempt in range(max_retries):
             logger.debug(f"Assembly attempt {attempt + 1}/{max_retries}")
 
-            result = self.assemble_size_analysis(
+            result = self._assemble_size_analysis(
                 org=org,
                 project=project,
                 artifact_id=artifact_id,
@@ -156,7 +145,9 @@ class SentryClient:
 
                 logger.info(f"Re-uploading {len(missing)} missing chunks")
                 if not self._upload_chunks(org, chunks, missing):
-                    logger.warning(f"Some chunks failed to re-upload on attempt {attempt + 1}")
+                    logger.warning(
+                        f"Some chunks failed to re-upload on attempt {attempt + 1}"
+                    )
             else:
                 logger.warning(f"Assembly attempt {attempt + 1} failed: {result}")
                 if attempt == max_retries - 1:  # Last attempt
@@ -167,7 +158,9 @@ class SentryClient:
     def _get_auth_headers(self, body: bytes | None = None) -> Dict[str, str]:
         """Get authentication headers for a request."""
         body = body or b""
-        signature = hmac.new(self.shared_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            self.shared_secret.encode("utf-8"), body, hashlib.sha256
+        ).hexdigest()
         return {
             "Authorization": f"rpcsignature rpc0:{signature}",
             "Content-Type": "application/json",
@@ -177,7 +170,9 @@ class SentryClient:
         """Build full URL from endpoint."""
         return f"{self.base_url}{endpoint}"
 
-    def _handle_error_response(self, response: requests.Response, operation: str) -> Dict[str, Any]:
+    def _handle_error_response(
+        self, response: requests.Response, operation: str
+    ) -> Dict[str, Any]:
         """Handle non-200 response with consistent error format."""
         logger.warning(f"{operation} failed: {response.status_code}")
         return {
@@ -235,13 +230,17 @@ class SentryClient:
         # Show individual chunk details (limit for large files, similar to Rust version)
         max_chunks_to_show = 5
         for i, chunk in enumerate(chunks[:max_chunks_to_show]):
-            logger.debug(f"  Chunk {i + 1}: {chunk['size']} bytes (SHA1: {chunk['checksum']})")
+            logger.debug(
+                f"  Chunk {i + 1}: {chunk['size']} bytes (SHA1: {chunk['checksum']})"
+            )
         if len(chunks) > max_chunks_to_show:
             logger.debug(f"  ... and {len(chunks) - max_chunks_to_show} more chunks")
 
         return chunks
 
-    def _upload_chunks(self, org: str, chunks: list[Dict[str, Any]], target_checksums: list[str]) -> bool:
+    def _upload_chunks(
+        self, org: str, chunks: list[Dict[str, Any]], target_checksums: list[str]
+    ) -> bool:
         """Upload chunks by checksum list."""
         chunk_map = {c["checksum"]: c for c in chunks}
         success = 0
@@ -253,7 +252,9 @@ class SentryClient:
 
             if self._upload_chunk(org, chunk_map[checksum]):
                 success += 1
-                logger.debug(f"Uploaded chunk {success}/{len(target_checksums)}: {checksum}")
+                logger.debug(
+                    f"Uploaded chunk {success}/{len(target_checksums)}: {checksum}"
+                )
 
         logger.debug(f"Uploaded {success}/{len(target_checksums)} chunks successfully")
         return success == len(target_checksums)
@@ -267,7 +268,9 @@ class SentryClient:
         body = self._create_multipart_body(boundary, chunk["checksum"], chunk["data"])
 
         # For multipart, we need custom headers
-        signature = hmac.new(self.shared_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            self.shared_secret.encode("utf-8"), body, hashlib.sha256
+        ).hexdigest()
         headers = {
             "Authorization": f"rpcsignature rpc0:{signature}",
             "Content-Type": f"multipart/form-data; boundary={boundary}",
@@ -285,7 +288,36 @@ class SentryClient:
             logger.error(f"Chunk upload error: {e}")
             return False
 
-    def _create_multipart_body(self, boundary: str, filename: str, data: bytes) -> bytes:
+    def _assemble_size_analysis(
+        self,
+        org: str | int,
+        project: str | int,
+        artifact_id: str | int,
+        checksum: str,
+        chunks: list[str],
+    ) -> Dict[str, Any]:
+        """Call the assemble size analysis endpoint."""
+        # Validate hex strings
+        if not re.match(r"^[a-fA-F0-9]+$", checksum):
+            raise ValueError("Invalid checksum format")
+        for chunk in chunks:
+            if not re.match(r"^[a-fA-F0-9]+$", chunk):
+                raise ValueError("Invalid chunk format")
+
+        data = {
+            "checksum": checksum,
+            "chunks": chunks,
+            "assemble_type": "size_analysis",
+        }
+
+        endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/assemble-generic/"
+        return self._make_json_request(
+            "POST", endpoint, data, operation="Assemble request"
+        )
+
+    def _create_multipart_body(
+        self, boundary: str, filename: str, data: bytes
+    ) -> bytes:
         """Create multipart/form-data body."""
         lines = [
             f"--{boundary}",

@@ -47,16 +47,34 @@ class AndroidAnalyzer:
         skip_insights: Skip insights generation for faster analysis
         """
         self.skip_insights = skip_insights
+        self.app_info: AndroidAppInfo | None = None
 
-    def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
+    def preprocess(self, artifact: AndroidArtifact) -> AndroidAppInfo:
+        """Extract basic app information from the manifest.
+
+        Args:
+            artifact: Android artifact to preprocess
+
+        Returns:
+            Basic app information extracted from manifest
+        """
         manifest_dict = artifact.get_manifest().model_dump()
 
-        app_info = AndroidAppInfo(
+        self.app_info = AndroidAppInfo(
             name=manifest_dict["application"]["label"] or "Unknown",
             version=manifest_dict["version_name"] or "Unknown",
             build=manifest_dict["version_code"] or "Unknown",
             package_name=manifest_dict["package_name"],
         )
+
+        return self.app_info
+
+    def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
+        # Use preprocessed app info if available, otherwise extract it
+        if not self.app_info:
+            self.app_info = self.preprocess(artifact)
+
+        app_info = self.app_info
 
         apks: list[APK] = []
         # Split AAB into APKs, or use the APK directly
@@ -129,7 +147,9 @@ class AndroidAnalyzer:
                     if file_path.name in FILE_NAME_TO_TREEMAP_TYPE:
                         treemap_type = FILE_NAME_TO_TREEMAP_TYPE[file_path.name]
                     else:
-                        treemap_type = FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.OTHER)
+                        treemap_type = FILE_TYPE_TO_TREEMAP_TYPE.get(
+                            file_type, TreemapType.OTHER
+                        )
 
                     # Get relative path from extract directory
                     relative_path = str(file_path.relative_to(extract_path))
@@ -151,7 +171,9 @@ class AndroidAnalyzer:
                                 hash_md5=file_hash,
                             )
                             path_to_file_info["classes.dex"] = merged_dex_info
-                            logger.debug("Created merged DEX representation: %s", relative_path)
+                            logger.debug(
+                                "Created merged DEX representation: %s", relative_path
+                            )
                         else:
                             # Additional DEX file - merge into existing representation
                             existing_info = path_to_file_info["classes.dex"]
@@ -229,13 +251,22 @@ class AndroidAnalyzer:
             class_definitions.extend(apk.get_class_definitions())
         return class_definitions
 
-    def _get_images(self, apks: list[APK], file_analysis: FileAnalysis) -> dict[Path, FileInfo]:
+    def _get_images(
+        self, apks: list[APK], file_analysis: FileAnalysis
+    ) -> dict[Path, FileInfo]:
         image_map = {}
         for apk in apks:
             for image_file in apk.get_images():
                 image_map[image_file] = next(
-                    (file_info for file_info in file_analysis.files if str(image_file).endswith(file_info.path)), None
+                    (
+                        file_info
+                        for file_info in file_analysis.files
+                        if str(image_file).endswith(file_info.path)
+                    ),
+                    None,
                 )
                 if image_map[image_file] is None:
-                    logger.warning(f"Image file {image_file} not found in file analysis")
+                    logger.warning(
+                        f"Image file {image_file} not found in file analysis"
+                    )
         return image_map

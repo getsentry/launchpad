@@ -9,21 +9,57 @@ from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import BaseAnalysisResults
+from launchpad.size.models.android import AndroidAppInfo
+from launchpad.size.models.apple import AppleAppInfo
 
 
-def do_size(path: Path, **flags: Any) -> BaseAnalysisResults:
+def do_preprocess(path: Path, **flags: Any) -> AndroidAppInfo | AppleAppInfo:
+    """Perform preprocessing step only to extract basic app info.
+
+    Args:
+        path: Path to the artifact
+        **flags: Additional flags passed to analyzer
+
+    Returns:
+        App info extracted during preprocessing
+    """
+    artifact = ArtifactFactory.from_path(path)
+
+    if isinstance(artifact, AndroidArtifact):
+        analyzer = AndroidAnalyzer(**flags)
+        return analyzer.preprocess(cast(AndroidArtifact, artifact))
+    elif isinstance(artifact, AppleArtifact):
+        analyzer = AppleAppAnalyzer(**flags)
+        return analyzer.preprocess(cast(AppleArtifact, artifact))
+    else:
+        raise ValueError(f"Unknown artifact kind {artifact}")
+
+
+def do_size(
+    path: Path, analyzer: AndroidAnalyzer | AppleAppAnalyzer | None = None, **flags: Any
+) -> BaseAnalysisResults:
+    """Perform full size analysis.
+
+    Args:
+        path: Path to the artifact
+        analyzer: Optional pre-configured analyzer (with preprocessing already done)
+        **flags: Additional flags passed to analyzer if creating new one
+
+    Returns:
+        Full analysis results
+    """
     start_time = time.time()
     artifact = ArtifactFactory.from_path(path)
 
-    # isinstance switch below is a bit sad. Ryan suggested a
-    # get_analyzer method on artifact which might be nicer.
-    analyzer: AndroidAnalyzer | AppleAppAnalyzer
-    if isinstance(artifact, AndroidArtifact):
-        analyzer = AndroidAnalyzer(**flags)
-    elif isinstance(artifact, AppleArtifact):
-        analyzer = AppleAppAnalyzer(**flags)
-    else:
-        raise ValueError(f"Unknown artifact kind {artifact}")
+    # If no analyzer provided, create one
+    if analyzer is None:
+        if isinstance(artifact, AndroidArtifact):
+            analyzer = AndroidAnalyzer(**flags)
+        elif isinstance(artifact, AppleArtifact):
+            analyzer = AppleAppAnalyzer(**flags)
+        else:
+            raise ValueError(f"Unknown artifact kind {artifact}")
+
     results = analyzer.analyze(cast(Any, artifact))
 
     end_time = time.time()

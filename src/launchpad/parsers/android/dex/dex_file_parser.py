@@ -115,7 +115,9 @@ class DexFileParser:
             source_file_idx = self.buffer_wrapper.read_u32()
             annotations_offset = self.buffer_wrapper.read_u32()
             class_data_offset = self.buffer_wrapper.read_u32()  # Class data offset
-            static_values_offset = self.buffer_wrapper.read_u32()  # static values offset
+            static_values_offset = (
+                self.buffer_wrapper.read_u32()
+            )  # static values offset
             signature = self._get_type_name(class_idx)
 
             if superclass_index != NO_INDEX:
@@ -130,15 +132,21 @@ class DexFileParser:
             if source_file_idx != NO_INDEX:
                 source_file_name = self._get_string(source_file_idx)
 
-            annotations_directory = self._parse_annotations_directory(annotations_offset)
+            annotations_directory = self._parse_annotations_directory(
+                annotations_offset
+            )
 
             annotations: list[Annotation] = []
             if annotations_directory:
-                annotations = self._parse_annotation_set(annotations_directory.class_annotations_offset)
+                annotations = self._parse_annotation_set(
+                    annotations_directory.class_annotations_offset
+                )
 
             methods: list[Method] = []
             if class_data_offset != 0:
-                methods = self._parse_method_definitions(class_data_offset, annotations_directory)
+                methods = self._parse_method_definitions(
+                    class_data_offset, annotations_directory
+                )
 
             class_def = ClassDefinition(
                 signature=signature,
@@ -157,7 +165,9 @@ class DexFileParser:
         # Resolve superclass references
         for class_idx, superclass_signature in pending_superclasses:
             if superclass_signature in class_by_signature:
-                class_defs[class_idx].superclass = class_by_signature[superclass_signature]
+                class_defs[class_idx].superclass = class_by_signature[
+                    superclass_signature
+                ]
 
         # Resolve interface references
         for class_idx, signatures in pending_interfaces:
@@ -168,7 +178,9 @@ class DexFileParser:
 
         return class_defs
 
-    def _parse_annotations_directory(self, annotations_directory_offset: int) -> AnnotationsDirectory | None:
+    def _parse_annotations_directory(
+        self, annotations_directory_offset: int
+    ) -> AnnotationsDirectory | None:
         """Parse annotations directory.
 
         https://source.android.com/docs/core/runtime/dex-format#annotations-directory
@@ -198,7 +210,9 @@ class DexFileParser:
             method_index = self.buffer_wrapper.read_u32()
             annotations_offset = self.buffer_wrapper.read_u32()
             method_annotations.append(
-                MethodAnnotation(method_index=method_index, annotations_offset=annotations_offset)
+                MethodAnnotation(
+                    method_index=method_index, annotations_offset=annotations_offset
+                )
             )
 
         parameter_annotations: list[ParameterAnnotation] = []
@@ -206,7 +220,9 @@ class DexFileParser:
             method_index = self.buffer_wrapper.read_u32()
             annotations_offset = self.buffer_wrapper.read_u32()
             parameter_annotations.append(
-                ParameterAnnotation(method_index=method_index, annotations_offset=annotations_offset)
+                ParameterAnnotation(
+                    method_index=method_index, annotations_offset=annotations_offset
+                )
             )
 
         self.buffer_wrapper.seek(cursor)
@@ -251,8 +267,12 @@ class DexFileParser:
             self.buffer_wrapper.read_uleb128()  # field index diff
             self.buffer_wrapper.read_uleb128()  # access flags
 
-        direct_methods = self._parse_encoded_methods(direct_methods_size, annotations_directory)
-        virtual_methods = self._parse_encoded_methods(virtual_methods_size, annotations_directory)
+        direct_methods = self._parse_encoded_methods(
+            direct_methods_size, annotations_directory
+        )
+        virtual_methods = self._parse_encoded_methods(
+            virtual_methods_size, annotations_directory
+        )
 
         methods.extend(direct_methods)
         methods.extend(virtual_methods)
@@ -315,8 +335,12 @@ class DexFileParser:
         size = self.buffer_wrapper.read_u32()
 
         for i in range(size):
-            self.buffer_wrapper.seek(offset + 4 + i * 4)  # offset + size + (index * annotation_set_item size)
-            self.buffer_wrapper.seek(self.buffer_wrapper.read_u32())  # annotation set item offset
+            self.buffer_wrapper.seek(
+                offset + 4 + i * 4
+            )  # offset + size + (index * annotation_set_item size)
+            self.buffer_wrapper.seek(
+                self.buffer_wrapper.read_u32()
+            )  # annotation set item offset
 
             visibility = self.buffer_wrapper.read_u8()
 
@@ -442,7 +466,9 @@ class DexFileParser:
 
         return annotation
 
-    def _parse_encoded_methods(self, size: int, annotations_directory: AnnotationsDirectory | None) -> list[Method]:
+    def _parse_encoded_methods(
+        self, size: int, annotations_directory: AnnotationsDirectory | None
+    ) -> list[Method]:
         """Parse encoded methods.
 
         Args:
@@ -471,7 +497,11 @@ class DexFileParser:
             if annotations_directory:
                 for method_annotation in annotations_directory.method_annotations:
                     if method_annotation.method_index == method_index:
-                        annotations.extend(self._parse_annotation_set(method_annotation.annotations_offset))
+                        annotations.extend(
+                            self._parse_annotation_set(
+                                method_annotation.annotations_offset
+                            )
+                        )
 
             parameters = self._get_method_parameters(
                 method.prototype.parameters,
@@ -515,7 +545,9 @@ class DexFileParser:
         if annotations_directory:
             for parameter_annotation in annotations_directory.parameter_annotations:
                 if parameter_annotation.method_index == method_index:
-                    parameter_annotations = self._parse_annotation_set_ref_list(parameter_annotation.annotations_offset)
+                    parameter_annotations = self._parse_annotation_set_ref_list(
+                        parameter_annotation.annotations_offset
+                    )
                     break
 
         annotation_index = 0
@@ -593,7 +625,9 @@ class DexFileParser:
         """
         cursor = self.buffer_wrapper.cursor
 
-        self.buffer_wrapper.seek(self.header.proto_ids_off + proto_index * 12)  # Each proto_id_item is 12 bytes
+        self.buffer_wrapper.seek(
+            self.header.proto_ids_off + proto_index * 12
+        )  # Each proto_id_item is 12 bytes
 
         shorty_idx = self.buffer_wrapper.read_u32()
         return_type_idx = self.buffer_wrapper.read_u32()
@@ -649,7 +683,9 @@ class DexFileParser:
         """
         cursor = self.buffer_wrapper.cursor
 
-        self.buffer_wrapper.seek(self.header.field_ids_off + field_index * 8)  # Each field_id_item is 8 bytes
+        self.buffer_wrapper.seek(
+            self.header.field_ids_off + field_index * 8
+        )  # Each field_id_item is 8 bytes
 
         class_index = self.buffer_wrapper.read_u16()
         type_index = self.buffer_wrapper.read_u16()
@@ -675,7 +711,9 @@ class DexFileParser:
         """
         cursor = self.buffer_wrapper.cursor
 
-        self.buffer_wrapper.seek(self.header.method_ids_off + method_index * 8)  # Each method_id_item is 8 bytes
+        self.buffer_wrapper.seek(
+            self.header.method_ids_off + method_index * 8
+        )  # Each method_id_item is 8 bytes
 
         class_index = self.buffer_wrapper.read_u16()
         proto_index = self.buffer_wrapper.read_u16()
@@ -701,7 +739,9 @@ class DexFileParser:
         """
         cursor = self.buffer_wrapper.cursor
 
-        self.buffer_wrapper.seek(self.header.type_ids_off + index * 4)  # Each type_id_item is 4 bytes
+        self.buffer_wrapper.seek(
+            self.header.type_ids_off + index * 4
+        )  # Each type_id_item is 4 bytes
 
         string_index = self.buffer_wrapper.read_u32()
         string = self._get_string(string_index)
@@ -723,7 +763,9 @@ class DexFileParser:
         """
         cursor = self.buffer_wrapper.cursor
 
-        self.buffer_wrapper.seek(self.header.string_ids_off + index * 4)  # Each string_id_item is 4 bytes
+        self.buffer_wrapper.seek(
+            self.header.string_ids_off + index * 4
+        )  # Each string_id_item is 4 bytes
         self.buffer_wrapper.seek(self.buffer_wrapper.read_u32())  # string data offset
 
         string_length = self.buffer_wrapper.read_uleb128()

@@ -112,7 +112,9 @@ class ZippedXCArchive(AppleArtifact):
             except subprocess.CalledProcessError as e:
                 raise RuntimeError(f"Failed to generate IPA file with zip: {e}")
             except FileNotFoundError:
-                raise RuntimeError("zip command not found. This tool is required for IPA generation.")
+                raise RuntimeError(
+                    "zip command not found. This tool is required for IPA generation."
+                )
 
     def get_provisioning_profile(self) -> dict[str, Any] | None:
         if self._provisioning_profile is not None:
@@ -151,10 +153,23 @@ class ZippedXCArchive(AppleArtifact):
         if self._app_bundle_path is not None:
             return self._app_bundle_path
 
-        for path in self._extract_dir.rglob("*.xcarchive/Products/**/*.app"):
-            if path.is_dir() and "__MACOSX" not in str(path):
-                logger.debug(f"Found Apple app bundle: {path}")
-                return path
+        # Search patterns for different XCArchive formats
+        search_patterns = [
+            # Format 1: MyApp.xcarchive/Products/**/*.app
+            "*.xcarchive/Products/**/*.app",
+            # Format 2: Products/Applications/*.app (direct extraction)
+            "Products/Applications/*.app",
+            # Format 3: Products/**/*.app (more general)
+            "Products/**/*.app",
+        ]
+
+        for pattern in search_patterns:
+            logger.debug(f"Searching for app bundle with pattern: {pattern}")
+            for path in self._extract_dir.rglob(pattern):
+                if path.is_dir() and "__MACOSX" not in str(path):
+                    logger.debug(f"Found Apple app bundle: {path}")
+                    self._app_bundle_path = path
+                    return path
 
         raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
 
@@ -190,9 +205,15 @@ class ZippedXCArchive(AppleArtifact):
 
                 # Find corresponding dSYM for framework
                 framework_uuid = self._extract_binary_uuid(framework_binary_path)
-                framework_dsym_path = dsym_files.get(framework_uuid) if framework_uuid else None
+                framework_dsym_path = (
+                    dsym_files.get(framework_uuid) if framework_uuid else None
+                )
 
-                binaries.append(BinaryInfo(framework_name, framework_binary_path, framework_dsym_path))
+                binaries.append(
+                    BinaryInfo(
+                        framework_name, framework_binary_path, framework_dsym_path
+                    )
+                )
 
         # Find app extension binaries
         for extension_path in app_bundle_path.rglob("*.appex"):
@@ -206,13 +227,23 @@ class ZippedXCArchive(AppleArtifact):
                             extension_plist = plistlib.load(f)
                         extension_executable = extension_plist.get("CFBundleExecutable")
                         if extension_executable:
-                            extension_binary_path = extension_path / extension_executable
+                            extension_binary_path = (
+                                extension_path / extension_executable
+                            )
                             # Use the full extension name as the key to avoid conflicts
-                            extension_name = f"{extension_path.stem}/{extension_executable}"
+                            extension_name = (
+                                f"{extension_path.stem}/{extension_executable}"
+                            )
 
                             # Find corresponding dSYM for extension
-                            extension_uuid = self._extract_binary_uuid(extension_binary_path)
-                            extension_dsym_path = dsym_files.get(extension_uuid) if extension_uuid else None
+                            extension_uuid = self._extract_binary_uuid(
+                                extension_binary_path
+                            )
+                            extension_dsym_path = (
+                                dsym_files.get(extension_uuid)
+                                if extension_uuid
+                                else None
+                            )
 
                             binaries.append(
                                 BinaryInfo(
@@ -222,20 +253,33 @@ class ZippedXCArchive(AppleArtifact):
                                 )
                             )
                     except Exception as e:
-                        logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
+                        logger.warning(
+                            f"Failed to read extension Info.plist at {extension_path}: {e}"
+                        )
 
         return binaries
 
-    def get_asset_catalog_details(self, relative_path: Path) -> List[AssetCatalogElement]:
+    def get_asset_catalog_details(
+        self, relative_path: Path
+    ) -> List[AssetCatalogElement]:
         """Get the details of an asset catalog file (Assets.car) by returning the
         parsed JSON from ParsedAssets."""
         try:
             app_bundle_path = self.get_app_bundle_path()
             json_name = relative_path.with_suffix(".json")
-            xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
-            app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
 
-            file_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / json_name
+            # Handle different XCArchive formats
+            xcarchive_dirs = list(self._extract_dir.glob("*.xcarchive"))
+            if xcarchive_dirs:
+                # Format 1: MyApp.xcarchive/Products/Applications/...
+                xcarchive_dir = xcarchive_dirs[0]
+                app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
+                file_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / json_name
+            else:
+                # Format 2: Products/Applications/... (direct extraction)
+                file_path = (
+                    self._extract_dir / "ParsedAssets" / app_bundle_path / json_name
+                )
 
             if not file_path.exists():
                 logger.warning(f"Assets.json not found at {file_path}")
@@ -246,7 +290,9 @@ class ZippedXCArchive(AppleArtifact):
 
             return [self._parse_asset_element(item) for item in data]
         except Exception as e:
-            logger.warning(f"Failed to get asset catalog details for {relative_path}: {e}")
+            logger.warning(
+                f"Failed to get asset catalog details for {relative_path}: {e}"
+            )
             return []
 
     def _parse_asset_element(self, item: dict[str, Any]) -> AssetCatalogElement:
@@ -315,7 +361,9 @@ class ZippedXCArchive(AppleArtifact):
                         dsym_uuid = self._extract_binary_uuid(dwarf_file)
                         if dsym_uuid:
                             dsym_files[dsym_uuid] = dwarf_file
-                            logger.debug(f"Found dSYM file {dwarf_file} with UUID {dsym_uuid}")
+                            logger.debug(
+                                f"Found dSYM file {dwarf_file} with UUID {dsym_uuid}"
+                            )
 
         self._dsym_files = dsym_files
         return dsym_files
