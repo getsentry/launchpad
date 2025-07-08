@@ -27,31 +27,6 @@ class SentryClient:
         if not self.shared_secret:
             raise RuntimeError("LAUNCHPAD_RPC_SHARED_SECRET must be provided or set as environment variable")
 
-    def assemble_size_analysis(
-        self,
-        org: str | int,
-        project: str | int,
-        artifact_id: str | int,
-        checksum: str,
-        chunks: list[str],
-    ) -> Dict[str, Any]:
-        """Call the assemble size analysis endpoint."""
-        # Validate hex strings
-        if not re.match(r"^[a-fA-F0-9]+$", checksum):
-            raise ValueError("Invalid checksum format")
-        for chunk in chunks:
-            if not re.match(r"^[a-fA-F0-9]+$", chunk):
-                raise ValueError("Invalid chunk format")
-
-        data = {
-            "checksum": checksum,
-            "chunks": chunks,
-            "assemble_type": "size_analysis",
-        }
-
-        endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/assemble-generic/"
-        return self._make_json_request("POST", endpoint, data, operation="Assemble request")
-
     def download_artifact(self, org: str, project: str, artifact_id: str) -> Dict[str, Any]:
         """Download preprod artifact."""
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
@@ -136,7 +111,7 @@ class SentryClient:
         for attempt in range(max_retries):
             logger.debug(f"Assembly attempt {attempt + 1}/{max_retries}")
 
-            result = self.assemble_size_analysis(
+            result = self._assemble_size_analysis(
                 org=org,
                 project=project,
                 artifact_id=artifact_id,
@@ -284,6 +259,31 @@ class SentryClient:
         except Exception as e:
             logger.error(f"Chunk upload error: {e}")
             return False
+
+    def _assemble_size_analysis(
+        self,
+        org: str | int,
+        project: str | int,
+        artifact_id: str | int,
+        checksum: str,
+        chunks: list[str],
+    ) -> Dict[str, Any]:
+        """Call the assemble size analysis endpoint."""
+        # Validate hex strings
+        if not re.match(r"^[a-fA-F0-9]+$", checksum):
+            raise ValueError("Invalid checksum format")
+        for chunk in chunks:
+            if not re.match(r"^[a-fA-F0-9]+$", chunk):
+                raise ValueError("Invalid chunk format")
+
+        data = {
+            "checksum": checksum,
+            "chunks": chunks,
+            "assemble_type": "size_analysis",
+        }
+
+        endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/assemble-generic/"
+        return self._make_json_request("POST", endpoint, data, operation="Assemble request")
 
     def _create_multipart_body(self, boundary: str, filename: str, data: bytes) -> bytes:
         """Create multipart/form-data body."""
