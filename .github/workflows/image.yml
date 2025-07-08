@@ -21,8 +21,10 @@ jobs:
         include:
           - os: ubuntu-24.04
             platform: amd64
-          - os: ubuntu-24.04-arm
-            platform: arm64
+          # We do not currently support arm64 but in future if we
+          # needed to we would add it like so:
+          # - os: ubuntu-24.04-arm
+          #   platform: arm64
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -57,8 +59,10 @@ jobs:
         include:
           - os: ubuntu-24.04
             platform: amd64
-          - os: ubuntu-24.04-arm
-            platform: arm64
+          # We do not currently support arm64 but in future if we
+          # needed to we would add it like so:
+          #- os: ubuntu-24.04-arm
+          #  platform: arm64
 
     runs-on: ${{ matrix.os }}
     steps:

@@ -31,16 +31,18 @@ for registry in "${!REGISTRIES[@]}"; do
   echo "Creating long SHA manifest: ${IMAGE_NAME}:${SHA}"
   docker buildx imagetools create \
     --tag "${IMAGE_NAME}:${SHA}" \
-    "${IMAGE_NAME}:${SHA}-amd64" \
-    "${IMAGE_NAME}:${SHA}-arm64"
+    "${IMAGE_NAME}:${SHA}-amd64"
+    # We do not currently support arm64
+    # "${IMAGE_NAME}:${SHA}-arm64"
   echo "✓ Pushed ${IMAGE_NAME}:${SHA}"
 
   # Create short SHA manifest
   echo "Creating short SHA manifest: ${IMAGE_NAME}:${SHORT_SHA}"
   docker buildx imagetools create \
     --tag "${IMAGE_NAME}:${SHORT_SHA}" \
-    "${IMAGE_NAME}:${SHA}-amd64" \
-    "${IMAGE_NAME}:${SHA}-arm64"
+    "${IMAGE_NAME}:${SHA}-amd64"
+    # We do not currently support arm64
+    # "${IMAGE_NAME}:${SHA}-arm64"
   echo "✓ Pushed ${IMAGE_NAME}:${SHORT_SHA}"
 
   # Create nightly manifest if requested
@@ -48,8 +50,9 @@ for registry in "${!REGISTRIES[@]}"; do
     echo "Creating nightly manifest: ${IMAGE_NAME}:nightly"
     docker buildx imagetools create \
       --tag "${IMAGE_NAME}:nightly" \
-      "${IMAGE_NAME}:${SHA}-amd64" \
-      "${IMAGE_NAME}:${SHA}-arm64"
+      "${IMAGE_NAME}:${SHA}-amd64"
+      # We do not currently support arm64
+      # "${IMAGE_NAME}:${SHA}-arm64"
     echo "✓ Pushed ${IMAGE_NAME}:nightly"
   else
     echo "Skipping nightly manifest"
