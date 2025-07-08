@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict, List
 
 import lief
@@ -22,6 +23,22 @@ class MachOParser:
         """Initialize the parser with a LIEF binary object."""
         self.binary = binary
         self._imported_symbols_cache: List[str] | None = None
+
+    @staticmethod
+    def is_macho_binary(file_path: Path) -> bool:
+        try:
+            with open(file_path, "rb") as f:
+                magic = f.read(4)
+                return magic in [
+                    b"\xfe\xed\xfa\xce",  # MH_MAGIC
+                    b"\xce\xfa\xed\xfe",  # MH_CIGAM
+                    b"\xfe\xed\xfa\xcf",  # MH_MAGIC_64
+                    b"\xcf\xfa\xed\xfe",  # MH_CIGAM_64
+                    b"\xca\xfe\xba\xbe",  # FAT_MAGIC
+                    b"\xbe\xba\xfe\xca",  # FAT_CIGAM
+                ]
+        except Exception:
+            return False
 
     def extract_architectures(self) -> List[str]:
         """Extract CPU architectures from the binary."""

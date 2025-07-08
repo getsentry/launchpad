@@ -27,6 +27,7 @@ from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
+from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import calculate_file_hash, get_file_size
 from launchpad.utils.logging import get_logger
@@ -105,6 +106,11 @@ class AppleAppAnalyzer:
         file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
+        # Calculate download and install sizes
+        app_bundle_path = artifact.get_app_bundle_path()
+        download_size, install_size = calculate_bundle_sizes(app_bundle_path)
+        logger.info(f"Download size: {download_size} bytes, Install size: {install_size} bytes")
+
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
@@ -128,10 +134,13 @@ class AppleAppAnalyzer:
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
+            # Calculate compression ratio from actual sizes
+            compression_ratio = download_size / install_size if install_size > 0 else 0.8
+
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
-                download_compression_ratio=0.8,  # TODO: implement this
+                download_compression_ratio=compression_ratio,
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )
@@ -161,6 +170,8 @@ class AppleAppAnalyzer:
             insights=insights,
             analysis_duration=None,
             use_si_units=True,
+            download_size=download_size,
+            install_size=install_size,
         )
 
         return results
@@ -410,7 +421,7 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
