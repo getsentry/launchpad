@@ -32,7 +32,7 @@ export interface FileAnalysisReport {
     [key: string]: unknown;
   };
   generated_at: string;
-  uses_si_units: boolean;
+  use_si_units: boolean;
 }
 
 export function parseFileAnalysisReport(data: unknown): FileAnalysisReport {
