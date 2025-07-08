@@ -1,3 +1,5 @@
+import zipfile
+
 from pathlib import Path
 
 import pytest
@@ -77,3 +79,50 @@ def test_factory_raises_value_error_for_invalid_file(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Input is not a supported artifact"):
         ArtifactFactory.from_path(invalid_file)
+
+
+def test_factory_rejects_empty_zip(tmp_path: Path) -> None:
+    """Test that factory rejects completely empty zip files."""
+    empty_zip = tmp_path / "empty.zip"
+    with zipfile.ZipFile(empty_zip, "w"):
+        pass  # Create empty zip
+
+    with pytest.raises(ValueError, match="Input is not a supported artifact"):
+        ArtifactFactory.from_path(empty_zip)
+
+
+def test_factory_rejects_zip_with_only_empty_folders(tmp_path: Path) -> None:
+    """Test that factory rejects zip files with only empty directories."""
+    zip_with_folders = tmp_path / "empty_folders.zip"
+    with zipfile.ZipFile(zip_with_folders, "w") as zf:
+        # Add empty directories
+        zf.writestr("Products/", "")
+        zf.writestr("Applications/", "")
+        zf.writestr("dSYMs/", "")
+
+    with pytest.raises(ValueError, match="Input is not a supported artifact"):
+        ArtifactFactory.from_path(zip_with_folders)
+
+
+def test_factory_rejects_xcarchive_missing_info_plist(tmp_path: Path) -> None:
+    """Test that factory rejects XCArchive-like structure missing Info.plist."""
+    malformed_xcarchive = tmp_path / "no_info_plist.zip"
+    with zipfile.ZipFile(malformed_xcarchive, "w") as zf:
+        # Has Products/Applications structure but missing Info.plist
+        zf.writestr("Products/Applications/MyApp.app/MyApp", "fake binary")
+        zf.writestr("Products/Applications/MyApp.app/some_file.txt", "content")
+
+    with pytest.raises(ValueError, match="Input is not a supported artifact"):
+        ArtifactFactory.from_path(malformed_xcarchive)
+
+
+def test_factory_rejects_xcarchive_missing_products_structure(tmp_path: Path) -> None:
+    """Test that factory rejects zip with Info.plist but no Products/Applications structure."""
+    malformed_xcarchive = tmp_path / "no_products.zip"
+    with zipfile.ZipFile(malformed_xcarchive, "w") as zf:
+        # Has Info.plist but wrong structure
+        zf.writestr("Info.plist", "<?xml version='1.0'?><plist></plist>")
+        zf.writestr("SomeOtherFolder/MyApp.app/MyApp", "fake binary")
+
+    with pytest.raises(ValueError, match="Input is not a supported artifact"):
+        ArtifactFactory.from_path(malformed_xcarchive)
