@@ -302,3 +302,45 @@ class SentryClient:
         ]
 
         return b"".join(parts)
+
+
+def categorize_http_error(error_result: Dict[str, Any]) -> tuple[str, str]:
+    """
+    Categorize HTTP error results from SentryClient.
+
+    Returns:
+        Tuple of (error_category, error_description)
+        Categories: "not_found", "server_error", "client_error", "unknown"
+    """
+    # First try to get the structured status code
+    status_code = error_result.get("status_code")
+    if isinstance(status_code, int):
+        if status_code == 404:
+            return "not_found", f"Resource not found (HTTP {status_code})"
+        elif 500 <= status_code < 600:
+            return "server_error", f"Server error (HTTP {status_code})"
+        elif 400 <= status_code < 500:
+            return "client_error", f"Client error (HTTP {status_code})"
+        else:
+            return "unknown", f"Unexpected HTTP status {status_code}"
+
+    # Fallback to parsing the error message string
+    error_msg = error_result.get("error", "")
+    if isinstance(error_msg, str):
+        # Extract HTTP status code from error message like "HTTP 404"
+        match = re.search(r"HTTP (\d+)", error_msg)
+        if match:
+            try:
+                status_code = int(match.group(1))
+                if status_code == 404:
+                    return "not_found", f"Resource not found (HTTP {status_code})"
+                elif 500 <= status_code < 600:
+                    return "server_error", f"Server error (HTTP {status_code})"
+                elif 400 <= status_code < 500:
+                    return "client_error", f"Client error (HTTP {status_code})"
+                else:
+                    return "unknown", f"Unexpected HTTP status {status_code}"
+            except ValueError:
+                pass
+
+    return "unknown", f"Unknown error: {error_result}"

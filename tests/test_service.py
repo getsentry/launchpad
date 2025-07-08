@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import time
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -61,7 +61,8 @@ class TestLaunchpadServer(AioHTTPTestCase):
 class TestLaunchpadService:
     """Test cases for LaunchpadService."""
 
-    def test_handle_kafka_message_ios(self):
+    @patch.object(LaunchpadService, "process_artifact_analysis")
+    def test_handle_kafka_message_ios(self, mock_process):
         """Test handling iOS artifact messages."""
         service = LaunchpadService()
 
@@ -78,11 +79,15 @@ class TestLaunchpadService:
         # handle_kafka_message is synchronous
         service.handle_kafka_message(payload)
 
+        # Verify process_artifact_analysis was called with correct args
+        mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
+
         # Verify metrics were recorded
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
 
-    def test_handle_kafka_message_android(self):
+    @patch.object(LaunchpadService, "process_artifact_analysis")
+    def test_handle_kafka_message_android(self, mock_process):
         """Test handling Android artifact messages."""
         service = LaunchpadService()
 
@@ -99,21 +104,23 @@ class TestLaunchpadService:
         # handle_kafka_message is synchronous
         service.handle_kafka_message(payload)
 
+        # Verify process_artifact_analysis was called with correct args
+        mock_process.assert_called_once_with("android-test-456", "test-project-android", "test-org-456")
+
         # Verify metrics were recorded
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
 
-    def test_handle_kafka_message_error(self):
+    @patch.object(LaunchpadService, "process_artifact_analysis")
+    def test_handle_kafka_message_error(self, mock_process):
         """Test error handling in message processing."""
         service = LaunchpadService()
 
-        # Mock statsd to raise an exception on the second call
+        # Mock statsd
         service._statsd = Mock()
-        service._statsd.increment.side_effect = [
-            None,  # First call: processing.started
-            Exception("Simulated error"),  # Second call: processing.completed (raises)
-            None,  # Third call: processing.failed
-        ]
+
+        # Make process_artifact_analysis raise an exception
+        mock_process.side_effect = RuntimeError("Download failed: HTTP 404")
 
         # Create a valid payload
         payload: PreprodArtifactEvents = {
@@ -122,16 +129,17 @@ class TestLaunchpadService:
             "organization_id": "test-org",
         }
 
-        # This should raise the exception (to be handled by Arroyo)
-        with pytest.raises(Exception, match="Simulated error"):
-            service.handle_kafka_message(payload)
+        # This should not raise (simplified error handling catches all exceptions)
+        service.handle_kafka_message(payload)
 
-        # Verify the metrics were called in the expected order
+        # Verify process_artifact_analysis was called
+        mock_process.assert_called_once_with("test-123", "test-project", "test-org")
+
+        # Verify the metrics were called correctly
         calls = service._statsd.increment.call_args_list
-        assert len(calls) == 3
+        assert len(calls) == 2
         assert calls[0][0][0] == "launchpad.artifact.processing.started"
-        assert calls[1][0][0] == "launchpad.artifact.processing.completed"
-        assert calls[2][0][0] == "launchpad.artifact.processing.failed"
+        assert calls[1][0][0] == "launchpad.artifact.processing.failed"
 
     @pytest.mark.asyncio
     async def test_health_check_with_healthcheck_file(self, tmp_path):
