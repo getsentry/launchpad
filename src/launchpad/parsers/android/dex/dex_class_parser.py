@@ -53,6 +53,7 @@ class DexClassParser:
 
         annotations_directory = DexBaseUtils.get_annotations_directory(
             buffer_wrapper=self.buffer_wrapper,
+            header=self.header,
             annotations_directory_offset=annotations_offset,
         )
 

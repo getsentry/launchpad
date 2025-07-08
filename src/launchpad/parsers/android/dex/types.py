@@ -55,6 +55,7 @@ class ParameterAnnotation:
 
 @dataclass
 class AnnotationsDirectory:
+    class_annotations_offset: int
     class_annotations: list[Annotation]
     method_annotations: list[MethodAnnotation]
     parameter_annotations: list[ParameterAnnotation]

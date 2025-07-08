@@ -137,6 +137,7 @@ class DexBaseUtils:
 
         buffer_wrapper.seek(cursor)
         return AnnotationsDirectory(
+            class_annotations_offset=class_annotations_offset,
             class_annotations=class_annotations,
             method_annotations=method_annotations,
             parameter_annotations=parameter_annotations,
