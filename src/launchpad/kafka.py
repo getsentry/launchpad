@@ -43,7 +43,7 @@ def create_kafka_consumer(
     consumer_config = {
         "bootstrap.servers": config["bootstrap_servers"],
         "group.id": config["group_id"],
-        "auto.offset.reset": "latest",
+        "auto.offset.reset": config["auto_offset_reset"],
         "enable.auto.commit": False,
         "enable.auto.offset.store": False,
     }
@@ -136,4 +136,5 @@ def get_kafka_config() -> Dict[str, Any]:
         "concurrency": int(os.getenv("KAFKA_CONCURRENCY", "4")),
         "max_pending_futures": int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
         "healthcheck_file": os.getenv("KAFKA_HEALTHCHECK_FILE"),
+        "auto_offset_reset": os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
     }
