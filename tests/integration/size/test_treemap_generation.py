@@ -412,31 +412,31 @@ class TestTreemapGeneration:
         # Verify Assets.car
         assets = find_node_by_path(treemap.root, "Assets.car")
         assert assets is not None
-        assert assets.install_size == 4788224
-        assert assets.download_size == 3830579
+        assert assets.install_size == 4788000
+        assert assets.download_size == 3830400
         assert assets.element_type == "assets"
         assert len(assets.children) == 14
 
         # Verify category breakdown
         assert treemap.category_breakdown["files"] == {
-            "install": 118784,
-            "download": 95022,
+            "install": 120000,
+            "download": 96000,
         }
         assert treemap.category_breakdown["assets"] == {
-            "install": 4841472,
-            "download": 3873176,
+            "install": 4840000,
+            "download": 3872000,
         }
         assert treemap.category_breakdown["plists"] == {
-            "install": 28672,
-            "download": 22932,
+            "install": 28000,
+            "download": 22400,
         }
         assert treemap.category_breakdown["executables"] == {
-            "download": 2886859,
-            "install": 3608576,
+            "download": 2886400,
+            "install": 3608000,
         }
         assert treemap.category_breakdown["fonts"] == {
-            "download": 858520,
-            "install": 1073152,
+            "download": 854400,
+            "install": 1068000,
         }
 
         # Verify totals
