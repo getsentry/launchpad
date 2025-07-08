@@ -55,7 +55,7 @@ class ParameterAnnotation:
 
 @dataclass
 class AnnotationsDirectory:
-    class_annotations_offset: int
+    class_annotations: list[Annotation]
     method_annotations: list[MethodAnnotation]
     parameter_annotations: list[ParameterAnnotation]
 
@@ -72,16 +72,15 @@ class Method:
 
 @dataclass
 class ClassDefinition:
+    size: int
     signature: str
     source_file_name: str | None
     annotations: list[Annotation]
-    methods: list[Method]
     access_flags: list[AccessFlag]
-    superclass: ClassDefinition | None
-    interfaces: list[ClassDefinition]
-    # Size information for private size calculation
-    _class_data_offset: int = 0
-    _static_values_offset: int = 0
+    # TODO: Methods
+    # TODO: Fields
+    # TODO: Superclass
+    # TODO: Interfaces
 
     def fqn(self) -> str:
         signature = self.signature
@@ -97,108 +96,6 @@ class ClassDefinition:
 
     def get_name(self) -> str:
         return self.fqn().split(".")[-1]
-
-    def get_size(self) -> int:
-        """Calculate the private size of this class definition.
-
-        Based on the reference implementation from smali/dexlib2:
-        https://github.com/JesusFreke/smali/blob/2771eae0a11f07bd892732232e6ee4e32437230d/dexlib2/src/main/java/org/jf/dexlib2/dexbacked/DexBackedClassDef.java#L505
-
-        Returns:
-            Size in bytes
-        """
-        # Class definition item is 32 bytes
-        size = 32
-
-        # Add size for interfaces if present
-        if self.interfaces:
-            # type_list_item: 4 bytes for size + 2 bytes per type index
-            size += 4 + len(self.interfaces) * 2
-
-        # Add size for annotations directory if present
-        if self.annotations:
-            # annotations_directory_item: 16 bytes base + variable size for annotations
-            size += 16
-            # Add size for each annotation
-            for annotation in self.annotations:
-                # annotation_item: 1 byte visibility + variable size for annotation
-                size += 1 + self._get_annotation_size(annotation)
-
-        # Add size for class data if present
-        if self._class_data_offset != 0:
-            # class_data_item: variable size based on fields and methods
-            size += self._get_class_data_size()
-
-        # Add size for static values if present
-        if self._static_values_offset != 0:
-            # encoded_array_item: variable size
-            size += self._get_static_values_size()
-
-        return size
-
-    def _get_annotation_size(self, annotation: Annotation) -> int:
-        """Calculate size of an annotation item."""
-        # type_index (uleb128) + element_count (uleb128) + elements
-        size = self._uleb128_size(annotation.type_name) + 1  # Approximate type_index size
-
-        # Add size for each element
-        for name, value in annotation.elements.items():
-            # name_index (uleb128) + encoded_value
-            size += self._uleb128_size(name) + self._get_encoded_value_size(value)
-
-        return size
-
-    def _get_encoded_value_size(self, value: Any) -> int:
-        """Calculate size of an encoded value."""
-        if value is None:
-            return 1  # NULL value is 1 byte
-        elif isinstance(value, bool):
-            return 1  # BOOLEAN value is 1 byte
-        elif isinstance(value, int):
-            if -128 <= value <= 127:
-                return 2  # BYTE: 1 byte type + 1 byte value
-            elif -32768 <= value <= 32767:
-                return 3  # SHORT: 1 byte type + 2 bytes value
-            else:
-                return 5  # INT: 1 byte type + 4 bytes value
-        elif isinstance(value, float):
-            return 5  # FLOAT: 1 byte type + 4 bytes value
-        elif isinstance(value, str):
-            return 5  # STRING: 1 byte type + 4 bytes index
-        elif isinstance(value, list):
-            # ARRAY: 1 byte type + uleb128 size + sum of element sizes
-            size = 2  # 1 byte type + 1 byte size (approximate)
-            for element in value:
-                size += self._get_encoded_value_size(element)
-            return size
-        else:
-            return 5  # Default to 5 bytes for unknown types
-
-    def _get_class_data_size(self) -> int:
-        """Calculate size of class data item."""
-        # This is a simplified calculation - in practice, this would require
-        # parsing the actual class data structure
-        size = 0
-
-        # static_fields_size + instance_fields_size + direct_methods_size + virtual_methods_size
-        # All are uleb128 values
-        size += 4  # Approximate size for 4 uleb128 values
-
-        # Add size for fields and methods (simplified)
-        # In practice, this would require parsing the actual encoded data
-        size += len(self.methods) * 8  # Approximate size per method
-
-        return size
-
-    def _get_static_values_size(self) -> int:
-        """Calculate size of static values array."""
-        # This is a simplified calculation
-        return 4  # Minimum size for encoded_array_item
-
-    def _uleb128_size(self, value: str) -> int:
-        """Calculate the size of a uleb128 encoded value."""
-        # Simplified calculation - in practice this would be the actual encoded size
-        return 1
 
 
 class EncodedValueType(IntEnum):

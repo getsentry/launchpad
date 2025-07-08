@@ -101,7 +101,7 @@ class DexElementBuilder(TreemapElementBuilder):
         )
 
     def _create_class_element(self, class_def: ClassDefinition) -> TreemapElement:
-        class_size = class_def.get_size()
+        class_size = class_def.size
         download_size = int(class_size * self.download_compression_ratio)
 
         details = {
