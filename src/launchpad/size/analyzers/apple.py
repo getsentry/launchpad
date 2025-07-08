@@ -145,7 +145,6 @@ class AppleAppAnalyzer:
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
                 treemap=treemap,
-                image_map={},
             )
             insights = AppleInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -342,6 +341,7 @@ class AppleAppAnalyzer:
                 )
 
             file_info = FileInfo(
+                full_path=file_path,
                 path=str(relative_path),
                 size=file_size,
                 file_type=file_type or "unknown",

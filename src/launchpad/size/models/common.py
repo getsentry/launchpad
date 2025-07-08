@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -60,11 +61,12 @@ class FileInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     path: str = Field(..., description="Relative path in the bundle")
+    full_path: Path = Field(..., exclude=True, description="Fully qualified path to the file")
     size: int = Field(..., ge=0, description="File size in bytes")
     file_type: str = Field(..., description="File type/extension")
     hash_md5: str = Field(..., description="MD5 hash of file contents")
     treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
-    # Some files can be further broken down, even though it’s children are not files
+    # Some files can be further broken down, even though it's children are not files
     children: List[TreemapElement] = Field(default_factory=list, description="Children of the file")
 
 

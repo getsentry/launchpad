@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
@@ -97,7 +96,6 @@ class AndroidAnalyzer:
                 file_analysis=file_analysis,
                 treemap=treemap,
                 binary_analysis=[],
-                image_map=self._get_images(apks, file_analysis),
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -149,6 +147,7 @@ class AndroidAnalyzer:
                             file_hash = calculate_file_hash(file_path, algorithm="md5")
                             merged_dex_info = FileInfo(
                                 path="classes.dex",
+                                full_path=file_path,
                                 size=file_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
@@ -168,10 +167,10 @@ class AndroidAnalyzer:
                             # Update the merged DEX file info
                             merged_dex_info = FileInfo(
                                 path="classes.dex",
+                                full_path=file_path,
                                 size=merged_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
-                                # Intentionally ignoring hash of merged file
                                 hash_md5="",
                             )
                             path_to_file_info["classes.dex"] = merged_dex_info
@@ -194,10 +193,10 @@ class AndroidAnalyzer:
                         # Create new FileInfo with merged size
                         merged_file_info = FileInfo(
                             path=relative_path,
+                            full_path=file_path,
                             size=merged_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
-                            # Intentionally ignoring hash of merged file
                             hash_md5="",
                         )
                         path_to_file_info[relative_path] = merged_file_info
@@ -206,6 +205,7 @@ class AndroidAnalyzer:
                         # First time seeing this path
                         file_info = FileInfo(
                             path=relative_path,
+                            full_path=file_path,
                             size=file_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
@@ -244,14 +244,3 @@ class AndroidAnalyzer:
                     logger.warning(f"Duplicate Hermes report key found: {relative_path}, overwriting")
                 all_reports[relative_path] = report
         return all_reports
-
-    def _get_images(self, apks: list[APK], file_analysis: FileAnalysis) -> dict[Path, FileInfo]:
-        image_map = {}
-        for apk in apks:
-            for image_file in apk.get_images():
-                image_map[image_file] = next(
-                    (file_info for file_info in file_analysis.files if str(image_file).endswith(file_info.path)), None
-                )
-                if image_map[image_file] is None:
-                    logger.warning(f"Image file {image_file} not found in file analysis")
-        return image_map

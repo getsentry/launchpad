@@ -15,21 +15,26 @@ class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):
     def generate(self, insights_input: InsightsInput) -> WebPOptimizationInsightResult:
         optimizeable_image_files: list[OptimizeableImageFile] = []
 
-        for image_file, file_info in insights_input.image_map.items():
-            if image_file.name.endswith("9.png"):
+        for file_info in insights_input.file_analysis.files:
+            if file_info.file_type not in ["png", "bmp", "jpg", "jpeg"]:
                 continue
 
-            original_size = get_file_size(image_file)
+            if file_info.full_path.name.endswith(".9.png"):
+                continue
+
+            # TODO: verify that the file is actually an image
+
+            original_size = get_file_size(Path(file_info.full_path))
             with tempfile.NamedTemporaryFile(suffix=".webp", delete=True) as tmp_webp:
                 try:
                     subprocess.run(
-                        ["cwebp", "-quiet", "-lossless", str(image_file), "-o", tmp_webp.name],
+                        ["cwebp", "-quiet", "-lossless", str(file_info.full_path), "-o", tmp_webp.name],
                         capture_output=True,
                         check=True,
                     )
                 except subprocess.CalledProcessError as e:
                     # If conversion fails, skip this image
-                    logger.warning(f"Failed to convert {image_file} to WebP: {e}")
+                    logger.warning(f"Failed to convert {file_info.full_path} to WebP: {e}")
                     logger.debug(f"cwebp stderr: {e.stderr.decode()}")
                     continue
 
@@ -37,14 +42,14 @@ class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):
                 savings = original_size - webp_size
                 if savings >= 500:
                     logger.debug(
-                        f"Found optimizable image {image_file}: {original_size} -> {webp_size} bytes (savings: {savings})"
+                        f"Found optimizable image {file_info.full_path}: {original_size} -> {webp_size} bytes (savings: {savings})"
                     )
                     optimizeable_image_files.append(
                         OptimizeableImageFile(file_info=file_info, potential_savings=savings)
                     )
                 else:
                     logger.debug(
-                        f"Image {image_file} not worth optimizing: {original_size} -> {webp_size} bytes (savings: {savings} < 500)"
+                        f"Image {file_info.full_path} not worth optimizing: {original_size} -> {webp_size} bytes (savings: {savings} < 500)"
                     )
 
         return WebPOptimizationInsightResult(optimizeable_image_files=optimizeable_image_files)
