@@ -161,6 +161,7 @@ class AppleAppAnalyzer:
             treemap=treemap,
             insights=insights,
             analysis_duration=None,
+            use_si_units=True,
         )
 
         return results

@@ -342,6 +342,6 @@ class TreemapBuilder:
 
 # Platform-specific filesystem block sizes (in bytes)
 FILESYSTEM_BLOCK_SIZES = {
-    "ios": 4 * 1024,  # iOS uses 4KB filesystem blocks
+    "ios": 4 * 1000,  # iOS uses 4KB filesystem blocks
     "android": 4 * 1024,  # Android typically uses 4KB as well
 }

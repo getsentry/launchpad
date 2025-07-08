@@ -1,10 +1,11 @@
 import ReactECharts from 'echarts-for-react';
 import React from 'react';
-import type { EChartsTreemapData, TreemapElement, TreemapResults } from '../types/treemap';
+import type { EChartsTreemapData, TreemapElement } from '../types/treemap';
 import { TreemapType } from '../types/treemap';
+import type { FileAnalysisReport } from '../utils/dataConverter';
 
 interface TreemapVisualizationProps {
-  data: TreemapResults;
+  data: FileAnalysisReport;
   sizeMode: 'install' | 'download';
 }
 
@@ -69,9 +70,9 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.UNMAPPED]: COLORS.purple,
 };
 
-function formatBytes(bytes: number): string {
+function formatBytes(bytes: number, usesSiUnits: boolean): string {
   if (bytes === 0) return '0 Bytes';
-  const k = 1024;
+  const k = usesSiUnits ? 1000 : 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
@@ -141,8 +142,9 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
   data,
   sizeMode
 }) => {
-  const chartData = convertToEChartsData(data.root, sizeMode);
-  const totalSize = sizeMode === 'install' ? data.total_install_size : data.total_download_size;
+  const treemapData = data.treemap;
+  const chartData = convertToEChartsData(treemapData.root, sizeMode);
+  const totalSize = sizeMode === 'install' ? treemapData.total_install_size : treemapData.total_download_size;
 
   const option = {
     tooltip: {
@@ -168,7 +170,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
             </div>
             <div style="font-family: Rubik; line-height: 1;">
               <p style="font-size: 14px; font-weight: bold; margin-bottom: -2px;">${info.name}</p>
-              <p style="font-size: 12px; margin-bottom: -4px;">Size: ${formatBytes(value)}</p>
+              <p style="font-size: 12px; margin-bottom: -4px;">Size: ${formatBytes(value, data.use_si_units)}</p>
               <p style="font-size: 12px;">Percentage: ${percent}%</p>
             </div>
           </div>

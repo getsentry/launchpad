@@ -114,6 +114,7 @@ class AndroidAnalyzer:
             file_analysis=file_analysis,
             insights=insights,
             analysis_duration=None,
+            use_si_units=False,
         )
 
     def _get_file_analysis(self, apks: list[APK]) -> FileAnalysis:

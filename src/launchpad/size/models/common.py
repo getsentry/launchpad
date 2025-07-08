@@ -76,6 +76,7 @@ class BaseAnalysisResults(BaseModel):
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
+    use_si_units: bool = Field(default=False, description="Whether to use SI units for size display")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with serializable datetime."""

@@ -2,14 +2,14 @@ import { useState } from 'react';
 import './App.css';
 import FileUpload from './components/FileUpload';
 import TreemapVisualization from './components/TreemapVisualization';
-import type { TreemapResults } from './types/treemap';
+import type { FileAnalysisReport } from './utils/dataConverter';
 
 function App() {
-  const [treemapData, setTreemapData] = useState<TreemapResults | null>(null);
+  const [treemapData, setTreemapData] = useState<FileAnalysisReport | null>(null);
   const [sizeMode, setSizeMode] = useState<'install' | 'download'>('install');
   const [error, setError] = useState<string | null>(null);
 
-  const handleDataLoad = (data: TreemapResults) => {
+  const handleDataLoad = (data: FileAnalysisReport) => {
     setTreemapData(data);
     setError(null);
   };
@@ -24,9 +24,9 @@ function App() {
     setError(null);
   };
 
-  const formatBytes = (bytes: number): string => {
+  const formatBytes = (bytes: number, usesSiUnits: boolean): string => {
     if (bytes === 0) return '0 Bytes';
-    const k = 1024;
+    const k = usesSiUnits ? 1000 : 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
