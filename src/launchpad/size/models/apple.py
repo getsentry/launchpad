@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileInfo
 from .insights import (
     BaseInsightResult,
     DuplicateFilesInsightResult,
@@ -50,6 +50,14 @@ class AppleAnalysisResults(BaseAnalysisResults):
         if self.treemap:
             return self.treemap.total_install_size
         return self.file_analysis.total_size  # TODO: Implement install size calculation
+
+
+class LocalizedStringInsightResult(BaseInsightResult):
+    """Results from localized string analysis."""
+
+    files: List[FileInfo] = Field(..., description="Localized strings files exceeding 100KB threshold")
+    file_count: int = Field(..., description="Total number of localized strings files")
+    total_size: int = Field(..., description="Total size of all localized strings files")
 
 
 class AppleAppInfo(BaseAppInfo):
@@ -121,6 +129,7 @@ class AppleInsightResults(BaseModel):
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large video files analysis")
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
+    localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
 
 
 @dataclass
