@@ -3,11 +3,13 @@ description:
 globs: src/launchpad/**/*.py
 alwaysApply: false
 ---
+
 # Cursor Rules for launchpad
 
 This is a Python CLI tool for analyzing iOS and Android app bundle sizes, similar to Emerge Tools.
 
 ## Project Structure
+
 - `src/launchpad/` - Main package source code
 - `tests/` - Test files (pytest)
 - `tests/artifacts/` - Sample app bundles for testing
@@ -16,25 +18,29 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 ## Development Guidelines
 
 ### Makefile
+
 - Use our [Makefile](mdc:Makefile) as much as possible when interacting with our repo, e.g. for building and testing
 
 ### Python
+
 - Use modern Python 3.11+ with type hints
-- Follow PEP 8 and black formatting (line length 120)
+- Follow PEP 8 and ruff formatting (line length 120)
 - Use `pytest` for testing
 - Use `click` for CLI interface
 - Use `lief` for Mach-O binary analysis
-- Virtual environment managed via `.venv/`
+- Package management and virtual environment via `uv`
 - Use `| None` instead of `Optional`
 - When writing comments try to keep them short and informative
 
 ### Code Quality
+
 - Always include type hints
 - Write comprehensive tests
 - Use descriptive variable and function names
 - Follow Sentry's Python best practices
 
 ### Testing
+
 - Unit tests in `tests/unit/`
 - Integration tests in `tests/integration/`
 - Use sample artifacts from `tests/_fixtures/`
@@ -42,22 +48,27 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 - Prefer pytest fixtures for setup
 
 ### CLI Development
+
 - Use `click` library for commands
 - Support `--verbose` flag for debugging
 - Always validate input files
 - Provide helpful error messages
 
 ### Dependencies
+
 - Core: `click`, `lief`, `pydantic`, `rich`, standard library
-- Development: `pytest`, `black`, `flake8`, `mypy`, `isort`
+- Development: `pytest`, `ruff`, `ty`, `isort`
+- Package management: `uv`
 - No legacy dependencies (no Capstone, no S3)
 
 ### Debugging
+
 - Use VSCode/Cursor debug configurations
 - Test with sample artifacts
 - Check performance for large binaries
 
 ## Key Commands
+
 - `make help` - Show all available commands
 - `make dev-setup` - Set up development environment
 - `make test` - Run all tests (`test-unit`, `test-integration` available separately)
@@ -65,8 +76,10 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 - `make ci` - Full CI pipeline
 - `make run-cli` - Run the CLI tool (use ARGS="..." for arguments)
 - `make clean` - Clean build artifacts
+- `make fix` - Auto-fix code issues with ruff
 
 ## When suggesting code:
+
 1. Always include proper type hints
 2. Add error handling and validation
 3. Consider performance implications
