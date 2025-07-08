@@ -151,10 +151,23 @@ class ZippedXCArchive(AppleArtifact):
         if self._app_bundle_path is not None:
             return self._app_bundle_path
 
-        for path in self._extract_dir.rglob("*.xcarchive/Products/**/*.app"):
-            if path.is_dir() and "__MACOSX" not in str(path):
-                logger.debug(f"Found Apple app bundle: {path}")
-                return path
+        # Search patterns for different XCArchive formats
+        search_patterns = [
+            # Format 1: MyApp.xcarchive/Products/**/*.app
+            "*.xcarchive/Products/**/*.app",
+            # Format 2: Products/Applications/*.app (direct extraction)
+            "Products/Applications/*.app",
+            # Format 3: Products/**/*.app (more general)
+            "Products/**/*.app",
+        ]
+
+        for pattern in search_patterns:
+            logger.debug(f"Searching for app bundle with pattern: {pattern}")
+            for path in self._extract_dir.rglob(pattern):
+                if path.is_dir() and "__MACOSX" not in str(path):
+                    logger.debug(f"Found Apple app bundle: {path}")
+                    self._app_bundle_path = path
+                    return path
 
         raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
 
@@ -232,10 +245,17 @@ class ZippedXCArchive(AppleArtifact):
         try:
             app_bundle_path = self.get_app_bundle_path()
             json_name = relative_path.with_suffix(".json")
-            xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
-            app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
 
-            file_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / json_name
+            # Handle different XCArchive formats
+            xcarchive_dirs = list(self._extract_dir.glob("*.xcarchive"))
+            if xcarchive_dirs:
+                # Format 1: MyApp.xcarchive/Products/Applications/...
+                xcarchive_dir = xcarchive_dirs[0]
+                app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
+                file_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / json_name
+            else:
+                # Format 2: Products/Applications/... (direct extraction)
+                file_path = self._extract_dir / "ParsedAssets" / app_bundle_path / json_name
 
             if not file_path.exists():
                 logger.warning(f"Assets.json not found at {file_path}")

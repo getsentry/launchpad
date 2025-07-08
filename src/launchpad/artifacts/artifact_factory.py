@@ -34,40 +34,58 @@ class ArtifactFactory:
 
         # Check if it's a zip file by looking at magic bytes
         if content.startswith(b"PK\x03\x04"):
-            # Check if zip contains a single APK (ZippedAPK)
-            with ZipFile(BytesIO(content)) as zip_file:
-                # Check if zip contains a Info.plist in the root of the .xcarchive folder (ZippedXCArchive)
-                plist_files = [f for f in zip_file.namelist() if f.endswith(".xcarchive/Info.plist")]
-                if plist_files:
-                    return ZippedXCArchive(path)
+            try:
+                with ZipFile(BytesIO(content)) as zip_file:
+                    filenames = zip_file.namelist()
 
-                apk_files = [f for f in zip_file.namelist() if f.endswith(".apk")]
-                if len(apk_files) == 1:
-                    return ZippedAPK(path)
+                    # Check for XCArchive (iOS)
+                    if ArtifactFactory._is_xcarchive(filenames):
+                        return ZippedXCArchive(path)
 
-                aab_files = [f for f in zip_file.namelist() if f.endswith(".aab")]
-                if len(aab_files) == 1:
-                    return ZippedAAB(path)
+                    # Check for single APK or AAB files (zipped artifacts)
+                    apk_files = [f for f in filenames if f.endswith(".apk")]
+                    if len(apk_files) == 1:
+                        return ZippedAPK(path)
 
-                # Check if zip contains base/manifest/AndroidManifest.xml (AAB)
-                manifest_files = [f for f in zip_file.namelist() if f.endswith("base/manifest/AndroidManifest.xml")]
-                if manifest_files:
-                    return AAB(path)
+                    aab_files = [f for f in filenames if f.endswith(".aab")]
+                    if len(aab_files) == 1:
+                        return ZippedAAB(path)
 
-                # Check if zip contains AndroidManifest.xml (APK)
-                manifest_files = [f for f in zip_file.namelist() if f.endswith("AndroidManifest.xml")]
-                if manifest_files:
-                    return APK(path)
+                    # Check for AAB (base/manifest structure)
+                    if any(f.endswith("base/manifest/AndroidManifest.xml") for f in filenames):
+                        return AAB(path)
 
-        # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations
+                    # Check for APK (AndroidManifest.xml)
+                    if any(f.endswith("AndroidManifest.xml") for f in filenames):
+                        return APK(path)
+
+            except Exception:
+                pass
+
+        # Fallback: try direct APK/AAB detection regardless of magic bytes
         try:
             with ZipFile(BytesIO(content)) as zip_file:
-                if any(f.endswith("base/manifest/AndroidManifest.xml") for f in zip_file.namelist()):
+                filenames = zip_file.namelist()
+
+                if any(f.endswith("base/manifest/AndroidManifest.xml") for f in filenames):
                     return AAB(path)
 
-                if any(f.endswith("AndroidManifest.xml") for f in zip_file.namelist()):
+                if any(f.endswith("AndroidManifest.xml") for f in filenames):
                     return APK(path)
         except Exception:
             pass
 
         raise ValueError("Input is not a supported artifact")
+
+    @staticmethod
+    def _is_xcarchive(filenames: list[str]) -> bool:
+        """Check if filenames indicate an XCArchive structure."""
+        # Method 1: .xcarchive/Info.plist pattern
+        if any(f.endswith(".xcarchive/Info.plist") for f in filenames):
+            return True
+
+        # Method 2: Root Info.plist + Products/Applications structure
+        has_root_info_plist = "Info.plist" in filenames
+        has_products_apps = any(f.startswith("Products/Applications/") for f in filenames)
+
+        return has_root_info_plist and has_products_apps
