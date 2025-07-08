@@ -13,6 +13,7 @@ class TestLargeAudioFileInsight:
 
     def test_generate_with_large_audio_files(self):
         large_audio_1 = FileInfo(
+            full_path="assets/large_audio.mp3",
             path="assets/large_audio.mp3",
             size=8 * 1024 * 1024,  # 8MB
             file_type="mp3",
@@ -20,6 +21,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash1",
         )
         large_audio_2 = FileInfo(
+            full_path="assets/large_wav.wav",
             path="assets/large_wav.wav",
             size=6 * 1024 * 1024,  # 6MB
             file_type="wav",
@@ -27,6 +29,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash2",
         )
         small_audio = FileInfo(
+            full_path="assets/small_audio.mp3",
             path="assets/small_audio.mp3",
             size=3 * 1024 * 1024,  # 3MB
             file_type="mp3",
@@ -41,7 +44,6 @@ class TestLargeAudioFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -61,6 +63,7 @@ class TestLargeAudioFileInsight:
 
     def test_generate_with_no_large_audio_files(self):
         small_audio_1 = FileInfo(
+            full_path="assets/small_audio1.mp3",
             path="assets/small_audio1.mp3",
             size=3 * 1024 * 1024,  # 3MB
             file_type="mp3",
@@ -68,6 +71,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash1",
         )
         small_audio_2 = FileInfo(
+            full_path="assets/small_audio2.aac",
             path="assets/small_audio2.aac",
             size=4 * 1024 * 1024,  # 4MB
             file_type="aac",
@@ -82,7 +86,6 @@ class TestLargeAudioFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -99,7 +102,6 @@ class TestLargeAudioFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -110,6 +112,7 @@ class TestLargeAudioFileInsight:
 
     def test_generate_with_exactly_threshold_size(self):
         threshold_audio = FileInfo(
+            full_path="assets/threshold_audio.mp3",
             path="assets/threshold_audio.mp3",
             size=5 * 1024 * 1024,  # Exactly 5MB
             file_type="mp3",
@@ -124,7 +127,6 @@ class TestLargeAudioFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -135,6 +137,7 @@ class TestLargeAudioFileInsight:
 
     def test_generate_with_mixed_file_types(self):
         large_audio = FileInfo(
+            full_path="assets/large_audio.mp3",
             path="assets/large_audio.mp3",
             size=8 * 1024 * 1024,  # 8MB
             file_type="mp3",
@@ -142,6 +145,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash1",
         )
         large_image = FileInfo(
+            full_path="assets/large_image.png",
             path="assets/large_image.png",
             size=15 * 1024 * 1024,  # 15MB
             file_type="png",
@@ -149,6 +153,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash2",
         )
         small_audio = FileInfo(
+            full_path="assets/small_audio.wav",
             path="assets/small_audio.wav",
             size=3 * 1024 * 1024,  # 3MB
             file_type="wav",
@@ -163,7 +168,6 @@ class TestLargeAudioFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -179,6 +183,7 @@ class TestLargeAudioFileInsight:
 
     def test_generate_with_various_audio_formats(self):
         mp3_file = FileInfo(
+            full_path="assets/audio.mp3",
             path="assets/audio.mp3",
             size=6 * 1024 * 1024,  # 6MB
             file_type="mp3",
@@ -186,6 +191,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash1",
         )
         aac_file = FileInfo(
+            full_path="assets/audio.aac",
             path="assets/audio.aac",
             size=7 * 1024 * 1024,  # 7MB
             file_type="aac",
@@ -193,6 +199,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash2",
         )
         flac_file = FileInfo(
+            full_path="assets/audio.flac",
             path="assets/audio.flac",
             size=9 * 1024 * 1024,  # 9MB
             file_type="flac",
@@ -200,6 +207,7 @@ class TestLargeAudioFileInsight:
             hash_md5="hash3",
         )
         ogg_file = FileInfo(
+            full_path="assets/audio.ogg",
             path="assets/audio.ogg",
             size=4 * 1024 * 1024,  # 4MB (below threshold)
             file_type="ogg",
@@ -214,7 +222,6 @@ class TestLargeAudioFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)

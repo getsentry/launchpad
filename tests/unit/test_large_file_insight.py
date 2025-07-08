@@ -13,6 +13,7 @@ class TestLargeImageFileInsight:
 
     def test_generate_with_large_files(self):
         large_file_1 = FileInfo(
+            full_path="assets/large_video.mp4",
             path="assets/large_video.mp4",
             size=15 * 1024 * 1024,  # 15MB
             file_type="mp4",
@@ -20,6 +21,7 @@ class TestLargeImageFileInsight:
             hash_md5="hash1",
         )
         large_file_2 = FileInfo(
+            full_path="assets/large_image.png",
             path="assets/large_image.png",
             size=12 * 1024 * 1024,  # 12MB
             file_type="png",
@@ -27,6 +29,7 @@ class TestLargeImageFileInsight:
             hash_md5="hash2",
         )
         small_file = FileInfo(
+            full_path="assets/small_image.png",
             path="assets/small_image.png",
             size=5 * 1024 * 1024,  # 5MB
             file_type="png",
@@ -41,7 +44,6 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -53,6 +55,7 @@ class TestLargeImageFileInsight:
 
     def test_generate_with_no_large_files(self):
         small_file_1 = FileInfo(
+            full_path="assets/small_image1.png",
             path="assets/small_image1.png",
             size=5 * 1024 * 1024,  # 5MB
             file_type="png",
@@ -60,6 +63,7 @@ class TestLargeImageFileInsight:
             hash_md5="hash1",
         )
         small_file_2 = FileInfo(
+            full_path="assets/small_image2.png",
             path="assets/small_image2.png",
             size=8 * 1024 * 1024,  # 8MB
             file_type="png",
@@ -74,7 +78,6 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -90,7 +93,6 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
@@ -100,6 +102,7 @@ class TestLargeImageFileInsight:
 
     def test_generate_with_exactly_threshold_size(self):
         threshold_file = FileInfo(
+            full_path="assets/threshold_image.png",
             path="assets/threshold_image.png",
             size=10 * 1024 * 1024,  # Exactly 10MB
             file_type="png",
@@ -114,7 +117,6 @@ class TestLargeImageFileInsight:
             file_analysis=file_analysis,
             treemap=Mock(),
             binary_analysis=[],
-            image_map={},
         )
 
         result = self.insight.generate(insights_input)
