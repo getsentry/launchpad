@@ -46,6 +46,7 @@ const TYPE_COLORS: Record<TreemapType, string> = {
 
   // iOS Specific
   [TreemapType.FRAMEWORKS]: COLORS.pink,
+  [TreemapType.EXTENSIONS]: COLORS.pink,
   [TreemapType.PLISTS]: COLORS.pink,
   [TreemapType.DYLD]: COLORS.pink,
   [TreemapType.MACHO]: COLORS.pink,
@@ -85,8 +86,6 @@ function convertToEChartsData(
   const size = sizeMode === 'install' ? element.install_size : element.download_size;
   const color = element.element_type ? TYPE_COLORS[element.element_type] : TYPE_COLORS[TreemapType.OTHER];
 
-  let children: EChartsTreemapData[] | undefined;
-
   const data: EChartsTreemapData = {
     name: element.name,
     value: size,
@@ -122,8 +121,9 @@ function convertToEChartsData(
     },
   };
 
-  if (children) {
-    data.children = children;
+  // Recursively process children if they exist
+  if (element.children && element.children.length > 0) {
+    data.children = element.children.map(child => convertToEChartsData(child, sizeMode));
   }
 
   return data;
@@ -150,7 +150,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
         color: COLORS.gray500,
         fontFamily: 'Rubik',
       },
-      formatter: function (info: { name: string; value: number }) {
+      formatter: function (info: { name: string; value: number; data?: EChartsTreemapData }) {
         const value = info.value;
         const percent = ((value / totalSize) * 100).toFixed(2);
         return `

@@ -57,10 +57,14 @@ class TreemapBuilder:
 
         children = self._build_file_hierarchy(file_analysis)
 
+        # Calculate total sizes from children
+        total_install_size = sum(child.total_install_size for child in children)
+        total_download_size = sum(child.total_download_size for child in children)
+
         root = TreemapElement(
             name=self.app_name,
-            install_size=0,  # Will be calculated from children
-            download_size=0,  # Will be calculated from children
+            install_size=total_install_size,
+            download_size=total_download_size,
             element_type=None,
             path=None,
             is_directory=True,  # Root app element is treated as a directory
@@ -104,6 +108,9 @@ class TreemapBuilder:
                     filesystem_block_size=self.filesystem_block_size,
                     hermes_reports=self.hermes_reports,
                 )
+            case _:
+                # Use default element builder for any other file types
+                pass
 
         logger.debug(f"Using {element_builder.__class__.__name__} for {file_info.file_type}")
 
@@ -203,10 +210,13 @@ class TreemapBuilder:
                 subdir_element = build_directory(subdir_path)
                 children.append(subdir_element)
 
+            total_install_size = sum(child.total_install_size for child in children)
+            total_download_size = sum(child.total_download_size for child in children)
+
             return TreemapElement(
                 name=dir_name,
-                install_size=0,  # Directory itself has no size
-                download_size=0,  # Directory itself has no size
+                install_size=total_install_size,
+                download_size=total_download_size,
                 element_type=self._get_directory_type(dir_name),
                 path=dir_path,
                 is_directory=True,
@@ -255,13 +265,16 @@ class TreemapBuilder:
             subdir_element = self._create_directory_element(subdir_name, subdir_files)
             children.append(subdir_element)
 
+        total_install_size = sum(child.total_install_size for child in children)
+        total_download_size = sum(child.total_download_size for child in children)
+
         # Determine the directory path by finding the common path prefix from the files
         directory_path = self._determine_directory_path(dir_name, files)
 
         return TreemapElement(
             name=dir_name,
-            install_size=0,  # Directory itself has no size
-            download_size=0,  # Directory itself has no size
+            install_size=total_install_size,
+            download_size=total_download_size,
             element_type=self._get_directory_type(dir_name),
             path=directory_path,
             is_directory=True,
