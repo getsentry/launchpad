@@ -1,117 +1,150 @@
 from launchpad.parsers.android.dex.dex_base_utils import DexBaseUtils
 from launchpad.parsers.android.dex.types import (
     NO_INDEX,
+    AccessFlag,
     Annotation,
     AnnotationsDirectory,
-    ClassDefinition,
     DexFileHeader,
 )
 from launchpad.parsers.buffer_wrapper import BufferWrapper
 
 
 class DexClassParser:
-    def __init__(self, header: DexFileHeader, buffer_wrapper: BufferWrapper):
-        self.header = header
-        self.buffer_wrapper = buffer_wrapper
+    def __init__(self, header: DexFileHeader, buffer_wrapper: BufferWrapper, offset: int):
+        self._header = header
+        self._buffer_wrapper = buffer_wrapper
+        self._offset = offset
 
-    def parse(self, class_index: int) -> ClassDefinition:
-        original_cursor = self.buffer_wrapper.cursor
+        self._buffer_wrapper.seek(self._offset)
 
-        self.buffer_wrapper.seek(self.header.class_defs_off + class_index * 32)
+        self._class_index = self._buffer_wrapper.read_u32()
+        self._access_flags = self._buffer_wrapper.read_u32()
+        self._superclass_index = self._buffer_wrapper.read_u32()
+        self._interfaces_offset = self._buffer_wrapper.read_u32()
+        self._source_file_idx = self._buffer_wrapper.read_u32()
+        self._annotations_offset = self._buffer_wrapper.read_u32()
+        self._class_data_offset = self._buffer_wrapper.read_u32()
+        self._static_values_offset = self._buffer_wrapper.read_u32()
 
-        class_idx = self.buffer_wrapper.read_u32()
-        access_flags = DexBaseUtils.parse_access_flags(self.buffer_wrapper.read_u32())
-        self.buffer_wrapper.read_u32()  # superclass_index
-        interfaces_offset = self.buffer_wrapper.read_u32()  # interfaces_offset
+    def get_class_signature(self) -> str:
+        return DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, self._class_index)
 
-        interfaces_size = 0
-        if interfaces_offset != 0:
-            # Potentially leverage the actual interfaces list instead of size in the future
-            interfaces_size = DexBaseUtils.get_type_list(
-                buffer_wrapper=self.buffer_wrapper,
-                header=self.header,
-                type_list_offset=interfaces_offset,
-            ).__len__()
+    def get_source_file_name(self) -> str | None:
+        if self._source_file_idx == NO_INDEX:
+            return None
+        return DexBaseUtils.get_string(self._buffer_wrapper, self._header, self._source_file_idx)
 
-        source_file_idx = self.buffer_wrapper.read_u32()
-        annotations_offset = self.buffer_wrapper.read_u32()
-        self.buffer_wrapper.read_u32()  # Class data offset
-        self.buffer_wrapper.read_u32()  # static values offset
-        signature = DexBaseUtils.get_type_name(
-            buffer_wrapper=self.buffer_wrapper,
-            header=self.header,
-            type_index=class_idx,
-        )
+    def get_access_flags(self) -> list[AccessFlag]:
+        return DexBaseUtils.parse_access_flags(self._access_flags)
 
-        source_file_name: str | None = None
-        if source_file_idx != NO_INDEX:
-            source_file_name = DexBaseUtils.get_string(
-                buffer_wrapper=self.buffer_wrapper,
-                header=self.header,
-                string_index=source_file_idx,
-            )
+    def get_size(self) -> int:
+        """Calculate private size of this class definition following smali pattern.
 
-        annotations_directory = DexBaseUtils.get_annotations_directory(
-            buffer_wrapper=self.buffer_wrapper,
-            header=self.header,
-            annotations_directory_offset=annotations_offset,
-        )
+        Based on smali DexBackedClassDef.getSize() implementation:
+        https://github.com/JesusFreke/smali/blob/2771eae0a11f07bd892732232e6ee4e32437230d/dexlib2/src/main/java/org/jf/dexlib2/dexbacked/DexBackedClassDef.java#L505
+        """
+        # Class definition field size (8 * uint fields (4 bytes) = 32 bytes)
+        size = 32
 
-        annotations: list[Annotation] = []
-        if annotations_directory:
-            annotations = DexBaseUtils.get_annotation_set(
-                buffer_wrapper=self.buffer_wrapper,
-                header=self.header,
-                offset=annotations_directory.class_annotations_offset,
-            )
+        # Type ID size (4 bytes for the type_id reference)
+        size += 4
 
-        self.buffer_wrapper.seek(original_cursor)
+        interfaces = self.get_interfaces()
+        if interfaces.__len__() > 0:
+            # 4 bytes (uint) for size + 2 bytes (ushort) per type
+            size += 4 + len(interfaces) * 2
 
-        size = self.get_size(
-            interface_size=interfaces_size,
-            annotations_directory=annotations_directory,
-        )
-
-        return ClassDefinition(
-            size=size,
-            signature=signature,
-            source_file_name=source_file_name,
-            annotations=annotations,
-            access_flags=access_flags,
-        )
-
-    def get_size(self, interface_size: int, annotations_directory: AnnotationsDirectory | None) -> int:
-        size = 32  # class_def_item has 8 uint (4 byte) fields (class_idx, access_flags, superclass_idx, interfaces_off, source_file_idx, annotations_off, class_data_off, static_values_off)
-        size += 4  # type_ids size
-
-        # add interface list size if any
-        if interface_size > 0:
-            # https://source.android.com/docs/core/runtime/dex-format#type-list
-            size += 4
-            # uint for size
-            size += interface_size * 2
-            # ushort per type_item
-
-        # annotations directory size if it exists
+        annotations_directory = self._get_annotations_directory()
         if annotations_directory is not None:
-            # https://source.android.com/docs/core/runtime/dex-format#annotations-directory
-            size += 4 * 4
-            # 4 uints in annotations_directory_item
+            size += 16  # 4 * 4 bytes (uint) for fields in directory
 
-            class_annotations_size = annotations_directory.class_annotations.__len__()
-            if class_annotations_size > 0:
-                # https://source.android.com/docs/core/runtime/dex-format#annotation-set-item
-                # uint for size
-                size += 4
-                # uint per annotation_off
-                size += class_annotations_size * 4
+            annotations = annotations_directory.class_annotations
+            if annotations.__len__() > 0:
+                # 4 bytes (uint) for size + 4 bytes (uint) per annotation
+                size += 4 + annotations.__len__() * 4
 
-        # TODO: Class data
+        # Class data item overhead
+        # actual class data size is calculated with methods & fields below
+        size += self._get_class_data_overhead()
 
-        # TODO: Static values
+        # Static values overhead
+        size += self._get_static_values_size()
 
-        # TODO: Methods
+        # TODO: Methods size (direct & virtual)
 
-        # TODO: Fields
+        # TODO: Fields size (static & instance)
 
         return size
+
+    def get_interfaces(self) -> list[str]:
+        if self._interfaces_offset == 0:
+            return []
+
+        cursor = self._buffer_wrapper.cursor
+
+        self._buffer_wrapper.seek(self._interfaces_offset)
+        size = self._buffer_wrapper.read_u32()
+
+        interfaces: list[str] = []
+        for _ in range(size):
+            type_index = self._buffer_wrapper.read_u16()
+            interfaces.append(DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, type_index))
+
+        self._buffer_wrapper.seek(cursor)
+
+        return interfaces
+
+    def _get_annotations_directory(self) -> AnnotationsDirectory | None:
+        if self._annotations_offset == 0:
+            return None
+
+        return DexBaseUtils.get_annotations_directory(
+            buffer_wrapper=self._buffer_wrapper,
+            header=self._header,
+            annotations_directory_offset=self._annotations_offset,
+        )
+
+    def get_annotations(self) -> list[Annotation]:
+        annotations_directory = self._get_annotations_directory()
+        if annotations_directory is None:
+            return []
+
+        return annotations_directory.class_annotations
+
+    def _get_class_data_overhead(self) -> int:
+        """Calculate overhead of class data item (not including method and field sizes).
+
+        This includes only the class_data_item header overhead, not the actual
+        field and method data which is counted separately.
+        """
+        if self._class_data_offset == 0:
+            return 0
+
+        cursor = self._buffer_wrapper.cursor
+
+        self._buffer_wrapper.seek(self._class_data_offset)
+
+        self._buffer_wrapper.read_uleb128()  # static_fields_size
+        self._buffer_wrapper.read_uleb128()  # instance_fields_size
+        self._buffer_wrapper.read_uleb128()  # direct_methods_size
+        self._buffer_wrapper.read_uleb128()  # virtual_methods_size
+
+        data_overhead_size = self._buffer_wrapper.cursor - self._class_data_offset
+
+        self._buffer_wrapper.seek(cursor)
+
+        return data_overhead_size
+
+    def _get_static_values_size(self) -> int:
+        """Calculate size of static values array."""
+        if self._static_values_offset == 0:
+            return 0
+
+        cursor = self._buffer_wrapper.cursor
+        self._buffer_wrapper.seek(self._static_values_offset)
+
+        static_values_size = self._buffer_wrapper.next_uleb128_size()
+
+        self._buffer_wrapper.seek(cursor)
+
+        return static_values_size

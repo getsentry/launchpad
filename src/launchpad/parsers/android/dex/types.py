@@ -76,6 +76,7 @@ class ClassDefinition:
     size: int
     signature: str
     source_file_name: str | None
+    interfaces: list[str]
     annotations: list[Annotation]
     access_flags: list[AccessFlag]
     # TODO: Methods
