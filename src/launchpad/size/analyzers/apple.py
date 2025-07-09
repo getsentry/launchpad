@@ -384,6 +384,7 @@ class AppleAppAnalyzer:
         if not binary_path.exists():
             logger.warning(f"Binary not found: {binary_path}")
             return MachOBinaryAnalysis(
+                binary_path=binary_path,
                 executable_size=0,
                 architectures=[],
                 linked_libraries=[],
@@ -442,6 +443,7 @@ class AppleAppAnalyzer:
             range_map = range_builder.build_range_mapping()
 
         return MachOBinaryAnalysis(
+            binary_path=binary_path,
             executable_size=executable_size,
             architectures=architectures,
             linked_libraries=linked_libraries,

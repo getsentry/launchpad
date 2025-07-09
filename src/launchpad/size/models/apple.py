@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -76,6 +77,7 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
+    binary_path: Path = Field(..., description="Fully qualified path to the binary within the app bundle")
     swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
     range_map: RangeMap | None = Field(
         None,
