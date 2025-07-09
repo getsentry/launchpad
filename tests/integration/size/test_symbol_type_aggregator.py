@@ -1,7 +1,5 @@
 """Integration tests for SymbolTypeAggregator using real Mach-O binaries."""
 
-import os
-
 from pathlib import Path
 from typing import List
 
@@ -10,11 +8,6 @@ import pytest
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
-
-
-def is_darwin() -> bool:
-    """Check if running on macOS."""
-    return os.name == "posix" and os.uname().sysname == "Darwin"
 
 
 def create_symbol_sizes_from_xcarchive(xcarchive_path: Path) -> List[SymbolSize]:
@@ -48,7 +41,6 @@ def create_symbol_sizes_from_xcarchive(xcarchive_path: Path) -> List[SymbolSize]
     return symbol_sizes
 
 
-@pytest.mark.skipif(not is_darwin(), reason="cwl-demangle is only available on macOS")
 class TestSymbolTypeAggregator:
     """Integration test cases for the SymbolTypeAggregator class using real binaries."""
 
