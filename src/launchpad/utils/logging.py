@@ -3,6 +3,9 @@
 import logging
 import sys
 
+from rich.console import Console
+from rich.logging import RichHandler
+
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     """Setup logging configuration.
@@ -18,12 +21,33 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     else:
         level = logging.INFO
 
-    # Configure root logger
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler(sys.stderr)],
-    )
+    console = Console()
+
+    if console.is_terminal:
+        # Use rich for colored terminal output _only_ for terminal output
+        # We don't want to make server logs unreadable
+        logging.basicConfig(
+            level=level,
+            format="%(message)s",
+            datefmt="[%X]",
+            handlers=[
+                RichHandler(
+                    console=console,
+                    show_time=True,
+                    show_path=False,
+                    markup=True,
+                    rich_tracebacks=True,
+                )
+            ],
+        )
+    else:
+        # Fall back to standard logging for non-terminal environments
+        # (e.g., when output is redirected to a file or sent to Datadog)
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            handlers=[logging.StreamHandler(sys.stderr)],
+        )
 
     # Set levels for third-party libraries
     if not verbose:
