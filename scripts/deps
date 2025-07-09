@@ -120,6 +120,7 @@ DEPS = [
         architecture="aarch64",
         system="darwin",
         binaries=[
+            Bin(source="android-release-tools/lib/apksigner.jar", target="apksigner.jar"),
             Bin(source="android-release-tools/bin/apksigner", target="apksigner"),
         ],
     ),
@@ -130,6 +131,7 @@ DEPS = [
         architecture="x86_64",
         system="linux",
         binaries=[
+            Bin(source="android-release-tools/lib/apksigner.jar", target="apksigner.jar"),
             Bin(source="android-release-tools/bin/apksigner", target="apksigner"),
         ],
     ),
@@ -309,17 +311,6 @@ def main():
                             for p in os.listdir(child):
                                 shutil.move(os.path.join(child, p), target_path)
                         remove_tree(child)
-
-                # Special handling for build-tools: move lib files to bin directory
-                if dep.name == "android-release-tools.tar.gz":
-                    lib_dir = os.path.join(target_path, "lib")
-                    bin_dir = os.path.join(target_path, "bin")
-                    if os.path.exists(lib_dir) and os.path.exists(bin_dir):
-                        for file in os.listdir(lib_dir):
-                            lib_file = os.path.join(lib_dir, file)
-                            bin_file = os.path.join(bin_dir, file)
-                            if os.path.isfile(lib_file):
-                                shutil.copy2(lib_file, bin_file)
 
             for binary in dep.get_binaries():
                 ensure_dir(dep.bin_directory())
