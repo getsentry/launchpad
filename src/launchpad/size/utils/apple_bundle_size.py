@@ -23,15 +23,13 @@ def calculate_bundle_sizes(bundle_url: Path) -> Tuple[int, int]:
     if bundle_url.suffix != ".app":
         raise ValueError(f"Only .app bundles are supported, got: {bundle_url}")
 
-    logger.info(f"Calculating bundle sizes for: {bundle_url}")
-
     install_size = _calculate_app_store_size(bundle_url)
     metadata_size = _zip_metadata_size_for_bundle(bundle_url)
     lzfse_size = _lzfse_content_size_for_bundle(bundle_url)
     signature_size = _get_extra_code_signature_size(bundle_url)
     download_size = metadata_size + lzfse_size + signature_size
 
-    logger.info(
+    logger.debug(
         f"Bundle size breakdown - "
         f"ZIP metadata: {metadata_size} bytes, "
         f"LZFSE content: {lzfse_size} bytes, "

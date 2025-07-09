@@ -96,7 +96,6 @@ class AppleAppAnalyzer:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
 
-        # Extract basic app information
         if not self.app_info:
             self.app_info = self.preprocess(artifact)
 
@@ -106,7 +105,6 @@ class AppleAppAnalyzer:
         file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
-        # Calculate download and install sizes
         app_bundle_path = artifact.get_app_bundle_path()
         download_size, install_size = calculate_bundle_sizes(app_bundle_path)
         logger.info(f"Download size: {download_size} bytes, Install size: {install_size} bytes")
@@ -116,13 +114,9 @@ class AppleAppAnalyzer:
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
 
         if not self.skip_treemap and not self.skip_range_mapping:
-            app_bundle_path = artifact.get_app_bundle_path()
-
-            # First find all binaries
             binaries = artifact.get_all_binary_paths()
             logger.info(f"Found {len(binaries)} binaries to analyze")
 
-            # Then analyze them all
             for binary_info in binaries:
                 logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
                 if binary_info.dsym_path:
@@ -134,8 +128,7 @@ class AppleAppAnalyzer:
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
-            # Calculate compression ratio from actual sizes
-            compression_ratio = download_size / install_size if install_size > 0 else 0.8
+            compression_ratio = download_size / install_size if install_size > 0 else 1
 
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
@@ -421,7 +414,7 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
