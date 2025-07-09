@@ -85,3 +85,4 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 3. Consider performance implications
 4. Follow existing patterns in the codebase
 5. Include relevant tests
+6. Format imports using ruff

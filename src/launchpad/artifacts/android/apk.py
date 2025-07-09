@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from launchpad.utils.android.apksigner import Apksigner
+
 from ...parsers.android.dex.dex_file_parser import DexFileParser
 from ...parsers.android.dex.types import ClassDefinition
 from ...utils.logging import get_logger
@@ -85,3 +87,7 @@ class APK(AndroidArtifact):
 
     def get_extract_path(self) -> Path:
         return self._extract_dir
+
+    def get_apksigner_certs(self) -> str:
+        apksigner = Apksigner()
+        return apksigner.get_certs(self._path)

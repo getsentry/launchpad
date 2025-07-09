@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,6 +13,7 @@ from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolType
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .insights import (
+    BaseInsightResult,
     DuplicateFilesInsightResult,
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
@@ -64,6 +66,7 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
+    binary_path: Path = Field(..., description="Fully qualified path to the binary within the app bundle")
     swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
     range_map: RangeMap | None = Field(
         None,
@@ -72,6 +75,20 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
     )
     symbol_info: SymbolInfo | None = Field(None, description="Symbol information", exclude=True)
     objc_method_names: List[str] = Field(default_factory=list, description="Objective-C method names", exclude=True)
+
+
+class StripBinaryFileInfo(BaseModel):
+    """Savings information from stripping a Mach-O binary."""
+
+    macho_binary: MachOBinaryAnalysis = Field(..., description="Mach-O binary analysis")
+    install_size_saved: int = Field(..., description="Install size saved by stripping the binary")
+    download_size_saved: int = Field(..., description="Download size saved by stripping the binary")
+
+
+class StripBinaryInsightResult(BaseInsightResult):
+    """Results from strip binary analysis."""
+
+    files: List[StripBinaryFileInfo] = Field(..., description="Files that could save size by stripping the binary")
 
 
 class SwiftMetadata(BaseModel):
@@ -91,6 +108,7 @@ class AppleInsightResults(BaseModel):
     large_images: LargeImageFileInsightResult | None = Field(None, description="Large image files analysis")
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large video files analysis")
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
+    strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
 
 
 @dataclass
