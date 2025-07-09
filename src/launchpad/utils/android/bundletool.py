@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import secrets
+import shutil
 import string
 import subprocess
 import tempfile
@@ -46,17 +47,7 @@ class Bundletool:
             FileNotFoundError: If bundletool cannot be found at specified path or in PATH
         """
         if bundletool_path is None:
-            try:
-                # TODO: Ensure packaged in docker image when productionizing
-                result = subprocess.run(
-                    ["which", "bundletool"],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                bundletool_path = result.stdout.strip()
-            except subprocess.CalledProcessError as e:
-                raise FileNotFoundError("bundletool not found in PATH. Install with `brew install bundletool`") from e
+            bundletool_path = shutil.which("bundletool")
 
         self.bundletool_path = Path(bundletool_path)
         if not self.bundletool_path.exists():
