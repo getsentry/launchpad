@@ -24,3 +24,4 @@ protobuf==5.29.5
 asn1crypto>=1.5.0
 cryptography>=41.0.0
 datadog==0.51.*
+lzfse>=0.4.2
