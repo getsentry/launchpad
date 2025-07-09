@@ -2,10 +2,9 @@ import subprocess
 
 from pathlib import Path
 
-from launchpad.utils.logging import get_logger
+from ..logging import get_logger
 
-logger = get_logger()
-
+logger = get_logger(__name__)
 
 
 class ApksignerError(Exception):
@@ -41,7 +40,7 @@ class Apksigner:
                 )
                 apksigner_path = result.stdout.strip()
             except subprocess.CalledProcessError as e:
-                raise FileNotFoundError("apksigner not found in PATH. Install with `brew install apksigner`") from e
+                raise FileNotFoundError("apksigner not found in PATH.") from e
 
         self.apksigner_path = Path(apksigner_path)
         if not self.apksigner_path.exists():
@@ -54,7 +53,7 @@ class Apksigner:
             apk_path: Path to the APK file
 
         Returns:
-            Dictionary containing certificate information
+            String containing certificate information
         """
         cmd = [str(self.apksigner_path), "verify", "--print-certs", str(apk_path)]
 
@@ -69,13 +68,5 @@ class Apksigner:
             )
         except subprocess.CalledProcessError as e:
             raise ApksignerError(f"Failed to run apksigner command: {e}", -1, "", str(e)) from e
-
-        if result.returncode != 0:
-            raise ApksignerError(
-                f"apksigner command failed with return code {result.returncode}",
-                result.returncode,
-                result.stdout,
-                result.stderr,
-            )
 
         return result.stdout
