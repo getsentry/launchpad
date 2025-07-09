@@ -70,6 +70,22 @@ def _calculate_app_store_size(bundle_url: Path) -> int:
     return total_size
 
 
+def _lzfse_content_size_for_bundle(bundle_url: Path) -> int:
+    total_lzfse_size = 0
+
+    for file_path in bundle_url.rglob("*"):
+        if not file_path.is_file():
+            continue
+
+        if file_path.is_symlink():
+            continue
+
+        compressed = _lzfse_compressed_size(file_path)
+        total_lzfse_size += compressed
+
+    return total_lzfse_size
+
+
 def _lzfse_compressed_size(file_path: Path) -> int:
     try:
         with open(file_path, "rb") as f:
@@ -156,22 +172,6 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
             zip_file_path.unlink()
         if zip_info_file_path.exists():
             zip_info_file_path.unlink()
-
-
-def _lzfse_content_size_for_bundle(bundle_url: Path) -> int:
-    total_lzfse_size = 0
-
-    for file_path in bundle_url.rglob("*"):
-        if not file_path.is_file():
-            continue
-
-        if file_path.is_symlink():
-            continue
-
-        compressed = _lzfse_compressed_size(file_path)
-        total_lzfse_size += compressed
-
-    return total_lzfse_size
 
 
 def _get_extra_code_signature_size(bundle_url: Path) -> int:
