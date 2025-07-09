@@ -61,7 +61,7 @@ class TestLaunchpadServer(AioHTTPTestCase):
 class TestLaunchpadService:
     """Test cases for LaunchpadService."""
 
-    @patch.object(LaunchpadService, "process_artifact_analysis")
+    @patch.object(LaunchpadService, "process_artifact")
     def test_handle_kafka_message_ios(self, mock_process):
         """Test handling iOS artifact messages."""
         service = LaunchpadService()
@@ -79,14 +79,14 @@ class TestLaunchpadService:
         # handle_kafka_message is synchronous
         service.handle_kafka_message(payload)
 
-        # Verify process_artifact_analysis was called with correct args
+        # Verify process_artifact was called with correct args
         mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
 
         # Verify metrics were recorded
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
 
-    @patch.object(LaunchpadService, "process_artifact_analysis")
+    @patch.object(LaunchpadService, "process_artifact")
     def test_handle_kafka_message_android(self, mock_process):
         """Test handling Android artifact messages."""
         service = LaunchpadService()
@@ -104,14 +104,14 @@ class TestLaunchpadService:
         # handle_kafka_message is synchronous
         service.handle_kafka_message(payload)
 
-        # Verify process_artifact_analysis was called with correct args
+        # Verify process_artifact was called with correct args
         mock_process.assert_called_once_with("android-test-456", "test-project-android", "test-org-456")
 
         # Verify metrics were recorded
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
         service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
 
-    @patch.object(LaunchpadService, "process_artifact_analysis")
+    @patch.object(LaunchpadService, "process_artifact")
     def test_handle_kafka_message_error(self, mock_process):
         """Test error handling in message processing."""
         service = LaunchpadService()
@@ -119,7 +119,7 @@ class TestLaunchpadService:
         # Mock statsd
         service._statsd = Mock()
 
-        # Make process_artifact_analysis raise an exception
+        # Make process_artifact raise an exception
         mock_process.side_effect = RuntimeError("Download failed: HTTP 404")
 
         # Create a valid payload
@@ -132,7 +132,7 @@ class TestLaunchpadService:
         # This should not raise (simplified error handling catches all exceptions)
         service.handle_kafka_message(payload)
 
-        # Verify process_artifact_analysis was called
+        # Verify process_artifact was called
         mock_process.assert_called_once_with("test-123", "test-project", "test-org")
 
         # Verify the metrics were called correctly

@@ -15,7 +15,29 @@ from typing import Any, Dict
 
 import requests
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 logger = logging.getLogger(__name__)
+
+
+def create_retry_session(max_retries: int = 3) -> requests.Session:
+    """Create a requests session with retry configuration."""
+    session = requests.Session()
+
+    retry_strategy = Retry(
+        total=max_retries,
+        backoff_factor=0.1,
+        status_forcelist=[429, 500, 502, 503, 504],  # Retry on these HTTP status codes
+        allowed_methods=["HEAD", "GET", "OPTIONS", "POST", "PUT", "DELETE"],
+        raise_on_status=False,  # Don't raise on HTTP errors, let our code handle them
+    )
+
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
+    return session
 
 
 class SentryClient:
@@ -27,36 +49,34 @@ class SentryClient:
         if not self.shared_secret:
             raise RuntimeError("LAUNCHPAD_RPC_SHARED_SECRET must be provided or set as environment variable")
 
+        self.session = create_retry_session()
+
     def download_artifact(self, org: str, project: str, artifact_id: str) -> Dict[str, Any]:
         """Download preprod artifact."""
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
         url = self._build_url(endpoint)
 
-        try:
-            logger.debug(f"GET {url}")
-            response = requests.get(url, headers=self._get_auth_headers(), timeout=120, stream=True)
+        logger.debug(f"GET {url}")
+        response = self.session.get(url, headers=self._get_auth_headers(), timeout=120, stream=True)
 
-            if response.status_code != 200:
-                return self._handle_error_response(response, "Download")
+        if response.status_code != 200:
+            return self._handle_error_response(response, "Download")
 
-            # Read content with size limit
-            content = b""
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    content += chunk
-                if len(content) > 5 * 1024 * 1024 * 1024:  # 5GB limit
-                    logger.warning("Download truncated at 5GB")
-                    break
+        # Read content with size limit
+        content = b""
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                content += chunk
+            if len(content) > 5 * 1024 * 1024 * 1024:  # 5GB limit
+                logger.warning("Download truncated at 5GB")
+                break
 
-            return {
-                "success": True,
-                "file_content": content,
-                "file_size_bytes": len(content),
-                "headers": dict(response.headers),
-            }
-        except Exception as e:
-            logger.error(f"Download failed: {e}")
-            return {"error": str(e)}
+        return {
+            "success": True,
+            "file_content": content,
+            "file_size_bytes": len(content),
+            "headers": dict(response.headers),
+        }
 
     def update_artifact(self, org: str, project: str, artifact_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Update preprod artifact."""
@@ -174,7 +194,7 @@ class SentryClient:
         operation = operation or f"{method} {endpoint}"
 
         logger.debug(f"{method} {url}")
-        response = requests.request(
+        response = self.session.request(
             method=method,
             url=url,
             data=body or None,
@@ -249,7 +269,7 @@ class SentryClient:
         }
 
         try:
-            response = requests.post(url, data=body, headers=headers, timeout=60)
+            response = self.session.post(url, data=body, headers=headers, timeout=60)
 
             success = response.status_code in [200, 201, 409]  # 409 = already exists
             if not success:

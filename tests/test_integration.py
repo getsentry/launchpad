@@ -54,8 +54,8 @@ class TestServiceIntegration:
             "sentry_base_url": "https://sentry.example.com",
         }
 
-        # Mock process_artifact_analysis to avoid actual processing
-        with patch.object(service, "process_artifact_analysis") as mock_process:
+        # Mock process_artifact to avoid actual processing
+        with patch.object(service, "process_artifact") as mock_process:
             # Test artifact analysis message with iOS artifact
             ios_payload: PreprodArtifactEvents = {
                 "artifact_id": "ios-test-123",
