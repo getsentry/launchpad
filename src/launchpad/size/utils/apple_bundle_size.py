@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Tuple
 
-import liblzfse
+import lzfse
 
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
@@ -82,7 +82,7 @@ def _lzfse_compressed_size(file_path: Path) -> int:
 
         source_size = len(source_data)
 
-        compressed_data = liblzfse.compress(source_data)  # type: ignore
+        compressed_data = lzfse.compress(source_data)  # type: ignore
         compressed_size = len(compressed_data)  # type: ignore
 
         return compressed_size if compressed_size < source_size else source_size
