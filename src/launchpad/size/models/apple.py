@@ -36,20 +36,8 @@ class AppleAnalysisResults(BaseAnalysisResults):
     insights: AppleInsightResults | None = Field(
         description="Generated insights from the analysis",
     )
-
-    @property
-    def download_size(self) -> int:
-        """Estimated download size"""
-        if self.treemap:
-            return self.treemap.total_download_size
-        return self.file_analysis.total_size  # TODO: Implement download size calculation
-
-    @property
-    def install_size(self) -> int:
-        """Estimated install size"""
-        if self.treemap:
-            return self.treemap.total_install_size
-        return self.file_analysis.total_size  # TODO: Implement install size calculation
+    download_size: int = Field(..., description="Estimated download size in bytes")
+    install_size: int = Field(..., description="Estimated install size in bytes")
 
 
 class AppleAppInfo(BaseAppInfo):

@@ -1,13 +1,13 @@
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
-from launchpad.utils.file_utils import calculate_aligned_install_size
+from launchpad.utils.file_utils import to_nearest_block_size
 
 
 class DefaultFileElementBuilder(TreemapElementBuilder):
     def build_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
-        install_size = calculate_aligned_install_size(file_info, self.filesystem_block_size)
-        download_size = int(install_size * self.download_compression_ratio)
+        install_size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
+        download_size = int(file_info.size * self.download_compression_ratio)
 
         details: dict[str, object] = {
             "hash": file_info.hash_md5,  # File hash for deduplication

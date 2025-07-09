@@ -28,6 +28,7 @@ from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
+from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import calculate_file_hash, get_file_size
 from launchpad.utils.logging import get_logger
@@ -96,7 +97,6 @@ class AppleAppAnalyzer:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
 
-        # Extract basic app information
         if not self.app_info:
             self.app_info = self.preprocess(artifact)
 
@@ -106,18 +106,18 @@ class AppleAppAnalyzer:
         file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
+        app_bundle_path = artifact.get_app_bundle_path()
+        download_size, install_size = calculate_bundle_sizes(app_bundle_path)
+        logger.info(f"Download size: {download_size} bytes, Install size: {install_size} bytes")
+
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
 
         if not self.skip_treemap and not self.skip_range_mapping:
-            app_bundle_path = artifact.get_app_bundle_path()
-
-            # First find all binaries
             binaries = artifact.get_all_binary_paths()
             logger.info(f"Found {len(binaries)} binaries to analyze")
 
-            # Then analyze them all
             for binary_info in binaries:
                 logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
                 if binary_info.dsym_path:
@@ -129,10 +129,12 @@ class AppleAppAnalyzer:
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
+            compression_ratio = download_size / install_size if install_size > 0 else 1
+
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
-                download_compression_ratio=0.8,  # TODO: implement this
+                download_compression_ratio=compression_ratio,
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )
@@ -163,6 +165,8 @@ class AppleAppAnalyzer:
             insights=insights,
             analysis_duration=None,
             use_si_units=True,
+            download_size=download_size,
+            install_size=install_size,
         )
 
         return results
