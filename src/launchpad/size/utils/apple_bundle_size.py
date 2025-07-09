@@ -120,13 +120,14 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
             return 0
 
         logger.info(f"Getting ZIP info: unzip -v {zip_file_path}")
-        result = subprocess.run(
-            f'unzip -v "{zip_file_path}"',
-            shell=True,
-            capture_output=True,
-            text=True,
-            stdout=open(zip_info_file_path, "w"),
-        )
+        with open(zip_info_file_path, "w") as zip_info_file:
+            result = subprocess.run(
+                f'unzip -v "{zip_file_path}"',
+                shell=True,
+                capture_output=True,
+                text=True,
+                stdout=zip_info_file,
+            )
         if result.returncode != 0:
             logger.error(f"Unzip command failed: {result.stderr}")
             return 0
