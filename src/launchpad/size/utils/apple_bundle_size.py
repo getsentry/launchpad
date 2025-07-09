@@ -47,28 +47,23 @@ def _calculate_app_store_size(bundle_url: Path) -> int:
     total_size = 0
     file_count = 0
 
-    # Walk through all files in the bundle
     for file_path in bundle_url.rglob("*"):
         if file_path.is_symlink():
             # Symlinks have 0 disk space
             file_count += 1
             continue
 
-        if not file_path.is_file():
-            continue
-
         file_count += 1
 
-        # Add file size (rounded to 4KB blocks)
-        total_size += to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
+        if file_path.is_file():
+            total_size += to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
-        # Add extra code signature size for binaries without extensions
-        if not file_path.suffix and MachOParser.is_macho_binary(file_path):
-            total_size += _get_extra_code_signature_size(file_path)
-
-    # Add directory size itself
-    total_size += to_nearest_block_size(get_file_size(bundle_url), APPLE_FILESYSTEM_BLOCK_SIZE)
-    file_count += 1
+            # Add extra code signature size for binaries without extensions
+            if not file_path.suffix and MachOParser.is_macho_binary(file_path):
+                total_size += _get_extra_code_signature_size(file_path)
+        else:
+            # Add directory size
+            total_size += to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
     logger.info(f"App Store size calculation: {file_count} files, {total_size} bytes")
 
