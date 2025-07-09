@@ -14,6 +14,7 @@ export enum TreemapType {
 
   // iOS-specific categories
   FRAMEWORKS = "frameworks",
+  EXTENSIONS = "extensions",
   PLISTS = "plists",
 
   // Android-specific categories
@@ -80,14 +81,34 @@ export interface EChartsTreemapData {
   children?: EChartsTreemapData[];
   itemStyle?: {
     color?: string;
+    borderColor?: string;
+    borderWidth?: number;
+    gapWidth?: number;
   };
   label?: {
     show?: boolean;
     position?: string;
+    fontSize?: number;
+    fontWeight?: string;
+    color?: string;
+    fontFamily?: string;
+    padding?: number;
+    textShadowBlur?: number;
+    textShadowColor?: string;
+    textShadowOffsetY?: number;
   };
   upperLabel?: {
     show?: boolean;
     backgroundColor?: string;
     color?: string;
+    height?: number;
+    fontSize?: number;
+    fontWeight?: string;
+    borderRadius?: number[];
+    fontFamily?: string;
+    padding?: number;
+    textShadowBlur?: number;
+    textShadowColor?: string;
+    textShadowOffsetY?: number;
   };
 }
