@@ -100,9 +100,10 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
     bundle_name = bundle_url.name
 
     try:
-        os.chdir(str(bundle_dir))
         logger.info(f"Creating ZIP file: zip -r {zip_file_path} {bundle_name}")
-        result = subprocess.run(f'zip -r "{zip_file_path}" "{bundle_name}"', shell=True, capture_output=True, text=True)
+        result = subprocess.run(
+            f'zip -r "{zip_file_path}" "{bundle_name}"', shell=True, capture_output=True, text=True, cwd=str(bundle_dir)
+        )
         if result.returncode != 0:
             logger.error(f"ZIP command failed: {result.stderr}")
             return 0
