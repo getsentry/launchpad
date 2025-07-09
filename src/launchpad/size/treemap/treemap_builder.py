@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Literal
 
 from launchpad.parsers.android.dex.types import ClassDefinition
+from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import HERMES_EXTENSIONS
 from launchpad.size.models.apple import MachOBinaryAnalysis
@@ -14,7 +15,7 @@ from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapResults, TreemapType
 from launchpad.size.treemap.dex_element_builder import DexElementBuilder
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
-from launchpad.utils.file_utils import calculate_aligned_install_size
+from launchpad.utils.file_utils import to_nearest_block_size
 from launchpad.utils.logging import get_logger
 
 from .default_file_element_builder import DefaultFileElementBuilder
@@ -331,8 +332,8 @@ class TreemapBuilder:
         for file_info in file_analysis.files:
             treemap_type = file_info.treemap_type.value
             # Use filesystem block-aligned size for install calculations
-            install_size = calculate_aligned_install_size(file_info, self.filesystem_block_size)
-            download_size = int(install_size * self.download_compression_ratio)
+            install_size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
+            download_size = int(file_info.size * self.download_compression_ratio)
 
             breakdown[treemap_type]["install"] += install_size
             breakdown[treemap_type]["download"] += download_size
@@ -342,6 +343,6 @@ class TreemapBuilder:
 
 # Platform-specific filesystem block sizes (in bytes)
 FILESYSTEM_BLOCK_SIZES = {
-    "ios": 4 * 1000,  # iOS uses 4KB filesystem blocks
+    "ios": APPLE_FILESYSTEM_BLOCK_SIZE,  # iOS uses 4KB filesystem blocks
     "android": 4 * 1024,  # Android typically uses 4KB as well
 }

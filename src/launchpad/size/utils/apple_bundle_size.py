@@ -9,6 +9,8 @@ from typing import Tuple
 import liblzfse
 
 from launchpad.parsers.apple.macho_parser import MachOParser
+from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
+from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -58,14 +60,14 @@ def _calculate_app_store_size(bundle_url: Path) -> int:
         file_count += 1
 
         # Add file size (rounded to 4KB blocks)
-        total_size += _regular_file_allocated_size(file_path)
+        total_size += to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
         # Add extra code signature size for binaries without extensions
         if not file_path.suffix and MachOParser.is_macho_binary(file_path):
             total_size += _get_extra_code_signature_size(file_path)
 
     # Add directory size itself
-    total_size += _regular_file_allocated_size(bundle_url)
+    total_size += to_nearest_block_size(get_file_size(bundle_url), APPLE_FILESYSTEM_BLOCK_SIZE)
     file_count += 1
 
     logger.info(f"App Store size calculation: {file_count} files, {total_size} bytes")
@@ -181,19 +183,3 @@ def _get_extra_code_signature_size(bundle_url: Path) -> int:
 
     # TODO: Implement actual code signature size calculation
     return 0
-
-
-def _regular_file_allocated_size(file_path: Path) -> int:
-    """Calculate the allocated size of a file, rounded up to 4KB blocks."""
-    try:
-        file_stat = file_path.stat()
-        if hasattr(file_stat, "st_blocks") and file_stat.st_blocks > 0:
-            # Round up to nearest 4KB block
-            import math
-
-            return int(math.ceil(file_stat.st_size / 4096.0) * 4096)
-        else:
-            return file_stat.st_size
-    except (OSError, IOError) as e:
-        logger.warning(f"Could not stat file {file_path}: {e}")
-        return 0

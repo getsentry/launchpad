@@ -6,8 +6,6 @@ import tempfile
 
 from pathlib import Path
 
-from launchpad.size.models.common import FileInfo
-
 from .logging import get_logger
 
 logger = get_logger(__name__)
@@ -68,6 +66,15 @@ def get_file_size(file_path: Path) -> int:
     return file_path.stat().st_size
 
 
+def to_nearest_block_size(file_size: int, block_size: int) -> int:
+    """Round file size up to the nearest filesystem block size."""
+
+    if file_size == 0:
+        return 0
+
+    return ((file_size - 1) // block_size + 1) * block_size
+
+
 def create_temp_directory(prefix: str = "app-analyzer-") -> Path:
     """Create a temporary directory.
 
@@ -91,18 +98,3 @@ def cleanup_directory(directory: Path) -> None:
     if directory.exists() and directory.is_dir():
         shutil.rmtree(directory)
         logger.debug(f"Cleaned up directory: {directory}")
-
-
-def calculate_aligned_install_size(file_info: FileInfo, filesystem_block_size: int) -> int:
-    """Calculate the aligned install size of a file.
-
-    Args:
-        file_info: File information
-        filesystem_block_size: Filesystem block size
-    """
-    file_size = file_info.size
-    if file_size == 0:
-        return 0
-
-    # Round up to nearest filesystem block boundary
-    return ((file_size - 1) // filesystem_block_size + 1) * filesystem_block_size
