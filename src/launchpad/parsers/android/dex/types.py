@@ -37,13 +37,19 @@ class Parameter:
 @dataclass
 class Annotation:
     type_name: str
-    elements: dict[str, Any]
+    elements: dict[str, EncodedValue]
     parameter_index: int | None = None
 
 
 @dataclass
 class MethodAnnotation:
     method_index: int
+    annotations_offset: int
+
+
+@dataclass
+class FieldAnnotation:
+    field_index: int
     annotations_offset: int
 
 
@@ -57,8 +63,25 @@ class ParameterAnnotation:
 class AnnotationsDirectory:
     class_annotations_offset: int
     class_annotations: list[Annotation]
+    field_annotations: list[FieldAnnotation]
     method_annotations: list[MethodAnnotation]
     parameter_annotations: list[ParameterAnnotation]
+
+
+@dataclass
+class EncodedValue:
+    value: Any
+    type: EncodedValueType
+    offset: int
+    size: int
+
+
+@dataclass
+class Field:
+    size: int
+    signature: str
+    access_flags: list[AccessFlag]
+    annotations: list[Annotation]
 
 
 @dataclass
@@ -79,8 +102,8 @@ class ClassDefinition:
     interfaces: list[str]
     annotations: list[Annotation]
     access_flags: list[AccessFlag]
+    fields: list[Field]
     # TODO: Methods
-    # TODO: Fields
     # TODO: Superclass
     # TODO: Interfaces
 

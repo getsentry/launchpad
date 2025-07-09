@@ -33,6 +33,7 @@ class DexFileParser:
                 interfaces=class_parser.get_interfaces(),
                 annotations=class_parser.get_annotations(),
                 access_flags=class_parser.get_access_flags(),
+                fields=class_parser.get_fields(),
             )
             class_defs.append(class_def)
 

@@ -1,5 +1,3 @@
-from typing import Any
-
 from launchpad.parsers.android.dex.types import (
     ENDIAN_CONSTANT,
     AccessFlag,
@@ -7,7 +5,9 @@ from launchpad.parsers.android.dex.types import (
     AnnotationsDirectory,
     AnnotationVisibility,
     DexFileHeader,
+    EncodedValue,
     EncodedValueType,
+    FieldAnnotation,
     Method,
     MethodAnnotation,
     ParameterAnnotation,
@@ -109,7 +109,11 @@ class DexBaseUtils:
         annotated_parameters_size = buffer_wrapper.read_u32()
 
         # Skip fields for now
-        buffer_wrapper.skip(8 * fields_size)  # field_annotation is 8 bytes
+        field_annotations: list[FieldAnnotation] = []
+        for _ in range(fields_size):
+            field_index = buffer_wrapper.read_u32()
+            annotations_offset = buffer_wrapper.read_u32()
+            field_annotations.append(FieldAnnotation(field_index=field_index, annotations_offset=annotations_offset))
 
         class_annotations: list[Annotation] = []
         if class_annotations_offset != 0:
@@ -120,7 +124,7 @@ class DexBaseUtils:
             )
 
         method_annotations: list[MethodAnnotation] = []
-        for i in range(annotated_methods_size):
+        for _ in range(annotated_methods_size):
             method_index = buffer_wrapper.read_u32()
             annotations_offset = buffer_wrapper.read_u32()
             method_annotations.append(
@@ -128,7 +132,7 @@ class DexBaseUtils:
             )
 
         parameter_annotations: list[ParameterAnnotation] = []
-        for i in range(annotated_parameters_size):
+        for _ in range(annotated_parameters_size):
             method_index = buffer_wrapper.read_u32()
             annotations_offset = buffer_wrapper.read_u32()
             parameter_annotations.append(
@@ -139,6 +143,7 @@ class DexBaseUtils:
         return AnnotationsDirectory(
             class_annotations_offset=class_annotations_offset,
             class_annotations=class_annotations,
+            field_annotations=field_annotations,
             method_annotations=method_annotations,
             parameter_annotations=parameter_annotations,
         )
@@ -215,7 +220,7 @@ class DexBaseUtils:
             type_idx = buffer_wrapper.read_uleb128()
 
             element_count = buffer_wrapper.read_uleb128()
-            elements: dict[str, Any] = {}
+            elements: dict[str, EncodedValue] = {}
 
             for j in range(element_count):
                 element_name_index = buffer_wrapper.read_uleb128()
@@ -231,7 +236,7 @@ class DexBaseUtils:
         return annotations
 
     @staticmethod
-    def get_encoded_value(buffer_wrapper: BufferWrapper, header: DexFileHeader) -> Any:
+    def get_encoded_value(buffer_wrapper: BufferWrapper, header: DexFileHeader) -> EncodedValue:
         """Parse encoded value.
 
         https://source.android.com/docs/core/runtime/dex-format#value-formats
@@ -239,6 +244,7 @@ class DexBaseUtils:
         Returns:
             Parsed value
         """
+        start_offset = buffer_wrapper.cursor
         encoded_byte = buffer_wrapper.read_u8()
         value_type = encoded_byte & 0x1F
         value_arg = encoded_byte >> 5
@@ -295,6 +301,16 @@ class DexBaseUtils:
                 return value_arg != 0
             case _:
                 raise ValueError(f"Unsupported encoded value type: {value_type:02x}")
+
+        end_offset = buffer_wrapper.cursor
+        size = end_offset - start_offset
+
+        return EncodedValue(
+            value=value,
+            type=EncodedValueType(value_type),
+            offset=start_offset,
+            size=size,
+        )
 
     @staticmethod
     def get_encoded_method_prototype(
@@ -376,7 +392,7 @@ class DexBaseUtils:
         return Method(class_signature=class_signature, prototype=prototype, name=name)
 
     @staticmethod
-    def get_encoded_array(buffer_wrapper: BufferWrapper, header: DexFileHeader) -> list[Any]:
+    def get_encoded_array(buffer_wrapper: BufferWrapper, header: DexFileHeader) -> list[EncodedValue]:
         """Get encoded array.
 
         https://source.android.com/docs/core/runtime/dex-format#encoded-array
@@ -385,9 +401,9 @@ class DexBaseUtils:
             List of values
         """
         size = buffer_wrapper.read_uleb128()
-        values: list[Any] = []
+        values: list[EncodedValue] = []
 
-        for i in range(size):
+        for _ in range(size):
             values.append(DexBaseUtils.get_encoded_value(buffer_wrapper, header))
 
         return values
