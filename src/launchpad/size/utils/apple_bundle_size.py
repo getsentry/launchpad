@@ -113,7 +113,11 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
     try:
         logger.info(f"Creating ZIP file: zip -r {zip_file_path} {bundle_name}")
         result = subprocess.run(
-            f'zip -r "{zip_file_path}" "{bundle_name}"', shell=True, capture_output=True, text=True, cwd=str(bundle_dir)
+            ["zip", "-r", str(zip_file_path), str(bundle_name)],
+            shell=False,
+            capture_output=True,
+            text=True,
+            cwd=str(bundle_dir),
         )
         if result.returncode != 0:
             logger.error(f"ZIP command failed: {result.stderr}")
@@ -122,8 +126,8 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
         logger.info(f"Getting ZIP info: unzip -v {zip_file_path}")
         with open(zip_info_file_path, "w") as zip_info_file:
             result = subprocess.run(
-                f'unzip -v "{zip_file_path}"',
-                shell=True,
+                ["unzip", "-v", str(zip_file_path)],
+                shell=False,
                 capture_output=True,
                 text=True,
                 stdout=zip_info_file,
