@@ -90,4 +90,4 @@ class APK(AndroidArtifact):
 
     def get_apksigner_certs(self) -> str:
         apksigner = Apksigner()
-        return apksigner.verify_and_print_certs(self._path)
+        return apksigner.get_certs(self._path)

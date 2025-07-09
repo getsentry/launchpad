@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 
 from pathlib import Path
@@ -31,23 +32,16 @@ class Apksigner:
             FileNotFoundError: If apksigner cannot be found at specified path or in PATH
         """
         if apksigner_path is None:
-            try:
-                result = subprocess.run(
-                    ["which", "apksigner"],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                apksigner_path = result.stdout.strip()
-            except subprocess.CalledProcessError as e:
-                raise FileNotFoundError("apksigner not found in PATH.") from e
+            apksigner_path = shutil.which("apksigner")
+            if apksigner_path is None:
+                raise FileNotFoundError("apksigner not found in PATH.")
 
         self.apksigner_path = Path(apksigner_path)
         if not self.apksigner_path.exists():
             raise FileNotFoundError(f"apksigner not found at {apksigner_path}")
 
-    def verify_and_print_certs(self, apk_path: Path) -> str:
-        """Verify and print certificates for an APK.
+    def get_certs(self, apk_path: Path) -> str:
+        """Get certificates for an APK.
 
         Args:
             apk_path: Path to the APK file
