@@ -1,7 +1,11 @@
 import subprocess
 
 from pathlib import Path
-from venv import logger
+
+from launchpad.utils.logging import get_logger
+
+logger = get_logger()
+
 
 
 class ApksignerError(Exception):
