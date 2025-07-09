@@ -44,8 +44,6 @@ class LocalizedStringInsightResult(BaseInsightResult):
     """Results from localized string analysis."""
 
     files: List[FileInfo] = Field(..., description="Localized strings files exceeding 100KB threshold")
-    file_count: int = Field(..., description="Total number of localized strings files")
-    total_size: int = Field(..., description="Total size of all localized strings files")
 
 
 class AppleAppInfo(BaseAppInfo):
