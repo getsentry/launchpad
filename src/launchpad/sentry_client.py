@@ -68,8 +68,11 @@ class SentryClient:
             if chunk:
                 content += chunk
             if len(content) > 5 * 1024 * 1024 * 1024:  # 5GB limit
-                logger.warning("Download truncated at 5GB")
-                break
+                logger.error("Download exceeds 5GB limit")
+                return {
+                    "error": "File size exceeds 5GB limit",
+                    "status_code": 413,  # Payload Too Large
+                }
 
         return {
             "success": True,

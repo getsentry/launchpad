@@ -5,11 +5,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 from launchpad.constants import (
-    ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
-    ERROR_CODE_ARTIFACT_PROCESSING_TIMEOUT,
-    ERROR_CODE_UNKNOWN,
     MAX_RETRY_ATTEMPTS,
     OperationName,
+    ProcessingErrorCode,
     ProcessingErrorMessage,
 )
 from launchpad.service import LaunchpadService
@@ -110,42 +108,42 @@ class TestLaunchpadServiceErrorHandling:
 
         # Test ValueError -> ARTIFACT_PARSING_FAILED
         error_code, error_message = service._categorize_processing_error(ValueError("Invalid format"))
-        assert error_code == ERROR_CODE_ARTIFACT_PROCESSING_ERROR
+        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
         assert error_message == ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
 
         # Test NotImplementedError -> UNSUPPORTED_ARTIFACT_TYPE
         error_code, error_message = service._categorize_processing_error(NotImplementedError("Not supported"))
-        assert error_code == ERROR_CODE_ARTIFACT_PROCESSING_ERROR
+        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
         assert error_message == ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
 
         # Test FileNotFoundError -> ARTIFACT_PARSING_FAILED
         error_code, error_message = service._categorize_processing_error(FileNotFoundError("File not found"))
-        assert error_code == ERROR_CODE_ARTIFACT_PROCESSING_ERROR
+        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
         assert error_message == ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
 
         # Test RuntimeError with timeout -> PROCESSING_TIMEOUT
         error_code, error_message = service._categorize_processing_error(RuntimeError("Processing timeout occurred"))
-        assert error_code == ERROR_CODE_ARTIFACT_PROCESSING_TIMEOUT
+        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT
         assert error_message == ProcessingErrorMessage.PROCESSING_TIMEOUT
 
         # Test RuntimeError with preprocessing keywords -> PREPROCESSING_FAILED
         error_code, error_message = service._categorize_processing_error(RuntimeError("Preprocessing failed"))
-        assert error_code == ERROR_CODE_ARTIFACT_PROCESSING_ERROR
+        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
         assert error_message == ProcessingErrorMessage.PREPROCESSING_FAILED
 
         # Test RuntimeError with size keywords -> SIZE_ANALYSIS_FAILED
         error_code, error_message = service._categorize_processing_error(RuntimeError("Size analysis failed"))
-        assert error_code == ERROR_CODE_ARTIFACT_PROCESSING_ERROR
+        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
         assert error_message == ProcessingErrorMessage.SIZE_ANALYSIS_FAILED
 
         # Test RuntimeError with unknown content -> UNKNOWN_ERROR
         error_code, error_message = service._categorize_processing_error(RuntimeError("Something unknown happened"))
-        assert error_code == ERROR_CODE_ARTIFACT_PROCESSING_ERROR
+        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
         assert error_message == ProcessingErrorMessage.UNKNOWN_ERROR
 
         # Test generic exception -> UNKNOWN_ERROR
         error_code, error_message = service._categorize_processing_error(Exception("Generic error"))
-        assert error_code == ERROR_CODE_UNKNOWN
+        assert error_code == ProcessingErrorCode.UNKNOWN
         assert error_message == ProcessingErrorMessage.UNKNOWN_ERROR
 
     @patch("launchpad.service.SentryClient")
@@ -160,7 +158,7 @@ class TestLaunchpadServiceErrorHandling:
             "test-artifact-id",
             "test-project-id",
             "test-org-id",
-            ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+            ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
         )
 
@@ -169,7 +167,7 @@ class TestLaunchpadServiceErrorHandling:
             project="test-project-id",
             artifact_id="test-artifact-id",
             data={
-                "error_code": ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
                 "error_message": ProcessingErrorMessage.PREPROCESSING_FAILED.value,
             },
         )
@@ -187,7 +185,7 @@ class TestLaunchpadServiceErrorHandling:
             "test-artifact-id",
             "test-project-id",
             "test-org-id",
-            ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+            ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
         )
 
@@ -206,7 +204,7 @@ class TestLaunchpadServiceErrorHandling:
             "test-artifact-id",
             "test-project-id",
             "test-org-id",
-            ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+            ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
         )
 
@@ -229,7 +227,7 @@ class TestLaunchpadServiceErrorHandling:
             "test_artifact_id",
             "test_project_id",
             "test_org_id",
-            ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+            ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
             detailed_error,
         )
@@ -240,7 +238,10 @@ class TestLaunchpadServiceErrorHandling:
             org="test_org_id",
             project="test_project_id",
             artifact_id="test_artifact_id",
-            data={"error_code": ERROR_CODE_ARTIFACT_PROCESSING_ERROR, "error_message": expected_error_message},
+            data={
+                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
+                "error_message": expected_error_message,
+            },
         )
 
         # Verify datadog logging

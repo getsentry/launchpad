@@ -22,16 +22,12 @@ from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
-    ARTIFACT_TYPE_AAB,
-    ARTIFACT_TYPE_APK,
-    ARTIFACT_TYPE_XCARCHIVE,
-    ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
-    ERROR_CODE_ARTIFACT_PROCESSING_TIMEOUT,
-    ERROR_CODE_UNKNOWN,
     HEALTHCHECK_MAX_AGE_SECONDS,
     MAX_RETRY_ATTEMPTS,
     OPERATION_ERRORS,
+    ArtifactType,
     OperationName,
+    ProcessingErrorCode,
     ProcessingErrorMessage,
 )
 from launchpad.sentry_client import SentryClient, categorize_http_error
@@ -185,7 +181,7 @@ class LaunchpadService:
                     artifact_id,
                     project_id,
                     organization_id,
-                    ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                     ProcessingErrorMessage.UPDATE_FAILED,
                     detailed_error,
                 )
@@ -248,26 +244,26 @@ class LaunchpadService:
         """Determine if an error should not be retried."""
         return isinstance(exception, (ValueError, NotImplementedError, FileNotFoundError))
 
-    def _categorize_processing_error(self, exception: Exception) -> tuple[int, ProcessingErrorMessage]:
+    def _categorize_processing_error(self, exception: Exception) -> tuple[ProcessingErrorCode, ProcessingErrorMessage]:
         """Categorize an exception into error code and message."""
         if isinstance(exception, ValueError):
-            return ERROR_CODE_ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
+            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
         elif isinstance(exception, NotImplementedError):
-            return ERROR_CODE_ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
+            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
         elif isinstance(exception, FileNotFoundError):
-            return ERROR_CODE_ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
+            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
         elif isinstance(exception, RuntimeError):
             error_str = str(exception).lower()
             if "timeout" in error_str:
-                return ERROR_CODE_ARTIFACT_PROCESSING_TIMEOUT, ProcessingErrorMessage.PROCESSING_TIMEOUT
+                return ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT, ProcessingErrorMessage.PROCESSING_TIMEOUT
             elif "preprocess" in error_str:
-                return ERROR_CODE_ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.PREPROCESSING_FAILED
+                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.PREPROCESSING_FAILED
             elif "size" in error_str or "analysis" in error_str:
-                return ERROR_CODE_ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.SIZE_ANALYSIS_FAILED
+                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.SIZE_ANALYSIS_FAILED
             else:
-                return ERROR_CODE_ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNKNOWN_ERROR
+                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNKNOWN_ERROR
         else:
-            return ERROR_CODE_UNKNOWN, ProcessingErrorMessage.UNKNOWN_ERROR
+            return ProcessingErrorCode.UNKNOWN, ProcessingErrorMessage.UNKNOWN_ERROR
 
     def _update_artifact_error(
         self,
@@ -275,13 +271,13 @@ class LaunchpadService:
         artifact_id: str,
         project_id: str,
         organization_id: str,
-        error_code: int,
+        error_code: ProcessingErrorCode,
         error_message: ProcessingErrorMessage,
         detailed_error: str | None = None,
     ) -> None:
         """Update artifact with error information."""
         try:
-            logger.info(f"Updating artifact {artifact_id} with error code {error_code}")
+            logger.info(f"Updating artifact {artifact_id} with error code {error_code.value}")
 
             # Use detailed error message if provided, otherwise use enum value
             final_error_message = f"{error_message.value}: {detailed_error}" if detailed_error else error_message.value
@@ -291,7 +287,7 @@ class LaunchpadService:
                 self._statsd.increment(
                     "launchpad.artifact.processing.error",
                     tags=[
-                        f"error_code:{error_code}",
+                        f"error_code:{error_code.value}",
                         f"error_type:{error_message.name}",
                         f"project_id:{project_id}",
                         f"organization_id:{organization_id}",
@@ -302,7 +298,7 @@ class LaunchpadService:
                 org=organization_id,
                 project=project_id,
                 artifact_id=artifact_id,
-                data={"error_code": error_code, "error_message": final_error_message},
+                data={"error_code": error_code.value, "error_message": final_error_message},
             )
 
             if "error" in result:
@@ -325,7 +321,7 @@ class LaunchpadService:
             artifact_id,
             project_id,
             organization_id,
-            ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+            ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.DOWNLOAD_FAILED,
             detailed_error,
         )
@@ -379,7 +375,7 @@ class LaunchpadService:
                     artifact_id,
                     project_id,
                     organization_id,
-                    ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                     ProcessingErrorMessage.DOWNLOAD_FAILED,
                     detailed_error,
                 )
@@ -407,7 +403,7 @@ class LaunchpadService:
             return {
                 "build_version": app_info.version,
                 "build_number": (int(app_info.build) if str(app_info.build).isdigit() else app_info.build),
-                "artifact_type": ARTIFACT_TYPE_XCARCHIVE,
+                "artifact_type": ArtifactType.XCARCHIVE.value,
                 "apple_app_info": {
                     "is_simulator": app_info.is_simulator,
                     "codesigning_type": app_info.codesigning_type,
@@ -417,12 +413,12 @@ class LaunchpadService:
                 },
             }
         elif isinstance(app_info, AndroidAppInfo):
-            artifact_type = ARTIFACT_TYPE_AAB if isinstance(artifact, (AAB, ZippedAAB)) else ARTIFACT_TYPE_APK
+            artifact_type = ArtifactType.AAB if isinstance(artifact, (AAB, ZippedAAB)) else ArtifactType.APK
             # TODO: add "date_built" and custom android fields
             return {
                 "build_version": app_info.version,
                 "build_number": (int(app_info.build) if app_info.build.isdigit() else None),
-                "artifact_type": artifact_type,
+                "artifact_type": artifact_type.value,
             }
         else:
             raise ValueError(f"Unsupported app_info type: {type(app_info)}")
@@ -474,7 +470,7 @@ class LaunchpadService:
                     artifact_id,
                     project_id,
                     organization_id,
-                    ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                     ProcessingErrorMessage.UPLOAD_FAILED,
                     detailed_error,
                 )
@@ -490,7 +486,7 @@ class LaunchpadService:
                     artifact_id,
                     project_id,
                     organization_id,
-                    ERROR_CODE_ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                     ProcessingErrorMessage.UPLOAD_FAILED,
                     detailed_error,
                 )

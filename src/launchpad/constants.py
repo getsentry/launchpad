@@ -5,16 +5,25 @@ from enum import Enum
 # Kafka topic names
 PREPROD_ARTIFACT_EVENTS_TOPIC = "preprod-artifact-events"
 
+
 # Error code constants (matching the Django model)
-ERROR_CODE_UNKNOWN = 0
-ERROR_CODE_UPLOAD_TIMEOUT = 1
-ERROR_CODE_ARTIFACT_PROCESSING_TIMEOUT = 2
-ERROR_CODE_ARTIFACT_PROCESSING_ERROR = 3
+class ProcessingErrorCode(Enum):
+    """Error codes for artifact processing (matching the Django model)."""
+
+    UNKNOWN = 0
+    UPLOAD_TIMEOUT = 1
+    ARTIFACT_PROCESSING_TIMEOUT = 2
+    ARTIFACT_PROCESSING_ERROR = 3
+
 
 # Artifact type constants
-ARTIFACT_TYPE_XCARCHIVE = 0
-ARTIFACT_TYPE_AAB = 1
-ARTIFACT_TYPE_APK = 2
+class ArtifactType(Enum):
+    """Artifact types for different platforms and formats."""
+
+    XCARCHIVE = 0
+    AAB = 1
+    APK = 2
+
 
 # Retry configuration
 MAX_RETRY_ATTEMPTS = 3
