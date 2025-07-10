@@ -101,7 +101,6 @@ jobs:
         with:
           images: |
             ghcr.io/${{ github.repository }}
-            ${{ github.repository }}
           tags: |
             type=sha,prefix=,format=long,suffix=-${{ matrix.platform }}
           labels: |
