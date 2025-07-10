@@ -25,8 +25,6 @@ class ThinningConfig:
 class AppThinningSimulator:
     """Simulates App Store slicing for a given device configuration."""
 
-    # ------------ Device‑specific helpers ------------------------------------
-
     @classmethod
     def for_iphone_se(cls) -> "AppThinningSimulator":
         """Return a simulator configured for iPhone SE (2× Retina, arm64)."""
