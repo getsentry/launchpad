@@ -65,10 +65,10 @@ class DexClassParser:
 
         # Class data item overhead
         # actual class data size is calculated with methods & fields below
-        size += self._get_class_data_overhead()
+        size += self._get_class_data_overhead_size()
 
         # Static values overhead
-        size += self._get_static_values_size()
+        size += self._get_static_values_overhead_size()
 
         # TODO: Methods size (direct & virtual)
 
