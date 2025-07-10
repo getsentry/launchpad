@@ -28,6 +28,7 @@ from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
+from launchpad.size.utils.apple_app_thinning import AppThinningSimulator
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import calculate_file_hash, get_file_size
@@ -105,6 +106,10 @@ class AppleAppAnalyzer:
 
         file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
+        file_analysis = AppThinningSimulator.create_for_iphone_se().apply_thinning(file_analysis)
+        logger.info(
+            f"Thinned file analysis: {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes"
+        )
 
         app_bundle_path = artifact.get_app_bundle_path()
         download_size, install_size = calculate_bundle_sizes(app_bundle_path)
@@ -333,18 +338,20 @@ class AppleAppAnalyzer:
             if file_type == "car":
                 children = self._analyze_asset_catalog(xcarchive, relative_path)
                 children_size = sum([child.install_size for child in children])
-                children.append(
-                    TreemapElement(
-                        name="Other",
-                        install_size=file_size - children_size,
-                        download_size=0,
-                        element_type=TreemapType.ASSETS,
-                        path=str(relative_path) + "/Other",
-                        is_directory=False,
-                        children=[],
-                        details={},
+                other_size = max(file_size - children_size, 0)
+                if other_size > 0:
+                    children.append(
+                        TreemapElement(
+                            name="Other",
+                            install_size=other_size,
+                            download_size=0,
+                            element_type=TreemapType.ASSETS,
+                            path=str(relative_path) + "/Other",
+                            is_directory=False,
+                            children=[],
+                            details={},
+                        )
                     )
-                )
 
             file_info = FileInfo(
                 full_path=file_path,
