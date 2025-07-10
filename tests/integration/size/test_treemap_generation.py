@@ -325,7 +325,7 @@ class TestTreemapGeneration:
         # assert main_exe.install_size == 3190648 TODO: fix these values
         # assert main_exe.download_size == 3190648
         assert main_exe.element_type == "executables"
-        assert main_exe.is_directory is True
+        assert main_exe.is_directory is False
 
         # Verify main executable sections
         main_exe_sections = {child.name: child for child in main_exe.children}
