@@ -76,7 +76,7 @@ jobs:
             -e KAFKA_BOOTSTRAP_SERVERS="localhost:9092" \
             -e KAFKA_GROUP_ID="launchpad-test" \
             -e KAFKA_TOPICS="preprod-artifact-events" \
-            launchpad-test python -m pytest tests/ -v --tb=short
+            launchpad-test python -m pytest tests/ -v
 
       - name: Test CLI installation and basic functionality in Docker
         run: |

@@ -78,9 +78,10 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--verbose",
-    "--tb=short",
+    "--tb=auto",
     "--maxfail=10",
     "--durations=10",
+    "--color=yes",
     "--assert=plain",
 ]
 markers = [
