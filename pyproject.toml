@@ -73,7 +73,24 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+asyncio_mode = "auto"
 addopts = [
     "--strict-markers",
     "--strict-config",
+    "--verbose",
+    "--tb=auto",
+    "--maxfail=10",
+    "--durations=10",
+    "--color=yes",
+    "--assert=plain",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+    "cli: CLI functionality tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
 ]

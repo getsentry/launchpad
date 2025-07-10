@@ -43,7 +43,7 @@ COPY src/ ./src/
 COPY tests/ ./tests/
 COPY scripts/ ./scripts/
 COPY devservices/ ./devservices/
-COPY pyproject.toml pytest.ini ./
+COPY pyproject.toml .
 COPY README.md .
 COPY LICENSE .
 
