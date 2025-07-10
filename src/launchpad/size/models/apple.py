@@ -81,8 +81,7 @@ class StripBinaryFileInfo(BaseModel):
     """Savings information from stripping a Mach-O binary."""
 
     macho_binary: MachOBinaryAnalysis = Field(..., description="Mach-O binary analysis")
-    install_size_saved: int = Field(..., description="Install size saved by stripping the binary")
-    download_size_saved: int = Field(..., description="Download size saved by stripping the binary")
+    size_saved: int = Field(..., description="Size saved by stripping the binary")
 
 
 class StripBinaryInsightResult(BaseInsightResult):
