@@ -170,7 +170,7 @@ class DexBaseUtils:
         for parameter_index in range(size):
             annotation_set_offset = buffer_wrapper.read_u32()
             if annotation_set_offset != 0:
-                annotation_set = DexBaseUtils.parse_annotation_set(buffer_wrapper, header, annotation_set_offset)
+                annotation_set = DexBaseUtils.get_annotation_set(buffer_wrapper, header, annotation_set_offset)
                 for annotation in annotation_set:
                     annotation.parameter_index = parameter_index
                 annotations.extend(annotation_set)
@@ -253,7 +253,7 @@ class DexBaseUtils:
             case EncodedValueType.INT:
                 return buffer_wrapper.read_sized_int(value_arg + 1)
             case EncodedValueType.LONG:
-                return buffer_wrapper.read_sized_long(value_arg + 1)
+                return buffer_wrapper.read_sized_int(value_arg + 1)
             case EncodedValueType.FLOAT:
                 return buffer_wrapper.read_sized_float(value_arg + 1)
             case EncodedValueType.DOUBLE:
