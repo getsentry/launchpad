@@ -36,25 +36,17 @@ class BundletoolError(Exception):
 class Bundletool:
     """Wrapper around Android's bundletool CLI utility."""
 
-    def __init__(self, bundletool_path: str | Path | None = None) -> None:
+    bundletool_path: str
+
+    def __init__(self) -> None:
         """Initialize bundletool wrapper.
 
-        Args:
-            bundletool_path: Optional path to bundletool executable file. If not provided,
-                will attempt to find bundletool in PATH.
-
         Raises:
-            FileNotFoundError: If bundletool cannot be found at specified path or in PATH
+            AssertionError: If bundletool cannot be found on PATH
         """
-        if bundletool_path is None:
-            # TODO: Ensure packaged in docker image when productionizing
-            bundletool_path = shutil.which("bundletool")
-            if bundletool_path is None:
-                raise FileNotFoundError("bundletool not found in PATH. Install with `brew install bundletool`")
-
-        self.bundletool_path = Path(bundletool_path)
-        if not self.bundletool_path.exists():
-            raise FileNotFoundError(f"bundletool not found at {bundletool_path}")
+        bundletool_path = shutil.which("bundletool")
+        assert bundletool_path is not None
+        self.bundletool_path = bundletool_path
 
     def _run_command(self, command: list[str], **kwargs: Any) -> tuple[int, str, str]:
         """Run a bundletool command.
