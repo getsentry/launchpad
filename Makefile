@@ -14,7 +14,6 @@ PYTHON_VENV := $(VENV_DIR)/bin/python
 $(VENV_DIR):
 	$(UV) venv
 
-# Just used for CI
 install-dev: $(VENV_DIR)
 	$(UV) pip install -r requirements-dev.txt
 	$(UV) pip install -e .
