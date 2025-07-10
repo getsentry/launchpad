@@ -1,16 +1,6 @@
-import os
-
-import pytest
-
 from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
 
-def is_darwin() -> bool:
-    """Check if running on macOS."""
-    return os.name == "posix" and os.uname().sysname == "Darwin"
-
-
-@pytest.mark.skipif(not is_darwin(), reason="cwl-demangle is only available on macOS")
 class TestCwlDemangler:
     """Integration test cases for the CwlDemangler class."""
 

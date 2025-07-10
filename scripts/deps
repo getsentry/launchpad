@@ -155,6 +155,28 @@ DEPS = [
             Bin(source="webp/bin/cwebp", target="cwebp"),
         ],
     ),
+    Dep(
+        "cwl-demangle",
+        # Switch to https://github.com/getsentry/CwlDemangle release when tagged.
+        "https://github.com/chromy/CwlDemangle/releases/download/test-08/cwl-demangle-linux-x86_64",
+        "6a7ff4d699fbc0026aa56cdd586bb4b0ec4322fb8b03cb5dd17d3e9263f3fa36",
+        architecture="x86_64",
+        system="linux",
+        binaries=[
+            Bin(source="cwl-demangle", target="cwl-demangle"),
+        ],
+    ),
+    Dep(
+        "cwl-demangle",
+        # Switch to https://github.com/getsentry/CwlDemangle release when tagged.
+        "https://github.com/chromy/CwlDemangle/releases/download/test-08/cwl-demangle-macos-arm64",
+        "dd5395901ea3b1edac923dbe8fe7b446dfe9ea6d121cecf50feea199420ce991",
+        architecture="aarch64",
+        system="darwin",
+        binaries=[
+            Bin(source="cwl-demangle", target="cwl-demangle"),
+        ],
+    ),
 ]
 
 
