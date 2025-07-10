@@ -11,7 +11,6 @@ PUSH_NIGHTLY="$3"
 # Define registries and their prefixes
 declare -A REGISTRIES=(
   ["ghcr.io"]="ghcr.io/${REPOSITORY}"
-  ["docker.io"]="${REPOSITORY}"
 )
 
 # Extract short SHA (first 7 characters)
