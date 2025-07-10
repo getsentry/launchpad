@@ -479,6 +479,35 @@ class DexBaseUtils:
         return string
 
     @staticmethod
+    def get_prototype(buffer_wrapper: BufferWrapper, header: DexFileHeader, proto_index: int) -> Prototype:
+        """Get proto name by index.
+
+        https://source.android.com/docs/core/runtime/dex-format#proto-id-item
+
+        Returns a string representation of the prototype, e.g. (IILjava/lang/String;)V
+        """
+        cursor = buffer_wrapper.cursor
+
+        buffer_wrapper.seek(header.proto_ids_off + proto_index * 12)
+        shorty_idx = buffer_wrapper.read_u32()
+        return_type_idx = buffer_wrapper.read_u32()
+        parameters_off = buffer_wrapper.read_u32()
+
+        shorty_descriptor = DexBaseUtils.get_string(buffer_wrapper, header, shorty_idx)
+        return_type = DexBaseUtils.get_type_name(buffer_wrapper, header, return_type_idx)
+
+        parameters: list[str] = []
+        if parameters_off != 0:
+            parameters = DexBaseUtils.get_type_list(buffer_wrapper, header, parameters_off)
+
+        buffer_wrapper.seek(cursor)
+        return Prototype(
+            shorty_descriptor=shorty_descriptor,
+            return_type=return_type,
+            parameters=parameters,
+        )
+
+    @staticmethod
     def get_string(buffer_wrapper: BufferWrapper, header: DexFileHeader, string_index: int) -> str:
         """Get string by index.
 

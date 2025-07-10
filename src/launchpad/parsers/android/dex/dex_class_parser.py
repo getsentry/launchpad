@@ -1,5 +1,6 @@
 from launchpad.parsers.android.dex.dex_base_utils import DexBaseUtils
 from launchpad.parsers.android.dex.dex_field_parser import DexFieldParser
+from launchpad.parsers.android.dex.dex_method_parser import DexMethodParser
 from launchpad.parsers.android.dex.types import (
     NO_INDEX,
     AccessFlag,
@@ -8,6 +9,7 @@ from launchpad.parsers.android.dex.types import (
     ClassDefinition,
     DexFileHeader,
     Field,
+    Method,
 )
 from launchpad.parsers.buffer_wrapper import BufferWrapper
 
@@ -21,8 +23,9 @@ class DexClassParser:
         # Cachable for later reuse
         self._static_fields = None
         self._instance_fields = None
+        self._direct_methods = None
+        self._virtual_methods = None
         self._annotations_directory = None
-
         self._buffer_wrapper.seek(self._offset)
 
         self._class_index = self._buffer_wrapper.read_u32()
@@ -97,7 +100,8 @@ class DexClassParser:
         # Static values overhead
         size += self._get_static_values_overhead_size()
 
-        # TODO: Methods size (direct & virtual)
+        for method in self.get_methods():
+            size += method.size
 
         for field in self.get_fields():
             size += field.size
@@ -144,6 +148,134 @@ class DexClassParser:
             return []
 
         return annotations_directory.class_annotations
+
+    def get_methods(self) -> list[Method]:
+        methods = []
+
+        for method in self._get_direct_methods():
+            methods.append(method)
+
+        for method in self._get_virtual_methods():
+            methods.append(method)
+
+        return methods
+
+    def _get_direct_methods(self) -> list[Method]:
+        # Cache for later reuse
+        if self._direct_methods is not None:
+            return self._direct_methods
+
+        if self._class_data_offset == 0:
+            return []
+
+        cursor = self._buffer_wrapper.cursor
+        self._buffer_wrapper.seek(self._class_data_offset)
+
+        static_fields_size = self._buffer_wrapper.read_uleb128()
+        instance_fields_size = self._buffer_wrapper.read_uleb128()
+        direct_methods_size = self._buffer_wrapper.read_uleb128()
+        self._buffer_wrapper.read_uleb128()  # virtual_methods_size
+
+        # Skip fields
+        self._skip_fields(self._buffer_wrapper, static_fields_size + instance_fields_size)
+
+        methods = []
+        last_index = 0
+
+        for _ in range(direct_methods_size):
+            cursor = self._buffer_wrapper.cursor
+            method_idx_diff = self._buffer_wrapper.read_uleb128()
+            access_flags = self._buffer_wrapper.read_uleb128()
+            code_offset = self._buffer_wrapper.read_uleb128()
+            method_overhead = self._buffer_wrapper.cursor - cursor
+
+            method_index = last_index + method_idx_diff
+            last_index = method_index
+
+            method_parser = DexMethodParser(
+                buffer_wrapper=self._buffer_wrapper,
+                header=self._header,
+                method_index=method_index,
+                code_offset=code_offset,
+                method_overhead=method_overhead,
+                annotations_directory=self._get_annotations_directory(),
+            )
+
+            method = Method(
+                size=method_parser.get_size(),
+                name=method_parser.name,
+                signature=method_parser.signature,
+                prototype=method_parser.prototype,
+                access_flags=DexBaseUtils.parse_access_flags(access_flags),
+                annotations=method_parser.get_annotations(),
+                parameters=[],
+            )
+
+            methods.append(method)
+
+        self._direct_methods = methods
+        self._buffer_wrapper.seek(cursor)
+        return methods
+
+    def _get_virtual_methods(self) -> list[Method]:
+        # Cache for later reuse
+        if self._virtual_methods is not None:
+            return self._virtual_methods
+
+        if self._class_data_offset == 0:
+            return []
+
+        cursor = self._buffer_wrapper.cursor
+        self._buffer_wrapper.seek(self._class_data_offset)
+
+        static_fields_size = self._buffer_wrapper.read_uleb128()
+        instance_fields_size = self._buffer_wrapper.read_uleb128()
+        direct_methods_size = self._buffer_wrapper.read_uleb128()  # direct_methods_size
+        virtual_methods_size = self._buffer_wrapper.read_uleb128()  # virtual_methods_size
+
+        # Skip fields
+        self._skip_fields(self._buffer_wrapper, static_fields_size + instance_fields_size)
+
+        # Skip direct methods
+        self._skip_methods(self._buffer_wrapper, direct_methods_size)
+
+        methods = []
+        last_index = 0
+
+        for _ in range(virtual_methods_size):
+            cursor = self._buffer_wrapper.cursor
+            method_idx_diff = self._buffer_wrapper.read_uleb128()
+            access_flags = self._buffer_wrapper.read_uleb128()
+            code_offset = self._buffer_wrapper.read_uleb128()
+            method_overhead = self._buffer_wrapper.cursor - cursor
+
+            method_index = last_index + method_idx_diff
+            last_index = method_index
+
+            method_parser = DexMethodParser(
+                buffer_wrapper=self._buffer_wrapper,
+                header=self._header,
+                method_index=method_index,
+                code_offset=code_offset,
+                method_overhead=method_overhead,
+                annotations_directory=self._get_annotations_directory(),
+            )
+
+            method = Method(
+                size=method_parser.get_size(),
+                name=method_parser.name,
+                signature=method_parser.signature,
+                prototype=method_parser.prototype,
+                access_flags=DexBaseUtils.parse_access_flags(access_flags),
+                annotations=method_parser.get_annotations(),
+                parameters=[],
+            )
+
+            methods.append(method)
+
+        self._virtual_methods = methods
+        self._buffer_wrapper.seek(cursor)
+        return methods
 
     def get_fields(self) -> list[Field]:
         fields = []
@@ -294,3 +426,16 @@ class DexClassParser:
         self._buffer_wrapper.seek(cursor)
 
         return static_values_size
+
+    def _skip_fields(self, buffer: BufferWrapper, count: int) -> None:
+        """Skip field entries in class data."""
+        for _ in range(count):
+            buffer.read_uleb128()  # field_idx_diff
+            buffer.read_uleb128()  # access_flags
+
+    def _skip_methods(self, buffer: BufferWrapper, count: int) -> None:
+        """Skip method entries in class data."""
+        for _ in range(count):
+            buffer.read_uleb128()  # method_idx_diff
+            buffer.read_uleb128()  # access_flags
+            buffer.read_uleb128()  # code_offset
