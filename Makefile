@@ -30,7 +30,7 @@ test-integration:
 	$(PYTHON_VENV) -m pytest tests/integration/ -v
 
 coverage:
-	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --cov-report=html --junitxml=junit.xml --html=test-report.html --self-contained-html
+	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 
 # Code quality targets (using ruff and ty)
 check-lint:
