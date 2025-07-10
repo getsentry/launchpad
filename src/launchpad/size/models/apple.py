@@ -97,6 +97,20 @@ class StripBinaryInsightResult(BaseInsightResult):
     files: List[StripBinaryFileInfo] = Field(..., description="Files that could save size by stripping the binary")
 
 
+class OptimizeableImageFile(BaseModel):
+    """Information about an image file that could be optimized with HEIF."""
+
+    model_config = ConfigDict(frozen=True)
+    file_info: FileInfo = Field(..., description="File info")
+    potential_savings: int = Field(..., description="Potential savings in bytes")
+
+
+class HEIFOptimizationInsightResult(BaseInsightResult):
+    """Results from HEIF image optimization analysis."""
+
+    optimizeable_image_files: List[OptimizeableImageFile] = Field(..., description="Optimizeable image files")
+
+
 class SwiftMetadata(BaseModel):
     """Swift-specific metadata extracted from the binary."""
 
@@ -115,7 +129,6 @@ class AppleInsightResults(BaseModel):
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large video files analysis")
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
-    localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
 
 
 @dataclass

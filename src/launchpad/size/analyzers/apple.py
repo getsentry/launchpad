@@ -17,6 +17,7 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAg
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
+from launchpad.size.insights.apple.heif_optimization import HEIFOptimizationInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
@@ -155,6 +156,7 @@ class AppleAppAnalyzer:
                 large_images=LargeImageFileInsight().generate(insights_input),
                 large_videos=LargeVideoFileInsight().generate(insights_input),
                 strip_binary=StripSymbolsInsight().generate(insights_input),
+                heif_optimization=HEIFOptimizationInsight().generate(insights_input),
             )
 
         results = AppleAnalysisResults(
