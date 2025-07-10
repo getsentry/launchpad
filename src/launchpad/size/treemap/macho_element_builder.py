@@ -40,15 +40,27 @@ class MachOElementBuilder(TreemapElementBuilder):
             logger.warning("Binary %s found but not in binary analysis map", file_info.path)
             return None
 
-        return self._build_binary_treemap(
+        children = self._build_binary_treemap(
             name=display_name,
             file_path=file_info.path,
             binary_analysis=self.binary_analysis_map[file_info.path],
         )
+        if children is None:
+            return None
+
+        return TreemapElement(
+            name=display_name,
+            install_size=file_info.size,
+            download_size=file_info.size,
+            element_type=TreemapType.EXECUTABLES,
+            path=file_info.path,
+            is_directory=False,
+            children=children,
+        )
 
     def _build_binary_treemap(
         self, *, name: str, file_path: str, binary_analysis: MachOBinaryAnalysis
-    ) -> TreemapElement | None:
+    ) -> List[TreemapElement] | None:
         range_map = binary_analysis.range_map
         symbol_info = binary_analysis.symbol_info
 
@@ -173,7 +185,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                                 download_size=total_size,
                                 element_type=TreemapType.MODULES,
                                 path=None,
-                                is_directory=bool(child_elems),
+                                is_directory=False,
                                 children=child_elems,
                             )
                         )
@@ -190,7 +202,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                         download_size=module_total_size,
                         element_type=TreemapType.MODULES,
                         path=None,
-                        is_directory=True,
+                        is_directory=False,
                         children=module_children,
                     )
                 )
@@ -307,14 +319,4 @@ class MachOElementBuilder(TreemapElementBuilder):
         # ------------------------------------------------------------------ #
         # 5.  Top-level element                                              #
         # ------------------------------------------------------------------ #
-        total_size = sum(c.install_size for c in section_children) + sum(c.install_size for c in symbol_children)
-
-        return TreemapElement(
-            name=name,
-            install_size=total_size,
-            download_size=total_size,
-            element_type=TreemapType.EXECUTABLES,
-            path=file_path,
-            is_directory=True,
-            children=section_children + symbol_children,
-        )
+        return section_children + symbol_children
