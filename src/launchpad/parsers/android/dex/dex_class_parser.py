@@ -111,7 +111,7 @@ class DexClassParser:
 
         return annotations_directory.class_annotations
 
-    def _get_class_data_overhead(self) -> int:
+    def _get_class_data_overhead_size(self) -> int:
         """Calculate overhead of class data item (not including method and field sizes).
 
         This includes only the class_data_item header overhead, not the actual
@@ -135,8 +135,7 @@ class DexClassParser:
 
         return data_overhead_size
 
-    def _get_static_values_size(self) -> int:
-        """Calculate size of static values array."""
+    def _get_static_values_overhead_size(self) -> int:
         if self._static_values_offset == 0:
             return 0
 
