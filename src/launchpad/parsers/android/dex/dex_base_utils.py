@@ -285,9 +285,6 @@ class DexBaseUtils:
             case EncodedValueType.ENUM:
                 enum_field_index = buffer_wrapper.read_sized_uint(value_arg + 1)
                 return DexBaseUtils.get_encoded_field(buffer_wrapper, header, enum_field_index)
-            case EncodedValueType.METHOD_TYPE:
-                proto_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                return DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
             case EncodedValueType.ARRAY:
                 return DexBaseUtils.get_encoded_array(buffer_wrapper, header)
             case EncodedValueType.ANNOTATION:
