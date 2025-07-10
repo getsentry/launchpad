@@ -83,6 +83,8 @@ addopts = [
     "--durations=10",
     "--color=yes",
     "--assert=plain",
+    "--html=test-report.html",
+    "--self-contained-html",
 ]
 markers = [
     "unit: Unit tests",
