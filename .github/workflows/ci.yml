@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # Run on all PRs, not just those targeting main
+    # This enables CI for stacked PRs
 
 permissions:
   contents: read
