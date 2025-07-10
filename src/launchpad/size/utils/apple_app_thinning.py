@@ -1,5 +1,3 @@
-"""iOS app thinning simulation for size analysis."""
-
 from __future__ import annotations
 
 import re
@@ -17,258 +15,137 @@ logger = get_logger(__name__)
 
 @dataclass
 class ThinningConfig:
-    """Configuration for app thinning simulation."""
+    """Configuration for a particular device slice."""
 
-    target_image_scale: str = "2x"  # iPhone SE uses 2x scaling
+    target_image_scale: str
     exclude_architectures: Set[str] = field(default_factory=set)
     exclude_platforms: Set[str] = field(default_factory=set)
 
 
 class AppThinningSimulator:
-    """Simulates iOS app thinning by filtering files based on device targets."""
+    """Simulates App Store slicing for a given device configuration."""
 
-    # Regex patterns for different thinning criteria
-    IMAGE_SCALE_PATTERNS = {
-        "1x": re.compile(r"@1x\.(png|jpg|jpeg|webp)$", re.IGNORECASE),
-        "2x": re.compile(r"@2x\.(png|jpg|jpeg|webp)$", re.IGNORECASE),
-        "3x": re.compile(r"@3x\.(png|jpg|jpeg|webp)$", re.IGNORECASE),
-    }
-
-    ARCHITECTURE_PATTERNS = {
-        "arm64": re.compile(r"arm64", re.IGNORECASE),
-        "armv7": re.compile(r"armv7", re.IGNORECASE),
-        "x86_64": re.compile(r"x86_64", re.IGNORECASE),
-        "i386": re.compile(r"i386", re.IGNORECASE),
-    }
-
-    PLATFORM_PATTERNS = {
-        "iphone": re.compile(r"iphone", re.IGNORECASE),
-        "ipad": re.compile(r"ipad", re.IGNORECASE),
-        "universal": re.compile(r"universal", re.IGNORECASE),
-    }
-
-    def __init__(self, config: ThinningConfig) -> None:
-        """Initialize the app thinning simulator.
-
-        Args:
-            config: Thinning configuration
-        """
-        self.config = config
+    # ------------ Device‑specific helpers ------------------------------------
 
     @classmethod
-    def create_for_iphone_se(cls) -> AppThinningSimulator:
-        """Create a thinning simulator configured for iPhone SE.
+    def for_iphone_se(cls) -> "AppThinningSimulator":
+        """Return a simulator configured for iPhone SE (2× Retina, arm64)."""
+        return cls(
+            ThinningConfig(
+                target_image_scale="2x",
+                exclude_architectures={"x86_64", "i386"},  # strip simulator slices
+                exclude_platforms={"ipad"},  # remove iPad‑specific assets
+            )
+        )
 
-        Returns:
-            Configured app thinning simulator for iPhone SE
-        """
-        config = ThinningConfig()
-        # Exclude simulator architectures and iPad-specific files for iPhone SE
-        config.exclude_architectures.update({"x86_64", "i386"})
-        config.exclude_platforms.add("ipad")
-        return cls(config)
+    @classmethod
+    def for_ipad_pro_12_9(cls) -> "AppThinningSimulator":
+        """Return a simulator for 12.9‑inch iPad Pro (2× Retina)."""
+        return cls(
+            ThinningConfig(
+                target_image_scale="2x",
+                exclude_architectures={"x86_64", "i386"},
+                exclude_platforms={"iphone"},
+            )
+        )
 
-    def apply_thinning(self, file_analysis: FileAnalysis) -> FileAnalysis:
-        """Apply app thinning to the file analysis.
+    IMAGE_SCALE_PATTERNS = {
+        scale: re.compile(rf"@{scale}\\.(png|jpe?g|webp)$", re.IGNORECASE) for scale in ("1x", "2x", "3x")
+    }
 
-        Args:
-            file_analysis: Original file analysis
+    ARCHITECTURE_PATTERNS = {arch: re.compile(arch, re.IGNORECASE) for arch in ("arm64", "armv7", "x86_64", "i386")}
 
-        Returns:
-            New file analysis with thinning applied
-        """
-        logger.info("Applying app thinning for iPhone SE (2x scaling)")
+    PLATFORM_PATTERNS = {plat: re.compile(plat, re.IGNORECASE) for plat in ("iphone", "ipad", "universal")}
 
-        # Filter out duplicates and recalculate parent sizes in one pass
-        deduplicated_files = self._filter_duplicates(file_analysis.files)
-        logger.info(f"Removed {len(file_analysis.files) - len(deduplicated_files)} duplicate files")
+    def __init__(self, config: ThinningConfig):
+        self.config = config
 
-        filtered_files: List[FileInfo] = []
-        total_original_size = 0
-        total_filtered_size = 0
+    def apply_thinning(self, analysis: FileAnalysis) -> FileAnalysis:
+        logger.info(
+            "Applying app‑thinning (scale=%s, exclude_arch=%s, exclude_platform=%s)",
+            self.config.target_image_scale,
+            sorted(self.config.exclude_architectures),
+            sorted(self.config.exclude_platforms),
+        )
 
-        for file_info in deduplicated_files:
-            total_original_size += file_info.size
+        deduped = self._deduplicate(analysis.files)
+        included: List[FileInfo] = []
+        size_before = 0
+        size_after = 0
 
-            if self._should_include_file(file_info):
-                filtered_files.append(file_info)
-                total_filtered_size += file_info.size
+        for f in deduped:
+            size_before += f.size
+            if self._should_include(f):
+                included.append(f)
+                size_after += f.size
 
         logger.info(
-            f"App thinning complete: {len(filtered_files)}/{len(file_analysis.files)} files included, "
-            f"{total_filtered_size}/{total_original_size} bytes ({total_filtered_size / total_original_size * 100:.1f}%)"
+            "Thinning complete → kept %d/%d files (%.1f %%, %d → %d bytes)",
+            len(included),
+            len(analysis.files),
+            100 * size_after / size_before if size_before else 0,
+            size_before,
+            size_after,
         )
+        return FileAnalysis(files=included)
 
-        return FileAnalysis(files=filtered_files)
+    def _deduplicate(self, files: List[FileInfo]) -> List[FileInfo]:
+        """Remove *perfect* duplicates by (folder, filename, size)."""
+        seen: Set[tuple[str, str, int]] = set()
+        unique: List[FileInfo] = []
 
-    def _filter_duplicates(self, files: List[FileInfo]) -> List[FileInfo]:
-        """Filter out duplicate image files based on filename and parent folder.
+        for fi in files:
+            key = (str(Path(fi.path).parent), Path(fi.path).name, fi.size)
+            if key in seen:
+                logger.debug("Skipping duplicate %s", fi.path)
+                continue
+            seen.add(key)
+            unique.append(self._dedupe_children(fi))
+        return unique
 
-        Args:
-            files: List of files to deduplicate
-
-        Returns:
-            List of files with duplicates removed and parent sizes recalculated
-        """
-        # Group files by their parent folder, filename, AND size (perfect duplicates only)
-        file_groups: dict[tuple[str, str, int], List[FileInfo]] = {}
-
-        for file_info in files:
-            file_path = Path(file_info.path)
-            parent_folder = str(file_path.parent)
-            filename = file_path.name
-
-            # Only deduplicate image files
-            if file_path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
-                key = (parent_folder, filename, file_info.size)
-                if key not in file_groups:
-                    file_groups[key] = []
-                file_groups[key].append(file_info)
-            else:
-                # For non-image files, add them directly to avoid grouping issues
-                key = (parent_folder, filename, file_info.size)
-                if key not in file_groups:
-                    file_groups[key] = []
-                file_groups[key].append(file_info)
-
-        # For each group, keep only one file (perfect duplicates)
-        deduplicated_files: List[FileInfo] = []
-        for (parent_folder, filename, size), file_list in file_groups.items():
-            if len(file_list) == 1:
-                # No duplicates, keep the file but process children
-                file_info = file_list[0]
-                if file_info.children:
-                    file_info = self._deduplicate_children(file_info)
-                deduplicated_files.append(file_info)
-            else:
-                # Perfect duplicates - keep only one, remove the rest
-                kept_file = file_list[0]
-                removed_files = file_list[1:]
-
-                # Subtract removed file sizes from parent folder
-                for removed_file in removed_files:
-                    # Find the parent folder and reduce its size
-                    for file_info in deduplicated_files:
-                        if file_info.path == parent_folder:
-                            file_info.size -= removed_file.size
-                            break
-
-                # Process children for the kept file
-                if kept_file.children:
-                    kept_file = self._deduplicate_children(kept_file)
-
-                deduplicated_files.append(kept_file)
-                logger.debug(
-                    f"Removed {len(removed_files)} perfect duplicate(s) of {filename} (size: {size}) in {parent_folder}"
-                )
-
-        return deduplicated_files
-
-    def _deduplicate_children(self, file_info: FileInfo) -> FileInfo:
-        """Deduplicate children of a file (like asset catalog children).
-
-        Args:
-            file_info: File with children to deduplicate
-
-        Returns:
-            FileInfo with deduplicated children and updated size
-        """
-        if not file_info.children:
-            return file_info
-
-        # Group children by their path AND size (perfect duplicates only)
-        child_groups: dict[tuple[str, int], List[TreemapElement]] = {}
-        for child in file_info.children:
-            key = (child.path or "", child.install_size)
-            if key not in child_groups:
-                child_groups[key] = []
-            child_groups[key].append(child)
-
-        # Keep only one child from each perfect duplicate group
-        deduplicated_children: List[TreemapElement] = []
-        original_children_size = sum(child.install_size for child in file_info.children)
-
-        for (path, size), child_list in child_groups.items():
-            if len(child_list) == 1:
-                deduplicated_children.append(child_list[0])
-            else:
-                # Perfect duplicates - keep only one
-                deduplicated_children.append(child_list[0])
-                logger.debug(f"Removed {len(child_list) - 1} perfect duplicate child(ren) of {path} (size: {size})")
-
-        # Calculate size reduction
-        deduplicated_children_size = sum(child.install_size for child in deduplicated_children)
-        removed_size = original_children_size - deduplicated_children_size
-
-        if removed_size > 0:
-            logger.debug(f"Reduced {file_info.path} size by {removed_size} bytes due to child deduplication")
-
+    def _dedupe_children(self, fi: FileInfo) -> FileInfo:
+        if not fi.children:
+            return fi
+        child_seen: Set[tuple[str, int]] = set()
+        dedup_children: List[TreemapElement] = []
+        removed_size = 0
+        for child in fi.children:
+            k = (child.path or "", child.install_size)
+            if k in child_seen:
+                removed_size += child.install_size
+                continue
+            child_seen.add(k)
+            dedup_children.append(child)
+        if removed_size:
+            logger.debug("Reduced %s by %d B (child dedup)", fi.path, removed_size)
         return FileInfo(
-            full_path=file_info.full_path,
-            path=file_info.path,
-            size=file_info.size - removed_size,
-            file_type=file_info.file_type,
-            hash_md5=file_info.hash_md5,
-            treemap_type=file_info.treemap_type,
-            children=deduplicated_children,
+            full_path=fi.full_path,
+            path=fi.path,
+            size=fi.size - removed_size,
+            file_type=fi.file_type,
+            hash_md5=fi.hash_md5,
+            treemap_type=fi.treemap_type,
+            children=dedup_children,
         )
 
-    def _should_include_file(self, file_info: FileInfo) -> bool:
-        """Determine if a file should be included for the target device.
+    def _should_include(self, fi: FileInfo) -> bool:
+        name = Path(fi.path).name.lower()
+        return self._scale_ok(name) and self._arch_ok(name) and self._platform_ok(name)
 
-        Args:
-            file_info: File information to evaluate
-
-        Returns:
-            True if the file should be included, False otherwise
-        """
-        file_path = Path(file_info.path)
-        file_name = file_path.name.lower()
-
-        # Check image scale exclusions
-        if not self._should_include_image_scale(file_name):
-            logger.debug(f"Excluding file due to image scale: {file_info.path}")
-            return False
-
-        # Check architecture exclusions
-        if not self._should_include_architecture(file_name):
-            logger.debug(f"Excluding file due to architecture: {file_info.path}")
-            return False
-
-        # Check platform exclusions
-        if not self._should_include_platform(file_name):
-            logger.debug(f"Excluding file due to platform: {file_info.path}")
-            return False
-
-        return True
-
-    def _should_include_image_scale(self, file_name: str) -> bool:
-        """Check if image file should be included based on scale."""
-        # Check if this is an image file with scale suffix
-        for scale, pattern in self.IMAGE_SCALE_PATTERNS.items():
-            if pattern.search(file_name):
-                # Only include if it matches our target scale
+    def _scale_ok(self, name: str) -> bool:
+        for scale, pat in self.IMAGE_SCALE_PATTERNS.items():
+            if pat.search(name):
                 return scale == self.config.target_image_scale
+        return True  # untagged → keep
 
-        # If no scale suffix, include it (base image)
+    def _arch_ok(self, name: str) -> bool:
+        for arch, pat in self.ARCHITECTURE_PATTERNS.items():
+            if pat.search(name):
+                return arch not in self.config.exclude_architectures
         return True
 
-    def _should_include_architecture(self, file_name: str) -> bool:
-        """Check if file should be included based on architecture."""
-        for arch, pattern in self.ARCHITECTURE_PATTERNS.items():
-            if pattern.search(file_name):
-                # Exclude if this architecture is in our exclusion list
-                if arch in self.config.exclude_architectures:
-                    return False
-
-        return True
-
-    def _should_include_platform(self, file_name: str) -> bool:
-        """Check if file should be included based on platform."""
-        for platform, pattern in self.PLATFORM_PATTERNS.items():
-            if pattern.search(file_name):
-                # Exclude if this platform is in our exclusion list
-                if platform in self.config.exclude_platforms:
-                    return False
-
+    def _platform_ok(self, name: str) -> bool:
+        for plat, pat in self.PLATFORM_PATTERNS.items():
+            if pat.search(name):
+                return plat not in self.config.exclude_platforms
         return True

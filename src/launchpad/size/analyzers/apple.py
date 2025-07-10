@@ -106,7 +106,7 @@ class AppleAppAnalyzer:
 
         file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
-        file_analysis = AppThinningSimulator.create_for_iphone_se().apply_thinning(file_analysis)
+        file_analysis = AppThinningSimulator.for_iphone_se().apply_thinning(file_analysis)
         logger.info(
             f"Thinned file analysis: {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes"
         )
