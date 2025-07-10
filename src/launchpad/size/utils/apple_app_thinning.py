@@ -68,23 +68,14 @@ class AppThinningSimulator:
 
         deduped = self._deduplicate(analysis.files)
         included: List[FileInfo] = []
-        size_before = 0
-        size_after = 0
 
         for f in deduped:
-            size_before += f.size
             if self._should_include(f):
                 included.append(f)
-                size_after += f.size
+            else:
+                reason = self._get_removal_reason(f)
+                logger.info("Thinning: removed %s (%s)", f.path, reason)
 
-        logger.info(
-            "Thinning complete → kept %d/%d files (%.1f %%, %d → %d bytes)",
-            len(included),
-            len(analysis.files),
-            100 * size_after / size_before if size_before else 0,
-            size_before,
-            size_after,
-        )
         return FileAnalysis(files=included)
 
     def _deduplicate(self, files: List[FileInfo]) -> List[FileInfo]:
@@ -95,10 +86,11 @@ class AppThinningSimulator:
         for fi in files:
             key = (str(Path(fi.path).parent), Path(fi.path).name, fi.size)
             if key in seen:
-                logger.debug("Skipping duplicate %s", fi.path)
+                logger.info("Thinning: removed duplicate file %s", fi.path)
                 continue
             seen.add(key)
             unique.append(self._dedupe_children(fi))
+
         return unique
 
     def _dedupe_children(self, fi: FileInfo) -> FileInfo:
@@ -107,15 +99,16 @@ class AppThinningSimulator:
         child_seen: Set[tuple[str, int]] = set()
         dedup_children: List[TreemapElement] = []
         removed_size = 0
+
         for child in fi.children:
             k = (child.path or "", child.install_size)
             if k in child_seen:
                 removed_size += child.install_size
+                logger.info("Thinning: removed duplicate child %s from %s", child.path or "unnamed", fi.path)
                 continue
             child_seen.add(k)
             dedup_children.append(child)
-        if removed_size:
-            logger.debug("Reduced %s by %d B (child dedup)", fi.path, removed_size)
+
         return FileInfo(
             full_path=fi.full_path,
             path=fi.path,
@@ -147,3 +140,31 @@ class AppThinningSimulator:
             if pat.search(name):
                 return plat not in self.config.exclude_platforms
         return True
+
+    def _get_removal_reason(self, fi: FileInfo) -> str:
+        """Get the reason why a file was removed during thinning."""
+        name = Path(fi.path).name.lower()
+        reasons: List[str] = []
+
+        # Check scale
+        for scale, pat in self.IMAGE_SCALE_PATTERNS.items():
+            if pat.search(name):
+                if scale != self.config.target_image_scale:
+                    reasons.append(f"wrong scale ({scale} vs {self.config.target_image_scale})")
+                break
+
+        # Check architecture
+        for arch, pat in self.ARCHITECTURE_PATTERNS.items():
+            if pat.search(name):
+                if arch in self.config.exclude_architectures:
+                    reasons.append(f"excluded arch ({arch})")
+                break
+
+        # Check platform
+        for plat, pat in self.PLATFORM_PATTERNS.items():
+            if pat.search(name):
+                if plat in self.config.exclude_platforms:
+                    reasons.append(f"excluded platform ({plat})")
+                break
+
+        return "; ".join(reasons) if reasons else "unknown reason"
