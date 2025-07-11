@@ -2,6 +2,8 @@
 
 A microservice for analyzing iOS and Android apps.
 
+[![codecov](https://codecov.io/gh/getsentry/launchpad/graph/badge.svg?token=iF5K92yaUu)](https://codecov.io/gh/getsentry/launchpad)
+
 ## Installation
 
 ### Development Setup
