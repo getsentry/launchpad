@@ -1,5 +1,3 @@
-"""Wrapper for binary buffer parsing with cursor tracking and debugging."""
-
 from __future__ import annotations
 
 import struct
