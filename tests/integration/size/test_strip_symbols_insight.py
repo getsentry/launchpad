@@ -28,6 +28,7 @@ class TestStripSymbolsInsightIntegration:
 
         strip_insight = results.insights.strip_binary
 
+        print(strip_insight)
         assert strip_insight.total_savings == 97552
         assert len(strip_insight.files) == 2
         assert strip_insight.files[0].size_saved == 85696
