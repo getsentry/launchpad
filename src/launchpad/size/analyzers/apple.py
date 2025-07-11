@@ -27,7 +27,7 @@ from launchpad.size.insights.common import (
 )
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
-from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
+from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapResults, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
@@ -80,6 +80,7 @@ class AppleAppAnalyzer:
         self.skip_insights = skip_insights
         self.app_info: AppleAppInfo | None = None
 
+    @trace_with_registry()
     def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
@@ -87,6 +88,7 @@ class AppleAppAnalyzer:
         self.app_info = self._extract_app_info(artifact)
         return self.app_info
 
+    @trace_with_registry()
     def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
         """Analyze an Apple app bundle.
 
@@ -109,7 +111,7 @@ class AppleAppAnalyzer:
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
         app_bundle_path = artifact.get_app_bundle_path()
-        download_size, install_size = calculate_bundle_sizes(app_bundle_path)
+        download_size, install_size = self._calculate_bundle_sizes(app_bundle_path)
         logger.info(f"Download size: {download_size} bytes, Install size: {install_size} bytes")
 
         treemap = None
@@ -140,7 +142,7 @@ class AppleAppAnalyzer:
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )
-            treemap = treemap_builder.build_file_treemap(file_analysis)
+            treemap = self._build_treemap(treemap_builder, file_analysis)
 
         insights: AppleInsightResults | None = None
         if not self.skip_insights:
@@ -151,14 +153,7 @@ class AppleAppAnalyzer:
                 binary_analysis=binary_analysis,
                 treemap=treemap,
             )
-            insights = AppleInsightResults(
-                duplicate_files=DuplicateFilesInsight().generate(insights_input),
-                large_audio=LargeAudioFileInsight().generate(insights_input),
-                large_images=LargeImageFileInsight().generate(insights_input),
-                large_videos=LargeVideoFileInsight().generate(insights_input),
-                strip_binary=StripSymbolsInsight().generate(insights_input),
-                localized_strings=LocalizedStringsInsight().generate(insights_input),
-            )
+            insights = self._generate_insights(insights_input)
 
         results = AppleAnalysisResults(
             app_info=app_info,
@@ -467,4 +462,26 @@ class AppleAppAnalyzer:
             range_map=range_map,
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
+        )
+
+    @trace_with_registry()
+    def _calculate_bundle_sizes(self, app_bundle_path: Path) -> tuple[int, int]:
+        """Calculate bundle sizes with performance tracing."""
+        return calculate_bundle_sizes(app_bundle_path)
+
+    @trace_with_registry()
+    def _build_treemap(self, treemap_builder: TreemapBuilder, file_analysis: FileAnalysis) -> TreemapResults:
+        """Build treemap with performance tracing."""
+        return treemap_builder.build_file_treemap(file_analysis)
+
+    @trace_with_registry()
+    def _generate_insights(self, insights_input: InsightsInput) -> AppleInsightResults:
+        """Generate insights with performance tracing."""
+        return AppleInsightResults(
+            duplicate_files=DuplicateFilesInsight().generate(insights_input),
+            large_audio=LargeAudioFileInsight().generate(insights_input),
+            large_images=LargeImageFileInsight().generate(insights_input),
+            large_videos=LargeVideoFileInsight().generate(insights_input),
+            strip_binary=StripSymbolsInsight().generate(insights_input),
+            localized_strings=LocalizedStringsInsight().generate(insights_input),
         )

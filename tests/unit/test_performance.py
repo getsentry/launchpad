@@ -67,6 +67,7 @@ class TestTraceDecorator:
 
     def test_trace_decorator(self) -> None:
         """Test the trace decorator functionality."""
+
         @trace("decorated_function")
         def test_function() -> str:
             time.sleep(0.01)
@@ -77,6 +78,7 @@ class TestTraceDecorator:
 
     def test_trace_decorator_auto_name(self) -> None:
         """Test the trace decorator with auto-detected name."""
+
         @trace()  # No name provided
         def test_function() -> str:
             time.sleep(0.01)
