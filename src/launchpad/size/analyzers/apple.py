@@ -17,6 +17,7 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAg
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
+from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
@@ -26,12 +27,13 @@ from launchpad.size.insights.common import (
 )
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
-from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
+from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapResults, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import calculate_file_hash, get_file_size
 from launchpad.utils.logging import get_logger
+from launchpad.utils.performance import trace_with_registry
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -78,6 +80,7 @@ class AppleAppAnalyzer:
         self.skip_insights = skip_insights
         self.app_info: AppleAppInfo | None = None
 
+    @trace_with_registry()
     def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
@@ -85,6 +88,7 @@ class AppleAppAnalyzer:
         self.app_info = self._extract_app_info(artifact)
         return self.app_info
 
+    @trace_with_registry()
     def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
         """Analyze an Apple app bundle.
 
@@ -107,7 +111,7 @@ class AppleAppAnalyzer:
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
         app_bundle_path = artifact.get_app_bundle_path()
-        download_size, install_size = calculate_bundle_sizes(app_bundle_path)
+        download_size, install_size = self._calculate_bundle_sizes(app_bundle_path)
         logger.info(f"Download size: {download_size} bytes, Install size: {install_size} bytes")
 
         treemap = None
@@ -138,7 +142,7 @@ class AppleAppAnalyzer:
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )
-            treemap = treemap_builder.build_file_treemap(file_analysis)
+            treemap = self._build_treemap(treemap_builder, file_analysis)
 
         insights: AppleInsightResults | None = None
         if not self.skip_insights:
@@ -149,13 +153,7 @@ class AppleAppAnalyzer:
                 binary_analysis=binary_analysis,
                 treemap=treemap,
             )
-            insights = AppleInsightResults(
-                duplicate_files=DuplicateFilesInsight().generate(insights_input),
-                large_audio=LargeAudioFileInsight().generate(insights_input),
-                large_images=LargeImageFileInsight().generate(insights_input),
-                large_videos=LargeVideoFileInsight().generate(insights_input),
-                strip_binary=StripSymbolsInsight().generate(insights_input),
-            )
+            insights = self._generate_insights(insights_input)
 
         results = AppleAnalysisResults(
             app_info=app_info,
@@ -171,6 +169,7 @@ class AppleAppAnalyzer:
 
         return results
 
+    @trace_with_registry()
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
         """Extract basic app information.
 
@@ -216,6 +215,7 @@ class AppleAppAnalyzer:
             code_signature_errors=code_signature_errors,
         )
 
+    @trace_with_registry()
     def _detect_file_type(self, file_path: Path) -> str:
         """Detect file type using the file command.
 
@@ -255,6 +255,7 @@ class AppleAppAnalyzer:
             logger.warning(f"Unexpected error detecting file type for {file_path}: {e}")
             return "unknown"
 
+    @trace_with_registry()
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:
         """Determine the type of provisioning profile and its name.
         Args:
@@ -291,6 +292,7 @@ class AppleAppAnalyzer:
         # If no devices are provisioned, it's an app store profile
         return "appstore", profile_name
 
+    @trace_with_registry()
     def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
         """Analyze all files in the app bundle.
 
@@ -360,6 +362,7 @@ class AppleAppAnalyzer:
 
         return FileAnalysis(files=files)
 
+    @trace_with_registry()
     def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[TreemapElement]:
         """Analyze an asset catalog file."""
         catalog_details = xcarchive.get_asset_catalog_details(relative_path)
@@ -384,6 +387,7 @@ class AppleAppAnalyzer:
             for element in catalog_details
         ]
 
+    @trace_with_registry()
     def _analyze_binary(
         self, binary_path: Path, dwarf_binary_path: Path | None = None, skip_swift_metadata: bool = False
     ) -> MachOBinaryAnalysis:
@@ -458,4 +462,26 @@ class AppleAppAnalyzer:
             range_map=range_map,
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
+        )
+
+    @trace_with_registry()
+    def _calculate_bundle_sizes(self, app_bundle_path: Path) -> tuple[int, int]:
+        """Calculate bundle sizes with performance tracing."""
+        return calculate_bundle_sizes(app_bundle_path)
+
+    @trace_with_registry()
+    def _build_treemap(self, treemap_builder: TreemapBuilder, file_analysis: FileAnalysis) -> TreemapResults:
+        """Build treemap with performance tracing."""
+        return treemap_builder.build_file_treemap(file_analysis)
+
+    @trace_with_registry()
+    def _generate_insights(self, insights_input: InsightsInput) -> AppleInsightResults:
+        """Generate insights with performance tracing."""
+        return AppleInsightResults(
+            duplicate_files=DuplicateFilesInsight().generate(insights_input),
+            large_audio=LargeAudioFileInsight().generate(insights_input),
+            large_images=LargeImageFileInsight().generate(insights_input),
+            large_videos=LargeVideoFileInsight().generate(insights_input),
+            strip_binary=StripSymbolsInsight().generate(insights_input),
+            localized_strings=LocalizedStringsInsight().generate(insights_input),
         )
