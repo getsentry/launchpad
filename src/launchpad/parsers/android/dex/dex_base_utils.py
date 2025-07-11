@@ -251,54 +251,54 @@ class DexBaseUtils:
 
         match value_type:
             case EncodedValueType.BYTE:
-                return buffer_wrapper.read_u8()
+                value = buffer_wrapper.read_u8()
             case EncodedValueType.SHORT:
-                return buffer_wrapper.read_sized_int(value_arg + 1)
+                value = buffer_wrapper.read_sized_int(value_arg + 1)
             case EncodedValueType.CHAR:
-                return chr(buffer_wrapper.read_u16())
+                value = chr(buffer_wrapper.read_u16())
             case EncodedValueType.INT:
-                return buffer_wrapper.read_sized_int(value_arg + 1)
+                value = buffer_wrapper.read_sized_int(value_arg + 1)
             case EncodedValueType.LONG:
-                return buffer_wrapper.read_sized_int(value_arg + 1)
+                value = buffer_wrapper.read_sized_int(value_arg + 1)
             case EncodedValueType.FLOAT:
-                return buffer_wrapper.read_sized_float(value_arg + 1)
+                value = buffer_wrapper.read_sized_float(value_arg + 1)
             case EncodedValueType.DOUBLE:
-                return buffer_wrapper.read_sized_double(value_arg + 1)
+                value = buffer_wrapper.read_sized_double(value_arg + 1)
             case EncodedValueType.METHOD_TYPE:
                 proto_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                return DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
+                value = DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
             case EncodedValueType.METHOD_HANDLE:
                 handle_type = buffer_wrapper.read_u16()
                 buffer_wrapper.read_u16()  # unused
                 field_or_method_index = buffer_wrapper.read_u16()
                 buffer_wrapper.read_u16()  # unused
-                return {
+                value = {
                     "field_or_method_index": field_or_method_index,
                     "handle_type": handle_type,
                 }
             case EncodedValueType.STRING:
                 string_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                return DexBaseUtils.get_string(buffer_wrapper, header, string_index)
+                value = DexBaseUtils.get_string(buffer_wrapper, header, string_index)
             case EncodedValueType.TYPE:
                 type_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                return DexBaseUtils.get_type_name(buffer_wrapper, header, type_index)
+                value = DexBaseUtils.get_type_name(buffer_wrapper, header, type_index)
             case EncodedValueType.FIELD:
                 field_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                return DexBaseUtils.get_encoded_field(buffer_wrapper, header, field_index)
+                value = DexBaseUtils.get_encoded_field(buffer_wrapper, header, field_index)
             case EncodedValueType.METHOD:
                 method_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                return DexBaseUtils.get_encoded_method(buffer_wrapper, header, method_index)
+                value = DexBaseUtils.get_encoded_method(buffer_wrapper, header, method_index)
             case EncodedValueType.ENUM:
                 enum_field_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                return DexBaseUtils.get_encoded_field(buffer_wrapper, header, enum_field_index)
+                value = DexBaseUtils.get_encoded_field(buffer_wrapper, header, enum_field_index)
             case EncodedValueType.ARRAY:
-                return DexBaseUtils.get_encoded_array(buffer_wrapper, header)
+                value = DexBaseUtils.get_encoded_array(buffer_wrapper, header)
             case EncodedValueType.ANNOTATION:
-                return DexBaseUtils.get_encoded_annotation(buffer_wrapper, header)
+                value = DexBaseUtils.get_encoded_annotation(buffer_wrapper, header)
             case EncodedValueType.NULL:
-                return None
+                value = None
             case EncodedValueType.BOOLEAN:
-                return value_arg != 0
+                value = value_arg != 0
             case _:
                 raise ValueError(f"Unsupported encoded value type: {value_type:02x}")
 

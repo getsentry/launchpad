@@ -200,7 +200,7 @@ class DexClassParser:
             fields.append(field)
 
         self._buffer_wrapper.seek(cursor)
-        self._instance_fields = fields
+        self._static_fields = fields
         return fields
 
     def _get_instance_fields(self) -> list[Field]:
