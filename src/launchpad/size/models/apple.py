@@ -15,6 +15,7 @@ from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileIn
 from .insights import (
     BaseInsightResult,
     DuplicateFilesInsightResult,
+    HermesDebugInfoInsightResult,
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
@@ -116,6 +117,7 @@ class AppleInsightResults(BaseModel):
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
     localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
+    hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
 
 @dataclass

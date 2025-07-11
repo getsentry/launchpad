@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from .common import BaseAnalysisResults, BaseAppInfo, FileInfo
 from .insights import (
     DuplicateFilesInsightResult,
+    HermesDebugInfoInsightResult,
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
@@ -34,6 +35,7 @@ class AndroidInsightResults(BaseModel):
     large_images: LargeImageFileInsightResult | None = Field(None, description="Large images analysis")
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large videos analysis")
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
+    hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):

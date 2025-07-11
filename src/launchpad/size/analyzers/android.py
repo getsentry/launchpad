@@ -13,6 +13,7 @@ from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
+    HermesDebugInfoInsight,
     LargeAudioFileInsight,
     LargeImageFileInsight,
     LargeVideoFileInsight,
@@ -93,6 +94,7 @@ class AndroidAnalyzer:
                 file_analysis=file_analysis,
                 treemap=treemap,
                 binary_analysis=[],
+                hermes_reports=hermes_reports,
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -100,6 +102,7 @@ class AndroidAnalyzer:
                 large_images=LargeImageFileInsight().generate(insights_input),
                 large_videos=LargeVideoFileInsight().generate(insights_input),
                 large_audio=LargeAudioFileInsight().generate(insights_input),
+                hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
             )
 
         return AndroidAnalysisResults(

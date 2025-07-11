@@ -40,3 +40,9 @@ class LargeAudioFileInsightResult(BaseInsightResult):
     """Results from large audio files analysis."""
 
     files: List[FileInfo] = Field(..., description="Audio files larger than 5MB")
+
+
+class HermesDebugInfoInsightResult(BaseInsightResult):
+    """Results from Hermes debug info analysis."""
+
+    files: List[FileInfo] = Field(..., description="Hermes bytecode files with debug info")
