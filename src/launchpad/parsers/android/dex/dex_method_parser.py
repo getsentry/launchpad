@@ -3,6 +3,7 @@ from launchpad.parsers.android.dex.types import (
     Annotation,
     AnnotationsDirectory,
     DexFileHeader,
+    Method,
 )
 from launchpad.parsers.buffer_wrapper import BufferWrapper
 
@@ -15,6 +16,7 @@ class DexMethodParser:
         method_index: int,
         code_offset: int,
         method_overhead: int,
+        access_flags: int,
         annotations_directory: AnnotationsDirectory | None,
     ):
         self._buffer_wrapper = buffer_wrapper
@@ -22,6 +24,7 @@ class DexMethodParser:
         self._method_index = method_index
         self._code_offset = code_offset
         self._method_overhead = method_overhead
+        self._access_flags = access_flags
         self._annotations_directory = annotations_directory
 
         cursor = self._buffer_wrapper.cursor
@@ -32,11 +35,22 @@ class DexMethodParser:
         name_index = self._buffer_wrapper.read_u32()
 
         self._class_name = DexBaseUtils.get_type_name(self._buffer_wrapper, header, class_index)
-        self.prototype = DexBaseUtils.get_prototype(self._buffer_wrapper, header, proto_index)
-        self.name = DexBaseUtils.get_string(self._buffer_wrapper, header, name_index)
-        self.signature = f"{self._class_name}.{self.name}:{self.prototype.return_type}"
+        self._prototype = DexBaseUtils.get_prototype(self._buffer_wrapper, header, proto_index)
+        self._name = DexBaseUtils.get_string(self._buffer_wrapper, header, name_index)
+        self._signature = f"{self._class_name}.{self._name}:{self._prototype.return_type}"
 
         self._buffer_wrapper.seek(cursor)
+
+    def parse(self) -> Method:
+        return Method(
+            size=self.get_size(),
+            name=self._name,
+            signature=self._signature,
+            prototype=self._prototype,
+            access_flags=DexBaseUtils.parse_access_flags(self._access_flags),
+            annotations=self.get_annotations(),
+            parameters=[],  # TODO: Implement when needed in future
+        )
 
     def get_annotations(self) -> list[Annotation]:
         if self._annotations_directory is None:

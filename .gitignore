@@ -46,3 +46,6 @@ install-devenv.sh
 
 # Local environment variable overrides set by the user.
 .env
+
+# Local output files
+out.json

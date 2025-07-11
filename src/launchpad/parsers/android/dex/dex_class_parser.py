@@ -54,6 +54,7 @@ class DexClassParser:
             annotations=self.get_annotations(),
             access_flags=self.get_access_flags(),
             fields=self.get_fields(),
+            methods=self.get_methods(),
         )
 
     def get_class_signature(self) -> str:
@@ -198,20 +199,11 @@ class DexClassParser:
                 method_index=method_index,
                 code_offset=code_offset,
                 method_overhead=method_overhead,
+                access_flags=access_flags,
                 annotations_directory=self._get_annotations_directory(),
             )
 
-            method = Method(
-                size=method_parser.get_size(),
-                name=method_parser.name,
-                signature=method_parser.signature,
-                prototype=method_parser.prototype,
-                access_flags=DexBaseUtils.parse_access_flags(access_flags),
-                annotations=method_parser.get_annotations(),
-                parameters=[],
-            )
-
-            methods.append(method)
+            methods.append(method_parser.parse())
 
         self._direct_methods = methods
         self._buffer_wrapper.seek(cursor)
@@ -258,20 +250,11 @@ class DexClassParser:
                 method_index=method_index,
                 code_offset=code_offset,
                 method_overhead=method_overhead,
+                access_flags=access_flags,
                 annotations_directory=self._get_annotations_directory(),
             )
 
-            method = Method(
-                size=method_parser.get_size(),
-                name=method_parser.name,
-                signature=method_parser.signature,
-                prototype=method_parser.prototype,
-                access_flags=DexBaseUtils.parse_access_flags(access_flags),
-                annotations=method_parser.get_annotations(),
-                parameters=[],
-            )
-
-            methods.append(method)
+            methods.append(method_parser.parse())
 
         self._virtual_methods = methods
         self._buffer_wrapper.seek(cursor)
