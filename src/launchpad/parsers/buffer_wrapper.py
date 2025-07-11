@@ -225,7 +225,7 @@ class BufferWrapper:
             ValueError: If size is invalid
         """
         with self._debug_group(f"read_sized_int ({size} bytes)"):
-            if not 1 <= size <= 4:
+            if not 1 <= size <= 8:
                 raise ValueError(f"Invalid size {size} for sized int at offset 0x{self.cursor:08x}")
 
             # Read bytes and sign extend

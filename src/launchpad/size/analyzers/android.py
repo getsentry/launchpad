@@ -44,9 +44,6 @@ class AndroidAnalyzer:
         skip_insights: bool = False,
         **kwargs,
     ) -> None:
-        """Args:
-        skip_insights: Skip insights generation for faster analysis
-        """
         self.skip_insights = skip_insights
 
     def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
@@ -146,34 +143,34 @@ class AndroidAnalyzer:
                             # First DEX file - create the merged representation
                             file_hash = calculate_file_hash(file_path, algorithm="md5")
                             merged_dex_info = FileInfo(
-                                path="classes.dex",
+                                path="Dex",
                                 full_path=file_path,
                                 size=file_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
                                 hash_md5=file_hash,
                             )
-                            path_to_file_info["classes.dex"] = merged_dex_info
+                            path_to_file_info["Dex"] = merged_dex_info
                             logger.debug("Created merged DEX representation: %s", relative_path)
                         else:
                             # Additional DEX file - merge into existing representation
-                            existing_info = path_to_file_info["classes.dex"]
+                            existing_info = path_to_file_info["Dex"]
                             merged_size = existing_info.size + file_size
                             logger.debug(
-                                "Merging DEX file %s into classes.dex",
+                                "Merging DEX file %s into Dex node",
                                 relative_path,
                             )
 
                             # Update the merged DEX file info
                             merged_dex_info = FileInfo(
-                                path="classes.dex",
+                                path="Dex",
                                 full_path=file_path,
                                 size=merged_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
                                 hash_md5="",
                             )
-                            path_to_file_info["classes.dex"] = merged_dex_info
+                            path_to_file_info["Dex"] = merged_dex_info
                         continue
 
                     # If we've seen this path before, merge the sizes to simplify the treemap
