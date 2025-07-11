@@ -47,29 +47,48 @@ class TestServiceIntegration:
         # Mock statsd
         service._statsd = Mock()
 
-        # Test artifact analysis message with iOS artifact
-        ios_payload: PreprodArtifactEvents = {
-            "artifact_id": "ios-test-123",
-            "project_id": "test-project-ios",
-            "organization_id": "test-org-123",
+        # Mock service config to make the service appear initialized
+        service._service_config = {
+            "statsd_host": "127.0.0.1",
+            "statsd_port": 8125,
+            "sentry_base_url": "https://sentry.example.com",
         }
 
-        # handle_kafka_message is synchronous
-        service.handle_kafka_message(ios_payload)
+        # Mock process_artifact to avoid actual processing
+        with patch.object(service, "process_artifact") as mock_process:
+            # Test artifact analysis message with iOS artifact
+            ios_payload: PreprodArtifactEvents = {
+                "artifact_id": "ios-test-123",
+                "project_id": "test-project-ios",
+                "organization_id": "test-org-123",
+            }
 
-        # Verify statsd metrics were sent
-        service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
-        service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
+            # handle_kafka_message is synchronous
+            service.handle_kafka_message(ios_payload)
 
-        # Test artifact analysis message with Android artifact
-        android_payload: PreprodArtifactEvents = {
-            "artifact_id": "android-test-456",
-            "project_id": "test-project-android",
-            "organization_id": "test-org-456",
-        }
+            # Verify the processing method was called
+            mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
 
-        # handle_kafka_message is synchronous
-        service.handle_kafka_message(android_payload)
+            # Verify statsd metrics were sent
+            service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
+            service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
+
+            # Reset mocks for next test
+            mock_process.reset_mock()
+            service._statsd.reset_mock()
+
+            # Test artifact analysis message with Android artifact
+            android_payload: PreprodArtifactEvents = {
+                "artifact_id": "android-test-456",
+                "project_id": "test-project-android",
+                "organization_id": "test-org-456",
+            }
+
+            # handle_kafka_message is synchronous
+            service.handle_kafka_message(android_payload)
+
+            # Verify the processing method was called
+            mock_process.assert_called_once_with("android-test-456", "test-project-android", "test-org-456")
 
     @pytest.mark.asyncio
     async def test_error_handling_in_message_processing(self):
