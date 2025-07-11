@@ -17,6 +17,7 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAg
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
+from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
@@ -32,6 +33,7 @@ from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import calculate_file_hash, get_file_size
 from launchpad.utils.logging import get_logger
+from launchpad.utils.performance import trace_with_registry
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -155,6 +157,7 @@ class AppleAppAnalyzer:
                 large_images=LargeImageFileInsight().generate(insights_input),
                 large_videos=LargeVideoFileInsight().generate(insights_input),
                 strip_binary=StripSymbolsInsight().generate(insights_input),
+                localized_strings=LocalizedStringsInsight().generate(insights_input),
             )
 
         results = AppleAnalysisResults(
@@ -171,6 +174,7 @@ class AppleAppAnalyzer:
 
         return results
 
+    @trace_with_registry()
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
         """Extract basic app information.
 
@@ -216,6 +220,7 @@ class AppleAppAnalyzer:
             code_signature_errors=code_signature_errors,
         )
 
+    @trace_with_registry()
     def _detect_file_type(self, file_path: Path) -> str:
         """Detect file type using the file command.
 
@@ -255,6 +260,7 @@ class AppleAppAnalyzer:
             logger.warning(f"Unexpected error detecting file type for {file_path}: {e}")
             return "unknown"
 
+    @trace_with_registry()
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:
         """Determine the type of provisioning profile and its name.
         Args:
@@ -291,6 +297,7 @@ class AppleAppAnalyzer:
         # If no devices are provisioned, it's an app store profile
         return "appstore", profile_name
 
+    @trace_with_registry()
     def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
         """Analyze all files in the app bundle.
 
@@ -360,6 +367,7 @@ class AppleAppAnalyzer:
 
         return FileAnalysis(files=files)
 
+    @trace_with_registry()
     def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[TreemapElement]:
         """Analyze an asset catalog file."""
         catalog_details = xcarchive.get_asset_catalog_details(relative_path)
@@ -384,6 +392,7 @@ class AppleAppAnalyzer:
             for element in catalog_details
         ]
 
+    @trace_with_registry()
     def _analyze_binary(
         self, binary_path: Path, dwarf_binary_path: Path | None = None, skip_swift_metadata: bool = False
     ) -> MachOBinaryAnalysis:
