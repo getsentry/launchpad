@@ -1,4 +1,8 @@
 github_checks:
-    annotations: false
-    informational: true
+  annotations: false
+coverage:
+  status:
+    project:
+      default:
+        informational: true
 
