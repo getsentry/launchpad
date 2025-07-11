@@ -15,7 +15,8 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
       },
       "justMyCode": false
     },
@@ -33,7 +34,8 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
       },
       "justMyCode": false
     },
@@ -51,7 +53,8 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
       },
       "justMyCode": false
     },
@@ -71,7 +74,8 @@
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
       },
       "justMyCode": false
     },
@@ -84,12 +88,15 @@
       "args": [
         "size",
         "--verbose",
-        "tests/_fixtures/android/zipped_aab.zip"
+        "tests/_fixtures/android/zipped_aab.zip",
+        "--output",
+        "android-size-output.json"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
       "env": {
-        "PYTHONPATH": "${workspaceFolder}/src"
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
       },
       "justMyCode": false
     },
