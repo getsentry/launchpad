@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List
 
-from launchpad.size.hermes.utils import HERMES_EXTENSIONS
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.insights import (
@@ -155,20 +154,17 @@ class HermesDebugInfoInsight(Insight[HermesDebugInfoInsightResult]):
 
         # Find Hermes files in the file analysis
         for file_info in input.file_analysis.files:
-            if file_info.file_type.lower() in HERMES_EXTENSIONS:
-                # Check if this file has a Hermes report
-                if file_info.path in input.hermes_reports:
-                    hermes_report = input.hermes_reports[file_info.path]
+            if file_info.path in input.hermes_reports:
+                hermes_report = input.hermes_reports[file_info.path]
 
-                    # Check if the debug info section has any content
-                    debug_info_section = hermes_report["sections"].get("Debug info", {"bytes": 0})
-                    debug_info_size = debug_info_section.get("bytes", 0)
+                # Check if the debug info section has any content
+                debug_info_section = hermes_report["sections"].get("Debug info", {"bytes": 0})
+                debug_info_size = debug_info_section.get("bytes", 0)
 
-                    if debug_info_size > 0:
-                        files_with_debug_info.append(file_info)
-                        total_savings += debug_info_size
+                if debug_info_size > 0:
+                    files_with_debug_info.append(file_info)
+                    total_savings += debug_info_size
 
-        # Sort by debug info size (largest first)
         files_with_debug_info.sort(
             key=lambda f: input.hermes_reports[f.path]["sections"]["Debug info"]["bytes"]
             if input.hermes_reports
