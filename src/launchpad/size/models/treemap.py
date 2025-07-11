@@ -99,16 +99,6 @@ class TreemapElement(BaseModel):
         """Check if this is a leaf node (no children)."""
         return len(self.children) == 0
 
-    @property
-    def total_install_size(self) -> int:
-        """Total install size including all children."""
-        return self.install_size + sum(child.total_install_size for child in self.children)
-
-    @property
-    def total_download_size(self) -> int:
-        """Total download size including all children."""
-        return self.download_size + sum(child.total_download_size for child in self.children)
-
 
 class TreemapResults(BaseModel):
     """Complete treemap analysis results."""
