@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './App.css';
+import AppInfoDisplay from './components/AppInfoDisplay';
 import FileUpload from './components/FileUpload';
 import TreemapVisualization from './components/TreemapVisualization';
 import type { FileAnalysisReport } from './utils/dataConverter';
@@ -17,19 +18,6 @@ function App() {
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
     setTreemapData(null);
-  };
-
-  const handleReset = () => {
-    setTreemapData(null);
-    setError(null);
-  };
-
-  const formatBytes = (bytes: number, usesSiUnits: boolean): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = usesSiUnits ? 1000 : 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -68,10 +56,14 @@ function App() {
             <div style={{
               backgroundColor: '#f8f9fa',
               overflow: 'hidden',
-              borderRadius: '6px'
+              borderRadius: '6px',
+              marginBottom: '1rem'
             }}>
               <TreemapVisualization data={treemapData} sizeMode={sizeMode} />
             </div>
+
+            {/* App Info Display */}
+            <AppInfoDisplay data={treemapData} />
           </div>
         )}
       </main>

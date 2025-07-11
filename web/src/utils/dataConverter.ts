@@ -21,6 +21,14 @@ interface AppInfo {
   build: string;
   executable: string;
   bundle_id: string;
+  minimum_os_version?: string;
+  supported_platforms?: string[];
+  sdk_version?: string;
+  is_simulator?: boolean;
+  codesigning_type?: string;
+  profile_name?: string;
+  is_code_signature_valid?: boolean;
+  code_signature_errors?: string[];
 }
 
 export interface FileAnalysisReport {
