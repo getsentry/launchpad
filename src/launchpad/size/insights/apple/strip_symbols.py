@@ -1,4 +1,5 @@
 import os
+import platform
 import shutil
 import subprocess
 import tempfile
@@ -61,13 +62,23 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
         try:
             shutil.copy2(binary_path, tmp_path)
             is_dylib = binary_path.suffix == ".dylib"
+
+            # Use llvm-strip on Linux, strip on Darwin
+            strip_tool = "llvm-strip" if platform.system() == "Linux" else "strip"
+
             if is_dylib:
-                strip_cmd = ["strip", "-rSTx", "-no_code_signature_warning", tmp_path]
+                if strip_tool == "llvm-strip":
+                    strip_cmd = [strip_tool, "-rSTx", tmp_path]
+                else:
+                    strip_cmd = [strip_tool, "-rSTx", "-no_code_signature_warning", tmp_path]
             else:
-                strip_cmd = ["strip", "-STx", "-no_code_signature_warning", tmp_path]
+                if strip_tool == "llvm-strip":
+                    strip_cmd = [strip_tool, "-STx", tmp_path]
+                else:
+                    strip_cmd = [strip_tool, "-STx", "-no_code_signature_warning", tmp_path]
             result = subprocess.run(strip_cmd, capture_output=True)
             if result.returncode != 0:
-                raise RuntimeError(f"strip failed: {result.stderr.decode().strip()}")
+                raise RuntimeError(f"{strip_tool} failed: {result.stderr.decode().strip()}")
             stripped_size = os.stat(tmp_path).st_size
             savings = orig_size - stripped_size
             return savings if savings > 0 else 0
