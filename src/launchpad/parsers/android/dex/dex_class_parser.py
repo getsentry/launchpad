@@ -164,8 +164,6 @@ class DexClassParser:
         last_index = 0
 
         cursor = self._buffer_wrapper.cursor
-        self._buffer_wrapper.seek(self._static_values_offset)
-        self._buffer_wrapper.seek(cursor)
 
         for _ in range(static_fields_size):
             cursor = self._buffer_wrapper.cursor
@@ -229,10 +227,10 @@ class DexClassParser:
         last_index = 0
 
         for _ in range(instance_fields_size):
-            cursor = self._buffer_wrapper.cursor
+            field_cursor = self._buffer_wrapper.cursor
             field_idx_diff = self._buffer_wrapper.read_uleb128()
             access_flags = self._buffer_wrapper.read_uleb128()
-            field_overhead = self._buffer_wrapper.cursor - cursor
+            field_overhead = self._buffer_wrapper.cursor - field_cursor
 
             field_index = last_index + field_idx_diff
             last_index = field_index

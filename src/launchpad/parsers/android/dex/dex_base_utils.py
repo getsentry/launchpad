@@ -305,6 +305,13 @@ class DexBaseUtils:
         end_offset = buffer_wrapper.cursor
         size = end_offset - start_offset
 
+        # For complex types, ensure we account for nested structure sizes
+        if value_type in (EncodedValueType.ARRAY, EncodedValueType.ANNOTATION):
+            if isinstance(value, list):
+                size += sum(item.size for item in value if hasattr(item, "size"))
+            elif hasattr(value, "elements"):
+                size += sum(item.size for item in value.elements.values() if hasattr(item, "size"))
+
         return EncodedValue(
             value=value,
             type=EncodedValueType(value_type),
