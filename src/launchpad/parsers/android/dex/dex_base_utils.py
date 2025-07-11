@@ -388,8 +388,18 @@ class DexBaseUtils:
         prototype = DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
         name = DexBaseUtils.get_string(buffer_wrapper, header, name_index)
 
+        size = cursor - buffer_wrapper.cursor
         buffer_wrapper.seek(cursor)
-        return Method(class_signature=class_signature, prototype=prototype, name=name)
+        return Method(
+            size=size,
+            name=name,
+            signature=class_signature,
+            prototype=prototype,
+            # TODO: Implement if/when needed in future
+            access_flags=[],
+            annotations=[],
+            parameters=[],
+        )
 
     @staticmethod
     def get_encoded_array(buffer_wrapper: BufferWrapper, header: DexFileHeader) -> list[EncodedValue]:
