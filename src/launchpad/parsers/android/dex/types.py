@@ -86,9 +86,10 @@ class Field:
 
 @dataclass
 class Method:
-    class_signature: str
-    prototype: Prototype
+    size: int
     name: str
+    signature: str
+    prototype: Prototype
     annotations: list[Annotation] | None = None
     access_flags: list[AccessFlag] | None = None
     parameters: list[Parameter] | None = None
@@ -103,9 +104,8 @@ class ClassDefinition:
     annotations: list[Annotation]
     access_flags: list[AccessFlag]
     fields: list[Field]
-    # TODO: Methods
+    methods: list[Method]
     # TODO: Superclass
-    # TODO: Interfaces
 
     def fqn(self) -> str:
         signature = self.signature

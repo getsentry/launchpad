@@ -1,3 +1,5 @@
+from launchpad.parsers.android.dex.dex_field_parser import DexFieldParser
+from launchpad.parsers.android.dex.dex_method_parser import DexMethodParser
 from launchpad.parsers.android.dex.types import (
     ENDIAN_CONSTANT,
     AccessFlag,
@@ -7,6 +9,7 @@ from launchpad.parsers.android.dex.types import (
     DexFileHeader,
     EncodedValue,
     EncodedValueType,
+    Field,
     FieldAnnotation,
     Method,
     MethodAnnotation,
@@ -348,7 +351,7 @@ class DexBaseUtils:
         )
 
     @staticmethod
-    def get_encoded_field(buffer_wrapper: BufferWrapper, header: DexFileHeader, field_index: int) -> str:
+    def get_encoded_field(buffer_wrapper: BufferWrapper, header: DexFileHeader, field_index: int) -> Field:
         cursor = buffer_wrapper.cursor
 
         buffer_wrapper.seek(header.field_ids_off + field_index * 8)  # Each field_id_item is 8 bytes
@@ -361,8 +364,20 @@ class DexBaseUtils:
         type_name = DexBaseUtils.get_type_name(buffer_wrapper, header, type_index)
         name = DexBaseUtils.get_string(buffer_wrapper, header, name_index)
 
+        field_parser = DexFieldParser(
+            buffer_wrapper=buffer_wrapper,
+            header=header,
+            initial_value=None,
+            field_overhead=0,
+            class_name=class_name,
+            type_name=type_name,
+            name=name,
+            access_flags=[],
+            annotations=[],
+        )
+
         buffer_wrapper.seek(cursor)
-        return f"{class_name}->{name}:{type_name}"
+        return field_parser.parse()
 
     @staticmethod
     def get_encoded_method(buffer_wrapper: BufferWrapper, header: DexFileHeader, method_index: int) -> Method:
@@ -388,8 +403,20 @@ class DexBaseUtils:
         prototype = DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
         name = DexBaseUtils.get_string(buffer_wrapper, header, name_index)
 
+        method_parser = DexMethodParser(
+            buffer_wrapper=buffer_wrapper,
+            header=header,
+            class_name=class_signature,
+            prototype=prototype,
+            name=name,
+            code_offset=0,
+            method_overhead=0,
+            access_flags=[],
+            annotations=[],
+        )
+
         buffer_wrapper.seek(cursor)
-        return Method(class_signature=class_signature, prototype=prototype, name=name)
+        return method_parser.parse()
 
     @staticmethod
     def get_encoded_array(buffer_wrapper: BufferWrapper, header: DexFileHeader) -> list[EncodedValue]:
@@ -477,6 +504,35 @@ class DexBaseUtils:
         buffer_wrapper.seek(cursor)
 
         return string
+
+    @staticmethod
+    def get_prototype(buffer_wrapper: BufferWrapper, header: DexFileHeader, proto_index: int) -> Prototype:
+        """Get proto name by index.
+
+        https://source.android.com/docs/core/runtime/dex-format#proto-id-item
+
+        Returns a string representation of the prototype, e.g. (IILjava/lang/String;)V
+        """
+        cursor = buffer_wrapper.cursor
+
+        buffer_wrapper.seek(header.proto_ids_off + proto_index * 12)
+        shorty_idx = buffer_wrapper.read_u32()
+        return_type_idx = buffer_wrapper.read_u32()
+        parameters_off = buffer_wrapper.read_u32()
+
+        shorty_descriptor = DexBaseUtils.get_string(buffer_wrapper, header, shorty_idx)
+        return_type = DexBaseUtils.get_type_name(buffer_wrapper, header, return_type_idx)
+
+        parameters: list[str] = []
+        if parameters_off != 0:
+            parameters = DexBaseUtils.get_type_list(buffer_wrapper, header, parameters_off)
+
+        buffer_wrapper.seek(cursor)
+        return Prototype(
+            shorty_descriptor=shorty_descriptor,
+            return_type=return_type,
+            parameters=parameters,
+        )
 
     @staticmethod
     def get_string(buffer_wrapper: BufferWrapper, header: DexFileHeader, string_index: int) -> str:
