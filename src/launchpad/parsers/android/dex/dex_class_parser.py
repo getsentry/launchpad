@@ -184,11 +184,11 @@ class DexClassParser:
         last_index = 0
 
         for _ in range(direct_methods_size):
-            cursor = self._buffer_wrapper.cursor
+            method_cursor = self._buffer_wrapper.cursor
             method_idx_diff = self._buffer_wrapper.read_uleb128()
             access_flags = self._buffer_wrapper.read_uleb128()
             code_offset = self._buffer_wrapper.read_uleb128()
-            method_overhead = self._buffer_wrapper.cursor - cursor
+            method_overhead = self._buffer_wrapper.cursor - method_cursor
 
             method_index = last_index + method_idx_diff
             last_index = method_index
@@ -222,8 +222,8 @@ class DexClassParser:
 
         static_fields_size = self._buffer_wrapper.read_uleb128()
         instance_fields_size = self._buffer_wrapper.read_uleb128()
-        direct_methods_size = self._buffer_wrapper.read_uleb128()  # direct_methods_size
-        virtual_methods_size = self._buffer_wrapper.read_uleb128()  # virtual_methods_size
+        direct_methods_size = self._buffer_wrapper.read_uleb128()
+        virtual_methods_size = self._buffer_wrapper.read_uleb128()
 
         # Skip fields
         self._skip_fields(self._buffer_wrapper, static_fields_size + instance_fields_size)
@@ -235,11 +235,11 @@ class DexClassParser:
         last_index = 0
 
         for _ in range(virtual_methods_size):
-            cursor = self._buffer_wrapper.cursor
+            method_cursor = self._buffer_wrapper.cursor
             method_idx_diff = self._buffer_wrapper.read_uleb128()
             access_flags = self._buffer_wrapper.read_uleb128()
             code_offset = self._buffer_wrapper.read_uleb128()
-            method_overhead = self._buffer_wrapper.cursor - cursor
+            method_overhead = self._buffer_wrapper.cursor - method_cursor
 
             method_index = last_index + method_idx_diff
             last_index = method_index

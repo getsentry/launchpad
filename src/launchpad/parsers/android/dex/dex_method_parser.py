@@ -28,7 +28,7 @@ class DexMethodParser:
         self._annotations_directory = annotations_directory
 
         cursor = self._buffer_wrapper.cursor
-        self._buffer_wrapper.seek(header.field_ids_off + self._method_index * 8)
+        self._buffer_wrapper.seek(header.method_ids_off + self._method_index * 8)
 
         class_index = self._buffer_wrapper.read_u16()
         proto_index = self._buffer_wrapper.read_u16()
@@ -146,16 +146,18 @@ class DexMethodParser:
         # Read size (sleb128)
         size = self._buffer_wrapper.read_leb128()
 
-        # Read handlers if size > 0
-        if size > 0:
-            for _ in range(size):
+        # Read typed handlers if |size| > 0
+        if size != 0:
+            # For negative size, the absolute value indicates the number of handlers
+            handler_count = abs(size)
+            for _ in range(handler_count):
                 # encoded_type_addr_pair: type_idx (uleb128) + addr (uleb128)
                 self._buffer_wrapper.read_uleb128()  # type_idx
                 self._buffer_wrapper.read_uleb128()  # addr
-        else:
-            # size <= 0 means catch-all handler
-            # Read catch_all_addr
-            self._buffer_wrapper.read_uleb128()
+
+        # Read catch_all_addr if size <= 0 (zero or negative)
+        if size <= 0:
+            self._buffer_wrapper.read_uleb128()  # catch_all_addr
 
         end = self._buffer_wrapper.cursor
         return end - start

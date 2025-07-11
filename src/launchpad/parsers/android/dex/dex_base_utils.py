@@ -379,6 +379,7 @@ class DexBaseUtils:
         cursor = buffer_wrapper.cursor
 
         buffer_wrapper.seek(header.method_ids_off + method_index * 8)  # Each method_id_item is 8 bytes
+        method_cursor = buffer_wrapper.cursor
 
         class_index = buffer_wrapper.read_u16()
         proto_index = buffer_wrapper.read_u16()
@@ -388,7 +389,7 @@ class DexBaseUtils:
         prototype = DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
         name = DexBaseUtils.get_string(buffer_wrapper, header, name_index)
 
-        size = cursor - buffer_wrapper.cursor
+        size = buffer_wrapper.cursor - method_cursor
         buffer_wrapper.seek(cursor)
         return Method(
             size=size,
