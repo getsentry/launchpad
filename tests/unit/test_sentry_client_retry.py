@@ -61,31 +61,30 @@ class TestSentryClientRetry:
             assert isinstance(client.session.adapters["http://"], HTTPAdapter)
 
     @patch("launchpad.sentry_client.requests.Session")
-    def test_download_artifact_with_retry_success_after_failure(self, mock_session_class):
-        """Test that download_artifact succeeds after retries via urllib3."""
+    def test_download_artifact_to_file_with_retry_session(self, mock_session_class):
+        """Test that download_artifact_to_file uses the retry session."""
         # Mock the session and its methods
         mock_session = Mock()
         mock_session_class.return_value = mock_session
 
-        # First call fails, second succeeds
-        mock_response_success = Mock()
-        mock_response_success.status_code = 200
-        mock_response_success.iter_content.return_value = [b"test content"]
-        mock_response_success.headers = {"content-length": "12"}
-
-        # Configure the mock to succeed on the call
-        mock_session.get.return_value = mock_response_success
+        # Mock successful response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.iter_content.return_value = [b"test content"]
+        mock_session.get.return_value = mock_response
 
         # Create client with mocked session
         with patch.dict("os.environ", {"LAUNCHPAD_RPC_SHARED_SECRET": "test_secret"}):
             client = SentryClient(base_url="https://test.sentry.io")
             client.session = mock_session
 
-        result = client.download_artifact("test-org", "test-project", "test-artifact")
+        # Mock file object
+        mock_file = Mock()
+        result = client.download_artifact_to_file("test-org", "test-project", "test-artifact", mock_file)
 
-        assert result["success"] is True
-        assert result["file_content"] == b"test content"
+        assert result == 12  # Length of "test content"
         assert mock_session.get.called
+        mock_file.write.assert_called_with(b"test content")
 
     @patch("launchpad.sentry_client.requests.Session")
     def test_update_artifact_with_retry_session(self, mock_session_class):

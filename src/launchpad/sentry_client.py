@@ -11,7 +11,7 @@ import re
 import secrets
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, NamedTuple
 
 import requests
 
@@ -19,6 +19,30 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
+
+
+class DownloadResult(NamedTuple):
+    """Result of artifact download operation."""
+
+    success: bool
+    file_content: bytes
+    file_size_bytes: int
+    headers: dict[str, str]
+
+
+class ErrorResult(NamedTuple):
+    """Result when an operation fails."""
+
+    error: str
+    status_code: int
+
+
+class UploadResult(NamedTuple):
+    """Result of upload operation."""
+
+    success: bool
+    state: str | None = None
+    message: str | None = None
 
 
 def create_retry_session(max_retries: int = 3) -> requests.Session:
@@ -51,8 +75,18 @@ class SentryClient:
 
         self.session = create_retry_session()
 
-    def download_artifact(self, org: str, project: str, artifact_id: str) -> Dict[str, Any]:
-        """Download preprod artifact."""
+    def download_artifact_to_file(self, org: str, project: str, artifact_id: str, out) -> int | ErrorResult:
+        """Download preprod artifact directly to a file-like object.
+
+        Args:
+            org: Organization slug
+            project: Project slug
+            artifact_id: Artifact ID
+            out: File-like object to write to (must support write() method)
+
+        Returns:
+            Number of bytes written on success, or ErrorResult on failure
+        """
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
         url = self._build_url(endpoint)
 
@@ -62,26 +96,32 @@ class SentryClient:
         if response.status_code != 200:
             return self._handle_error_response(response, "Download")
 
-        # Read content with size limit
-        content = b""
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                content += chunk
-            if len(content) > 5 * 1024 * 1024 * 1024:  # 5GB limit
-                logger.error("Download exceeds 5GB limit")
-                return {
-                    "error": "File size exceeds 5GB limit",
-                    "status_code": 413,  # Payload Too Large
-                }
+        # Stream directly to the file-like object
+        file_size = 0
+        try:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    out.write(chunk)
+                    file_size += len(chunk)
+                    if file_size > 5 * 1024 * 1024 * 1024:  # 5GB limit
+                        logger.error("Download exceeds 5GB limit")
+                        return ErrorResult(
+                            error="File size exceeds 5GB limit",
+                            status_code=413,  # Payload Too Large
+                        )
 
-        return {
-            "success": True,
-            "file_content": content,
-            "file_size_bytes": len(content),
-            "headers": dict(response.headers),
-        }
+            return file_size
 
-    def update_artifact(self, org: str, project: str, artifact_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        except Exception as e:
+            logger.error(f"Failed to write to file-like object: {e}")
+            return ErrorResult(
+                error=f"Failed to write to file-like object: {e}",
+                status_code=500,
+            )
+
+    def update_artifact(
+        self, org: str, project: str, artifact_id: str, data: Dict[str, Any]
+    ) -> Dict[str, Any] | ErrorResult:
         """Update preprod artifact."""
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/"
         return self._make_json_request("PUT", endpoint, data, operation="Update")
@@ -93,7 +133,7 @@ class SentryClient:
         artifact_id: str,
         file_path: str,
         max_retries: int = 3,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any] | ErrorResult:
         """Upload size analysis file with chunking following Rust sentry-cli pattern."""
         # Basic path validation
         path = Path(file_path).resolve()
@@ -110,8 +150,11 @@ class SentryClient:
         # Step 1: Get chunk upload options from server
         logger.debug("Getting chunk upload options...")
         options_result = self._get_chunk_upload_options(org)
-        if "error" in options_result:
-            return {"error": f"Failed to get chunk upload options: {options_result['error']}"}
+        if isinstance(options_result, ErrorResult):
+            return ErrorResult(
+                error=f"Failed to get chunk upload options: {options_result.error}",
+                status_code=options_result.status_code,
+            )
 
         chunk_options = options_result.get("chunking", {})
         chunk_size = chunk_options.get("chunk_size", 8 * 1024 * 1024)  # fallback to 8MB
@@ -142,6 +185,13 @@ class SentryClient:
                 chunks=chunk_checksums,
             )
 
+            # Handle ErrorResult from _assemble_size_analysis
+            if isinstance(result, ErrorResult):
+                logger.warning(f"Assembly attempt {attempt + 1} failed: {result}")
+                if attempt == max_retries - 1:  # Last attempt
+                    return result
+                continue
+
             state = result.get("state")
             if state in ["ok", "created"]:
                 logger.info("Upload and assembly successful")
@@ -160,7 +210,7 @@ class SentryClient:
                 if attempt == max_retries - 1:  # Last attempt
                     return result
 
-        return {"error": f"Failed after {max_retries} attempts"}
+        return ErrorResult(error=f"Failed after {max_retries} attempts", status_code=500)
 
     def _get_auth_headers(self, body: bytes | None = None) -> Dict[str, str]:
         """Get authentication headers for a request."""
@@ -175,13 +225,13 @@ class SentryClient:
         """Build full URL from endpoint."""
         return f"{self.base_url}{endpoint}"
 
-    def _handle_error_response(self, response: requests.Response, operation: str) -> Dict[str, Any]:
+    def _handle_error_response(self, response: requests.Response, operation: str) -> ErrorResult:
         """Handle non-200 response with consistent error format."""
         logger.warning(f"{operation} failed: {response.status_code}")
-        return {
-            "error": f"HTTP {response.status_code}",
-            "status_code": response.status_code,
-        }
+        return ErrorResult(
+            error=f"HTTP {response.status_code}",
+            status_code=response.status_code,
+        )
 
     def _make_json_request(
         self,
@@ -190,7 +240,7 @@ class SentryClient:
         data: Dict[str, Any] | None = None,
         timeout: int = 30,
         operation: str | None = None,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any] | ErrorResult:
         """Make a JSON request with standard error handling."""
         url = self._build_url(endpoint)
         body = json.dumps(data).encode("utf-8") if data else b""
@@ -210,7 +260,7 @@ class SentryClient:
 
         return response.json()
 
-    def _get_chunk_upload_options(self, org: str) -> Dict[str, Any]:
+    def _get_chunk_upload_options(self, org: str) -> Dict[str, Any] | ErrorResult:
         """Get chunk upload configuration from server."""
         endpoint = f"/api/0/organizations/{org}/chunk-upload/"
         return self._make_json_request("GET", endpoint, operation="Get chunk options")
@@ -290,7 +340,7 @@ class SentryClient:
         artifact_id: str | int,
         checksum: str,
         chunks: list[str],
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any] | ErrorResult:
         """Call the assemble size analysis endpoint."""
         # Validate hex strings
         if not re.match(r"^[a-fA-F0-9]+$", checksum):
@@ -327,7 +377,7 @@ class SentryClient:
         return b"".join(parts)
 
 
-def categorize_http_error(error_result: Dict[str, Any]) -> tuple[str, str]:
+def categorize_http_error(error_result: ErrorResult | Dict[str, Any]) -> tuple[str, str]:
     """
     Categorize HTTP error results from SentryClient.
 
@@ -335,9 +385,9 @@ def categorize_http_error(error_result: Dict[str, Any]) -> tuple[str, str]:
         Tuple of (error_category, error_description)
         Categories: "not_found", "server_error", "client_error", "unknown"
     """
-    # First try to get the structured status code
-    status_code = error_result.get("status_code")
-    if isinstance(status_code, int):
+    # Handle ErrorResult NamedTuple
+    if isinstance(error_result, ErrorResult):
+        status_code = error_result.status_code
         if status_code == 404:
             return "not_found", f"Resource not found (HTTP {status_code})"
         elif 500 <= status_code < 600:
@@ -347,23 +397,37 @@ def categorize_http_error(error_result: Dict[str, Any]) -> tuple[str, str]:
         else:
             return "unknown", f"Unexpected HTTP status {status_code}"
 
-    # Fallback to parsing the error message string
-    error_msg = error_result.get("error", "")
-    if isinstance(error_msg, str):
-        # Extract HTTP status code from error message like "HTTP 404"
-        match = re.search(r"HTTP (\d+)", error_msg)
-        if match:
-            try:
-                status_code = int(match.group(1))
-                if status_code == 404:
-                    return "not_found", f"Resource not found (HTTP {status_code})"
-                elif 500 <= status_code < 600:
-                    return "server_error", f"Server error (HTTP {status_code})"
-                elif 400 <= status_code < 500:
-                    return "client_error", f"Client error (HTTP {status_code})"
-                else:
-                    return "unknown", f"Unexpected HTTP status {status_code}"
-            except ValueError:
-                pass
+    # Handle legacy dict format (for backward compatibility)
+    if isinstance(error_result, dict):
+        # First try to get the structured status code
+        status_code = error_result.get("status_code")
+        if isinstance(status_code, int):
+            if status_code == 404:
+                return "not_found", f"Resource not found (HTTP {status_code})"
+            elif 500 <= status_code < 600:
+                return "server_error", f"Server error (HTTP {status_code})"
+            elif 400 <= status_code < 500:
+                return "client_error", f"Client error (HTTP {status_code})"
+            else:
+                return "unknown", f"Unexpected HTTP status {status_code}"
+
+        # Fallback to parsing the error message string
+        error_msg = error_result.get("error", "")
+        if isinstance(error_msg, str):
+            # Extract HTTP status code from error message like "HTTP 404"
+            match = re.search(r"HTTP (\d+)", error_msg)
+            if match:
+                try:
+                    status_code = int(match.group(1))
+                    if status_code == 404:
+                        return "not_found", f"Resource not found (HTTP {status_code})"
+                    elif 500 <= status_code < 600:
+                        return "server_error", f"Server error (HTTP {status_code})"
+                    elif 400 <= status_code < 500:
+                        return "client_error", f"Client error (HTTP {status_code})"
+                    else:
+                        return "unknown", f"Unexpected HTTP status {status_code}"
+                except ValueError:
+                    pass
 
     return "unknown", f"Unknown error: {error_result}"

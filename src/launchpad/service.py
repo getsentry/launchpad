@@ -30,7 +30,7 @@ from launchpad.constants import (
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
-from launchpad.sentry_client import SentryClient, categorize_http_error
+from launchpad.sentry_client import ErrorResult, SentryClient, categorize_http_error
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.android import AndroidAppInfo
@@ -151,8 +151,7 @@ class LaunchpadService:
         temp_file = None
 
         try:
-            file_content, _ = self._download_artifact(sentry_client, artifact_id, project_id, organization_id)
-            temp_file = self._save_to_temp_file(file_content, artifact_id)
+            temp_file = self._download_artifact_to_temp_file(sentry_client, artifact_id, project_id, organization_id)
 
             artifact = ArtifactFactory.from_path(Path(temp_file))
             logger.info(f"Running preprocessing on {temp_file}...")
@@ -301,75 +300,40 @@ class LaunchpadService:
                 data={"error_code": error_code.value, "error_message": final_error_message},
             )
 
-            if "error" in result:
-                logger.error(f"Failed to update artifact with error: {result['error']}")
+            if isinstance(result, ErrorResult):
+                logger.error(f"Failed to update artifact with error: {result.error}")
             else:
                 logger.info(f"Successfully updated artifact {artifact_id} with error information")
 
         except Exception as e:
             logger.error(f"Failed to update artifact {artifact_id} with error information: {e}", exc_info=True)
 
-    def _handle_download_error(
-        self, sentry_client: SentryClient, artifact_id: str, project_id: str, organization_id: str, error_msg: str
-    ) -> None:
-        """Handle download error by logging and updating artifact."""
-        logger.error(error_msg)
-        # Extract just the error details for the database, the enum prefix will be added automatically
-        detailed_error = error_msg.split(": ", 1)[1] if ": " in error_msg else error_msg
-        self._update_artifact_error(
-            sentry_client,
-            artifact_id,
-            project_id,
-            organization_id,
-            ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-            ProcessingErrorMessage.DOWNLOAD_FAILED,
-            detailed_error,
-        )
-        raise RuntimeError(error_msg)
-
-    def _download_artifact(
+    def _download_artifact_to_temp_file(
         self,
         sentry_client: SentryClient,
         artifact_id: str,
         project_id: str,
         organization_id: str,
-    ) -> tuple[bytes, int]:
-        """Download artifact from Sentry and validate response."""
+    ) -> str:
+        """Download artifact from Sentry directly to a temporary file."""
         logger.info(f"Downloading artifact {artifact_id}...")
 
-        try:
-            download_result = sentry_client.download_artifact(
-                org=organization_id, project=project_id, artifact_id=artifact_id
+        # Create temporary file first
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
+            temp_file = tf.name
+
+            # Download directly to the temporary file
+            file_size = sentry_client.download_artifact_to_file(
+                org=organization_id, project=project_id, artifact_id=artifact_id, out=tf
             )
 
-            if "error" in download_result:
-                error_category, error_description = categorize_http_error(download_result)
-                self._handle_download_error(
-                    sentry_client,
-                    artifact_id,
-                    project_id,
-                    organization_id,
-                    f"Failed to download artifact ({error_category}): {error_description}",
-                )
+            # Handle ErrorResult
+            if isinstance(file_size, ErrorResult):
+                error_category, error_description = categorize_http_error(file_size)
+                error_msg = f"Failed to download artifact ({error_category}): {error_description}"
+                logger.error(error_msg)
 
-            if not download_result.get("success"):
-                self._handle_download_error(
-                    sentry_client,
-                    artifact_id,
-                    project_id,
-                    organization_id,
-                    f"Download was not successful: {download_result}",
-                )
-
-            file_content = download_result["file_content"]
-            file_size = download_result["file_size_bytes"]
-
-            logger.info(f"Downloaded artifact {artifact_id}: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
-            return file_content, file_size
-
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                detailed_error = str(e)
+                # Update artifact with error info
                 self._update_artifact_error(
                     sentry_client,
                     artifact_id,
@@ -377,24 +341,13 @@ class LaunchpadService:
                     organization_id,
                     ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                     ProcessingErrorMessage.DOWNLOAD_FAILED,
-                    detailed_error,
+                    error_description,
                 )
-            raise
+                raise RuntimeError(error_msg)
 
-    def _save_to_temp_file(self, file_content: bytes, artifact_id: str) -> str:
-        """Save file content to temporary file and return path."""
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
-                tf.write(file_content)
-                tf.flush()
-                temp_file = tf.name
-
+            logger.info(f"Downloaded artifact {artifact_id}: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
             logger.info(f"Saved artifact to temporary file: {temp_file}")
             return temp_file
-
-        except Exception as e:
-            logger.error(f"Failed to save artifact to temporary file: {e}")
-            raise RuntimeError(f"{ProcessingErrorMessage.TEMP_FILE_CREATION_FAILED.value}: {str(e)}") from e
 
     def _prepare_update_data(self, app_info: AppleAppInfo | AndroidAppInfo, artifact: Any) -> Dict[str, Any]:
         """Prepare update data based on app platform and artifact type."""
@@ -460,11 +413,11 @@ class LaunchpadService:
                 file_path=analysis_file,
             )
 
-            if "error" in upload_result:
-                error_msg = f"Failed to upload analysis results: {upload_result['error']}"
+            if isinstance(upload_result, ErrorResult):
+                error_msg = f"Failed to upload analysis results: {upload_result.error}"
                 logger.error(error_msg)
                 # Extract just the error details for the database, the enum prefix will be added automatically
-                detailed_error = upload_result["error"]
+                detailed_error = upload_result.error
                 self._update_artifact_error(
                     sentry_client,
                     artifact_id,
@@ -478,19 +431,17 @@ class LaunchpadService:
 
             logger.info(f"Successfully uploaded analysis results for artifact {artifact_id}")
 
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                detailed_error = str(e)
-                self._update_artifact_error(
-                    sentry_client,
-                    artifact_id,
-                    project_id,
-                    organization_id,
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.UPLOAD_FAILED,
-                    detailed_error,
-                )
-            raise
+        except RuntimeError as e:
+            detailed_error = str(e)
+            self._update_artifact_error(
+                sentry_client,
+                artifact_id,
+                project_id,
+                organization_id,
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.UPLOAD_FAILED,
+                detailed_error,
+            )
 
         finally:
             if analysis_file:
