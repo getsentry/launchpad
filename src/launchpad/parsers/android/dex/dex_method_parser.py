@@ -1,7 +1,6 @@
-from launchpad.parsers.android.dex.dex_base_utils import DexBaseUtils
 from launchpad.parsers.android.dex.types import (
+    AccessFlag,
     Annotation,
-    AnnotationsDirectory,
     DexFileHeader,
     Method,
 )
@@ -13,33 +12,24 @@ class DexMethodParser:
         self,
         buffer_wrapper: BufferWrapper,
         header: DexFileHeader,
-        method_index: int,
+        class_name: str,
+        prototype: str,
+        name: str,
         code_offset: int,
         method_overhead: int,
-        access_flags: int,
-        annotations_directory: AnnotationsDirectory | None,
+        access_flags: list[AccessFlag],
+        annotations: list[Annotation],
     ):
         self._buffer_wrapper = buffer_wrapper
         self._header = header
-        self._method_index = method_index
+        self._class_name = class_name
+        self._prototype = prototype
+        self._name = name
         self._code_offset = code_offset
         self._method_overhead = method_overhead
         self._access_flags = access_flags
-        self._annotations_directory = annotations_directory
-
-        cursor = self._buffer_wrapper.cursor
-        self._buffer_wrapper.seek(header.method_ids_off + self._method_index * 8)
-
-        class_index = self._buffer_wrapper.read_u16()
-        proto_index = self._buffer_wrapper.read_u16()
-        name_index = self._buffer_wrapper.read_u32()
-
-        self._class_name = DexBaseUtils.get_type_name(self._buffer_wrapper, header, class_index)
-        self._prototype = DexBaseUtils.get_prototype(self._buffer_wrapper, header, proto_index)
-        self._name = DexBaseUtils.get_string(self._buffer_wrapper, header, name_index)
+        self._annotations = annotations
         self._signature = f"{self._class_name}.{self._name}:{self._prototype.return_type}"
-
-        self._buffer_wrapper.seek(cursor)
 
     def parse(self) -> Method:
         return Method(
@@ -47,24 +37,10 @@ class DexMethodParser:
             name=self._name,
             signature=self._signature,
             prototype=self._prototype,
-            access_flags=DexBaseUtils.parse_access_flags(self._access_flags),
-            annotations=self.get_annotations(),
+            access_flags=self._access_flags,
+            annotations=self._annotations,
             parameters=[],  # TODO: Implement when needed in future
         )
-
-    def get_annotations(self) -> list[Annotation]:
-        if self._annotations_directory is None:
-            return []
-
-        for method_annotation in self._annotations_directory.method_annotations:
-            if method_annotation.method_index == self._method_index:
-                return DexBaseUtils.get_annotation_set(
-                    self._buffer_wrapper,
-                    self._header,
-                    method_annotation.annotations_offset,
-                )
-
-        return []
 
     def get_size(self) -> int:
         """Calculate private size contribution of this method.

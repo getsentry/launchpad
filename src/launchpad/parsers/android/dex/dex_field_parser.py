@@ -1,7 +1,6 @@
-from launchpad.parsers.android.dex.dex_base_utils import DexBaseUtils
 from launchpad.parsers.android.dex.types import (
+    AccessFlag,
     Annotation,
-    AnnotationsDirectory,
     DexFileHeader,
     EncodedValue,
     Field,
@@ -14,57 +13,34 @@ class DexFieldParser:
         self,
         buffer_wrapper: BufferWrapper,
         header: DexFileHeader,
-        field_index: int,
         initial_value: EncodedValue | None,
         field_overhead: int,
-        access_flags: int,
-        annotations_directory: AnnotationsDirectory | None,
+        class_name: str,
+        type_name: str,
+        name: str,
+        access_flags: list[AccessFlag],
+        annotations: list[Annotation],
     ):
         self._buffer_wrapper = buffer_wrapper
         self._header = header
-        self._index = field_index
         self._initial_value = initial_value
         self._field_overhead = field_overhead
-        self._access_flags = DexBaseUtils.parse_access_flags(access_flags)
-        self._annotations_directory = annotations_directory
-
-        cursor = self._buffer_wrapper.cursor
-        self._buffer_wrapper.seek(header.field_ids_off + self._index * 8)
-
-        class_index = self._buffer_wrapper.read_u16()
-        type_index = self._buffer_wrapper.read_u16()
-        name_index = self._buffer_wrapper.read_u32()
-
-        self._class_name = DexBaseUtils.get_type_name(self._buffer_wrapper, header, class_index)
-        self._type_name = DexBaseUtils.get_type_name(self._buffer_wrapper, header, type_index)
-        self._name = DexBaseUtils.get_string(self._buffer_wrapper, header, name_index)
-
-        self._buffer_wrapper.seek(cursor)
+        self._class_name = class_name
+        self._type_name = type_name
+        self._name = name
+        self._access_flags = access_flags
+        self._annotations = annotations
 
     def parse(self) -> Field:
         return Field(
             size=self.get_size(),
             signature=self.get_signature(),
             access_flags=self._access_flags,
-            annotations=self.get_annotations(),
+            annotations=self._annotations,
         )
 
     def get_signature(self) -> str:
         return f"{self._class_name}->{self._name}:{self._type_name}"
-
-    def get_annotations(self) -> list[Annotation]:
-        if self._annotations_directory is None:
-            return []
-
-        for field_annotation in self._annotations_directory.field_annotations:
-            if field_annotation.field_index == self._index:
-                return DexBaseUtils.get_annotation_set(
-                    self._buffer_wrapper,
-                    self._header,
-                    field_annotation.annotations_offset,
-                )
-
-        return []
 
     def get_size(self) -> int:
         """Calculate private size contribution of this field.
@@ -78,7 +54,7 @@ class DexFieldParser:
             size += self._initial_value.size
 
         # Add size for annotations if present
-        annotations = self.get_annotations()
+        annotations = self._annotations
         for _ in annotations:
             size += 8  # 8 bytes for annotation reference
 

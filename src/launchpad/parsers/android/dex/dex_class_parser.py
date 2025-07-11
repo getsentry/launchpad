@@ -186,24 +186,49 @@ class DexClassParser:
         for _ in range(direct_methods_size):
             method_cursor = self._buffer_wrapper.cursor
             method_idx_diff = self._buffer_wrapper.read_uleb128()
-            access_flags = self._buffer_wrapper.read_uleb128()
+            access_flags = DexBaseUtils.parse_access_flags(self._buffer_wrapper.read_uleb128())
             code_offset = self._buffer_wrapper.read_uleb128()
             method_overhead = self._buffer_wrapper.cursor - method_cursor
 
             method_index = last_index + method_idx_diff
             last_index = method_index
 
+            method_cursor = self._buffer_wrapper.cursor
+            self._buffer_wrapper.seek(self._header.method_ids_off + method_index * 8)
+
+            class_index = self._buffer_wrapper.read_u16()
+            class_name = DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, class_index)
+            proto_index = self._buffer_wrapper.read_u16()
+            prototype = DexBaseUtils.get_prototype(self._buffer_wrapper, self._header, proto_index)
+            name_index = self._buffer_wrapper.read_u32()
+            name = DexBaseUtils.get_string(self._buffer_wrapper, self._header, name_index)
+
+            annotations_directory = self._get_annotations_directory()
+            annotations = []
+            if annotations_directory is not None:
+                for method_annotation in annotations_directory.method_annotations:
+                    if method_annotation.method_index == method_index:
+                        annotations = DexBaseUtils.get_annotation_set(
+                            self._buffer_wrapper,
+                            self._header,
+                            method_annotation.annotations_offset,
+                        )
+                        break
+
             method_parser = DexMethodParser(
                 buffer_wrapper=self._buffer_wrapper,
                 header=self._header,
-                method_index=method_index,
+                class_name=class_name,
+                prototype=prototype,
+                name=name,
                 code_offset=code_offset,
                 method_overhead=method_overhead,
                 access_flags=access_flags,
-                annotations_directory=self._get_annotations_directory(),
+                annotations=annotations,
             )
 
             methods.append(method_parser.parse())
+            self._buffer_wrapper.seek(method_cursor)
 
         self._direct_methods = methods
         self._buffer_wrapper.seek(cursor)
@@ -237,24 +262,49 @@ class DexClassParser:
         for _ in range(virtual_methods_size):
             method_cursor = self._buffer_wrapper.cursor
             method_idx_diff = self._buffer_wrapper.read_uleb128()
-            access_flags = self._buffer_wrapper.read_uleb128()
+            access_flags = DexBaseUtils.parse_access_flags(self._buffer_wrapper.read_uleb128())
             code_offset = self._buffer_wrapper.read_uleb128()
             method_overhead = self._buffer_wrapper.cursor - method_cursor
 
             method_index = last_index + method_idx_diff
             last_index = method_index
 
+            method_cursor = self._buffer_wrapper.cursor
+            self._buffer_wrapper.seek(self._header.method_ids_off + method_index * 8)
+
+            class_index = self._buffer_wrapper.read_u16()
+            class_name = DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, class_index)
+            proto_index = self._buffer_wrapper.read_u16()
+            prototype = DexBaseUtils.get_prototype(self._buffer_wrapper, self._header, proto_index)
+            name_index = self._buffer_wrapper.read_u32()
+            name = DexBaseUtils.get_string(self._buffer_wrapper, self._header, name_index)
+
+            annotations_directory = self._get_annotations_directory()
+            annotations = []
+            if annotations_directory is not None:
+                for method_annotation in annotations_directory.method_annotations:
+                    if method_annotation.method_index == method_index:
+                        annotations = DexBaseUtils.get_annotation_set(
+                            self._buffer_wrapper,
+                            self._header,
+                            method_annotation.annotations_offset,
+                        )
+                        break
+
             method_parser = DexMethodParser(
                 buffer_wrapper=self._buffer_wrapper,
                 header=self._header,
-                method_index=method_index,
+                class_name=class_name,
+                prototype=prototype,
+                name=name,
                 code_offset=code_offset,
                 method_overhead=method_overhead,
                 access_flags=access_flags,
-                annotations_directory=self._get_annotations_directory(),
+                annotations=annotations,
             )
 
             methods.append(method_parser.parse())
+            self._buffer_wrapper.seek(method_cursor)
 
         self._virtual_methods = methods
         self._buffer_wrapper.seek(cursor)
@@ -304,17 +354,42 @@ class DexClassParser:
             else:
                 initial_value = None
 
+            field_cursor = self._buffer_wrapper.cursor
+            self._buffer_wrapper.seek(self._header.field_ids_off + field_index * 8)
+
+            class_index = self._buffer_wrapper.read_u16()
+            class_name = DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, class_index)
+            type_index = self._buffer_wrapper.read_u16()
+            type_name = DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, type_index)
+            name_index = self._buffer_wrapper.read_u32()
+            name = DexBaseUtils.get_string(self._buffer_wrapper, self._header, name_index)
+
+            annotations_directory = self._get_annotations_directory()
+            annotations = []
+            if annotations_directory is not None:
+                for field_annotation in annotations_directory.field_annotations:
+                    if field_annotation.field_index == field_index:
+                        annotations = DexBaseUtils.get_annotation_set(
+                            self._buffer_wrapper,
+                            self._header,
+                            field_annotation.annotations_offset,
+                        )
+                        break
+
             field_parser = DexFieldParser(
-                self._buffer_wrapper,
-                self._header,
-                field_index,
-                initial_value,
-                field_overhead,
-                access_flags,
-                self._get_annotations_directory(),
+                buffer_wrapper=self._buffer_wrapper,
+                header=self._header,
+                initial_value=initial_value,
+                field_overhead=field_overhead,
+                class_name=class_name,
+                type_name=type_name,
+                name=name,
+                access_flags=access_flags,
+                annotations=annotations,
             )
 
             fields.append(field_parser.parse())
+            self._buffer_wrapper.seek(field_cursor)
 
         self._buffer_wrapper.seek(cursor)
         self._static_fields = fields
@@ -348,23 +423,47 @@ class DexClassParser:
         for _ in range(instance_fields_size):
             field_cursor = self._buffer_wrapper.cursor
             field_idx_diff = self._buffer_wrapper.read_uleb128()
-            access_flags = self._buffer_wrapper.read_uleb128()
+            access_flags = DexBaseUtils.parse_access_flags(self._buffer_wrapper.read_uleb128())
             field_overhead = self._buffer_wrapper.cursor - field_cursor
 
             field_index = last_index + field_idx_diff
             last_index = field_index
 
+            field_cursor = self._buffer_wrapper.cursor
+            self._buffer_wrapper.seek(self._header.field_ids_off + field_index * 8)
+
+            class_index = self._buffer_wrapper.read_u16()
+            class_name = DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, class_index)
+            type_index = self._buffer_wrapper.read_u16()
+            type_name = DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, type_index)
+            name_index = self._buffer_wrapper.read_u32()
+            name = DexBaseUtils.get_string(self._buffer_wrapper, self._header, name_index)
+            annotations_directory = self._get_annotations_directory()
+            annotations = []
+            if annotations_directory is not None:
+                for field_annotation in annotations_directory.field_annotations:
+                    if field_annotation.field_index == field_index:
+                        annotations = DexBaseUtils.get_annotation_set(
+                            self._buffer_wrapper,
+                            self._header,
+                            field_annotation.annotations_offset,
+                        )
+                        break
+
             field_parser = DexFieldParser(
                 buffer_wrapper=self._buffer_wrapper,
                 header=self._header,
-                field_index=field_index,
                 initial_value=None,  # Instance fields will always have a null initial value
                 field_overhead=field_overhead,
+                class_name=class_name,
+                type_name=type_name,
+                name=name,
                 access_flags=access_flags,
-                annotations_directory=self._get_annotations_directory(),
+                annotations=annotations,
             )
 
             fields.append(field_parser.parse())
+            self._buffer_wrapper.seek(field_cursor)
 
         self._buffer_wrapper.seek(cursor)
         self._instance_fields = fields
