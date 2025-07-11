@@ -11,7 +11,7 @@ import re
 import secrets
 
 from pathlib import Path
-from typing import Any, Dict, NamedTuple
+from typing import Any, Dict, NamedTuple, cast
 
 import requests
 
@@ -75,7 +75,7 @@ class SentryClient:
 
         self.session = create_retry_session()
 
-    def download_artifact_to_file(self, org: str, project: str, artifact_id: str, out) -> int | ErrorResult:
+    def download_artifact_to_file(self, org: str, project: str, artifact_id: str, out) -> int:
         """Download preprod artifact directly to a file-like object.
 
         Args:
@@ -85,39 +85,33 @@ class SentryClient:
             out: File-like object to write to (must support write() method)
 
         Returns:
-            Number of bytes written on success, or ErrorResult on failure
+            Number of bytes written on success
+
+        Raises:
+            RuntimeError: With categorized error message on failure
         """
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
         url = self._build_url(endpoint)
 
         logger.debug(f"GET {url}")
+
         response = self.session.get(url, headers=self._get_auth_headers(), timeout=120, stream=True)
 
         if response.status_code != 200:
-            return self._handle_error_response(response, "Download")
+            error_result = self._handle_error_response(response, "Download artifact")
+            error_category, error_description = categorize_http_error(error_result)
+            raise RuntimeError(f"Failed to download artifact ({error_category}): {error_description}")
 
         # Stream directly to the file-like object
         file_size = 0
-        try:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    out.write(chunk)
-                    file_size += len(chunk)
-                    if file_size > 5 * 1024 * 1024 * 1024:  # 5GB limit
-                        logger.error("Download exceeds 5GB limit")
-                        return ErrorResult(
-                            error="File size exceeds 5GB limit",
-                            status_code=413,  # Payload Too Large
-                        )
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                out.write(chunk)
+                file_size += len(chunk)
+                if file_size > 5 * 1024 * 1024 * 1024:  # 5GB limit
+                    raise RuntimeError("Failed to download artifact (client_error): File size exceeds 5GB limit")
 
-            return file_size
-
-        except Exception as e:
-            logger.error(f"Failed to write to file-like object: {e}")
-            return ErrorResult(
-                error=f"Failed to write to file-like object: {e}",
-                status_code=500,
-            )
+        return file_size
 
     def update_artifact(
         self, org: str, project: str, artifact_id: str, data: Dict[str, Any]
@@ -228,9 +222,11 @@ class SentryClient:
     def _handle_error_response(self, response: requests.Response, operation: str) -> ErrorResult:
         """Handle non-200 response with consistent error format."""
         logger.warning(f"{operation} failed: {response.status_code}")
+        # Cast to int to help type checker understand status_code is int
+        status_code = cast(int, response.status_code)
         return ErrorResult(
-            error=f"HTTP {response.status_code}",
-            status_code=response.status_code,
+            error=f"HTTP {status_code}",
+            status_code=status_code,
         )
 
     def _make_json_request(
