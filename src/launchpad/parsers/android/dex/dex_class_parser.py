@@ -5,6 +5,7 @@ from launchpad.parsers.android.dex.types import (
     AccessFlag,
     Annotation,
     AnnotationsDirectory,
+    ClassDefinition,
     DexFileHeader,
     Field,
 )
@@ -40,6 +41,17 @@ class DexClassParser:
                 self._buffer_wrapper,
                 self._header,
             )
+
+    def parse(self) -> ClassDefinition:
+        return ClassDefinition(
+            size=self.get_size(),
+            signature=self.get_class_signature(),
+            source_file_name=self.get_source_file_name(),
+            interfaces=self.get_interfaces(),
+            annotations=self.get_annotations(),
+            access_flags=self.get_access_flags(),
+            fields=self.get_fields(),
+        )
 
     def get_class_signature(self) -> str:
         return DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, self._class_index)
@@ -183,17 +195,11 @@ class DexClassParser:
                 field_index,
                 initial_value,
                 field_overhead,
+                access_flags,
                 self._get_annotations_directory(),
             )
 
-            field = Field(
-                size=field_parser.get_size(),
-                signature=field_parser.get_signature(),
-                access_flags=DexBaseUtils.parse_access_flags(access_flags),
-                annotations=field_parser.get_annotations(),
-            )
-
-            fields.append(field)
+            fields.append(field_parser.parse())
 
         self._buffer_wrapper.seek(cursor)
         self._static_fields = fields
@@ -239,17 +245,11 @@ class DexClassParser:
                 field_index=field_index,
                 initial_value=None,  # Instance fields will always have a null initial value
                 field_overhead=field_overhead,
+                access_flags=access_flags,
                 annotations_directory=self._get_annotations_directory(),
             )
 
-            field = Field(
-                size=field_parser.get_size(),
-                signature=field_parser.get_signature(),
-                access_flags=DexBaseUtils.parse_access_flags(access_flags),
-                annotations=field_parser.get_annotations(),
-            )
-
-            fields.append(field)
+            fields.append(field_parser.parse())
 
         self._buffer_wrapper.seek(cursor)
         self._instance_fields = fields

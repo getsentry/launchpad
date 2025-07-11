@@ -4,6 +4,7 @@ from launchpad.parsers.android.dex.types import (
     AnnotationsDirectory,
     DexFileHeader,
     EncodedValue,
+    Field,
 )
 from launchpad.parsers.buffer_wrapper import BufferWrapper
 
@@ -16,6 +17,7 @@ class DexFieldParser:
         field_index: int,
         initial_value: EncodedValue | None,
         field_overhead: int,
+        access_flags: int,
         annotations_directory: AnnotationsDirectory | None,
     ):
         self._buffer_wrapper = buffer_wrapper
@@ -23,6 +25,7 @@ class DexFieldParser:
         self._index = field_index
         self._initial_value = initial_value
         self._field_overhead = field_overhead
+        self._access_flags = DexBaseUtils.parse_access_flags(access_flags)
         self._annotations_directory = annotations_directory
 
         cursor = self._buffer_wrapper.cursor
@@ -37,6 +40,14 @@ class DexFieldParser:
         self._name = DexBaseUtils.get_string(self._buffer_wrapper, header, name_index)
 
         self._buffer_wrapper.seek(cursor)
+
+    def parse(self) -> Field:
+        return Field(
+            size=self.get_size(),
+            signature=self.get_signature(),
+            access_flags=self._access_flags,
+            annotations=self.get_annotations(),
+        )
 
     def get_signature(self) -> str:
         return f"{self._class_name}->{self._name}:{self._type_name}"

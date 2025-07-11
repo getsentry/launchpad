@@ -26,15 +26,6 @@ class DexFileParser:
             offset = self._header.class_defs_off + i * 32
             class_parser = DexClassParser(header=self._header, buffer_wrapper=self._buffer_wrapper, offset=offset)
 
-            class_def = ClassDefinition(
-                size=class_parser.get_size(),
-                signature=class_parser.get_class_signature(),
-                source_file_name=class_parser.get_source_file_name(),
-                interfaces=class_parser.get_interfaces(),
-                annotations=class_parser.get_annotations(),
-                access_flags=class_parser.get_access_flags(),
-                fields=class_parser.get_fields(),
-            )
-            class_defs.append(class_def)
+            class_defs.append(class_parser.parse())
 
         return class_defs
