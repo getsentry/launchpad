@@ -289,9 +289,9 @@ class TestTreemapGeneration:
         assert len(root.children) > 0
 
         # Verify size calculations work
-        assert root.total_install_size > 0
-        assert root.total_download_size > 0
-        assert root.total_download_size <= root.total_install_size  # Download should be <= install
+        assert root.install_size > 0
+        assert root.download_size > 0
+        assert root.download_size <= root.install_size
 
     def test_apple_treemap_matches_reference(self, sample_ios_app_path: Path) -> None:
         """Test that treemap structure matches reference report."""

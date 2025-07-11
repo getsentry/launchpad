@@ -58,8 +58,8 @@ class TreemapBuilder:
         children = self._build_file_hierarchy(file_analysis)
 
         # Calculate total sizes from children
-        total_install_size = sum(child.total_install_size for child in children)
-        total_download_size = sum(child.total_download_size for child in children)
+        total_install_size = sum(child.install_size for child in children)
+        total_download_size = sum(child.download_size for child in children)
 
         root = TreemapElement(
             name=self.app_name,
@@ -75,8 +75,8 @@ class TreemapBuilder:
 
         return TreemapResults(
             root=root,
-            total_install_size=root.total_install_size,
-            total_download_size=root.total_download_size,
+            total_install_size=total_install_size,
+            total_download_size=total_download_size,
             file_count=file_analysis.file_count,
             category_breakdown=category_breakdown,
             platform=self.platform,
@@ -210,8 +210,9 @@ class TreemapBuilder:
                 subdir_element = build_directory(subdir_path)
                 children.append(subdir_element)
 
-            total_install_size = sum(child.total_install_size for child in children)
-            total_download_size = sum(child.total_download_size for child in children)
+            # TODO: should this use stat size?
+            total_install_size = sum(child.install_size for child in children)
+            total_download_size = sum(child.download_size for child in children)
 
             return TreemapElement(
                 name=dir_name,
@@ -232,92 +233,6 @@ class TreemapBuilder:
             elements.append(dir_element)
 
         return elements
-
-    def _create_directory_element(self, dir_name: str, files: List[FileInfo]) -> TreemapElement:
-        """Create a TreemapElement for a directory containing files."""
-        # Group files by subdirectory within this directory
-        subdirs: Dict[str, List[FileInfo]] = defaultdict(list)
-        direct_files: List[FileInfo] = []
-
-        for file_info in files:
-            path_obj = Path(file_info.path)
-            parent_path = str(path_obj.parent)
-
-            # If this file is directly in the current directory
-            if os.path.basename(parent_path) == dir_name:
-                direct_files.append(file_info)
-            else:
-                # File is in a subdirectory
-                subdir = os.path.basename(parent_path)
-                subdirs[subdir].append(file_info)
-
-        # Create child elements
-        children: List[TreemapElement] = []
-
-        # Add direct files
-        for file_info in direct_files:
-            filename = os.path.basename(file_info.path)
-            element = self._create_file_element(file_info, filename)
-            children.append(element)
-
-        # Add subdirectories recursively
-        for subdir_name, subdir_files in subdirs.items():
-            subdir_element = self._create_directory_element(subdir_name, subdir_files)
-            children.append(subdir_element)
-
-        total_install_size = sum(child.total_install_size for child in children)
-        total_download_size = sum(child.total_download_size for child in children)
-
-        # Determine the directory path by finding the common path prefix from the files
-        directory_path = self._determine_directory_path(dir_name, files)
-
-        return TreemapElement(
-            name=dir_name,
-            install_size=total_install_size,
-            download_size=total_download_size,
-            element_type=self._get_directory_type(dir_name),
-            path=directory_path,
-            is_directory=True,
-            children=children,
-        )
-
-    def _determine_directory_path(self, dir_name: str, files: List[FileInfo]) -> str | None:
-        """Determine the directory path from the files it contains."""
-        if not files:
-            return None
-
-        # Find the first occurrence of dir_name in any file path
-        for file_info in files:
-            path_obj = Path(file_info.path)
-
-            # Look for the directory name in the path parts
-            for i, part in enumerate(path_obj.parts):
-                if part == dir_name:
-                    # Reconstruct the directory path up to and including this part
-                    directory_parts = path_obj.parts[: i + 1]
-                    return str(Path(*directory_parts))
-
-        # Fallback: if dir_name is the first part of any path, use it directly
-        for file_info in files:
-            path_obj = Path(file_info.path)
-            if len(path_obj.parts) > 0 and path_obj.parts[0] == dir_name:
-                return dir_name
-
-        return dir_name
-
-    def _has_extension(self, path: Path, extensions: list[str]) -> bool:
-        """Check if a path has any of the given extensions.
-
-        Args:
-            path: Path to check
-            extensions: List of extensions to check for (with or without leading dot)
-
-        Returns:
-            True if the path has any of the given extensions
-        """
-        # Normalize extensions to include leading dot
-        normalized_extensions = [ext if ext.startswith(".") else f".{ext}" for ext in extensions]
-        return path.suffix.lower() in normalized_extensions
 
     def _get_directory_type(self, directory_name: str) -> TreemapType | None:
         """Determine treemap type for a directory."""
