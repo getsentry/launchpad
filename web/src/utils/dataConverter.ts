@@ -39,6 +39,17 @@ export interface FileAnalysisReport {
     executable_size: number;
     [key: string]: unknown;
   };
+  insights?: {
+    duplicate_files?: unknown;
+    large_images?: unknown;
+    large_videos?: unknown;
+    large_audio?: unknown;
+    hermes_debug_info?: unknown;
+    webp_optimization?: unknown;
+    strip_binary?: unknown;
+    localized_strings?: unknown;
+    [key: string]: unknown;
+  };
   generated_at: string;
   use_si_units: boolean;
 }

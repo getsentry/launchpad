@@ -17,9 +17,11 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAg
 from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
+from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
+    HermesDebugInfoInsight,
     LargeAudioFileInsight,
     LargeImageFileInsight,
     LargeVideoFileInsight,
@@ -113,6 +115,7 @@ class AppleAppAnalyzer:
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
+        hermes_reports = {}
 
         if not self.skip_treemap and not self.skip_range_mapping:
             binaries = artifact.get_all_binary_paths()
@@ -148,6 +151,7 @@ class AppleAppAnalyzer:
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
                 treemap=treemap,
+                hermes_reports=hermes_reports,
             )
             insights = AppleInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -155,6 +159,8 @@ class AppleAppAnalyzer:
                 large_images=LargeImageFileInsight().generate(insights_input),
                 large_videos=LargeVideoFileInsight().generate(insights_input),
                 strip_binary=StripSymbolsInsight().generate(insights_input),
+                localized_strings=LocalizedStringsInsight().generate(insights_input),
+                hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
             )
 
         results = AppleAnalysisResults(
