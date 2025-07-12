@@ -28,9 +28,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY .devenv/all/bin /usr/local/bin/
-COPY .devenv/x86_64-linux/bin /usr/local/bin/
-
 # Set working directory
 WORKDIR /app
 
@@ -56,6 +53,11 @@ RUN if [ "$TEST_BUILD" = "true" ]; then \
     fi
 
 RUN pip install -e .
+
+RUN python scripts/deps
+
+COPY .devenv/all/bin/* /usr/local/bin/
+COPY .devenv/x86_64-linux/bin/* /usr/local/bin/
 
 # Change ownership to app user
 RUN chown -R app:app /app
