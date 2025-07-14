@@ -47,6 +47,13 @@ class LocalizedStringInsightResult(BaseInsightResult):
     files: List[FileInfo] = Field(..., description="Localized strings files exceeding 100KB threshold")
 
 
+class SmallFilesInsightResult(BaseInsightResult):
+    """Results from small files analysis."""
+
+    files: List[FileInfo] = Field(..., description="Files smaller than filesystem block size")
+    file_count: int = Field(..., description="Number of small files found")
+
+
 class AppleAppInfo(BaseAppInfo):
     """Apple-specific app information."""
 
@@ -117,6 +124,7 @@ class AppleInsightResults(BaseModel):
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
     localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
+    small_files: SmallFilesInsightResult | None = Field(None, description="Small files analysis")
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
 

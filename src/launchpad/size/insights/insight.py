@@ -26,7 +26,7 @@ class Insight(Protocol[T_co]):
     """
 
     @abstractmethod
-    def generate(self, input: InsightsInput) -> T_co:
+    def generate(self, input: InsightsInput) -> T_co | None:
         """Generate insights from analysis results.
 
         Args:
