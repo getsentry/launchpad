@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from launchpad.size.insights.common import LargeImageFileInsight
+from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.insights import LargeImageFileInsightResult

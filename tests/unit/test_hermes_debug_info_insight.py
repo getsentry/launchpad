@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from launchpad.size.hermes.reporter import HermesReport
-from launchpad.size.insights.common import HermesDebugInfoInsight
+from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.insights import HermesDebugInfoInsightResult
