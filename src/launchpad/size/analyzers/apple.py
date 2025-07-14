@@ -487,37 +487,28 @@ class AppleAppAnalyzer:
         )
 
     def _test_symbol_removal(self, binary: Any, binary_path: Path) -> int:
-        """Test actual symbol removal using LIEF to get real size savings.
-
-        Args:
-            binary: Already-parsed LIEF binary object
-            binary_path: Path to the binary file
-
-        Returns:
-            Actual size savings in bytes from removing strippable symbols
-        """
+        """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
         import tempfile
 
         try:
             original_size = binary_path.stat().st_size
-
-            # Count removable symbols
             removable_symbols: list[lief.MachO.Symbol] = []
             total_symbols = 0
 
             for symbol in binary.symbols:
                 total_symbols += 1
+
+                # Only remove symbols that are safe to remove, otherwise lief will crash
                 if binary.can_remove(symbol):
                     removable_symbols.append(symbol)
 
             logger.debug(
                 f"Symbol removal test for {binary_path.name}: {len(removable_symbols)}/{total_symbols} symbols removable"
             )  # type: ignore
-
             if not removable_symbols:
                 return 0
 
-            # Create a copy of the binary and remove symbols
+            # Create a copy of the binary and remove the symbols to see the new size
             binary_copy = lief.MachO.parse(str(binary_path))  # type: ignore
             if not binary_copy or binary_copy.size == 0:
                 logger.warning("Failed to create binary copy for symbol removal testing")
@@ -525,7 +516,6 @@ class AppleAppAnalyzer:
 
             binary_copy_obj = binary_copy.at(0)
 
-            # Remove all removable symbols by name
             removed_count = 0
             for symbol in removable_symbols:
                 if symbol.name:
@@ -533,11 +523,9 @@ class AppleAppAnalyzer:
                     removed_count += 1
 
             logger.debug(f"Successfully removed {removed_count} symbols")
-
             if removed_count == 0:
                 return 0
 
-            # Write the modified binary to a temporary file and measure size
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 temp_path = Path(temp_file.name)
 
@@ -557,5 +545,5 @@ class AppleAppAnalyzer:
                     pass
 
         except Exception as e:
-            logger.warning(f"Error testing symbol removal for {binary_path}: {e}")
+            logger.error(f"Error testing symbol removal for {binary_path}: {e}")
             return 0
