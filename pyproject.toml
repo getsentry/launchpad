@@ -93,3 +93,6 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
+env = [
+    "LAUNCHPAD_ENV=TEST",
+]
