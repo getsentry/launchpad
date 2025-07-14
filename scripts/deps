@@ -98,6 +98,12 @@ class Dep:
     def get_binaries(self):
         return self.binaries or []
 
+    def matches_platform(self, architecture, system):
+        """Check if this dep matches the given platform."""
+        if not self.is_machine_dependent():
+            return True
+        return self.architecture == architecture and self.system == system
+
 
 BUNDLETOOL_SHIM = """#!/bin/sh
 java -jar $(dirname "$(realpath $0)")/bundletool.jar "$@"
@@ -250,9 +256,16 @@ def is_good_dep(dep):
         return True
 
 
-def get_bad_deps():
+def get_bad_deps(deps):
     """Return list of 'bad' deps. Deps are bad if they are missing or out-of-date."""
-    return [dep for dep in DEPS if not is_good_dep(dep)]
+    return [dep for dep in deps if not is_good_dep(dep)]
+
+
+def get_platform_deps(architecture, system, all_platforms=False):
+    """Get deps filtered by platform."""
+    if all_platforms:
+        return DEPS
+    return [dep for dep in DEPS if dep.matches_platform(architecture, system)]
 
 
 def download_url(url, path):
@@ -273,6 +286,44 @@ def remove_tree(path):
         os.remove(path)
 
 
+def install_to_system(deps, architecture, system):
+    """Install binaries from deps to /usr/local/bin/"""
+    install_dir = "/usr/local/bin"
+    if not os.access(install_dir, os.W_OK):
+        print(f"Error: No write permission to {install_dir}. You may need to run with sudo.")
+        return False
+
+    installed = []
+    for dep in deps:
+        if not dep.matches_platform(architecture, system):
+            continue
+
+        for binary in dep.get_binaries():
+            target_path = dep.get_binary_target_path(binary)
+            if not os.path.exists(target_path):
+                print(f"Error: {target_path} not found, cannot install {binary.target}")
+                return False
+
+            target_name = binary.target
+            full_target_path = os.path.join(install_dir, target_name)
+
+            try:
+                shutil.copy2(target_path, full_target_path)
+                os.chmod(full_target_path, 0o755)
+                installed.append(target_name)
+                print(f"Installed {target_name} to {full_target_path}")
+            except Exception as e:
+                print(f"Error installing {target_name}: {e}")
+                return False
+
+    if installed:
+        print(f"\nSuccessfully installed: {', '.join(installed)}")
+    else:
+        print("No binaries were installed")
+
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--print-paths", action="store_true", help="Print paths that should be added to PATH")
@@ -288,6 +339,12 @@ def main():
     parser.add_argument(
         "--local-system", default=get_system(), choices=KNOWN_SYSTEMS, help="Override the current system (%(default)s)"
     )
+    parser.add_argument(
+        "--all-platforms", action="store_true", help="Install dependencies for all platforms (default: current platform only)"
+    )
+    parser.add_argument(
+        "--install", action="store_true", help="Install binaries to /usr/local/bin/ (may require sudo)"
+    )
     args = parser.parse_args()
 
     if args.print_paths:
@@ -295,11 +352,16 @@ def main():
         print(os.path.join(DEPS_DIR, f"{args.local_architecture}-{args.local_system}", "bin"))
         return 0
 
-    bad_deps = get_bad_deps()
+    # Get deps filtered by platform
+    platform_deps = get_platform_deps(args.local_architecture, args.local_system, args.all_platforms)
+    bad_deps = get_bad_deps(platform_deps)
     bad_names = ", ".join(str(d) for d in bad_deps)
 
     if not bad_deps:
-        # All clean so nothing to do.
+        if args.install:
+            # Still try to install if requested
+            success = install_to_system(platform_deps, args.local_architecture, args.local_system)
+            return 0 if success else 1
         return 0
     elif args.check:
         # We have some bad dependencies but the user passed --check so
@@ -347,7 +409,12 @@ def main():
 
         # Now everything ought to be up-to-date. If not error to avoid
         # situations where we are constantly re-downloading a dep.
-        assert not get_bad_deps()
+        assert not get_bad_deps(platform_deps)
+
+        # Install to system if requested
+        if args.install:
+            return 0 if install_to_system(platform_deps, args.local_architecture, args.local_system) else 1
+
         return 0
 
 
