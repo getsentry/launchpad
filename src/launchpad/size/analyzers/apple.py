@@ -425,7 +425,7 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
