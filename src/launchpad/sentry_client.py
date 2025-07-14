@@ -129,6 +129,43 @@ class SentryClient:
         max_retries: int = 3,
     ) -> Dict[str, Any] | ErrorResult:
         """Upload size analysis file with chunking following Rust sentry-cli pattern."""
+        return self._upload_file_with_assembly(
+            org=org,
+            project=project,
+            artifact_id=artifact_id,
+            file_path=file_path,
+            max_retries=max_retries,
+            assemble_type="size_analysis",
+        )
+
+    def upload_installable_app(
+        self,
+        org: str,
+        project: str,
+        artifact_id: str,
+        file_path: str,
+        max_retries: int = 3,
+    ) -> Dict[str, Any] | ErrorResult:
+        """Upload installable app file with chunking following Rust sentry-cli pattern."""
+        return self._upload_file_with_assembly(
+            org=org,
+            project=project,
+            artifact_id=artifact_id,
+            file_path=file_path,
+            max_retries=max_retries,
+            assemble_type="installable_app",
+        )
+
+    def _upload_file_with_assembly(
+        self,
+        org: str,
+        project: str,
+        artifact_id: str,
+        file_path: str,
+        max_retries: int,
+        assemble_type: str,
+    ) -> Dict[str, Any] | ErrorResult:
+        """Upload file with chunking and assembly following Rust sentry-cli pattern."""
         # Basic path validation
         path = Path(file_path).resolve()
         if not path.exists():
@@ -171,15 +208,16 @@ class SentryClient:
         for attempt in range(max_retries):
             logger.debug(f"Assembly attempt {attempt + 1}/{max_retries}")
 
-            result = self._assemble_size_analysis(
+            result = self._assemble_file(
                 org=org,
                 project=project,
                 artifact_id=artifact_id,
                 checksum=total_checksum,
                 chunks=chunk_checksums,
+                assemble_type=assemble_type,
             )
 
-            # Handle ErrorResult from _assemble_size_analysis
+            # Handle ErrorResult from _assemble_file
             if isinstance(result, ErrorResult):
                 logger.warning(f"Assembly attempt {attempt + 1} failed: {result}")
                 if attempt == max_retries - 1:  # Last attempt
@@ -329,15 +367,16 @@ class SentryClient:
             logger.error(f"Chunk upload error: {e}")
             return False
 
-    def _assemble_size_analysis(
+    def _assemble_file(
         self,
         org: str | int,
         project: str | int,
         artifact_id: str | int,
         checksum: str,
         chunks: list[str],
+        assemble_type: str,
     ) -> Dict[str, Any] | ErrorResult:
-        """Call the assemble size analysis endpoint."""
+        """Call the assemble generic endpoint with specified assemble_type."""
         # Validate hex strings
         if not re.match(r"^[a-fA-F0-9]+$", checksum):
             raise ValueError("Invalid checksum format")
@@ -348,7 +387,7 @@ class SentryClient:
         data = {
             "checksum": checksum,
             "chunks": chunks,
-            "assemble_type": "size_analysis",
+            "assemble_type": assemble_type,
         }
 
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/assemble-generic/"

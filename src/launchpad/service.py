@@ -20,6 +20,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
+from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
     HEALTHCHECK_MAX_AGE_SECONDS,
@@ -152,11 +153,12 @@ class LaunchpadService:
 
         try:
             temp_file = self._download_artifact_to_temp_file(sentry_client, artifact_id, project_id, organization_id)
+            file_path = Path(temp_file)
 
             artifact = ArtifactFactory.from_path(Path(temp_file))
             logger.info(f"Running preprocessing on {temp_file}...")
             app_info = self._retry_operation(
-                lambda: do_preprocess(Path(temp_file)),
+                lambda: do_preprocess(file_path),
                 OperationName.PREPROCESSING,
             )
             logger.info(f"Preprocessing completed for artifact {artifact_id}")
@@ -189,10 +191,19 @@ class LaunchpadService:
 
             logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
 
+            artifact = ArtifactFactory.from_path(file_path)
+            if isinstance(artifact, ZippedXCArchive):
+                temp_dir = Path(tempfile.mkdtemp())
+                ipa_path = temp_dir / "App.ipa"
+                cast(ZippedXCArchive, artifact).generate_ipa(ipa_path)
+                sentry_client.upload_installable_app(organization_id, project_id, artifact_id, str(ipa_path))
+                self._safe_cleanup(str(ipa_path), "installable app")
+                logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
+
             analyzer = self._create_analyzer(app_info)
             logger.info(f"Running full analysis on {temp_file}...")
             results = self._retry_operation(
-                lambda: do_size(Path(temp_file), analyzer=analyzer),
+                lambda: do_size(file_path, analyzer=analyzer),
                 OperationName.SIZE_ANALYSIS,
             )
             logger.info(f"Size analysis completed for artifact {artifact_id}")
