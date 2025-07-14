@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-import lief
+from lief import MachO
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
@@ -104,7 +104,7 @@ class AppleAppAnalyzer:
             self.app_info = self.preprocess(artifact)
 
         app_info = self.app_info
-        logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
+        #logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
 
         file_analysis = self._analyze_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
@@ -118,6 +118,7 @@ class AppleAppAnalyzer:
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
         hermes_reports = {}
 
+
         if not self.skip_treemap and not self.skip_range_mapping:
             binaries = artifact.get_all_binary_paths()
             logger.info(f"Found {len(binaries)} binaries to analyze")
@@ -126,44 +127,50 @@ class AppleAppAnalyzer:
                 logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
                 if binary_info.dsym_path:
                     logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
-                binary = self._analyze_binary(binary_info.path, binary_info.dsym_path)
-                if binary.range_map is not None:
-                    binary_analysis.append(binary)
-                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
+                if binary_info.path.name in ["HackerNews", "HackerNewsHomeWidgetExtension", "Reaper", "Sentry"]:
+                  continue
+                binary = self.analyze_binary(binary_info.path, binary_info.dsym_path)
+                print(binary)
+        #        if binary.range_map is not None:
+        #            binary_analysis.append(binary)
+        #            binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
+        #    hermes_reports = make_hermes_reports(app_bundle_path)
 
-            hermes_reports = make_hermes_reports(app_bundle_path)
+        #    compression_ratio = download_size / install_size if install_size > 0 else 1
 
-            compression_ratio = download_size / install_size if install_size > 0 else 1
+        #    treemap_builder = TreemapBuilder(
+        #        app_name=app_info.name,
+        #        platform="ios",
+        #        download_compression_ratio=compression_ratio,
+        #        binary_analysis_map=binary_analysis_map,
+        #        hermes_reports=hermes_reports,
+        #    )
+        #    treemap = treemap_builder.build_file_treemap(file_analysis)
 
-            treemap_builder = TreemapBuilder(
-                app_name=app_info.name,
-                platform="ios",
-                download_compression_ratio=compression_ratio,
-                binary_analysis_map=binary_analysis_map,
-                hermes_reports=hermes_reports,
-            )
-            treemap = treemap_builder.build_file_treemap(file_analysis)
+        # ...AND HERE
+
+
 
         insights: AppleInsightResults | None = None
-        if not self.skip_insights:
-            logger.info("Generating insights from analysis results")
-            insights_input = InsightsInput(
-                app_info=app_info,
-                file_analysis=file_analysis,
-                binary_analysis=binary_analysis,
-                treemap=treemap,
-                hermes_reports=hermes_reports,
-            )
-            insights = AppleInsightResults(
-                duplicate_files=DuplicateFilesInsight().generate(insights_input),
-                large_audio=LargeAudioFileInsight().generate(insights_input),
-                large_images=LargeImageFileInsight().generate(insights_input),
-                large_videos=LargeVideoFileInsight().generate(insights_input),
-                strip_binary=StripSymbolsInsight().generate(insights_input),
-                localized_strings=LocalizedStringsInsight().generate(insights_input),
-                hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
-                small_files=SmallFilesInsight().generate(insights_input),
-            )
+        #if not self.skip_insights:
+        #    logger.info("Generating insights from analysis results")
+        #    insights_input = InsightsInput(
+        #        app_info=app_info,
+        #        file_analysis=file_analysis,
+        #        binary_analysis=binary_analysis,
+        #        treemap=treemap,
+        #        hermes_reports=hermes_reports,
+        #    )
+        #    insights = AppleInsightResults(
+        #        duplicate_files=DuplicateFilesInsight().generate(insights_input),
+        #        large_audio=LargeAudioFileInsight().generate(insights_input),
+        #        large_images=LargeImageFileInsight().generate(insights_input),
+        #        large_videos=LargeVideoFileInsight().generate(insights_input),
+        #        strip_binary=StripSymbolsInsight().generate(insights_input),
+        #        localized_strings=LocalizedStringsInsight().generate(insights_input),
+        #        hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
+        #        small_files=SmallFilesInsight().generate(insights_input),
+        #    )
 
         results = AppleAnalysisResults(
             app_info=app_info,
@@ -392,69 +399,78 @@ class AppleAppAnalyzer:
             for element in catalog_details
         ]
 
-    def _analyze_binary(
+    def analyze_binary(
         self, binary_path: Path, dwarf_binary_path: Path | None = None, skip_swift_metadata: bool = False
     ) -> MachOBinaryAnalysis:
-        if not binary_path.exists():
-            logger.warning(f"Binary not found: {binary_path}")
-            return MachOBinaryAnalysis(
-                binary_path=binary_path,
-                executable_size=0,
-                architectures=[],
-                linked_libraries=[],
-                sections={},
-                swift_metadata=None,
-                range_map=None,
-                symbol_info=None,
-            )
+        #if not binary_path.exists():
+        #    logger.warning(f"Binary not found: {binary_path}")
+        #    return MachOBinaryAnalysis(
+        #        binary_path=binary_path,
+        #        executable_size=0,
+        #        architectures=[],
+        #        linked_libraries=[],
+        #        sections={},
+        #        swift_metadata=None,
+        #        range_map=None,
+        #        symbol_info=None,
+        #    )
 
-        logger.debug(f"Analyzing binary: {binary_path}")
+        #logger.debug(f"Analyzing binary: {binary_path}")
 
-        fat_binary = lief.MachO.parse(str(binary_path))  # type: ignore
+        import shutil
+        shutil.copy2(str(binary_path), binary_path.name)
+        print("copy", binary_path.name)
 
-        if fat_binary is None or fat_binary.size == 0:
-            raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
+        # LEAK BETWEEN HERE...
+        fat_binary = MachO.parse("Common")
+        # ...AND HERE
 
-        binary = fat_binary.at(0)
-        executable_size = get_file_size(binary_path)
+        #fat_binary = MachO.parse(str(binary_path))  # type: ignore
+        #del fat_binary
+
+        #if fat_binary is None or fat_binary.size == 0:
+        #    raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
+
+        #binary = fat_binary.at(0)
+        executable_size = 0 # get_file_size(binary_path)
 
         # Create parser for this binary
-        parser = MachOParser(binary)
+        #parser = MachOParser(binary)
 
         # Extract basic information using the parser
-        architectures = parser.extract_architectures()
-        linked_libraries = parser.extract_linked_libraries()
-        sections = parser.extract_sections()
-        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
-        objc_method_names = parser.parse_objc_method_names()
+        architectures = [] # parser.extract_architectures()
+        linked_libraries = [] # parser.extract_linked_libraries()
+        sections = {} # parser.extract_sections()
+        swift_protocol_conformances = [] # parser.parse_swift_protocol_conformances()
+        objc_method_names = [] # parser.parse_objc_method_names()
 
         symbol_info = None
-        if dwarf_binary_path:
-            dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
-            if dwarf_fat_binary:
-                dwarf_binary = dwarf_fat_binary.at(0)
-                symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
-                symbol_info = SymbolInfo(
-                    swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
-                    objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
-                )
-            else:
-                logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
-        else:
-            logger.info("No dwarf binary path provided, skipping symbol sizes")
+        #if dwarf_binary_path:
+        #    dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
+        #    if dwarf_fat_binary:
+        #        dwarf_binary = dwarf_fat_binary.at(0)
+        #        symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
+        #        symbol_info = SymbolInfo(
+        #            swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+        #            objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+        #        )
+        #    else:
+        #        logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
+        #else:
+        #    logger.info("No dwarf binary path provided, skipping symbol sizes")
 
         # Extract Swift metadata if enabled
         swift_metadata = None
-        if not skip_swift_metadata:
-            swift_metadata = SwiftMetadata(
-                protocol_conformances=swift_protocol_conformances,
-            )
+        #if not skip_swift_metadata:
+        #    swift_metadata = SwiftMetadata(
+        #        protocol_conformances=swift_protocol_conformances,
+        #    )
 
         # Build range mapping for binary content
         range_map = None
-        if not self.skip_range_mapping:
-            range_builder = RangeMappingBuilder(parser, executable_size)
-            range_map = range_builder.build_range_mapping()
+        #if not self.skip_range_mapping:
+        #    range_builder = RangeMappingBuilder(parser, executable_size)
+        #    range_map = range_builder.build_range_mapping()
 
         return MachOBinaryAnalysis(
             binary_path=binary_path,
