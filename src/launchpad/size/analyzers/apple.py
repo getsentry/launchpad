@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import struct
 import subprocess
 
 from pathlib import Path
@@ -492,6 +493,21 @@ class AppleAppAnalyzer:
 
         try:
             original_size = binary_path.stat().st_size
+
+            # Check for __objc_imageinfo section with non-zero Swift version (for -T flag behavior)
+            has_swift_imageinfo = False
+            try:
+                sec = binary.get_section("__objc_imageinfo")
+                if sec and len(sec.content) >= 8:
+                    _, flags = struct.unpack_from("<II", sec.content)  # Mach-O is LE on modern HW
+                    swift_version = (flags >> 8) & 0xFF
+                    has_swift_imageinfo = swift_version != 0
+                    logger.debug(
+                        "objc_imageinfo flags=0x%08x  swift=%d  objcFlags=0x%02x", flags, swift_version, flags & 0xFF
+                    )
+            except Exception as e:
+                logger.error("Could not parse __objc_imageinfo: %s", e)
+
             removable_symbols: list[lief.MachO.Symbol] = []
             total_symbols = 0
 
@@ -500,7 +516,34 @@ class AppleAppAnalyzer:
 
                 # Only remove symbols that are safe to remove, otherwise lief will crash
                 if binary.can_remove(symbol):
-                    removable_symbols.append(symbol)
+                    symbol_name = str(symbol.name) if symbol.name else ""
+
+                    # Additional filtering to match what strip would typically target
+                    # Only remove symbols that match strip's typical patterns
+                    should_remove = (
+                        # Debug symbols (strip -S targets)
+                        symbol.type == lief.MachO.Symbol.TYPE.ABSOLUTE_SYM
+                        or symbol_name.startswith(("__debug", "__zdebug", "__apple_", "l_OBJC_LABEL_", "ltmp"))
+                        or "debug" in symbol_name.lower()
+                        or
+                        # Local symbols (strip -x targets)
+                        symbol.category == lief.MachO.Symbol.CATEGORY.LOCAL
+                        or
+                        # Swift symbols (strip -T targets) - only if __objc_imageinfo has non-zero Swift version
+                        (has_swift_imageinfo and symbol_name.startswith(("_$S", "_$s")))
+                        or
+                        # Compiler-generated symbols
+                        symbol_name.startswith(("L", "l", "_OBJC_$_CATEGORY_", "_OBJC_$_PROP_LIST_"))
+                        or
+                        # Temporary symbols
+                        symbol_name.startswith(("tmp", "temp", "unnamed_"))
+                        or
+                        # Swift compiler symbols (other than the -T targeted ones)
+                        symbol_name.startswith(("__swift_FORCE_LOAD", "__swift_"))
+                    )
+
+                    if should_remove:
+                        removable_symbols.append(symbol)
 
             logger.debug(
                 f"Symbol removal test for {binary_path.name}: {len(removable_symbols)}/{total_symbols} symbols removable"
