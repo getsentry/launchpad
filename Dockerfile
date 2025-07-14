@@ -54,10 +54,7 @@ RUN if [ "$TEST_BUILD" = "true" ]; then \
 
 RUN pip install -e .
 
-RUN python scripts/deps
-
-COPY .devenv/all/bin/* /usr/local/bin/
-COPY .devenv/x86_64-linux/bin/* /usr/local/bin/
+RUN python scripts/deps --install --local-architecture=x86_64 --local-system=linux
 
 # Change ownership to app user
 RUN chown -R app:app /app
