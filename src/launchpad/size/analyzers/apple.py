@@ -425,23 +425,41 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
+
+        # Always test symbol removal on the main app binary (not dSYM)
+        strippable_symbols_size = self._test_symbol_removal(binary, binary_path)
+
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
+
                 symbol_info = SymbolInfo(
                     swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                    strippable_symbols_size=strippable_symbols_size,
                 )
+
+                safe_to_remove_symbol_sizes = [
+                    symbol_size for symbol_size in symbol_sizes if dwarf_binary.can_remove(symbol_size.symbol)
+                ]
+                print(f"Safe to remove symbol sizes: {safe_to_remove_symbol_sizes}")
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
         else:
-            logger.info("No dwarf binary path provided, skipping symbol sizes")
+            # No dSYM available, but we can still test symbol removal and create basic SymbolInfo
+            if strippable_symbols_size > 0:
+                symbol_info = SymbolInfo(
+                    swift_type_groups=[],
+                    objc_type_groups=[],
+                    strippable_symbols_size=strippable_symbols_size,
+                )
+            logger.info("No dwarf binary path provided, skipping detailed symbol analysis")
 
         # Extract Swift metadata if enabled
         swift_metadata = None
@@ -467,3 +485,77 @@ class AppleAppAnalyzer:
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
         )
+
+    def _test_symbol_removal(self, binary: Any, binary_path: Path) -> int:
+        """Test actual symbol removal using LIEF to get real size savings.
+
+        Args:
+            binary: Already-parsed LIEF binary object
+            binary_path: Path to the binary file
+
+        Returns:
+            Actual size savings in bytes from removing strippable symbols
+        """
+        import tempfile
+
+        try:
+            original_size = binary_path.stat().st_size
+
+            # Count removable symbols
+            removable_symbols: list[lief.MachO.Symbol] = []
+            total_symbols = 0
+
+            for symbol in binary.symbols:
+                total_symbols += 1
+                if binary.can_remove(symbol):
+                    removable_symbols.append(symbol)
+
+            logger.debug(
+                f"Symbol removal test for {binary_path.name}: {len(removable_symbols)}/{total_symbols} symbols removable"
+            )  # type: ignore
+
+            if not removable_symbols:
+                return 0
+
+            # Create a copy of the binary and remove symbols
+            binary_copy = lief.MachO.parse(str(binary_path))  # type: ignore
+            if not binary_copy or binary_copy.size == 0:
+                logger.warning("Failed to create binary copy for symbol removal testing")
+                return 0
+
+            binary_copy_obj = binary_copy.at(0)
+
+            # Remove all removable symbols by name
+            removed_count = 0
+            for symbol in removable_symbols:
+                if symbol.name:
+                    binary_copy_obj.remove_symbol(str(symbol.name))
+                    removed_count += 1
+
+            logger.debug(f"Successfully removed {removed_count} symbols")
+
+            if removed_count == 0:
+                return 0
+
+            # Write the modified binary to a temporary file and measure size
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                temp_path = Path(temp_file.name)
+
+            try:
+                binary_copy_obj.write(str(temp_path))  # type: ignore
+                modified_size = temp_path.stat().st_size
+                actual_savings = original_size - modified_size
+
+                logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
+                return max(0, actual_savings)  # Ensure non-negative
+
+            finally:
+                # Clean up temp file
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass
+
+        except Exception as e:
+            logger.warning(f"Error testing symbol removal for {binary_path}: {e}")
+            return 0
