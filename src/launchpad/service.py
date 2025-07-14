@@ -40,6 +40,7 @@ from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import DogStatsd, get_statsd
 
 from .kafka import create_kafka_consumer
+from .sentry_sdk_init import initialize_sentry_sdk
 from .server import HealthCheckResponse, LaunchpadServer, get_server_config
 
 logger = get_logger(__name__)
@@ -64,6 +65,7 @@ class LaunchpadService:
             host=self._service_config["statsd_host"],
             port=self._service_config["statsd_port"],
         )
+        initialize_sentry_sdk()
 
         # Setup HTTP server with health check callback
         server_config = get_server_config()
