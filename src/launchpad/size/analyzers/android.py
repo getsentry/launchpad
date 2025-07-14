@@ -11,13 +11,13 @@ from launchpad.parsers.android.dex.types import ClassDefinition
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
-from launchpad.size.insights.common import (
-    DuplicateFilesInsight,
+from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
+from launchpad.size.insights.common.hermes_debug_info import (
     HermesDebugInfoInsight,
-    LargeAudioFileInsight,
-    LargeImageFileInsight,
-    LargeVideoFileInsight,
 )
+from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
+from launchpad.size.insights.common.large_images import LargeImageFileInsight
+from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.android import (
     AndroidAnalysisResults,

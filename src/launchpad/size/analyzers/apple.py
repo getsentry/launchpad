@@ -20,13 +20,13 @@ from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
-from launchpad.size.insights.common import (
-    DuplicateFilesInsight,
+from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
+from launchpad.size.insights.common.hermes_debug_info import (
     HermesDebugInfoInsight,
-    LargeAudioFileInsight,
-    LargeImageFileInsight,
-    LargeVideoFileInsight,
 )
+from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
+from launchpad.size.insights.common.large_images import LargeImageFileInsight
+from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
