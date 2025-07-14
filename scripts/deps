@@ -100,7 +100,6 @@ class Dep:
 
     def matches_platform(self, architecture, system):
         """Check if this dep matches the given platform."""
-        # Platform-independent deps match all platforms
         if not self.is_machine_dependent():
             return True
         return self.architecture == architecture and self.system == system
@@ -290,8 +289,6 @@ def remove_tree(path):
 def install_to_system(deps, architecture, system):
     """Install binaries from deps to /usr/local/bin/"""
     install_dir = "/usr/local/bin"
-
-    # Check if we have write permission
     if not os.access(install_dir, os.W_OK):
         print(f"Error: No write permission to {install_dir}. You may need to run with sudo.")
         return False
@@ -302,19 +299,19 @@ def install_to_system(deps, architecture, system):
             continue
 
         for binary in dep.get_binaries():
-            source_path = dep.get_binary_target_path(binary)
-            if not os.path.exists(source_path):
-                print(f"Warning: {source_path} not found, skipping")
-                continue
+            target_path = dep.get_binary_target_path(binary)
+            if not os.path.exists(target_path):
+                print(f"Error: {target_path} not found, cannot install {binary.target}")
+                return False
 
             target_name = binary.target
-            target_path = os.path.join(install_dir, target_name)
+            full_target_path = os.path.join(install_dir, target_name)
 
             try:
-                shutil.copy2(source_path, target_path)
-                os.chmod(target_path, 0o755)
+                shutil.copy2(target_path, full_target_path)
+                os.chmod(full_target_path, 0o755)
                 installed.append(target_name)
-                print(f"Installed {target_name} to {target_path}")
+                print(f"Installed {target_name} to {full_target_path}")
             except Exception as e:
                 print(f"Error installing {target_name}: {e}")
                 return False
