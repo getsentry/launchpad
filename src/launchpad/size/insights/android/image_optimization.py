@@ -12,10 +12,10 @@ logger = get_logger(__name__)
 
 
 class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):
-    def generate(self, insights_input: InsightsInput) -> WebPOptimizationInsightResult:
+    def generate(self, input: InsightsInput) -> WebPOptimizationInsightResult | None:
         optimizeable_image_files: list[OptimizeableImageFile] = []
 
-        for file_info in insights_input.file_analysis.files:
+        for file_info in input.file_analysis.files:
             if file_info.file_type not in ["png", "bmp", "jpg", "jpeg"]:
                 continue
 

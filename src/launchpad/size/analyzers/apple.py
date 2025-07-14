@@ -18,6 +18,7 @@ from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
+from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.common import (
     DuplicateFilesInsight,
@@ -161,6 +162,7 @@ class AppleAppAnalyzer:
                 strip_binary=StripSymbolsInsight().generate(insights_input),
                 localized_strings=LocalizedStringsInsight().generate(insights_input),
                 hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
+                small_files=SmallFilesInsight().generate(insights_input),
             )
 
         results = AppleAnalysisResults(
@@ -423,7 +425,7 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
