@@ -43,19 +43,21 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
             if binary_analysis.symbol_info:
                 symbol_savings = binary_analysis.symbol_info.strippable_symbols_size
 
-            total_strippable_size = debug_section_size + symbol_savings
-            if total_strippable_size > 0:
+            strippable_size = debug_section_size + symbol_savings
+            if strippable_size > 0:
                 strip_file_info = StripBinaryFileInfo(
                     file_path=str(binary_analysis.binary_path),
                     debug_sections_savings=debug_section_size,
                     symbol_table_savings=symbol_savings,
                     string_table_savings=0,  # For now, all symbol savings are attributed to symbol table
-                    total_savings=total_strippable_size,
+                    total_savings=strippable_size,
                 )
                 strip_files.append(strip_file_info)
-                total_savings += total_strippable_size
+                total_savings += strippable_size
                 total_debug_sections_savings += debug_section_size
                 total_symbol_table_savings += symbol_savings
+
+        strip_files.sort(key=lambda x: x.total_savings, reverse=True)
 
         if strip_files:
             return StripBinaryInsightResult(
