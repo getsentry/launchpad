@@ -31,6 +31,11 @@ def initialize_sentry_sdk() -> None:
     """Initialize Sentry SDK with launchpad-specific configuration."""
     config = get_sentry_config()
 
+    # Only initialize Sentry SDK in production environment
+    if config.get("environment") != "production":
+        logger.debug(f"Not in production environment ({config.get('environment')}), skipping Sentry SDK initialization")
+        return
+
     # Skip initialization if DSN is not provided
     if not config.get("dsn"):
         logger.info("Sentry DSN not provided, skipping Sentry SDK initialization")
@@ -59,16 +64,10 @@ def initialize_sentry_sdk() -> None:
     sentry_sdk.init(
         dsn=config["dsn"],
         integrations=integrations,
-        traces_sampler=1,  # start with 1 for now
-        profiles_sample_rate=1,  # start with 1 for now
         send_default_pii=True,
         release=config.get("release"),
         environment=config.get("environment"),
         before_send=before_send,
-        _experiments={
-            "continuous_profiling_auto_start": True,
-            "enable_logs": True,
-        },
     )
 
     if config.get("region"):
