@@ -54,7 +54,7 @@ class MachOSymbolSizes:
     def _symbol_sizes(
         self, bin: lief.MachO.Binary
     ) -> Generator[tuple[str, lief.MachO.Symbol, lief.MachO.Section | None, int, int]]:
-        """Yield (name, addr, size) via the distance-to-next-symbol heuristic."""
+        """Yield (name, symbol, section, addr, size) via the distance-to-next-symbol heuristic."""
 
         # sort symbols by their address so we can calculate the distance between them
         syms = sorted((s for s in bin.symbols if self._is_measurable(s)), key=lambda s: s.value)
