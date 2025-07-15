@@ -1,3 +1,4 @@
+from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.parsers.android.dex.types import (
     AccessFlag,
     Annotation,
@@ -19,6 +20,7 @@ class DexMethodParser:
         method_overhead: int,
         access_flags: list[AccessFlag],
         annotations: list[Annotation],
+        dex_mapping: DexMapping | None = None,
     ):
         self._buffer_wrapper = buffer_wrapper
         self._header = header
@@ -29,13 +31,24 @@ class DexMethodParser:
         self._method_overhead = method_overhead
         self._access_flags = access_flags
         self._annotations = annotations
+        self._dex_mapping = dex_mapping
         self._signature = f"{self._class_name}.{self._name}:{self._prototype.return_type}"
 
     def parse(self) -> Method:
+        signature = self._signature
+
+        # Apply deobfuscation if mapping is available
+        if self._dex_mapping is not None:
+            # Deobfuscate class name in signature
+            class_name = self._class_name
+            deobfuscated_class = self._dex_mapping.deobfuscate(class_name)
+            if deobfuscated_class is not None:
+                signature = f"{deobfuscated_class}.{self._name}:{self._prototype.return_type}"
+
         return Method(
             size=self.get_size(),
             name=self._name,
-            signature=self._signature,
+            signature=signature,
             prototype=self._prototype,
             access_flags=self._access_flags,
             annotations=self._annotations,
