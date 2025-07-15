@@ -23,4 +23,4 @@ class AndroidCodeUtils:
 
     @staticmethod
     def remove_kotlin_suffix_from_fqn(fqn: str) -> str:
-        return re.sub(r"Kt(?=[$.]|\b)", "", fqn)
+        return re.sub(r"Kt(?=\.|$)", "", fqn)
