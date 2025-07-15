@@ -104,6 +104,8 @@ class StripBinaryInsightResult(BaseInsightResult):
     """Results from strip binary analysis."""
 
     files: List[StripBinaryFileInfo] = Field(..., description="Files that could save size by stripping the binary")
+    total_debug_sections_savings: int = Field(..., ge=0, description="Total potential savings from debug sections")
+    total_symbol_table_savings: int = Field(..., ge=0, description="Total potential savings from symbol tables")
 
 
 class SwiftMetadata(BaseModel):

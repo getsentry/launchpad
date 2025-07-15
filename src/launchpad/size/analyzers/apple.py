@@ -431,7 +431,7 @@ class AppleAppAnalyzer:
         symbol_info = None
 
         # Always test symbol removal on the main app binary (not dSYM)
-        strippable_symbols_size = self._test_symbol_removal(parser, binary_path)
+        strippable_symbols_size = self._test_strip_symbols_removal(parser, binary_path)
 
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
@@ -479,7 +479,7 @@ class AppleAppAnalyzer:
             objc_method_names=objc_method_names,
         )
 
-    def _test_symbol_removal(self, parser: MachOParser, binary_path: Path) -> int:
+    def _test_strip_symbols_removal(self, parser: MachOParser, binary_path: Path) -> int:
         """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
         import tempfile
 
@@ -552,12 +552,12 @@ class AppleAppAnalyzer:
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 temp_path = Path(temp_file.name)
                 try:
-                    binary_copy_obj.write(str(temp_path))  # type: ignore
+                    binary_copy_obj.write(str(temp_path))
                     modified_size = temp_path.stat().st_size
                     actual_savings = original_size - modified_size
 
                     logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
-                    return max(0, actual_savings)  # Ensure non-negative
+                    return max(0, actual_savings)
 
                 finally:
                     try:

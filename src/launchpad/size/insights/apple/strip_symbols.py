@@ -61,6 +61,8 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
             return StripBinaryInsightResult(
                 files=strip_files,
                 total_savings=total_savings,
+                total_debug_sections_savings=total_debug_sections_savings,
+                total_symbol_table_savings=total_symbol_table_savings,
             )
 
         return None
