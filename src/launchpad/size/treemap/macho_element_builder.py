@@ -4,8 +4,8 @@ from typing import Dict, List, TypedDict
 
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 from launchpad.size.models.apple import MachOBinaryAnalysis
+from launchpad.size.models.binary_component import BinaryComponent
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.range_mapping import Range
 from launchpad.size.models.treemap import TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
 from launchpad.utils.logging import get_logger
@@ -61,24 +61,24 @@ class MachOElementBuilder(TreemapElementBuilder):
     def _build_binary_treemap(
         self, *, name: str, file_path: str, binary_analysis: MachOBinaryAnalysis
     ) -> List[TreemapElement] | None:
-        range_map = binary_analysis.range_map
+        binary_component_analysis = binary_analysis.binary_analysis
         symbol_info = binary_analysis.symbol_info
 
-        if range_map is None:
-            logger.warning("Binary %s has no range mapping", name)
+        if binary_component_analysis is None:
+            logger.warning("Binary %s has no component analysis", name)
             return None
 
         # ------------------------------------------------------------------ #
-        # 1.  Bucket address ranges by their descriptive name                 #
+        # 1.  Group components by their descriptive name                     #
         # ------------------------------------------------------------------ #
-        ranges_by_name: Dict[str, List[Range]] = {}
-        for rng in range_map.ranges:
-            key = rng.description or rng.tag.value
-            ranges_by_name.setdefault(key, []).append(rng)
+        components_by_name: Dict[str, List[BinaryComponent]] = {}
+        for component in binary_component_analysis.components:
+            key = component.description or component.name
+            components_by_name.setdefault(key, []).append(component)
 
-        # Pre-compute raw section sizes
+        # Pre-compute component sizes grouped by name
         section_sizes: Dict[str, int] = {
-            section_name: sum(r.size for r in section_ranges) for section_name, section_ranges in ranges_by_name.items()
+            section_name: sum(c.size for c in components) for section_name, components in components_by_name.items()
         }
 
         #
@@ -245,15 +245,15 @@ class MachOElementBuilder(TreemapElementBuilder):
                 )
 
         # ------------------------------------------------------------------ #
-        # 4.  Raw Mach-O sections (minus whatever the symbols already took)  #
+        # 4.  Raw Mach-O components (minus whatever the symbols already took) #
         # ------------------------------------------------------------------ #
-        for section_name, ranges in ranges_by_name.items():
+        for section_name, components in components_by_name.items():
             original = section_sizes.get(section_name, 0)
             adjusted = original - section_subtractions.get(section_name, 0)
             if adjusted <= 0:
                 continue
 
-            first_tag = ranges[0].tag.value
+            first_tag = components[0].tag.value
             element_type = TreemapType.EXECUTABLES
             if first_tag.startswith("dyld_"):
                 element_type = TreemapType.DYLD
@@ -276,7 +276,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 children=[],
                 details={
                     "tag": first_tag,
-                    "range_name": section_name,
+                    "component_name": section_name,
                     "adjusted_size": adjusted,
                 },
             )
@@ -303,12 +303,12 @@ class MachOElementBuilder(TreemapElementBuilder):
             )
 
         # Add an explicit “Unmapped” region if present
-        if range_map.unmapped_size > 0:
+        if binary_component_analysis.unanalyzed_size > 0:
             section_children.append(
                 TreemapElement(
-                    name="Unmapped",
-                    install_size=int(range_map.unmapped_size),
-                    download_size=int(range_map.unmapped_size),
+                    name="Unanalyzed",
+                    install_size=int(binary_component_analysis.unanalyzed_size),
+                    download_size=int(binary_component_analysis.unanalyzed_size),
                     element_type=TreemapType.UNMAPPED,
                     path=None,
                     is_directory=False,

@@ -42,7 +42,9 @@ from launchpad.utils.logging import setup_logging
 )
 @click.option("--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis.")
 @click.option("--skip-symbols", is_flag=True, help="Skip symbol extraction and analysis.")
-@click.option("--skip-range-mapping", is_flag=True, help="Skip range mapping for binary content categorization.")
+@click.option(
+    "--skip-component-analysis", is_flag=True, help="Skip detailed binary component analysis for faster processing."
+)
 @click.option("--skip-treemap", is_flag=True, help="Skip treemap generation for hierarchical size analysis.")
 def size_command(
     input_path: Path,
@@ -51,7 +53,7 @@ def size_command(
     working_dir: Path | None,
     skip_swift_metadata: bool,
     skip_symbols: bool,
-    skip_range_mapping: bool,
+    skip_component_analysis: bool,
     skip_treemap: bool,
     quiet: bool,
     output_format: str,
@@ -71,7 +73,7 @@ def size_command(
     flags: Dict[str, Path | bool] = {}
     flags["skip_swift_metadata"] = skip_swift_metadata
     flags["skip_symbols"] = skip_symbols
-    flags["skip_range_mapping"] = skip_range_mapping
+    flags["skip_component_analysis"] = skip_component_analysis
     flags["skip_treemap"] = skip_treemap
     if working_dir:
         flags["working_dir"] = working_dir

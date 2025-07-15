@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
+from launchpad.size.models.binary_component import BinaryAnalysis
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileInfo
 from .insights import (
@@ -20,7 +21,6 @@ from .insights import (
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
 )
-from .range_mapping import RangeMap
 
 
 class AppleAnalysisResults(BaseAnalysisResults):
@@ -82,9 +82,9 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
 
     binary_path: Path = Field(..., description="Fully qualified path to the binary within the app bundle")
     swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
-    range_map: RangeMap | None = Field(
+    binary_analysis: BinaryAnalysis | None = Field(
         None,
-        description="Range mapping for binary content categorization",
+        description="Binary component analysis for size categorization",
         exclude=True,
     )
     symbol_info: SymbolInfo | None = Field(None, description="Symbol information", exclude=True)

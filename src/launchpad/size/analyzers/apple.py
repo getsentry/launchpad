@@ -12,9 +12,9 @@ import lief
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.macho_parser import MachOParser
+from launchpad.parsers.apple.macho_size_analyzer import MachOSizeAnalyzer
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
-from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
@@ -56,7 +56,7 @@ class AppleAppAnalyzer:
         working_dir: Path | None = None,
         skip_swift_metadata: bool = False,
         skip_symbols: bool = False,
-        skip_range_mapping: bool = False,
+        skip_component_analysis: bool = False,
         skip_treemap: bool = False,
         skip_image_analysis: bool = False,
         skip_insights: bool = False,
@@ -67,7 +67,7 @@ class AppleAppAnalyzer:
             working_dir: Directory for temporary files (None for system temp)
             skip_swift_metadata: Skip Swift metadata extraction for faster analysis
             skip_symbols: Skip symbol extraction for faster analysis
-            skip_range_mapping: Skip range mapping for binary content categorization
+            skip_component_analysis: Skip detailed binary component analysis for faster processing
             skip_treemap: Skip treemap generation for hierarchical size analysis
             skip_image_analysis: Skip image analysis for faster processing
             skip_insights: Skip insights generation for faster analysis
@@ -75,7 +75,7 @@ class AppleAppAnalyzer:
         self.working_dir = working_dir
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
-        self.skip_range_mapping = skip_range_mapping
+        self.skip_component_analysis = skip_component_analysis
         self.skip_treemap = skip_treemap
         self.skip_image_analysis = skip_image_analysis
         self.skip_insights = skip_insights
@@ -118,7 +118,7 @@ class AppleAppAnalyzer:
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
         hermes_reports = {}
 
-        if not self.skip_treemap and not self.skip_range_mapping:
+        if not self.skip_treemap and not self.skip_component_analysis:
             binaries = artifact.get_all_binary_paths()
             logger.info(f"Found {len(binaries)} binaries to analyze")
 
@@ -127,7 +127,7 @@ class AppleAppAnalyzer:
                 if binary_info.dsym_path:
                     logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
                 binary = self._analyze_binary(binary_info.path, binary_info.dsym_path)
-                if binary.range_map is not None:
+                if binary.binary_analysis is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
@@ -404,7 +404,7 @@ class AppleAppAnalyzer:
                 linked_libraries=[],
                 sections={},
                 swift_metadata=None,
-                range_map=None,
+                binary_analysis=None,
                 symbol_info=None,
             )
 
@@ -461,11 +461,11 @@ class AppleAppAnalyzer:
                 protocol_conformances=swift_protocol_conformances,
             )
 
-        # Build range mapping for binary content
-        range_map = None
-        if not self.skip_range_mapping:
-            range_builder = RangeMappingBuilder(parser, executable_size)
-            range_map = range_builder.build_range_mapping()
+        # Analyze binary components
+        binary_analysis = None
+        if not self.skip_component_analysis:
+            analyzer = MachOSizeAnalyzer(parser, executable_size, str(binary_path))
+            binary_analysis = analyzer.analyze()
 
         return MachOBinaryAnalysis(
             binary_path=binary_path,
@@ -474,7 +474,7 @@ class AppleAppAnalyzer:
             linked_libraries=linked_libraries,
             sections=sections,
             swift_metadata=swift_metadata,
-            range_map=range_map,
+            binary_analysis=binary_analysis,
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
         )
