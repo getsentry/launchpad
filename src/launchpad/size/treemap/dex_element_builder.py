@@ -32,7 +32,6 @@ class DexElementBuilder(TreemapElementBuilder):
         install_size = file_info.size
         download_size = int(install_size * self.download_compression_ratio)
 
-        # Build hierarchical package structure
         root_packages = self._build_package_tree()
 
         details = {
