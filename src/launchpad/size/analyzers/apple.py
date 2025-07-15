@@ -438,21 +438,14 @@ class AppleAppAnalyzer:
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
-
                 symbol_info = SymbolInfo(
                     swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     strippable_symbols_size=strippable_symbols_size,
                 )
-
-                safe_to_remove_symbol_sizes = [
-                    symbol_size for symbol_size in symbol_sizes if dwarf_binary.can_remove(symbol_size.symbol)
-                ]
-                print(f"Safe to remove symbol sizes: {safe_to_remove_symbol_sizes}")
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
         else:
-            # No dSYM available, but we can still test symbol removal and create basic SymbolInfo
             if strippable_symbols_size > 0:
                 symbol_info = SymbolInfo(
                     swift_type_groups=[],
