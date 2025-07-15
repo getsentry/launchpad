@@ -551,20 +551,19 @@ class AppleAppAnalyzer:
 
             with tempfile.NamedTemporaryFile(delete=False) as temp_file:
                 temp_path = Path(temp_file.name)
-
-            try:
-                binary_copy_obj.write(str(temp_path))  # type: ignore
-                modified_size = temp_path.stat().st_size
-                actual_savings = original_size - modified_size
-
-                logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
-                return max(0, actual_savings)  # Ensure non-negative
-
-            finally:
                 try:
-                    temp_path.unlink()
-                except Exception:
-                    pass
+                    binary_copy_obj.write(str(temp_path))  # type: ignore
+                    modified_size = temp_path.stat().st_size
+                    actual_savings = original_size - modified_size
+
+                    logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
+                    return max(0, actual_savings)  # Ensure non-negative
+
+                finally:
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
 
         except Exception as e:
             logger.error(f"Error testing symbol removal for {binary_path}: {e}")
