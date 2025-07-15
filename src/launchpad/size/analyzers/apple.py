@@ -561,7 +561,6 @@ class AppleAppAnalyzer:
                 return max(0, actual_savings)  # Ensure non-negative
 
             finally:
-                # Clean up temp file
                 try:
                     temp_path.unlink()
                 except Exception:
