@@ -1,5 +1,6 @@
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.apple import LocalizedStringInsightResult
+from launchpad.size.models.common import FileInfo
 
 
 class LocalizedStringsInsight(Insight[LocalizedStringInsightResult]):
@@ -14,7 +15,7 @@ class LocalizedStringsInsight(Insight[LocalizedStringInsightResult]):
         Finds all Localizable.strings files in *.lproj directories,
         calculates total size, and returns insight if above threshold.
         """
-        localized_files = []
+        localized_files: list[FileInfo] = []
         total_size = 0
 
         # Find all Localizable.strings files in *.lproj directories

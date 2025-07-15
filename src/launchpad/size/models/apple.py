@@ -15,6 +15,7 @@ from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileIn
 from .insights import (
     BaseInsightResult,
     DuplicateFilesInsightResult,
+    HermesDebugInfoInsightResult,
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
@@ -44,6 +45,13 @@ class LocalizedStringInsightResult(BaseInsightResult):
     """Results from localized string analysis."""
 
     files: List[FileInfo] = Field(..., description="Localized strings files exceeding 100KB threshold")
+
+
+class SmallFilesInsightResult(BaseInsightResult):
+    """Results from small files analysis."""
+
+    files: List[FileInfo] = Field(..., description="Files smaller than filesystem block size")
+    file_count: int = Field(..., description="Number of small files found")
 
 
 class AppleAppInfo(BaseAppInfo):
@@ -86,15 +94,18 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
 class StripBinaryFileInfo(BaseModel):
     """Savings information from stripping a Mach-O binary."""
 
-    macho_binary: MachOBinaryAnalysis = Field(..., description="Mach-O binary analysis")
-    install_size_saved: int = Field(..., description="Install size saved by stripping the binary")
-    download_size_saved: int = Field(..., description="Download size saved by stripping the binary")
+    file_path: str = Field(..., description="Path to the binary file within the app bundle")
+    debug_sections_savings: int = Field(..., ge=0, description="Savings from removing debug sections")
+    symbol_table_savings: int = Field(..., ge=0, description="Savings from removing symbol table")
+    total_savings: int = Field(..., ge=0, description="Total potential savings in bytes from stripping debug content")
 
 
 class StripBinaryInsightResult(BaseInsightResult):
     """Results from strip binary analysis."""
 
     files: List[StripBinaryFileInfo] = Field(..., description="Files that could save size by stripping the binary")
+    total_debug_sections_savings: int = Field(..., ge=0, description="Total potential savings from debug sections")
+    total_symbol_table_savings: int = Field(..., ge=0, description="Total potential savings from symbol tables")
 
 
 class SwiftMetadata(BaseModel):
@@ -116,12 +127,15 @@ class AppleInsightResults(BaseModel):
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
     localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
+    small_files: SmallFilesInsightResult | None = Field(None, description="Small files analysis")
+    hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
 
 @dataclass
 class SymbolInfo:
     swift_type_groups: List[SwiftSymbolTypeGroup]
     objc_type_groups: List[ObjCSymbolTypeGroup]
+    strippable_symbols_size: int = 0
 
     def get_symbols_by_section(self) -> dict[str, list[tuple[str, str, int, int]]]:
         """Group symbols by their section name.

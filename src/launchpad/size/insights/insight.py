@@ -1,7 +1,8 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Protocol, Sequence, TypeVar
+from typing import Dict, Protocol, Sequence, TypeVar
 
+from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.models.common import BaseAppInfo, BaseBinaryAnalysis, FileAnalysis
 from launchpad.size.models.treemap import TreemapResults
 
@@ -14,6 +15,7 @@ class InsightsInput:
     file_analysis: FileAnalysis
     treemap: TreemapResults | None
     binary_analysis: Sequence[BaseBinaryAnalysis]
+    hermes_reports: Dict[str, HermesReport] | None = None
 
 
 class Insight(Protocol[T_co]):
@@ -24,7 +26,7 @@ class Insight(Protocol[T_co]):
     """
 
     @abstractmethod
-    def generate(self, input: InsightsInput) -> T_co:
+    def generate(self, input: InsightsInput) -> T_co | None:
         """Generate insights from analysis results.
 
         Args:

@@ -11,12 +11,13 @@ from launchpad.parsers.android.dex.types import ClassDefinition
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
-from launchpad.size.insights.common import (
-    DuplicateFilesInsight,
-    LargeAudioFileInsight,
-    LargeImageFileInsight,
-    LargeVideoFileInsight,
+from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
+from launchpad.size.insights.common.hermes_debug_info import (
+    HermesDebugInfoInsight,
 )
+from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
+from launchpad.size.insights.common.large_images import LargeImageFileInsight
+from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.android import (
     AndroidAnalysisResults,
@@ -45,16 +46,34 @@ class AndroidAnalyzer:
         **kwargs,
     ) -> None:
         self.skip_insights = skip_insights
+        self.app_info: AndroidAppInfo | None = None
 
-    def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
+    def preprocess(self, artifact: AndroidArtifact) -> AndroidAppInfo:
+        """Extract basic app information from the manifest.
+
+        Args:
+            artifact: Android artifact to preprocess
+
+        Returns:
+            Basic app information extracted from manifest
+        """
         manifest_dict = artifact.get_manifest().model_dump()
 
-        app_info = AndroidAppInfo(
+        self.app_info = AndroidAppInfo(
             name=manifest_dict["application"]["label"] or "Unknown",
             version=manifest_dict["version_name"] or "Unknown",
             build=manifest_dict["version_code"] or "Unknown",
             package_name=manifest_dict["package_name"],
         )
+
+        return self.app_info
+
+    def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
+        # Use preprocessed app info if available, otherwise extract it
+        if not self.app_info:
+            self.app_info = self.preprocess(artifact)
+
+        app_info = self.app_info
 
         apks: list[APK] = []
         # Split AAB into APKs, or use the APK directly
@@ -93,6 +112,7 @@ class AndroidAnalyzer:
                 file_analysis=file_analysis,
                 treemap=treemap,
                 binary_analysis=[],
+                hermes_reports=hermes_reports,
             )
             insights = AndroidInsightResults(
                 duplicate_files=DuplicateFilesInsight().generate(insights_input),
@@ -100,6 +120,7 @@ class AndroidAnalyzer:
                 large_images=LargeImageFileInsight().generate(insights_input),
                 large_videos=LargeVideoFileInsight().generate(insights_input),
                 large_audio=LargeAudioFileInsight().generate(insights_input),
+                hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
             )
 
         return AndroidAnalysisResults(

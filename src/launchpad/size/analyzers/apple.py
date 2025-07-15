@@ -18,22 +18,24 @@ from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
+from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
-from launchpad.size.insights.common import (
-    DuplicateFilesInsight,
-    LargeAudioFileInsight,
-    LargeImageFileInsight,
-    LargeVideoFileInsight,
+from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
+from launchpad.size.insights.common.hermes_debug_info import (
+    HermesDebugInfoInsight,
 )
+from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
+from launchpad.size.insights.common.large_images import LargeImageFileInsight
+from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
-from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapResults, TreemapType
+from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import calculate_file_hash, get_file_size
 from launchpad.utils.logging import get_logger
-from launchpad.utils.performance import trace_with_registry
+from launchpad.utils.performance import trace_context_with_registry, trace_with_registry
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -80,7 +82,7 @@ class AppleAppAnalyzer:
         self.skip_insights = skip_insights
         self.app_info: AppleAppInfo | None = None
 
-    @trace_with_registry()
+    @trace_with_registry("apple.preprocess")
     def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
@@ -88,7 +90,7 @@ class AppleAppAnalyzer:
         self.app_info = self._extract_app_info(artifact)
         return self.app_info
 
-    @trace_with_registry()
+    @trace_with_registry("apple.analyze")
     def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
         """Analyze an Apple app bundle.
 
@@ -111,12 +113,13 @@ class AppleAppAnalyzer:
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
         app_bundle_path = artifact.get_app_bundle_path()
-        download_size, install_size = self._calculate_bundle_sizes(app_bundle_path)
+        download_size, install_size = calculate_bundle_sizes(app_bundle_path)
         logger.info(f"Download size: {download_size} bytes, Install size: {install_size} bytes")
 
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
+        hermes_reports = {}
 
         if not self.skip_treemap and not self.skip_range_mapping:
             binaries = artifact.get_all_binary_paths()
@@ -142,7 +145,7 @@ class AppleAppAnalyzer:
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )
-            treemap = self._build_treemap(treemap_builder, file_analysis)
+            treemap = treemap_builder.build_file_treemap(file_analysis)
 
         insights: AppleInsightResults | None = None
         if not self.skip_insights:
@@ -152,8 +155,24 @@ class AppleAppAnalyzer:
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
                 treemap=treemap,
+                hermes_reports=hermes_reports,
             )
-            insights = self._generate_insights(insights_input)
+            insights = AppleInsightResults(
+                duplicate_files=self._generate_insight_with_tracing(
+                    DuplicateFilesInsight, insights_input, "duplicate_files"
+                ),
+                large_audio=self._generate_insight_with_tracing(LargeAudioFileInsight, insights_input, "large_audio"),
+                large_images=self._generate_insight_with_tracing(LargeImageFileInsight, insights_input, "large_images"),
+                large_videos=self._generate_insight_with_tracing(LargeVideoFileInsight, insights_input, "large_videos"),
+                strip_binary=self._generate_insight_with_tracing(StripSymbolsInsight, insights_input, "strip_binary"),
+                localized_strings=self._generate_insight_with_tracing(
+                    LocalizedStringsInsight, insights_input, "localized_strings"
+                ),
+                hermes_debug_info=self._generate_insight_with_tracing(
+                    HermesDebugInfoInsight, insights_input, "hermes_debug_info"
+                ),
+                small_files=self._generate_insight_with_tracing(SmallFilesInsight, insights_input, "small_files"),
+            )
 
         results = AppleAnalysisResults(
             app_info=app_info,
@@ -169,7 +188,7 @@ class AppleAppAnalyzer:
 
         return results
 
-    @trace_with_registry()
+    @trace_with_registry("apple.extract_app_info")
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
         """Extract basic app information.
 
@@ -215,7 +234,7 @@ class AppleAppAnalyzer:
             code_signature_errors=code_signature_errors,
         )
 
-    @trace_with_registry()
+    @trace_with_registry("apple.detect_file_type")
     def _detect_file_type(self, file_path: Path) -> str:
         """Detect file type using the file command.
 
@@ -255,7 +274,6 @@ class AppleAppAnalyzer:
             logger.warning(f"Unexpected error detecting file type for {file_path}: {e}")
             return "unknown"
 
-    @trace_with_registry()
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:
         """Determine the type of provisioning profile and its name.
         Args:
@@ -292,7 +310,7 @@ class AppleAppAnalyzer:
         # If no devices are provisioned, it's an app store profile
         return "appstore", profile_name
 
-    @trace_with_registry()
+    @trace_with_registry("apple.analyze_files")
     def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
         """Analyze all files in the app bundle.
 
@@ -362,7 +380,7 @@ class AppleAppAnalyzer:
 
         return FileAnalysis(files=files)
 
-    @trace_with_registry()
+    @trace_with_registry("apple.analyze_asset_catalog")
     def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[TreemapElement]:
         """Analyze an asset catalog file."""
         catalog_details = xcarchive.get_asset_catalog_details(relative_path)
@@ -387,7 +405,13 @@ class AppleAppAnalyzer:
             for element in catalog_details
         ]
 
-    @trace_with_registry()
+    def _generate_insight_with_tracing(
+        self, insight_class: type, insights_input: InsightsInput, insight_name: str
+    ) -> Any:
+        with trace_context_with_registry(f"apple.insights.{insight_name}"):
+            return insight_class().generate(insights_input)
+
+    @trace_with_registry("apple.analyze_binary")
     def _analyze_binary(
         self, binary_path: Path, dwarf_binary_path: Path | None = None, skip_swift_metadata: bool = False
     ) -> MachOBinaryAnalysis:
@@ -421,10 +445,14 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
+
+        # Always test symbol removal on the main app binary (not dSYM)
+        strippable_symbols_size = self._test_strip_symbols_removal(parser, binary_path)
+
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
             if dwarf_fat_binary:
@@ -433,11 +461,18 @@ class AppleAppAnalyzer:
                 symbol_info = SymbolInfo(
                     swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                    strippable_symbols_size=strippable_symbols_size,
                 )
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
         else:
-            logger.info("No dwarf binary path provided, skipping symbol sizes")
+            if strippable_symbols_size > 0:
+                symbol_info = SymbolInfo(
+                    swift_type_groups=[],
+                    objc_type_groups=[],
+                    strippable_symbols_size=strippable_symbols_size,
+                )
+            logger.info("No dwarf binary path provided, skipping detailed symbol analysis")
 
         # Extract Swift metadata if enabled
         swift_metadata = None
@@ -464,24 +499,93 @@ class AppleAppAnalyzer:
             objc_method_names=objc_method_names,
         )
 
-    @trace_with_registry()
-    def _calculate_bundle_sizes(self, app_bundle_path: Path) -> tuple[int, int]:
-        """Calculate bundle sizes with performance tracing."""
-        return calculate_bundle_sizes(app_bundle_path)
+    @trace_with_registry("apple.test_strip_symbols_removal")
+    def _test_strip_symbols_removal(self, parser: MachOParser, binary_path: Path) -> int:
+        """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
+        import tempfile
 
-    @trace_with_registry()
-    def _build_treemap(self, treemap_builder: TreemapBuilder, file_analysis: FileAnalysis) -> TreemapResults:
-        """Build treemap with performance tracing."""
-        return treemap_builder.build_file_treemap(file_analysis)
+        try:
+            original_size = binary_path.stat().st_size
 
-    @trace_with_registry()
-    def _generate_insights(self, insights_input: InsightsInput) -> AppleInsightResults:
-        """Generate insights with performance tracing."""
-        return AppleInsightResults(
-            duplicate_files=DuplicateFilesInsight().generate(insights_input),
-            large_audio=LargeAudioFileInsight().generate(insights_input),
-            large_images=LargeImageFileInsight().generate(insights_input),
-            large_videos=LargeVideoFileInsight().generate(insights_input),
-            strip_binary=StripSymbolsInsight().generate(insights_input),
-            localized_strings=LocalizedStringsInsight().generate(insights_input),
-        )
+            has_swift_imageinfo = parser.has_swift_imageinfo()
+
+            removable_symbols: list[lief.MachO.Symbol] = []
+            total_symbols = 0
+
+            for symbol in parser.binary.symbols:
+                total_symbols += 1
+
+                # Only remove symbols that are safe to remove, otherwise lief will crash
+                if parser.binary.can_remove(symbol):
+                    symbol_name = str(symbol.name) if symbol.name else ""
+
+                    # Additional filtering to match what strip would typically target
+                    # Only remove symbols that match strip's typical patterns
+                    should_remove = (
+                        # Debug symbols (strip -S targets)
+                        symbol.type == lief.MachO.Symbol.TYPE.ABSOLUTE_SYM
+                        or symbol_name.startswith(("__debug", "__zdebug", "__apple_", "l_OBJC_LABEL_", "ltmp"))
+                        or "debug" in symbol_name.lower()
+                        or
+                        # Local symbols (strip -x targets)
+                        symbol.category == lief.MachO.Symbol.CATEGORY.LOCAL
+                        or
+                        # Swift symbols (strip -T targets) - only if __objc_imageinfo has non-zero Swift version
+                        (has_swift_imageinfo and symbol_name.startswith(("_$S", "_$s")))
+                        or
+                        # Compiler-generated symbols
+                        symbol_name.startswith(("L", "l", "_OBJC_$_CATEGORY_", "_OBJC_$_PROP_LIST_"))
+                        or
+                        # Temporary symbols
+                        symbol_name.startswith(("tmp", "temp", "unnamed_"))
+                        or
+                        # Swift compiler symbols (other than the -T targeted ones)
+                        symbol_name.startswith(("__swift_FORCE_LOAD", "__swift_"))
+                    )
+
+                    if should_remove:
+                        removable_symbols.append(symbol)
+
+            logger.debug(
+                f"Symbol removal test for {binary_path.name}: {len(removable_symbols)}/{total_symbols} symbols removable"
+            )
+            if not removable_symbols:
+                return 0
+
+            # Create a copy of the binary and remove the symbols to see the new size
+            binary_copy = lief.MachO.parse(str(binary_path))  # type: ignore
+            if not binary_copy or binary_copy.size == 0:
+                logger.warning("Failed to create binary copy for symbol removal testing")
+                return 0
+
+            binary_copy_obj = binary_copy.at(0)
+
+            removed_count = 0
+            for symbol in removable_symbols:
+                if symbol.name:
+                    binary_copy_obj.remove_symbol(str(symbol.name))
+                    removed_count += 1
+
+            logger.debug(f"Successfully removed {removed_count} symbols")
+            if removed_count == 0:
+                return 0
+
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                temp_path = Path(temp_file.name)
+                try:
+                    binary_copy_obj.write(str(temp_path))
+                    modified_size = temp_path.stat().st_size
+                    actual_savings = original_size - modified_size
+
+                    logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
+                    return max(0, actual_savings)
+
+                finally:
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
+
+        except Exception as e:
+            logger.error(f"Error testing symbol removal for {binary_path}: {e}")
+            return 0

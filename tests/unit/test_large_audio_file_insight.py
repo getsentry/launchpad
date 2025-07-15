@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from launchpad.size.insights.common import LargeAudioFileInsight
+from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.insights import LargeAudioFileInsightResult

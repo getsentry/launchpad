@@ -1,5 +1,6 @@
 from launchpad.parsers.android.dex.dex_base_utils import DexBaseUtils
 from launchpad.parsers.android.dex.dex_field_parser import DexFieldParser
+from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.parsers.android.dex.dex_method_parser import DexMethodParser
 from launchpad.parsers.android.dex.types import (
     NO_INDEX,
@@ -15,10 +16,17 @@ from launchpad.parsers.buffer_wrapper import BufferWrapper
 
 
 class DexClassParser:
-    def __init__(self, header: DexFileHeader, buffer_wrapper: BufferWrapper, offset: int):
+    def __init__(
+        self,
+        header: DexFileHeader,
+        buffer_wrapper: BufferWrapper,
+        offset: int,
+        dex_mapping: DexMapping | None = None,
+    ):
         self._header = header
         self._buffer_wrapper = buffer_wrapper
         self._offset = offset
+        self._dex_mapping = dex_mapping
 
         # Cachable for later reuse
         self._static_fields = None
@@ -58,7 +66,15 @@ class DexClassParser:
         )
 
     def get_class_signature(self) -> str:
-        return DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, self._class_index)
+        signature = DexBaseUtils.get_type_name(self._buffer_wrapper, self._header, self._class_index)
+
+        # Apply deobfuscation if mapping is available
+        if self._dex_mapping is not None:
+            deobfuscated_signature = self._dex_mapping.deobfuscate_signature(signature)
+            if deobfuscated_signature is not None:
+                return deobfuscated_signature
+
+        return signature
 
     def get_source_file_name(self) -> str | None:
         if self._source_file_idx == NO_INDEX:
@@ -225,6 +241,7 @@ class DexClassParser:
                 method_overhead=method_overhead,
                 access_flags=access_flags,
                 annotations=annotations,
+                dex_mapping=self._dex_mapping,
             )
 
             methods.append(method_parser.parse())
@@ -301,6 +318,7 @@ class DexClassParser:
                 method_overhead=method_overhead,
                 access_flags=access_flags,
                 annotations=annotations,
+                dex_mapping=self._dex_mapping,
             )
 
             methods.append(method_parser.parse())
@@ -386,6 +404,7 @@ class DexClassParser:
                 name=name,
                 access_flags=access_flags,
                 annotations=annotations,
+                dex_mapping=self._dex_mapping,
             )
 
             fields.append(field_parser.parse())
@@ -460,6 +479,7 @@ class DexClassParser:
                 name=name,
                 access_flags=access_flags,
                 annotations=annotations,
+                dex_mapping=self._dex_mapping,
             )
 
             fields.append(field_parser.parse())

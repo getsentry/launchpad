@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import threading
 import time
 
 from contextlib import contextmanager
@@ -13,6 +14,23 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
+
+# Thread-local storage for tracking call hierarchy
+_trace_stack = threading.local()
+
+
+def _get_trace_stack() -> list[str]:
+    """Get the current trace stack for this thread."""
+    if not hasattr(_trace_stack, "stack"):
+        stack: list[str] = []
+        _trace_stack.stack = stack
+    return _trace_stack.stack
+
+
+def _get_current_parent() -> str | None:
+    """Get the current parent trace name."""
+    stack = _get_trace_stack()
+    return stack[-1] if stack else None
 
 
 class PerformanceTracer:
@@ -39,12 +57,19 @@ class PerformanceTracer:
 
     def __enter__(self) -> PerformanceTracer:
         """Start timing when entering context."""
+        # Push this trace onto the stack
+        _get_trace_stack().append(self.name)
         self.start_time = time.time()
         # No logging during execution - completely silent
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """End timing when exiting context."""
+        # Pop this trace from the stack
+        stack = _get_trace_stack()
+        if stack and stack[-1] == self.name:
+            stack.pop()
+
         if self.start_time is not None:
             self.end_time = time.time()
             self.duration = self.end_time - self.start_time
@@ -134,8 +159,9 @@ class PerformanceRegistry:
 
     def __init__(self) -> None:
         """Initialize the performance registry."""
-        self.traces: Dict[str, float] = {}
-        self.metadata: Dict[str, Dict[str, Any]] = {}
+        self.traces: Dict[str, list[float]] = {}
+        self.metadata: Dict[str, list[Dict[str, Any]]] = {}
+        self.hierarchy: Dict[str, Dict[str, list[float]]] = {}  # parent -> {child -> [durations]}
 
     def record_trace(self, name: str, duration: float, metadata: Dict[str, Any] | None = None) -> None:
         """Record a completed trace.
@@ -145,36 +171,135 @@ class PerformanceRegistry:
             duration: Duration in seconds
             metadata: Optional metadata for the trace
         """
-        self.traces[name] = duration
+        if name not in self.traces:
+            self.traces[name] = []
+            self.metadata[name] = []
+
+        self.traces[name].append(duration)
         if metadata:
-            self.metadata[name] = metadata
+            self.metadata[name].append(metadata)
+        else:
+            self.metadata[name].append({})
+
+        # Record hierarchy
+        parent = _get_current_parent()
+        if parent and parent != name:  # Avoid self-parenting
+            if parent not in self.hierarchy:
+                self.hierarchy[parent] = {}
+            if name not in self.hierarchy[parent]:
+                self.hierarchy[parent][name] = []
+            self.hierarchy[parent][name].append(duration)
 
     def get_summary(self) -> Dict[str, Any]:
         """Get a summary of all recorded traces.
 
         Returns:
-            Dictionary containing trace summary
+            Dictionary containing trace summary with aggregate statistics
         """
         if not self.traces:
-            return {"total_traces": 0, "total_duration": 0.0}
+            return {"total_traces": 0, "total_duration": 0.0, "trace_stats": {}}
 
-        total_duration = sum(self.traces.values())
-        sorted_traces = sorted(self.traces.items(), key=lambda x: x[1], reverse=True)
+        # Calculate aggregate stats for each trace name
+        trace_stats: Dict[str, Dict[str, float]] = {}
+        total_execution_count = 0
+        all_durations: list[float] = []
+
+        for name, durations in self.traces.items():
+            if durations:  # Only process if we have durations
+                total_execution_count += len(durations)
+                all_durations.extend(durations)
+
+                trace_stats[name] = {
+                    "total": sum(durations),
+                    "count": len(durations),
+                    "min": min(durations),
+                    "max": max(durations),
+                    "avg": sum(durations) / len(durations),
+                }
+
+        total_duration = sum(all_durations) if all_durations else 0.0
+
+        # Sort by total time (descending)
+        sorted_trace_stats = dict(sorted(trace_stats.items(), key=lambda x: x[1]["total"], reverse=True))
 
         return {
             "total_traces": len(self.traces),
+            "total_executions": total_execution_count,
             "total_duration": total_duration,
-            "traces": dict(sorted_traces),
+            "trace_stats": sorted_trace_stats,
             "metadata": self.metadata,
         }
 
-    def log_summary(self, logger_name: str | None = None) -> None:
-        """Log a summary of all recorded traces.
+    def get_hierarchical_summary(self) -> Dict[str, Any]:
+        """Get a hierarchical summary showing parent-child relationships and self-time.
+
+        Returns:
+            Dictionary containing hierarchical trace summary
+        """
+        if not self.traces:
+            return {"total_traces": 0, "total_duration": 0.0, "hierarchy": {}}
+
+        # Calculate basic stats for all traces
+        trace_stats: Dict[str, Dict[str, Any]] = {}
+        total_execution_count = 0
+
+        for name, durations in self.traces.items():
+            if durations:
+                total_execution_count += len(durations)
+
+                trace_stats[name] = {
+                    "total": sum(durations),
+                    "count": len(durations),
+                    "min": min(durations),
+                    "max": max(durations),
+                    "avg": sum(durations) / len(durations),
+                    "self": sum(durations),  # Will be adjusted below
+                }
+
+        # Calculate self time (subtract children time from total time)
+        for parent, children in self.hierarchy.items():
+            if parent in trace_stats:
+                children_total = sum(sum(child_durations) for child_durations in children.values())
+                trace_stats[parent]["self"] = trace_stats[parent]["total"] - children_total
+
+                # Store children info
+                trace_stats[parent]["children"] = {}
+                for child, child_durations in children.items():
+                    if child_durations:
+                        trace_stats[parent]["children"][child] = {
+                            "total": sum(child_durations),
+                            "count": len(child_durations),
+                            "min": min(child_durations),
+                            "max": max(child_durations),
+                            "avg": sum(child_durations) / len(child_durations),
+                        }
+
+        # Find root traces (traces that are not children of any other trace)
+        all_children: set[str] = set()
+        for children in self.hierarchy.values():
+            all_children.update(children.keys())
+
+        roots = [name for name in trace_stats.keys() if name not in all_children]
+
+        # Calculate total duration from root traces only (to avoid double-counting)
+        total_duration = sum(trace_stats[root]["total"] for root in roots) if roots else 0.0
+
+        return {
+            "total_traces": len(self.traces),
+            "total_executions": total_execution_count,
+            "total_duration": total_duration,
+            "trace_stats": trace_stats,
+            "roots": roots,
+            "hierarchy": self.hierarchy,
+        }
+
+    def log_hierarchical_summary(self, logger_name: str | None = None) -> None:
+        """Log a hierarchical summary of all recorded traces.
 
         Args:
             logger_name: Optional logger name for custom logging
         """
-        summary = self.get_summary()
+        summary = self.get_hierarchical_summary()
         log = get_logger(logger_name) if logger_name else logger
 
         if summary["total_traces"] == 0:
@@ -182,17 +307,69 @@ class PerformanceRegistry:
             return
 
         log.info("=" * 60)
-        log.info("PERFORMANCE SUMMARY")
+        log.info("HIERARCHICAL PERFORMANCE SUMMARY")
         log.info("=" * 60)
         log.info(f"Total traces: {summary['total_traces']}")
+        log.info(f"Total executions: {summary['total_executions']}")
         log.info(f"Total duration: {summary['total_duration']:.3f}s")
         log.info("-" * 60)
 
-        for name, duration in summary["traces"].items():
-            percentage = (duration / summary["total_duration"]) * 100
-            log.info(f"{name}: {duration:.3f}s ({percentage:.1f}%)")
+        def log_trace_tree(
+            name: str, stats: Dict[str, Any], indent: int = 0, is_last: bool = True, prefix: str = ""
+        ) -> None:
+            # Build the tree prefix
+            if indent == 0:
+                tree_prefix = ""
+            else:
+                tree_prefix = prefix + ("└── " if is_last else "├── ")
+
+            percentage = (stats["total"] / summary["total_duration"]) * 100
+            self_percentage = (stats["self"] / summary["total_duration"]) * 100
+
+            if stats["count"] == 1:
+                if stats["self"] != stats["total"]:
+                    log.info(
+                        f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%), self: {stats['self']:.3f}s ({self_percentage:.1f}%)"
+                    )
+                else:
+                    log.info(f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%)")
+            else:
+                if stats["self"] != stats["total"]:
+                    log.info(
+                        f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%) [{stats['count']}x, avg: {stats['avg']:.3f}s], self: {stats['self']:.3f}s ({self_percentage:.1f}%)"
+                    )
+                else:
+                    log.info(
+                        f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%) [{stats['count']}x, avg: {stats['avg']:.3f}s]"
+                    )
+
+            # Log children
+            children = stats.get("children", {})
+            if children:
+                sorted_children = sorted(children.items(), key=lambda x: x[1]["total"], reverse=True)
+                for i, (child_name, child_stats) in enumerate(sorted_children):
+                    is_last_child = i == len(sorted_children) - 1
+
+                    # Build prefix for child's children
+                    child_prefix = prefix + ("    " if is_last else "│   ")
+
+                    child_stats_full = summary["trace_stats"].get(child_name, child_stats)
+                    log_trace_tree(child_name, child_stats_full, indent + 1, is_last_child, child_prefix)
+
+        # Log root traces and their trees
+        for root in sorted(summary["roots"], key=lambda x: summary["trace_stats"][x]["total"], reverse=True):
+            log_trace_tree(root, summary["trace_stats"][root])
 
         log.info("=" * 60)
+
+    def log_summary(self, logger_name: str | None = None) -> None:
+        """Log a summary of all recorded traces (uses hierarchical display).
+
+        Args:
+            logger_name: Optional logger name for custom logging
+        """
+        # Use hierarchical summary by default
+        self.log_hierarchical_summary(logger_name)
 
     def log_summary_if_traces(self, logger_name: str | None = None) -> None:
         """Log a summary only if there are traces recorded.
@@ -212,23 +389,66 @@ class PerformanceRegistry:
         Returns:
             Formatted summary string
         """
-        summary = self.get_summary()
+        summary = self.get_hierarchical_summary()
 
         if summary["total_traces"] == 0:
             return "No performance traces recorded"
 
         lines = [
             "=" * 60,
-            "PERFORMANCE SUMMARY",
+            "HIERARCHICAL PERFORMANCE SUMMARY",
             "=" * 60,
             f"Total traces: {summary['total_traces']}",
+            f"Total executions: {summary['total_executions']}",
             f"Total duration: {summary['total_duration']:.3f}s",
             "-" * 60,
         ]
 
-        for name, duration in summary["traces"].items():
-            percentage = (duration / summary["total_duration"]) * 100
-            lines.append(f"{name}: {duration:.3f}s ({percentage:.1f}%)")
+        def format_trace_tree(
+            name: str, stats: Dict[str, Any], indent: int = 0, is_last: bool = True, prefix: str = ""
+        ) -> None:
+            # Build the tree prefix
+            if indent == 0:
+                tree_prefix = ""
+            else:
+                tree_prefix = prefix + ("└── " if is_last else "├── ")
+
+            percentage = (stats["total"] / summary["total_duration"]) * 100
+            self_percentage = (stats["self"] / summary["total_duration"]) * 100
+
+            if stats["count"] == 1:
+                if stats["self"] != stats["total"]:
+                    lines.append(
+                        f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%), self: {stats['self']:.3f}s ({self_percentage:.1f}%)"
+                    )
+                else:
+                    lines.append(f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%)")
+            else:
+                if stats["self"] != stats["total"]:
+                    lines.append(
+                        f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%) [{stats['count']}x, avg: {stats['avg']:.3f}s], self: {stats['self']:.3f}s ({self_percentage:.1f}%)"
+                    )
+                else:
+                    lines.append(
+                        f"{tree_prefix}{name}: {stats['total']:.3f}s ({percentage:.1f}%) [{stats['count']}x, avg: {stats['avg']:.3f}s]"
+                    )
+
+            # Process children
+            children = stats.get("children", {})
+            if children:
+                sorted_children = sorted(children.items(), key=lambda x: x[1]["total"], reverse=True)
+                for i, (child_name, child_stats) in enumerate(sorted_children):
+                    is_last_child = i == len(sorted_children) - 1
+
+                    # Build prefix for child's children
+                    child_prefix = prefix + ("    " if is_last else "│   ")
+
+                    child_stats_full = summary["trace_stats"].get(child_name, child_stats)
+                    format_trace_tree(child_name, child_stats_full, indent + 1, is_last_child, child_prefix)
+
+        # Add root traces and their trees
+        for root in sorted(summary["roots"], key=lambda x: summary["trace_stats"][x]["total"], reverse=True):
+            format_trace_tree(root, summary["trace_stats"][root])
 
         lines.append("=" * 60)
         return "\n".join(lines)
@@ -237,6 +457,7 @@ class PerformanceRegistry:
         """Clear all recorded traces."""
         self.traces.clear()
         self.metadata.clear()
+        self.hierarchy.clear()
 
 
 # Global registry instance for convenience
@@ -344,5 +565,7 @@ def trace_context_with_registry(
 
     with PerformanceTracer(name, logger_name) as tracer:
         yield tracer
-        if tracer.duration is not None:
-            reg.record_trace(name, tracer.duration, tracer.metadata)
+
+    # Record to registry after tracer context has completed and duration is set
+    if tracer.duration is not None:
+        reg.record_trace(name, tracer.duration, tracer.metadata)
