@@ -37,7 +37,7 @@ class DexMapping:
                     pending_file_name = self._parse_comment(line, pending_file_name)
                 else:
                     current_class = self._parse_method_or_member(line, current_class)
-            elif line.endswith(":"):
+            else:
                 current_class, pending_file_name = self._parse_class(line, current_class, pending_file_name, classes)
 
         for clazz in classes:
