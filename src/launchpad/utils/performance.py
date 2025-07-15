@@ -16,7 +16,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 # Core tracer                                                                 #
 # --------------------------------------------------------------------------- #
 
-_current: ContextVar["Tracer | None"] = ContextVar("_current", default=None)
+_current: ContextVar["Tracer | None"] = ContextVar("_current", default=None)  # type: ignore[assignment]
 
 
 class Tracer:
@@ -73,7 +73,7 @@ class Tracer:
         """Decorator equivalent to ``with Tracer(...)``."""
 
         def decorator(fn: F) -> F:
-            trace_name = name or f"{fn.__module__}.{fn.__qualname__}"
+            trace_name = name or f"{fn.__module__}.{fn.__qualname__}"  # type: ignore[attr-defined]
 
             @functools.wraps(fn)
             def wrapper(*args: Any, **kw: Any):  # type: ignore[override]
