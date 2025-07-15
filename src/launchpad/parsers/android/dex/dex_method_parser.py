@@ -36,6 +36,7 @@ class DexMethodParser:
 
     def parse(self) -> Method:
         signature = self._signature
+        name = self._name
 
         # Apply deobfuscation if mapping is available
         if self._dex_mapping is not None:
@@ -43,11 +44,16 @@ class DexMethodParser:
             class_name = self._class_name
             deobfuscated_class = self._dex_mapping.deobfuscate(class_name)
             if deobfuscated_class is not None:
-                signature = f"{deobfuscated_class}.{self._name}:{self._prototype.return_type}"
+                # Deobfuscate method name
+                deobfuscated_method = self._dex_mapping.deobfuscate_method(class_name, name)
+                if deobfuscated_method is not None:
+                    name = deobfuscated_method
+
+                signature = f"{deobfuscated_class}.{name}:{self._prototype.return_type}"
 
         return Method(
             size=self.get_size(),
-            name=self._name,
+            name=name,
             signature=signature,
             prototype=self._prototype,
             access_flags=self._access_flags,

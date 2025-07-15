@@ -13,6 +13,9 @@ class DexMappingClass:
     file_name: str | None = None
     # Start line within file. This may not be present even if fileName is present
     start_line: int | None = None
+    # Method and field mappings for this class
+    methods: dict[str, str] | None = None  # obfuscated_name -> deobfuscated_name
+    fields: dict[str, str] | None = None  # obfuscated_name -> deobfuscated_name
 
 
 class DexMapping:
@@ -62,12 +65,18 @@ class DexMapping:
             return current_class
 
         trimmed = line.strip()
-        left = trimmed.split(" -> ")[0]
-        parts = left.split(":")
+        parts = trimmed.split(" -> ")
+        if len(parts) != 2:
+            return current_class
+
+        left, obfuscated_name = parts
+
+        # Parse line numbers
+        line_parts = left.split(":")
         original_line_numbers: list[int] = []
 
-        for i in range(min(2, len(parts))):
-            part = parts[len(parts) - i - 1]
+        for i in range(min(2, len(line_parts))):
+            part = line_parts[len(line_parts) - i - 1]
             try:
                 n = int(part)
                 original_line_numbers.insert(0, n)
@@ -80,6 +89,41 @@ class DexMapping:
                 current_class.start_line = start_line
             elif current_class.start_line == 0:
                 current_class.start_line = start_line
+
+        # Parse method/field mapping
+        # Remove line numbers from the left side
+        if original_line_numbers:
+            # Find the last colon that has a number after it
+            last_colon_idx = -1
+            for i, part in enumerate(line_parts):
+                try:
+                    int(part)
+                    last_colon_idx = i
+                except ValueError:
+                    break
+
+            if last_colon_idx >= 0:
+                left = ":".join(line_parts[last_colon_idx + 1 :])
+
+        # Determine if this is a method or field
+        if "(" in left and ")" in left:
+            if current_class.methods is None:
+                current_class.methods = {}
+            # Extract method name (everything before the first parenthesis)
+            # Remove return type if present
+            method_decl = left.split("(")[0].strip()
+            if " " in method_decl:
+                # e.g. 'void doSomething' -> 'doSomething'
+                method_name = method_decl.split()[-1]
+            else:
+                method_name = method_decl
+            current_class.methods[obfuscated_name] = method_name
+        else:
+            if current_class.fields is None:
+                current_class.fields = {}
+            # Extract field name (last part after the type)
+            field_name = left.split()[-1].strip()
+            current_class.fields[obfuscated_name] = field_name
 
         return current_class
 
@@ -138,3 +182,61 @@ class DexMapping:
             if clazz.deobfuscated_signature == deobfuscated_class_signature:
                 return clazz
         return None
+
+    def deobfuscate_method(self, class_name: str, obfuscated_method_name: str) -> str | None:
+        """Deobfuscate a method name for a given class.
+
+        Args:
+            class_name: The class name (can be obfuscated or deobfuscated)
+            obfuscated_method_name: The obfuscated method name
+
+        Returns:
+            The deobfuscated method name, or None if not found
+        """
+        # First try to find the class by obfuscated name
+        clazz = self.lookup_obfuscated_class(class_name)
+        if clazz is None:
+            # Try to find by deobfuscated signature
+            clazz = self.lookup_deobfuscated_signature(class_name)
+            if clazz is None:
+                # Try to match by deobfuscated FQN
+                for c in self._classes.values():
+                    if c.deobfuscated_fqn == class_name:
+                        clazz = c
+                        break
+                if clazz is None:
+                    return None
+
+        if clazz.methods is None:
+            return None
+
+        return clazz.methods.get(obfuscated_method_name)
+
+    def deobfuscate_field(self, class_name: str, obfuscated_field_name: str) -> str | None:
+        """Deobfuscate a field name for a given class.
+
+        Args:
+            class_name: The class name (can be obfuscated or deobfuscated)
+            obfuscated_field_name: The obfuscated field name
+
+        Returns:
+            The deobfuscated field name, or None if not found
+        """
+        # First try to find the class by obfuscated name
+        clazz = self.lookup_obfuscated_class(class_name)
+        if clazz is None:
+            # Try to find by deobfuscated signature
+            clazz = self.lookup_deobfuscated_signature(class_name)
+            if clazz is None:
+                # Try to match by deobfuscated FQN
+                for c in self._classes.values():
+                    if c.deobfuscated_fqn == class_name:
+                        clazz = c
+                        break
+                if clazz is None:
+                    return None
+
+        if clazz.fields is None:
+            return None
+
+        return clazz.fields.get(obfuscated_field_name)

@@ -54,6 +54,11 @@ class DexFieldParser:
             if deobfuscated_class is not None:
                 class_name = deobfuscated_class
 
+            # Deobfuscate field name
+            deobfuscated_field = self._dex_mapping.deobfuscate_field(class_name, name)
+            if deobfuscated_field is not None:
+                name = deobfuscated_field
+
         return f"{class_name}->{name}:{type_name}"
 
     def get_size(self) -> int:

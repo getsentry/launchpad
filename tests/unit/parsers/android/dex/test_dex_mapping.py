@@ -85,3 +85,22 @@ com.example.MyClass -> a:
         dex_mapping = DexMapping(mapping_content)
 
         assert len(dex_mapping._classes) == 0
+
+    def test_method_and_field_deobfuscation(self) -> None:
+        mapping_content = b"""com.example.MyClass -> a:
+    java.lang.String foo -> x
+    java.lang.String bar -> y
+    void doSomething() -> z
+    int getValue() -> w
+"""
+        dex_mapping = DexMapping(mapping_content)
+        assert dex_mapping.deobfuscate_field("a", "x") == "foo"
+        assert dex_mapping.deobfuscate_field("a", "y") == "bar"
+        assert dex_mapping.deobfuscate_field("a", "notfound") is None
+
+        assert dex_mapping.deobfuscate_method("a", "z") == "doSomething"
+        assert dex_mapping.deobfuscate_method("a", "w") == "getValue"
+        assert dex_mapping.deobfuscate_method("a", "notfound") is None
+
+        assert dex_mapping.deobfuscate_field("com.example.MyClass", "x") == "foo"
+        assert dex_mapping.deobfuscate_method("com.example.MyClass", "z") == "doSomething"
