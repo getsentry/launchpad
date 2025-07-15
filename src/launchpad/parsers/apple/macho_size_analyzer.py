@@ -13,7 +13,7 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class BinaryAnalyzer:
+class MachOSizeAnalyzer:
     """Analyzes Mach-O binaries to extract sections size information."""
 
     def __init__(self, parser: MachOParser, file_size: int, file_path: str) -> None:
@@ -58,7 +58,7 @@ class BinaryAnalyzer:
         """Analyze load commands in the binary."""
         commands: list[lief.MachO.LoadCommand] = list(self.parser.binary.commands)
         if not commands:
-            logger.debug("No load commands found")
+            logger.warning("No load commands found")
             return
 
         for i, command in enumerate(commands):

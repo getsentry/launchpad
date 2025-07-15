@@ -11,8 +11,8 @@ import lief
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
-from launchpad.parsers.apple.binary_analyzer import BinaryAnalyzer
 from launchpad.parsers.apple.macho_parser import MachOParser
+from launchpad.parsers.apple.macho_size_analyzer import MachOSizeAnalyzer
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
@@ -464,7 +464,7 @@ class AppleAppAnalyzer:
         # Analyze binary components
         binary_analysis = None
         if not self.skip_range_mapping:
-            analyzer = BinaryAnalyzer(parser, executable_size, str(binary_path))
+            analyzer = MachOSizeAnalyzer(parser, executable_size, str(binary_path))
             binary_analysis = analyzer.analyze()
 
         return MachOBinaryAnalysis(
