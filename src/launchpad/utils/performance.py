@@ -109,25 +109,6 @@ class Registry:
     # summarisation                                                         #
     # --------------------------------------------------------------------- #
 
-    def _group(self) -> tuple[dict[str, List[float]], dict[str, set[str]]]:
-        durations: dict[str, List[float]] = defaultdict(list)
-        children: dict[str, set[str]] = defaultdict(set)
-
-        for t in self._samples:
-            if t.duration is None:
-                continue
-            durations[t.name].append(t.duration)
-            if t.parent:
-                children[t.parent.name].add(t.name)
-        return durations, children
-
-    def _total(self, durations: dict[str, List[float]], name: str) -> float:
-        return sum(durations[name])
-
-    # --------------------------------------------------------------------- #
-    # pretty-print helpers (inside Registry)                                #
-    # --------------------------------------------------------------------- #
-
     def _group(self) -> tuple[dict[str, list[float]], dict[str, set[str]], set[str]]:
         """Return durations, child-map, and root set."""
         durs: dict[str, list[float]] = defaultdict(list)
