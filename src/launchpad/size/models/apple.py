@@ -92,7 +92,7 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
 
 
 class StripBinaryFileInfo(BaseModel):
-    """Savings information from stripping a binary file."""
+    """Savings information from stripping a Mach-O binary."""
 
     file_path: str = Field(..., description="Path to the binary file within the app bundle")
     debug_sections_savings: int = Field(..., ge=0, description="Savings from removing debug sections")
@@ -133,7 +133,7 @@ class AppleInsightResults(BaseModel):
 class SymbolInfo:
     swift_type_groups: List[SwiftSymbolTypeGroup]
     objc_type_groups: List[ObjCSymbolTypeGroup]
-    strippable_symbols_size: int = 0  # Actual size savings from removing strippable symbols (computed via LIEF)
+    strippable_symbols_size: int = 0
 
     def get_symbols_by_section(self) -> dict[str, list[tuple[str, str, int, int]]]:
         """Group symbols by their section name.
