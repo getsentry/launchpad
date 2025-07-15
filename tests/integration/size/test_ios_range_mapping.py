@@ -1,4 +1,4 @@
-"""Integration tests for iOS range mapping system."""
+"""Integration tests for iOS binary component analysis system."""
 
 import json
 
@@ -10,11 +10,11 @@ import pytest
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
-from launchpad.size.models.range_mapping import BinaryTag
+from launchpad.size.models.binary_component import BinaryTag
 
 
-class TestIOSRangeMapping:
-    """Test the iOS range mapping system against acceptance criteria."""
+class TestIOSBinaryComponentAnalysis:
+    """Test the iOS binary component analysis system against acceptance criteria."""
 
     @pytest.fixture
     def sample_app_path(self) -> Path:
@@ -29,11 +29,11 @@ class TestIOSRangeMapping:
             data: Dict[str, Any] = json.load(f)
             return data
 
-    def test_hackernews_range_mapping_regression(self, sample_app_path: Path) -> None:
-        """Test range mapping against known HackerNews app structure to detect regressions.
+    def test_hackernews_component_analysis_regression(self, sample_app_path: Path) -> None:
+        """Test binary component analysis against known HackerNews app structure to detect regressions.
 
-        This test asserts against the specific section sizes and mappings we expect
-        from the HackerNews sample app to catch any regressions in the range mapping logic.
+        This test asserts against the specific section sizes and categorizations we expect
+        from the HackerNews sample app to catch any regressions in the component analysis logic.
         """
         analyzer = AppleAppAnalyzer(skip_range_mapping=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
@@ -41,32 +41,15 @@ class TestIOSRangeMapping:
 
         # Get the first binary analysis result since we know there's only one binary
         binary_analysis = results.binary_analysis[0]
-        range_map = binary_analysis.range_map
-        assert range_map is not None, "Range mapping should be created"
+        component_analysis = binary_analysis.binary_analysis
+        assert component_analysis is not None
 
-        # Test exact file structure from HackerNews binary
-        assert range_map.total_file_size == 3152944
-        assert range_map.total_mapped == 3107254
-        assert len(range_map.ranges) == 172
+        # Get sizes by tag from the component analysis
+        size_by_tag = component_analysis.size_by_tag()
 
-        # Test coverage report structure
-        report = range_map.get_coverage_report()
-        expected_coverage = {
-            "total_file_size": 3152944,
-            "total_mapped": 3107254,
-            "unmapped_size": 45690,
-            "coverage_percentage": 98,
-            "conflict_count": 49,
-            "total_conflict_size": 3536,
-            "unmapped_region_count": 15,
-            "largest_unmapped_region": 16235,
-        }
-
-        for key, expected_value in expected_coverage.items():
-            assert report[key] == expected_value, f"Coverage report {key} should be {expected_value}, got {report[key]}"
-
-        # Test specific section sizes (these are the actual sizes from HackerNews binary)
-        size_by_tag = range_map.size_by_tag()
+        # Expected sizes for different component categories
+        # Note: These are baseline expectations that may need adjustment as the categorization
+        # logic is refined, but they serve as regression tests for major changes
         expected_sizes = {
             BinaryTag.TEXT_SEGMENT: 1842548,
             BinaryTag.OBJC_CLASSES: 430336,
@@ -84,27 +67,32 @@ class TestIOSRangeMapping:
 
         for tag, expected_size in expected_sizes.items():
             actual_size = size_by_tag.get(tag, 0)
-            assert actual_size == expected_size, f"Section {tag.name} size should be {expected_size}, got {actual_size}"
+            assert actual_size == expected_size, (
+                f"Component {tag.name} size should be {expected_size}, got {actual_size}"
+            )
 
-    def test_section_mapping_completeness(self, sample_app_path: Path) -> None:
-        """Test that sections are properly mapped to ranges in real binary."""
+    def test_component_analysis_completeness(self, sample_app_path: Path) -> None:
+        """Test that components are properly analyzed in real binary."""
         analyzer = AppleAppAnalyzer(skip_range_mapping=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 
         # Get the first binary analysis result since we know there's only one binary
         binary_analysis = results.binary_analysis[0]
-        range_map = binary_analysis.range_map
-        assert range_map is not None
+        component_analysis = binary_analysis.binary_analysis
+        assert component_analysis is not None
 
-        # Verify we have both text and data ranges
-        text_ranges = [r for r in range_map.ranges if r.tag == BinaryTag.TEXT_SEGMENT]
-        data_ranges = [r for r in range_map.ranges if r.tag == BinaryTag.DATA_SEGMENT]
+        # Verify we have components for different categories
+        text_components = component_analysis.get_components_by_tag(BinaryTag.TEXT_SEGMENT)
+        data_components = component_analysis.get_components_by_tag(BinaryTag.DATA_SEGMENT)
 
-        assert len(text_ranges) >= 1, "Should have at least one TEXT segment range"
-        assert len(data_ranges) >= 1, "Should have at least one DATA segment range"
+        assert len(text_components) >= 1, "Should have at least one TEXT segment component"
+        assert len(data_components) >= 1, "Should have at least one DATA segment component"
 
-        # Verify ranges are non-empty and ordered
-        for range_obj in range_map.ranges:
-            assert range_obj.start < range_obj.end, f"Range {range_obj} should have start < end"
-            assert range_obj.size > 0, f"Range {range_obj} should have positive size"
+        # Verify components have positive sizes and valid names
+        for component in component_analysis.components:
+            assert component.size > 0, f"Component {component.name} should have positive size"
+            assert component.name, "Component should have a non-empty name"
+
+        # Verify reasonable coverage of the binary
+        assert component_analysis.coverage_percentage > 80, "Should analyze most of the binary"

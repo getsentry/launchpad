@@ -11,10 +11,10 @@ import lief
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
+from launchpad.parsers.apple.binary_analyzer import BinaryAnalyzer
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
-from launchpad.parsers.apple.range_mapping_builder import RangeMappingBuilder
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
@@ -127,7 +127,7 @@ class AppleAppAnalyzer:
                 if binary_info.dsym_path:
                     logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
                 binary = self._analyze_binary(binary_info.path, binary_info.dsym_path)
-                if binary.range_map is not None:
+                if binary.binary_analysis is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
@@ -404,7 +404,7 @@ class AppleAppAnalyzer:
                 linked_libraries=[],
                 sections={},
                 swift_metadata=None,
-                range_map=None,
+                binary_analysis=None,
                 symbol_info=None,
             )
 
@@ -461,11 +461,11 @@ class AppleAppAnalyzer:
                 protocol_conformances=swift_protocol_conformances,
             )
 
-        # Build range mapping for binary content
-        range_map = None
+        # Analyze binary components
+        binary_analysis = None
         if not self.skip_range_mapping:
-            range_builder = RangeMappingBuilder(parser, executable_size)
-            range_map = range_builder.build_range_mapping()
+            analyzer = BinaryAnalyzer(parser, executable_size, str(binary_path))
+            binary_analysis = analyzer.analyze()
 
         return MachOBinaryAnalysis(
             binary_path=binary_path,
@@ -474,7 +474,7 @@ class AppleAppAnalyzer:
             linked_libraries=linked_libraries,
             sections=sections,
             swift_metadata=swift_metadata,
-            range_map=range_map,
+            binary_analysis=binary_analysis,
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
         )
