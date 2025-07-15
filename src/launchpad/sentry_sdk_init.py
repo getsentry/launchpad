@@ -24,7 +24,7 @@ def initialize_sentry_sdk() -> None:
     """Initialize Sentry SDK with launchpad-specific configuration."""
     config = get_sentry_config()
 
-    if config.get("environment") in ("TEST", "DEVELOPMENT"):
+    if config.get("environment", "").lower() in ("test", "development"):
         logger.debug(f"In {config.get('environment')} environment, skipping Sentry SDK initialization")
         return
 
