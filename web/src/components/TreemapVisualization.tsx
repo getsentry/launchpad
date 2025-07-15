@@ -89,6 +89,7 @@ function convertToEChartsData(
   const data: EChartsTreemapData = {
     name: element.name,
     value: size,
+    path: element.path,
     itemStyle: {
       color: 'transparent',
       borderColor: color,
@@ -161,6 +162,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
             </div>
             <div style="font-family: Rubik; line-height: 1;">
               <p style="font-size: 14px; font-weight: bold; margin-bottom: -2px;">${info.name}</p>
+              <p style="font-size: 12px; margin-bottom: -4px;">${info.data?.path}</p>
               <p style="font-size: 12px; margin-bottom: -4px;">Size: ${formatBytes(value, data.use_si_units)}</p>
               <p style="font-size: 12px;">Percentage: ${percent}%</p>
             </div>

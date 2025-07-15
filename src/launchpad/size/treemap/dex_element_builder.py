@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from typing import Dict, List
-
 from launchpad.parsers.android.dex.types import ClassDefinition
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
@@ -33,12 +30,7 @@ class DexElementBuilder(TreemapElementBuilder):
         install_size = file_info.size
         download_size = int(install_size * self.download_compression_ratio)
 
-        package_classes = self._group_classes_by_package()
-
-        package_elements: list[TreemapElement] = []
-        for package_name, classes in package_classes.items():
-            package_element = self._create_package_element(package_name, classes)
-            package_elements.append(package_element)
+        root_packages = self._build_package_tree()
 
         details = {
             "fileExtension": file_info.file_type,
@@ -52,53 +44,74 @@ class DexElementBuilder(TreemapElementBuilder):
             element_type=TreemapType.DEX,
             path=file_info.path,
             is_directory=True,
-            children=package_elements,
+            children=root_packages,
             details=details,
         )
 
-    def _group_classes_by_package(self) -> Dict[str, List[ClassDefinition]]:
-        package_classes: Dict[str, List[ClassDefinition]] = defaultdict(list)
+    def _build_package_tree(self) -> list[TreemapElement]:
+        package_tree: dict[str, dict] = {}
 
         for class_def in self.class_definitions:
-            package_name = self._extract_package_name(class_def)
-            package_classes[package_name].append(class_def)
+            fqn = class_def.fqn()
+            parts = fqn.split(".")
 
-        return dict(package_classes)
+            if len(parts) < 2:
+                logger.warning(f"Invalid class definition with no package: {fqn}")
+                continue
 
-    def _extract_package_name(self, class_def: ClassDefinition) -> str:
-        fqn = class_def.fqn()
-        parts = fqn.split(".")
-        if len(parts) > 1:
-            # Join all parts except the last one (class name)
-            return ".".join(parts[:-1])
-        else:
-            raise ValueError(f"Invalid class definition: {fqn}")
+            class_name = parts[-1]
+            package_parts = parts[:-1]
 
-    def _create_package_element(self, package_name: str, classes: List[ClassDefinition]) -> TreemapElement:
-        class_elements = []
-        total_package_size = 0
+            # Build the package hierarchy
+            current_level = package_tree
+            for package_part in package_parts:
+                if package_part not in current_level:
+                    current_level[package_part] = {"packages": {}, "classes": {}}
+                current_level = current_level[package_part]["packages"]
 
-        for class_def in classes:
-            class_element = self._create_class_element(class_def)
-            class_elements.append(class_element)
-            total_package_size += class_element.install_size
+            # Add the class to the leaf package
+            leaf_package = package_tree
+            for package_part in package_parts:
+                leaf_package = leaf_package[package_part]["packages"]
+            leaf_package[class_name] = {"class_def": class_def}
 
-        download_size = int(total_package_size * self.download_compression_ratio)
+        return self._convert_tree_to_elements(package_tree)
 
-        details = {
-            "class_count": len(classes),
-        }
+    def _convert_tree_to_elements(self, package_tree: dict[str, dict], parent_path: str = "") -> list[TreemapElement]:
+        elements: list[TreemapElement] = []
 
-        return TreemapElement(
-            name=package_name,
-            install_size=total_package_size,
-            download_size=download_size,
-            element_type=TreemapType.DEX,
-            path=f"{package_name}/",
-            is_directory=True,
-            children=class_elements,
-            details=details,
-        )
+        for name, node in package_tree.items():
+            if "class_def" in node:
+                class_def = node["class_def"]
+                class_element = self._create_class_element(class_def)
+                elements.append(class_element)
+            else:
+                package_path = f"{parent_path}.{name}" if parent_path else f"{name}"
+
+                # Process children (sub-packages and classes)
+                children = self._convert_tree_to_elements(node["packages"], package_path)
+
+                total_size = sum(child.install_size for child in children)
+                download_size = int(total_size * self.download_compression_ratio)
+
+                details = {
+                    "class_count": len([child for child in children if not child.is_directory]),
+                }
+
+                elements.append(
+                    TreemapElement(
+                        name=name,
+                        install_size=total_size,
+                        download_size=download_size,
+                        element_type=TreemapType.DEX,
+                        path=package_path,
+                        is_directory=True,
+                        children=children,
+                        details=details,
+                    )
+                )
+
+        return elements
 
     def _create_class_element(self, class_def: ClassDefinition) -> TreemapElement:
         class_size = class_def.size

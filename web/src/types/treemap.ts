@@ -78,6 +78,7 @@ export interface TreemapResults {
 export interface EChartsTreemapData {
   name: string;
   value: number;
+  path?: string;
   children?: EChartsTreemapData[];
   itemStyle?: {
     color?: string;
