@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, List
-
 from launchpad.parsers.android.dex.types import ClassDefinition
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
@@ -50,8 +48,8 @@ class DexElementBuilder(TreemapElementBuilder):
             details=details,
         )
 
-    def _build_package_tree(self) -> List[TreemapElement]:
-        package_tree: Dict[str, Dict] = {}
+    def _build_package_tree(self) -> list[TreemapElement]:
+        package_tree: dict[str, dict] = {}
 
         for class_def in self.class_definitions:
             fqn = class_def.fqn()
@@ -79,8 +77,8 @@ class DexElementBuilder(TreemapElementBuilder):
 
         return self._convert_tree_to_elements(package_tree)
 
-    def _convert_tree_to_elements(self, package_tree: Dict[str, Dict], parent_path: str = "") -> List[TreemapElement]:
-        elements = []
+    def _convert_tree_to_elements(self, package_tree: dict[str, dict], parent_path: str = "") -> list[TreemapElement]:
+        elements: list[TreemapElement] = []
 
         for name, node in package_tree.items():
             if "class_def" in node:
