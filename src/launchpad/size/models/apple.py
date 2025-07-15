@@ -97,7 +97,6 @@ class StripBinaryFileInfo(BaseModel):
     file_path: str = Field(..., description="Path to the binary file within the app bundle")
     debug_sections_savings: int = Field(..., ge=0, description="Savings from removing debug sections")
     symbol_table_savings: int = Field(..., ge=0, description="Savings from removing symbol table")
-    string_table_savings: int = Field(..., ge=0, description="Savings from removing string table")
     total_savings: int = Field(..., ge=0, description="Total potential savings in bytes from stripping debug content")
 
 

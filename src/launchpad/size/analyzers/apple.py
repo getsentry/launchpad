@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import struct
 import subprocess
 
 from pathlib import Path
@@ -432,7 +431,7 @@ class AppleAppAnalyzer:
         symbol_info = None
 
         # Always test symbol removal on the main app binary (not dSYM)
-        strippable_symbols_size = self._test_symbol_removal(binary, binary_path)
+        strippable_symbols_size = self._test_symbol_removal(parser, binary_path)
 
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
@@ -487,35 +486,23 @@ class AppleAppAnalyzer:
             objc_method_names=objc_method_names,
         )
 
-    def _test_symbol_removal(self, binary: Any, binary_path: Path) -> int:
+    def _test_symbol_removal(self, parser: MachOParser, binary_path: Path) -> int:
         """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
         import tempfile
 
         try:
             original_size = binary_path.stat().st_size
 
-            # Check for __objc_imageinfo section with non-zero Swift version (for -T flag behavior)
-            has_swift_imageinfo = False
-            try:
-                sec = binary.get_section("__objc_imageinfo")
-                if sec and len(sec.content) >= 8:
-                    _, flags = struct.unpack_from("<II", sec.content)  # Mach-O is LE on modern HW
-                    swift_version = (flags >> 8) & 0xFF
-                    has_swift_imageinfo = swift_version != 0
-                    logger.debug(
-                        "objc_imageinfo flags=0x%08x  swift=%d  objcFlags=0x%02x", flags, swift_version, flags & 0xFF
-                    )
-            except Exception as e:
-                logger.error("Could not parse __objc_imageinfo: %s", e)
+            has_swift_imageinfo = parser.has_swift_imageinfo()
 
             removable_symbols: list[lief.MachO.Symbol] = []
             total_symbols = 0
 
-            for symbol in binary.symbols:
+            for symbol in parser.binary.symbols:
                 total_symbols += 1
 
                 # Only remove symbols that are safe to remove, otherwise lief will crash
-                if binary.can_remove(symbol):
+                if parser.binary.can_remove(symbol):
                     symbol_name = str(symbol.name) if symbol.name else ""
 
                     # Additional filtering to match what strip would typically target
@@ -547,7 +534,7 @@ class AppleAppAnalyzer:
 
             logger.debug(
                 f"Symbol removal test for {binary_path.name}: {len(removable_symbols)}/{total_symbols} symbols removable"
-            )  # type: ignore
+            )
             if not removable_symbols:
                 return 0
 

@@ -7,7 +7,6 @@ from launchpad.size.models.apple import MachOBinaryAnalysis, StripBinaryFileInfo
 class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
     """Insight that analyzes debug sections and debugging symbols in binaries and calculates potential savings."""
 
-    # Debug sections that can be stripped to reduce binary size
     DEBUG_SECTIONS = {
         "__debug_info",
         "__debug_abbrev",
@@ -49,7 +48,6 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
                     file_path=str(binary_analysis.binary_path),
                     debug_sections_savings=debug_section_size,
                     symbol_table_savings=symbol_savings,
-                    string_table_savings=0,  # For now, all symbol savings are attributed to symbol table
                     total_savings=strippable_size,
                 )
                 strip_files.append(strip_file_info)
