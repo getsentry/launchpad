@@ -425,10 +425,14 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None
+
+        # Always test symbol removal on the main app binary (not dSYM)
+        strippable_symbols_size = self._test_strip_symbols_removal(parser, binary_path)
+
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
             if dwarf_fat_binary:
@@ -437,11 +441,18 @@ class AppleAppAnalyzer:
                 symbol_info = SymbolInfo(
                     swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                    strippable_symbols_size=strippable_symbols_size,
                 )
             else:
                 logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
         else:
-            logger.info("No dwarf binary path provided, skipping symbol sizes")
+            if strippable_symbols_size > 0:
+                symbol_info = SymbolInfo(
+                    swift_type_groups=[],
+                    objc_type_groups=[],
+                    strippable_symbols_size=strippable_symbols_size,
+                )
+            logger.info("No dwarf binary path provided, skipping detailed symbol analysis")
 
         # Extract Swift metadata if enabled
         swift_metadata = None
@@ -467,3 +478,93 @@ class AppleAppAnalyzer:
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
         )
+
+    def _test_strip_symbols_removal(self, parser: MachOParser, binary_path: Path) -> int:
+        """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
+        import tempfile
+
+        try:
+            original_size = binary_path.stat().st_size
+
+            has_swift_imageinfo = parser.has_swift_imageinfo()
+
+            removable_symbols: list[lief.MachO.Symbol] = []
+            total_symbols = 0
+
+            for symbol in parser.binary.symbols:
+                total_symbols += 1
+
+                # Only remove symbols that are safe to remove, otherwise lief will crash
+                if parser.binary.can_remove(symbol):
+                    symbol_name = str(symbol.name) if symbol.name else ""
+
+                    # Additional filtering to match what strip would typically target
+                    # Only remove symbols that match strip's typical patterns
+                    should_remove = (
+                        # Debug symbols (strip -S targets)
+                        symbol.type == lief.MachO.Symbol.TYPE.ABSOLUTE_SYM
+                        or symbol_name.startswith(("__debug", "__zdebug", "__apple_", "l_OBJC_LABEL_", "ltmp"))
+                        or "debug" in symbol_name.lower()
+                        or
+                        # Local symbols (strip -x targets)
+                        symbol.category == lief.MachO.Symbol.CATEGORY.LOCAL
+                        or
+                        # Swift symbols (strip -T targets) - only if __objc_imageinfo has non-zero Swift version
+                        (has_swift_imageinfo and symbol_name.startswith(("_$S", "_$s")))
+                        or
+                        # Compiler-generated symbols
+                        symbol_name.startswith(("L", "l", "_OBJC_$_CATEGORY_", "_OBJC_$_PROP_LIST_"))
+                        or
+                        # Temporary symbols
+                        symbol_name.startswith(("tmp", "temp", "unnamed_"))
+                        or
+                        # Swift compiler symbols (other than the -T targeted ones)
+                        symbol_name.startswith(("__swift_FORCE_LOAD", "__swift_"))
+                    )
+
+                    if should_remove:
+                        removable_symbols.append(symbol)
+
+            logger.debug(
+                f"Symbol removal test for {binary_path.name}: {len(removable_symbols)}/{total_symbols} symbols removable"
+            )
+            if not removable_symbols:
+                return 0
+
+            # Create a copy of the binary and remove the symbols to see the new size
+            binary_copy = lief.MachO.parse(str(binary_path))  # type: ignore
+            if not binary_copy or binary_copy.size == 0:
+                logger.warning("Failed to create binary copy for symbol removal testing")
+                return 0
+
+            binary_copy_obj = binary_copy.at(0)
+
+            removed_count = 0
+            for symbol in removable_symbols:
+                if symbol.name:
+                    binary_copy_obj.remove_symbol(str(symbol.name))
+                    removed_count += 1
+
+            logger.debug(f"Successfully removed {removed_count} symbols")
+            if removed_count == 0:
+                return 0
+
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                temp_path = Path(temp_file.name)
+                try:
+                    binary_copy_obj.write(str(temp_path))
+                    modified_size = temp_path.stat().st_size
+                    actual_savings = original_size - modified_size
+
+                    logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
+                    return max(0, actual_savings)
+
+                finally:
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
+
+        except Exception as e:
+            logger.error(f"Error testing symbol removal for {binary_path}: {e}")
+            return 0

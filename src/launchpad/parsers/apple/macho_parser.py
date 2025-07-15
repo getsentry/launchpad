@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import struct
+
 from pathlib import Path
 from typing import Dict, List
 
@@ -210,3 +212,27 @@ class MachOParser:
         except Exception as e:
             logger.error(f"Failed to parse Objective-C method names: {e}")
             return []
+
+    def has_swift_imageinfo(self) -> bool:
+        """Check if the binary has Swift image info with non-zero Swift version.
+
+        This corresponds to the -T flag behavior in strip, which only removes Swift symbols
+        if __objc_imageinfo section exists and has a non-zero Swift version.
+
+        Returns:
+            True if Swift image info is present with non-zero Swift version
+        """
+        try:
+            sec = self.binary.get_section("__objc_imageinfo")
+            if sec and len(sec.content) >= 8:
+                _, flags = struct.unpack_from("<II", sec.content)  # Mach-O is LE on modern HW
+                swift_version = (flags >> 8) & 0xFF
+                has_swift_info = swift_version != 0
+                logger.debug(
+                    "objc_imageinfo flags=0x%08x  swift=%d  objcFlags=0x%02x", flags, swift_version, flags & 0xFF
+                )
+                return has_swift_info
+            return False
+        except Exception as e:
+            logger.error("Could not parse __objc_imageinfo: %s", e)
+            return False
