@@ -35,7 +35,7 @@ class TestIOSBinaryComponentAnalysis:
         This test asserts against the specific section sizes and categorizations we expect
         from the HackerNews sample app to catch any regressions in the component analysis logic.
         """
-        analyzer = AppleAppAnalyzer(skip_range_mapping=False)
+        analyzer = AppleAppAnalyzer(skip_component_analysis=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 
@@ -73,7 +73,7 @@ class TestIOSBinaryComponentAnalysis:
 
     def test_component_analysis_completeness(self, sample_app_path: Path) -> None:
         """Test that components are properly analyzed in real binary."""
-        analyzer = AppleAppAnalyzer(skip_range_mapping=False)
+        analyzer = AppleAppAnalyzer(skip_component_analysis=False)
         artifact = ArtifactFactory.from_path(sample_app_path)
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 

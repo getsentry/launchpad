@@ -73,7 +73,7 @@ def size_command(
     flags: Dict[str, Path | bool] = {}
     flags["skip_swift_metadata"] = skip_swift_metadata
     flags["skip_symbols"] = skip_symbols
-    flags["skip_range_mapping"] = skip_component_analysis
+    flags["skip_component_analysis"] = skip_component_analysis
     flags["skip_treemap"] = skip_treemap
     if working_dir:
         flags["working_dir"] = working_dir

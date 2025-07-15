@@ -56,7 +56,7 @@ class AppleAppAnalyzer:
         working_dir: Path | None = None,
         skip_swift_metadata: bool = False,
         skip_symbols: bool = False,
-        skip_range_mapping: bool = False,
+        skip_component_analysis: bool = False,
         skip_treemap: bool = False,
         skip_image_analysis: bool = False,
         skip_insights: bool = False,
@@ -67,7 +67,7 @@ class AppleAppAnalyzer:
             working_dir: Directory for temporary files (None for system temp)
             skip_swift_metadata: Skip Swift metadata extraction for faster analysis
             skip_symbols: Skip symbol extraction for faster analysis
-            skip_range_mapping: Skip range mapping for binary content categorization
+            skip_component_analysis: Skip detailed binary component analysis for faster processing
             skip_treemap: Skip treemap generation for hierarchical size analysis
             skip_image_analysis: Skip image analysis for faster processing
             skip_insights: Skip insights generation for faster analysis
@@ -75,7 +75,7 @@ class AppleAppAnalyzer:
         self.working_dir = working_dir
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
-        self.skip_range_mapping = skip_range_mapping
+        self.skip_component_analysis = skip_component_analysis
         self.skip_treemap = skip_treemap
         self.skip_image_analysis = skip_image_analysis
         self.skip_insights = skip_insights
@@ -118,7 +118,7 @@ class AppleAppAnalyzer:
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
         hermes_reports = {}
 
-        if not self.skip_treemap and not self.skip_range_mapping:
+        if not self.skip_treemap and not self.skip_component_analysis:
             binaries = artifact.get_all_binary_paths()
             logger.info(f"Found {len(binaries)} binaries to analyze")
 
@@ -463,7 +463,7 @@ class AppleAppAnalyzer:
 
         # Analyze binary components
         binary_analysis = None
-        if not self.skip_range_mapping:
+        if not self.skip_component_analysis:
             analyzer = MachOSizeAnalyzer(parser, executable_size, str(binary_path))
             binary_analysis = analyzer.analyze()
 
