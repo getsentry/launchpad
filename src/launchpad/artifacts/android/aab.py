@@ -90,7 +90,7 @@ class AAB(AndroidArtifact):
 
         dex_mapping_files = list(self._extract_dir.rglob("proguard.map"))
         if len(dex_mapping_files) > 1:
-            raise ValueError("Multiple dex_mapping.txt files found in AAB")
+            raise ValueError("Multiple proguard.map files found in AAB")
 
         if len(dex_mapping_files) == 0:
             return None
