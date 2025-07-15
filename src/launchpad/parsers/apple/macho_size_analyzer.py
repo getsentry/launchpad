@@ -94,6 +94,22 @@ class MachOSizeAnalyzer:
                 elif cmd_type == lief.MachO.LoadCommand.TYPE.DYLD_CHAINED_FIXUPS:
                     if cast_command := self._cast_command(command, lief.MachO.DyldChainedFixups):
                         self._analyze_dyld_chained_fixups_command(analysis, cast_command)
+                elif cmd_type == lief.MachO.LoadCommand.TYPE.DYLIB_CODE_SIGN_DRS:
+                    self._analyze_dylib_code_sign_drs_command(analysis, command)
+                elif cmd_type == lief.MachO.LoadCommand.TYPE.LINKER_OPTIMIZATION_HINT:
+                    self._analyze_linker_optimization_hint_command(analysis, command)
+                elif cmd_type == lief.MachO.LoadCommand.TYPE.DYLD_EXPORTS_TRIE:
+                    self._analyze_dyld_exports_trie_command(analysis, command)
+                elif cmd_type == lief.MachO.LoadCommand.TYPE.RPATH:
+                    if cast_command := self._cast_command(command, lief.MachO.RPathCommand):
+                        self._analyze_rpath_command(analysis, cast_command)
+                elif cmd_type in [
+                    lief.MachO.LoadCommand.TYPE.LOAD_DYLIB,
+                    lief.MachO.LoadCommand.TYPE.LOAD_WEAK_DYLIB,
+                    lief.MachO.LoadCommand.TYPE.REEXPORT_DYLIB,
+                ]:
+                    if cast_command := self._cast_command(command, lief.MachO.DylibCommand):
+                        self._analyze_dylib_command(analysis, cast_command)
 
             except Exception as e:
                 logger.debug(f"Failed to analyze command {i} {cmd_name}: {e}")
@@ -181,41 +197,87 @@ class MachOSizeAnalyzer:
             section_name = (
                 section.name.decode("utf-8", errors="replace") if isinstance(section.name, bytes) else str(section.name)
             )
+            segment_name = (
+                section.segment.name.decode("utf-8", errors="replace")
+                if isinstance(section.segment.name, bytes)
+                else str(section.segment.name)
+            )
 
             try:
                 if section.size == 0:
                     logger.debug(f"Skipping section {section_name} with zero size")
                     continue
 
-                tag = self._categorize_section(section_name)
-                analysis.add_component(section_name, section.size, tag, None)
+                tag = self._categorize_section(section_name, segment_name)
+                if tag is not None:
+                    logger.debug(f"Section '{section_name}' (size: {section.size}) -> {tag.value}")
+                    analysis.add_component(section_name, section.size, tag, None)
+                else:
+                    logger.debug(f"Skipping unknown section '{section_name}' (size: {section.size})")
 
             except Exception as e:
                 logger.debug(f"Failed to analyze section {section_name}: {e}")
 
-    def _categorize_section(self, section_name: str) -> BinaryTag:
+    def _analyze_dylib_code_sign_drs_command(self, analysis: BinaryAnalysis, command: Any) -> None:
+        """Analyze code signature DRs from LC_DYLIB_CODE_SIGN_DRS command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                analysis.add_component(
+                    "dylib_code_sign_drs", command.data_size, BinaryTag.CODE_SIGNATURE, "Dylib code signature DRs"
+                )
+        except Exception as e:
+            logger.debug(f"Failed to analyze dylib code sign DRs command: {e}")
+
+    def _analyze_linker_optimization_hint_command(self, analysis: BinaryAnalysis, command: Any) -> None:
+        """Analyze linker optimization hints from LC_LINKER_OPTIMIZATION_HINT command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                analysis.add_component(
+                    "linker_optimization_hint", command.data_size, BinaryTag.DEBUG_INFO, "Linker optimization hints"
+                )
+        except Exception as e:
+            logger.debug(f"Failed to analyze linker optimization hint command: {e}")
+
+    def _analyze_dyld_exports_trie_command(self, analysis: BinaryAnalysis, command: Any) -> None:
+        """Analyze exports trie from LC_DYLD_EXPORTS_TRIE command."""
+        try:
+            if hasattr(command, "data_offset") and command.data_offset > 0 and command.data_size > 0:
+                analysis.add_component(
+                    "dyld_exports_trie", command.data_size, BinaryTag.DYLD_EXPORTS, "DYLD exports trie"
+                )
+        except Exception as e:
+            logger.debug(f"Failed to analyze exports trie command: {e}")
+
+    def _analyze_rpath_command(self, analysis: BinaryAnalysis, command: lief.MachO.RPathCommand) -> None:
+        """Analyze RPATH command data."""
+        if command.path:
+            # Note: RPATH command size is already counted in the load command itself
+            # This method is for consistency but doesn't add additional components
+            pass
+
+    def _analyze_dylib_command(self, analysis: BinaryAnalysis, command: lief.MachO.DylibCommand) -> None:
+        """Analyze dylib loading command data (LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB)."""
+        if command.name:
+            # Note: Dylib command size is already counted in the load command itself
+            # This method is for consistency but doesn't add additional components
+            pass
+
+    def _categorize_section(self, section_name: str, segment_name: str) -> BinaryTag | None:
         """Categorize a section based on its name."""
         name_lower = section_name.lower()
-
-        # Text segment sections
-        if any(text_name in name_lower for text_name in ["__text", "__stubs", "__stub_helper"]):
-            return BinaryTag.TEXT_SEGMENT
-
-        # Swift metadata sections
-        if "swift" in name_lower:
-            return BinaryTag.SWIFT_METADATA
+        segment_name_lower = segment_name.lower()
 
         # Objective-C sections
         if "objc" in name_lower:
             return BinaryTag.OBJC_CLASSES
 
+        # Swift metadata sections
+        if "swift" in name_lower:
+            return BinaryTag.SWIFT_METADATA
+
         # String sections
         if any(str_name in name_lower for str_name in ["__cstring", "__cfstring", "__ustring"]):
             return BinaryTag.C_STRINGS
-
-        # Data sections
-        if any(data_name in name_lower for data_name in ["__data", "__bss", "__common"]):
-            return BinaryTag.DATA_SEGMENT
 
         # Const sections
         if "const" in name_lower:
@@ -225,5 +287,18 @@ class MachOSizeAnalyzer:
         if "unwind" in name_lower or "eh_frame" in name_lower:
             return BinaryTag.UNWIND_INFO
 
-        # Default to data segment
-        return BinaryTag.DATA_SEGMENT
+        # Text segment sections
+        if (
+            any(text_name in name_lower for text_name in ["__text", "__stubs", "__stub_helper"])
+            or segment_name_lower == "__text"
+        ):
+            return BinaryTag.TEXT_SEGMENT
+
+        # Data sections
+        if (
+            any(data_name in name_lower for data_name in ["__data", "__bss", "__common"])
+            or segment_name_lower == "__data"
+        ):
+            return BinaryTag.DATA_SEGMENT
+
+        return None

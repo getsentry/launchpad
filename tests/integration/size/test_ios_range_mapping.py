@@ -51,10 +51,10 @@ class TestIOSBinaryComponentAnalysis:
         # Note: These are baseline expectations that may need adjustment as the categorization
         # logic is refined, but they serve as regression tests for major changes
         expected_sizes = {
-            BinaryTag.TEXT_SEGMENT: 1842548,
+            BinaryTag.TEXT_SEGMENT: 1860337,
             BinaryTag.OBJC_CLASSES: 430336,
-            BinaryTag.DATA_SEGMENT: 114666,
-            BinaryTag.C_STRINGS: 200543,
+            BinaryTag.DATA_SEGMENT: 140141,
+            BinaryTag.C_STRINGS: 197007,
             BinaryTag.SWIFT_METADATA: 114830,
             BinaryTag.CONST_DATA: 79511,
             BinaryTag.UNMAPPED: 0,
