@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
@@ -27,6 +28,7 @@ class AAB(AndroidArtifact):
         self._manifest: AndroidManifest | None = None
         self._resource_table: ProtobufResourceTable | None = None
         self._primary_apks: list[APK] | None = None
+        self._dex_mapping: DexMapping | None = None
 
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
@@ -75,9 +77,25 @@ class AAB(AndroidArtifact):
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
-                apks.append(APK(apk_path))
+                apks.append(APK(apk_path, self.get_dex_mapping()))
 
             self._primary_apks = apks
             return apks
         finally:
             cleanup_directory(apks_dir)
+
+    def get_dex_mapping(self) -> DexMapping | None:
+        if self._dex_mapping is not None:
+            return self._dex_mapping
+
+        dex_mapping_files = list(self._extract_dir.rglob("proguard.map"))
+        if len(dex_mapping_files) > 1:
+            raise ValueError("Multiple proguard.map files found in AAB")
+
+        if len(dex_mapping_files) == 0:
+            return None
+
+        dex_mapping_file = dex_mapping_files[0]
+        with open(dex_mapping_file, "rb") as f:
+            dex_mapping_buffer = f.read()
+        return DexMapping(dex_mapping_buffer)

@@ -1,10 +1,10 @@
-"""Types for DEX file parsing."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any
+
+from launchpad.parsers.android.dex.android_code_utils import AndroidCodeUtils
 
 # Types taken from https://source.android.com/docs/core/runtime/dex-format
 
@@ -105,19 +105,11 @@ class ClassDefinition:
     access_flags: list[AccessFlag]
     fields: list[Field]
     methods: list[Method]
-    # TODO: Superclass
 
     def fqn(self) -> str:
-        signature = self.signature
-
-        # Remove leading 'L' and trailing ';' if they exist
-        if signature.startswith("L"):
-            signature = signature[1:]
-        if signature.endswith(";"):
-            signature = signature[:-1]
-
-        # Replace '/' with '.'
-        return signature.replace("/", ".")
+        # Remove Kotlin suffix from signature if present
+        signature = AndroidCodeUtils.remove_kotlin_suffix_from_signature(self.signature)
+        return AndroidCodeUtils.class_signature_to_fqn(signature)
 
     def get_name(self) -> str:
         return self.fqn().split(".")[-1]
@@ -173,6 +165,5 @@ class AccessFlag(IntEnum):
     DECLARED_SYNCHRONIZED = 0x20000
 
 
-# Constants
 ENDIAN_CONSTANT = 0x12345678
 NO_INDEX = 0xFFFFFFFF

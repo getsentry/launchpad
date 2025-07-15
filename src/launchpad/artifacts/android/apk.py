@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.apksigner import Apksigner
 
 from ...parsers.android.dex.dex_file_parser import DexFileParser
@@ -19,9 +20,10 @@ logger = get_logger(__name__)
 
 
 class APK(AndroidArtifact):
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, dex_mapping: DexMapping | None = None) -> None:
         super().__init__(path)
         self._path = path
+        self._dex_mapping = dex_mapping
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
@@ -76,7 +78,7 @@ class APK(AndroidArtifact):
             try:
                 with open(dex_file, "rb") as f:
                     dex_buffer = f.read()
-                dex_file_parser = DexFileParser(dex_buffer)
+                dex_file_parser = DexFileParser(dex_buffer, self._dex_mapping)
                 class_definitions = dex_file_parser.get_class_definitions()
                 self._class_definitions.extend(class_definitions)
             except (OSError, IOError) as e:
