@@ -136,7 +136,7 @@ class Registry:
         def tot(name: str) -> float:
             return sum(durs[name])
 
-        # ---- FIX: only sum the roots ------------------------------------- #
+        # Only sum the roots to avoid double-counting
         total_time = sum(tot(r) for r in roots)
 
         lines: list[str] = [
