@@ -25,7 +25,7 @@ class MachOSizeAnalyzer:
         """Analyze the binary and extract sections information.
 
         Returns:
-            Complete binary analysis with all detected sectionss
+            Complete binary analysis with all detected sections
         """
         logger.debug(f"Analyzing binary: {self.file_path}")
 
