@@ -10,7 +10,6 @@ logger = get_logger(__name__)
 
 @dataclass
 class SymbolSize:
-    symbol: lief.MachO.Symbol
     mangled_name: str
     section: lief.MachO.Section | None
     address: int
@@ -28,10 +27,9 @@ class MachOSymbolSizes:
         symbol_tuples = list(self._symbol_sizes(self.binary))
 
         symbol_sizes: list[SymbolSize] = []
-        for mangled_name, symbol, section, address, size in symbol_tuples:
+        for mangled_name, section, address, size in symbol_tuples:
             symbol_sizes.append(
                 SymbolSize(
-                    symbol=symbol,
                     mangled_name=mangled_name,
                     section=section,
                     address=address,
@@ -51,10 +49,8 @@ class MachOSymbolSizes:
             and sym.value > 0
         )
 
-    def _symbol_sizes(
-        self, bin: lief.MachO.Binary
-    ) -> Generator[tuple[str, lief.MachO.Symbol, lief.MachO.Section | None, int, int]]:
-        """Yield (name, symbol, section, addr, size) via the distance-to-next-symbol heuristic."""
+    def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[tuple[str, lief.MachO.Section | None, int, int]]:
+        """Yield (name, addr, size) via the distance-to-next-symbol heuristic."""
 
         # sort symbols by their address so we can calculate the distance between them
         syms = sorted((s for s in bin.symbols if self._is_measurable(s)), key=lambda s: s.value)
@@ -90,4 +86,4 @@ class MachOSymbolSizes:
             else:
                 logger.warning(f"Failed to calculate size for symbol {sym.name}")
 
-            yield (str(sym.name), sym, section, start, size)
+            yield (str(sym.name), section, start, size)
