@@ -28,7 +28,7 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
         # Find all image files that are not in asset catalogs
         raw_image_files: list[FileInfo] = []
         for file_info in input.file_analysis.files:
-            if self._is_raw_image_file(file_info):
+            if self._is_loose_image_file(file_info):
                 raw_image_files.append(file_info)
 
         if not raw_image_files:
@@ -75,7 +75,7 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
             total_savings=total_savings,
         )
 
-    def _is_raw_image_file(self, file_info: FileInfo) -> bool:
+    def _is_loose_image_file(self, file_info: FileInfo) -> bool:
         """Check if a file is a raw image that should be moved to an asset catalog."""
         # Must be an image file
         if file_info.file_type not in self.IMAGE_EXTENSIONS:
