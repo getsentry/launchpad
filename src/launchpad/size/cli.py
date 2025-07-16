@@ -13,6 +13,7 @@ from launchpad.size.models.common import BaseAnalysisResults, FileAnalysis
 from launchpad.size.runner import do_size, write_results_as_json
 from launchpad.utils.console import console
 from launchpad.utils.logging import setup_logging
+from launchpad.utils.performance import GLOBAL_REGISTRY
 
 
 @click.command(name="size")
@@ -61,6 +62,8 @@ def size_command(
     """Analyze provided artifact and generate a size report."""
     setup_logging(verbose=verbose, quiet=quiet)
 
+    GLOBAL_REGISTRY.clear()
+
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
 
@@ -104,6 +107,8 @@ def size_command(
     except Exception:
         console.print_exception()
         raise click.Abort()
+    finally:
+        GLOBAL_REGISTRY.log_summary("cli.size")
 
 
 def _print_results_as_table(results: BaseAnalysisResults) -> None:

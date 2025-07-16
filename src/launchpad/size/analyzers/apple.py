@@ -35,6 +35,7 @@ from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import calculate_file_hash, get_file_size
 from launchpad.utils.logging import get_logger
+from launchpad.utils.performance import trace, trace_ctx
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -81,6 +82,7 @@ class AppleAppAnalyzer:
         self.skip_insights = skip_insights
         self.app_info: AppleAppInfo | None = None
 
+    @trace("apple.preprocess")
     def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
@@ -88,6 +90,7 @@ class AppleAppAnalyzer:
         self.app_info = self._extract_app_info(artifact)
         return self.app_info
 
+    @trace("apple.analyze")
     def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
         """Analyze an Apple app bundle.
 
@@ -155,14 +158,20 @@ class AppleAppAnalyzer:
                 hermes_reports=hermes_reports,
             )
             insights = AppleInsightResults(
-                duplicate_files=DuplicateFilesInsight().generate(insights_input),
-                large_audio=LargeAudioFileInsight().generate(insights_input),
-                large_images=LargeImageFileInsight().generate(insights_input),
-                large_videos=LargeVideoFileInsight().generate(insights_input),
-                strip_binary=StripSymbolsInsight().generate(insights_input),
-                localized_strings=LocalizedStringsInsight().generate(insights_input),
-                hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
-                small_files=SmallFilesInsight().generate(insights_input),
+                duplicate_files=self._generate_insight_with_tracing(
+                    DuplicateFilesInsight, insights_input, "duplicate_files"
+                ),
+                large_audio=self._generate_insight_with_tracing(LargeAudioFileInsight, insights_input, "large_audio"),
+                large_images=self._generate_insight_with_tracing(LargeImageFileInsight, insights_input, "large_images"),
+                large_videos=self._generate_insight_with_tracing(LargeVideoFileInsight, insights_input, "large_videos"),
+                strip_binary=self._generate_insight_with_tracing(StripSymbolsInsight, insights_input, "strip_binary"),
+                localized_strings=self._generate_insight_with_tracing(
+                    LocalizedStringsInsight, insights_input, "localized_strings"
+                ),
+                hermes_debug_info=self._generate_insight_with_tracing(
+                    HermesDebugInfoInsight, insights_input, "hermes_debug_info"
+                ),
+                small_files=self._generate_insight_with_tracing(SmallFilesInsight, insights_input, "small_files"),
             )
 
         results = AppleAnalysisResults(
@@ -179,6 +188,7 @@ class AppleAppAnalyzer:
 
         return results
 
+    @trace("apple.extract_app_info")
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
         """Extract basic app information.
 
@@ -224,6 +234,7 @@ class AppleAppAnalyzer:
             code_signature_errors=code_signature_errors,
         )
 
+    @trace("apple.detect_file_type")
     def _detect_file_type(self, file_path: Path) -> str:
         """Detect file type using the file command.
 
@@ -299,6 +310,7 @@ class AppleAppAnalyzer:
         # If no devices are provisioned, it's an app store profile
         return "appstore", profile_name
 
+    @trace("apple.analyze_files")
     def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
         """Analyze all files in the app bundle.
 
@@ -368,6 +380,7 @@ class AppleAppAnalyzer:
 
         return FileAnalysis(files=files)
 
+    @trace("apple.analyze_asset_catalog")
     def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[TreemapElement]:
         """Analyze an asset catalog file."""
         catalog_details = xcarchive.get_asset_catalog_details(relative_path)
@@ -392,6 +405,13 @@ class AppleAppAnalyzer:
             for element in catalog_details
         ]
 
+    def _generate_insight_with_tracing(
+        self, insight_class: type, insights_input: InsightsInput, insight_name: str
+    ) -> Any:
+        with trace_ctx(f"apple.insights.{insight_name}"):
+            return insight_class().generate(insights_input)
+
+    @trace("apple.analyze_binary")
     def _analyze_binary(
         self, binary_path: Path, dwarf_binary_path: Path | None = None, skip_swift_metadata: bool = False
     ) -> MachOBinaryAnalysis:
@@ -479,6 +499,7 @@ class AppleAppAnalyzer:
             objc_method_names=objc_method_names,
         )
 
+    @trace("apple.test_strip_symbols_removal")
     def _test_strip_symbols_removal(self, parser: MachOParser, binary_path: Path) -> int:
         """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
         import tempfile
