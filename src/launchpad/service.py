@@ -34,8 +34,8 @@ from launchpad.constants import (
 from launchpad.sentry_client import ErrorResult, SentryClient, categorize_http_error
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
-from launchpad.size.models.android import AndroidAppInfo
 from launchpad.size.models.apple import AppleAppInfo
+from launchpad.size.models.common import BaseAppInfo
 from launchpad.size.runner import do_preprocess, do_size
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import DogStatsd, get_statsd
@@ -364,7 +364,7 @@ class LaunchpadService:
                 self._safe_cleanup(temp_file, "temporary file")
             raise
 
-    def _prepare_update_data(self, app_info: AppleAppInfo | AndroidAppInfo, artifact: Any) -> Dict[str, Any]:
+    def _prepare_update_data(self, app_info: AppleAppInfo | BaseAppInfo, artifact: Any) -> Dict[str, Any]:
         """Prepare update data based on app platform and artifact type."""
         if isinstance(app_info, AppleAppInfo):
             # TODO: add "date_built" field once exposed in 'AppleAppInfo'
@@ -380,7 +380,7 @@ class LaunchpadService:
                     "code_signature_errors": app_info.code_signature_errors,
                 },
             }
-        elif isinstance(app_info, AndroidAppInfo):
+        else:
             artifact_type = ArtifactType.AAB if isinstance(artifact, (AAB, ZippedAAB)) else ArtifactType.APK
             # TODO: add "date_built" and custom android fields
             return {
@@ -388,12 +388,10 @@ class LaunchpadService:
                 "build_number": (int(app_info.build) if app_info.build.isdigit() else None),
                 "artifact_type": artifact_type.value,
             }
-        else:
-            raise ValueError(f"Unsupported app_info type: {type(app_info)}")
 
-    def _create_analyzer(self, app_info: AppleAppInfo | AndroidAppInfo) -> AndroidAnalyzer | AppleAppAnalyzer:
+    def _create_analyzer(self, app_info: AppleAppInfo | BaseAppInfo) -> AndroidAnalyzer | AppleAppAnalyzer:
         """Create analyzer with preprocessed app info."""
-        if isinstance(app_info, AndroidAppInfo):
+        if isinstance(app_info, BaseAppInfo):
             analyzer = AndroidAnalyzer()
             analyzer.app_info = app_info
             return analyzer

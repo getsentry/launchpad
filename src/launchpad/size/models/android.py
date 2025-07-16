@@ -10,10 +10,6 @@ from .insights import (
 )
 
 
-class AndroidAppInfo(BaseAppInfo):
-    model_config = ConfigDict(frozen=True)
-
-
 class OptimizeableImageFile(BaseModel):
     model_config = ConfigDict(frozen=True)
     file_info: FileInfo = Field(..., description="File info")
@@ -39,7 +35,7 @@ class AndroidInsightResults(BaseModel):
 
 class AndroidAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
-    app_info: AndroidAppInfo = Field(..., description="Android app information")
+    app_info: BaseAppInfo = Field(..., description="Android app information")
     insights: AndroidInsightResults | None = Field(
         description="Generated insights from the analysis",
     )
