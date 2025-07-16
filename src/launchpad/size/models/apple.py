@@ -94,6 +94,10 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
 class StripBinaryFileInfo(BaseModel):
     """Savings information from stripping a Mach-O binary."""
 
+    # Re-adding this causes the leak:
+    macho_binary: MachOBinaryAnalysis | None = Field(None, description="Mach-O binary analysis")
+    
+
     file_path: str = Field(..., description="Path to the binary file within the app bundle")
     debug_sections_savings: int = Field(..., ge=0, description="Savings from removing debug sections")
     symbol_table_savings: int = Field(..., ge=0, description="Savings from removing symbol table")
