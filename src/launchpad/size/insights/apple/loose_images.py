@@ -1,3 +1,4 @@
+import os
 import re
 
 from collections import defaultdict
@@ -50,6 +51,7 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
         # Calculate total savings and avoid double-counting:
         # 1. Files eliminated via app thinning: full block-aligned disk usage saved
         # 2. Files that remain: only block alignment waste saved
+        # TODO: calculate code-signing overhead savings
 
         total_savings = 0
         eliminated_files: set[str] = set()
@@ -81,12 +83,8 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
         if file_info.file_type not in self.IMAGE_EXTENSIONS:
             return False
 
-        # Skip if it's already in an asset catalog (.car file)
-        if ".car/" in file_info.path:
-            return False
-
         # Skip system icons
-        filename = file_info.path.split("/")[-1]  # Get just the filename
+        filename = os.path.basename(file_info.path)
         if filename.startswith("AppIcon") or filename.startswith("iMessage App Icon"):
             return False
 
@@ -99,7 +97,7 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
 
     def _get_canonical_image_name(self, file_path: str) -> str:
         """Extract canonical image name by removing resolution suffixes like @2x, @3x, ~ipad."""
-        filename = file_path.split("/")[-1]  # Get just the filename
+        filename = os.path.basename(file_path)
 
         match = self.CANONICAL_NAME_PATTERN.match(filename)
         if match:
@@ -121,7 +119,7 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
         has_2x = False
 
         for image in group.images:
-            filename = image.path.split("/")[-1]
+            filename = os.path.basename(image.path)
             if "@3x" in filename:
                 has_3x = True
             elif "@2x" in filename:
@@ -130,7 +128,7 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
         # Second pass: identify files to eliminate
         eliminated: list[str] = []
         for image in group.images:
-            filename = image.path.split("/")[-1]
+            filename = os.path.basename(image.path)
 
             if "@3x" in filename:
                 # Keep @3x for target device
