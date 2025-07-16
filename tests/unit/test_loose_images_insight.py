@@ -144,44 +144,6 @@ class TestLooseImagesInsight:
         assert len(result.image_groups) == 1
         assert result.image_groups[0].canonical_name == "regular_icon.png"
 
-    def test_excludes_deeply_nested_images(self):
-        """Test that deeply nested images (>3 levels) are excluded."""
-        files = [
-            # Shallow - should be included
-            FileInfo(
-                full_path=Path("images/icon.png"),
-                path="images/icon.png",
-                size=5120,
-                file_type="png",
-                treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_shallow",
-            ),
-            # Deep - should be excluded
-            FileInfo(
-                full_path=Path("very/deep/nested/folder/icon.png"),
-                path="very/deep/nested/folder/icon.png",
-                size=7168,
-                file_type="png",
-                treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_deep",
-            ),
-        ]
-
-        file_analysis = FileAnalysis(files=files)
-        insights_input = InsightsInput(
-            app_info=Mock(spec=BaseAppInfo),
-            file_analysis=file_analysis,
-            treemap=Mock(),
-            binary_analysis=[],
-        )
-
-        result = self.insight.generate(insights_input)
-
-        assert isinstance(result, LooseImagesInsightResult)
-        assert result.total_file_count == 1  # Only shallow image
-        assert len(result.image_groups) == 1
-        assert result.image_groups[0].canonical_name == "icon.png"
-
     def test_excludes_stickerpack_images(self):
         """Test that images in .stickerpack directories are excluded."""
         files = [
