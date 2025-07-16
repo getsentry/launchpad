@@ -8,7 +8,7 @@ import time
 from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Callable, Dict, List, TypeVar
+from typing import Any, Callable, List, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -38,7 +38,6 @@ class Tracer:
         self._token = None  # contextvar token
         self._start: float = 0.0
         self.duration: float | None = None
-        self.metadata: Dict[str, Any] = {}
 
     # --------------------------------------------------------------------- #
     # context-manager protocol                                              #
@@ -96,11 +95,8 @@ class Registry:
     def __init__(self) -> None:
         self._samples: List[Tracer] = []
 
-    # API used by `Tracer`
     def add(self, tracer: Tracer) -> None:
         self._samples.append(tracer)
-
-    # public helpers --------------------------------------------------------
 
     def clear(self) -> None:
         self._samples.clear()
@@ -165,13 +161,6 @@ class Registry:
 
         lines.append("=" * 60)
         return lines
-
-    # --------------------------------------------------------------------- #
-    # public wrappers                                                       #
-    # --------------------------------------------------------------------- #
-
-    def summary(self) -> str:  # ← keeps old API
-        return "\n".join(self.summary_lines())
 
     def log_summary(self, logger_name: str | None = None, level: str = "info") -> None:
         """Emit summary through the logger (never prints)."""
