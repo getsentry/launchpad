@@ -4,12 +4,12 @@ from collections import defaultdict
 
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.apple import RawImageGroup, RawImagesInsightResult
+from launchpad.size.models.apple import LooseImageGroup, LooseImagesInsightResult
 from launchpad.size.models.common import FileInfo
 from launchpad.utils.file_utils import to_nearest_block_size
 
 
-class RawImagesInsight(Insight[RawImagesInsightResult]):
+class LooseImagesInsight(Insight[LooseImagesInsightResult]):
     """Insight for analyzing raw images that are not included in iOS asset catalogs."""
 
     IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf", "webp", "heif", "heic", "tiff", "tif", "bmp"}
@@ -17,7 +17,7 @@ class RawImagesInsight(Insight[RawImagesInsightResult]):
     # Pattern to extract canonical image name (removes @2x, @3x, ~ipad, etc.)
     CANONICAL_NAME_PATTERN = re.compile(r"^(.+?)(?:[@~][^.]*)?(\.[^.]+)$")
 
-    def generate(self, input: InsightsInput) -> RawImagesInsightResult | None:
+    def generate(self, input: InsightsInput) -> LooseImagesInsightResult | None:
         """Generate insight for raw images analysis.
 
         Finds all image files that are not in asset catalogs,
@@ -41,7 +41,7 @@ class RawImagesInsight(Insight[RawImagesInsightResult]):
             image_groups_dict[canonical_name].append(image_file)
 
         image_groups = [
-            RawImageGroup(canonical_name=canonical_name, images=images)
+            LooseImageGroup(canonical_name=canonical_name, images=images)
             for canonical_name, images in image_groups_dict.items()
         ]
 
@@ -69,7 +69,7 @@ class RawImagesInsight(Insight[RawImagesInsightResult]):
                 # File remains: save only block alignment waste
                 total_savings += block_aligned_size - image_file.size
 
-        return RawImagesInsightResult(
+        return LooseImagesInsightResult(
             image_groups=image_groups,
             total_file_count=len(raw_image_files),
             total_savings=total_savings,
@@ -114,7 +114,7 @@ class RawImagesInsight(Insight[RawImagesInsightResult]):
 
         return filename  # Fallback to original filename if pattern doesn't match
 
-    def _get_eliminated_files(self, group: RawImageGroup) -> list[str]:
+    def _get_eliminated_files(self, group: LooseImageGroup) -> list[str]:
         """Get list of file paths that would be eliminated via app thinning for @3x devices."""
         # Only apply app thinning to groups that have scale indicators
         has_scale_indicators = any("@" in img.path for img in group.images)

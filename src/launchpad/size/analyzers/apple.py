@@ -18,7 +18,7 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAg
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
-from launchpad.size.insights.apple.raw_images import RawImagesInsight
+from launchpad.size.insights.apple.loose_images import LooseImagesInsight
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
@@ -173,7 +173,7 @@ class AppleAppAnalyzer:
                     HermesDebugInfoInsight, insights_input, "hermes_debug_info"
                 ),
                 small_files=self._generate_insight_with_tracing(SmallFilesInsight, insights_input, "small_files"),
-                raw_images=self._generate_insight_with_tracing(RawImagesInsight, insights_input, "raw_images"),
+                loose_images=self._generate_insight_with_tracing(LooseImagesInsight, insights_input, "loose_images"),
             )
 
         results = AppleAnalysisResults(

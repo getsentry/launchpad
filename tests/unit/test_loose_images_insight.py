@@ -2,17 +2,17 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
-from launchpad.size.insights.apple.raw_images import RawImagesInsight
+from launchpad.size.insights.apple.loose_images import LooseImagesInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.apple import RawImagesInsightResult
+from launchpad.size.models.apple import LooseImagesInsightResult
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.treemap import TreemapType
 from launchpad.utils.file_utils import to_nearest_block_size
 
 
-class TestRawImagesInsight:
+class TestLooseImagesInsight:
     def setup_method(self):
-        self.insight = RawImagesInsight()
+        self.insight = LooseImagesInsight()
 
     def test_generate_with_raw_images(self):
         """Test that insight is generated when app has raw images not in asset catalogs."""
@@ -72,7 +72,7 @@ class TestRawImagesInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, RawImagesInsightResult)
+        assert isinstance(result, LooseImagesInsightResult)
         assert result.total_file_count == 3  # 3 raw image files
         assert len(result.image_groups) == 2  # 2 canonical groups: "home.png" and "submit.jpg"
 
@@ -139,7 +139,7 @@ class TestRawImagesInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, RawImagesInsightResult)
+        assert isinstance(result, LooseImagesInsightResult)
         assert result.total_file_count == 1  # Only regular_icon.png
         assert len(result.image_groups) == 1
         assert result.image_groups[0].canonical_name == "regular_icon.png"
@@ -177,7 +177,7 @@ class TestRawImagesInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, RawImagesInsightResult)
+        assert isinstance(result, LooseImagesInsightResult)
         assert result.total_file_count == 1  # Only shallow image
         assert len(result.image_groups) == 1
         assert result.image_groups[0].canonical_name == "icon.png"
@@ -213,7 +213,7 @@ class TestRawImagesInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, RawImagesInsightResult)
+        assert isinstance(result, LooseImagesInsightResult)
         assert result.total_file_count == 1  # Only regular image
         assert len(result.image_groups) == 1
         assert result.image_groups[0].canonical_name == "image.png"
@@ -299,7 +299,7 @@ class TestRawImagesInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, RawImagesInsightResult)
+        assert isinstance(result, LooseImagesInsightResult)
         assert result.total_file_count == 4
         assert len(result.image_groups) == 2
 
