@@ -191,10 +191,10 @@ def _print_file_analysis_table(file_analysis: FileAnalysis) -> None:
 def _print_apple_summary(results: AppleAnalysisResults) -> None:
     """Print a brief summary of the analysis."""
     file_analysis = results.file_analysis
-    binary_analysis = results.binary_analysis
     insights = results.insights
 
     console.print("\n[bold]Summary:[/bold]")
+    console.print(f"• Duration: {results.analysis_duration:.2f} seconds")
     console.print(f"• App name: [cyan]{results.app_info.name}[/cyan]")
     console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
     console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
@@ -204,13 +204,6 @@ def _print_apple_summary(results: AppleAnalysisResults) -> None:
             f"• Potential savings from duplicates: "
             f"[yellow]{_format_bytes(insights.duplicate_files.total_savings)}[/yellow]"
         )
-
-    if binary_analysis:
-        for binary in binary_analysis:
-            console.print(f"\nExecutable Size: {binary.executable_size / 1024 / 1024:.1f} MB")
-            console.print(f"Architectures: {', '.join(binary.architectures)}")
-            console.print(f"Linked Libraries: {len(binary.linked_libraries)}")
-            console.print(f"Sections: {len(binary.sections)}")
 
 
 def _format_bytes(size: int) -> str:
