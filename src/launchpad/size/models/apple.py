@@ -23,6 +23,19 @@ from .insights import (
 )
 
 
+@dataclass
+class RawImageGroup:
+    """Group of raw image files with the same canonical name."""
+
+    canonical_name: str
+    images: List[FileInfo]
+
+    @property
+    def total_size(self) -> int:
+        """Total size of all images in this group."""
+        return sum(img.size for img in self.images)
+
+
 class AppleAnalysisResults(BaseAnalysisResults):
     """Complete Apple analysis results."""
 
@@ -52,6 +65,15 @@ class SmallFilesInsightResult(BaseInsightResult):
 
     files: List[FileInfo] = Field(..., description="Files smaller than filesystem block size")
     file_count: int = Field(..., description="Number of small files found")
+
+
+class RawImagesInsightResult(BaseInsightResult):
+    """Results from raw images analysis."""
+
+    image_groups: List[RawImageGroup] = Field(
+        ..., description="Groups of raw images that could be moved to asset catalogs"
+    )
+    total_file_count: int = Field(..., description="Total number of raw image files found")
 
 
 class AppleAppInfo(BaseAppInfo):
@@ -128,6 +150,7 @@ class AppleInsightResults(BaseModel):
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
     localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
     small_files: SmallFilesInsightResult | None = Field(None, description="Small files analysis")
+    raw_images: RawImagesInsightResult | None = Field(None, description="Raw images not in asset catalogs analysis")
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
 
