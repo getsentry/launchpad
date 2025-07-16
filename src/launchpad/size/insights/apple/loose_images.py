@@ -10,7 +10,7 @@ from launchpad.utils.file_utils import to_nearest_block_size
 
 
 class LooseImagesInsight(Insight[LooseImagesInsightResult]):
-    """Insight for analyzing raw images that are not included in iOS asset catalogs."""
+    """Insight for analyzing loose images that are not included in iOS asset catalogs."""
 
     IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf", "webp", "heif", "heic", "tiff", "tif", "bmp"}
 
@@ -47,7 +47,7 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
 
         image_groups.sort(key=lambda group: group.total_size, reverse=True)
 
-        # Calculate total savings avoiding double-counting:
+        # Calculate total savings and avoid double-counting:
         # 1. Files eliminated via app thinning: full block-aligned disk usage saved
         # 2. Files that remain: only block alignment waste saved
 
@@ -90,13 +90,8 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
         if filename.startswith("AppIcon") or filename.startswith("iMessage App Icon"):
             return False
 
-        # Only consider top-level images or images in immediate subdirectories
-        # (not deeply nested, as those are likely already organized)
-        path_parts = file_info.path.split("/")
-        if len(path_parts) > 3:  # Allow up to 2 levels deep: folder/subfolder/image.png
-            return False
-
         # Skip .stickerpack directories (as mentioned in Swift code)
+        path_parts = file_info.path.split("/")
         if any(part.endswith(".stickerpack") for part in path_parts):
             return False
 
