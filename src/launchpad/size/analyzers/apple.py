@@ -505,18 +505,19 @@ class AppleAppAnalyzer:
         import tempfile
 
         try:
-            original_size = binary_path.stat().st_size
+            with trace_ctx("strip_symbols.get_original_size"):
+                original_size = binary_path.stat().st_size
 
-            has_swift_imageinfo = parser.has_swift_imageinfo()
+            with trace_ctx("strip_symbols.check_swift_imageinfo"):
+                has_swift_imageinfo = parser.has_swift_imageinfo()
 
             removable_symbols: list[lief.MachO.Symbol] = []
             total_symbols = 0
 
-            for symbol in parser.binary.symbols:
-                total_symbols += 1
+            with trace_ctx("strip_symbols.analyze_symbols"):
+                for symbol in parser.binary.symbols:
+                    total_symbols += 1
 
-                # Only remove symbols that are safe to remove, otherwise lief will crash
-                if parser.binary.can_remove(symbol):
                     symbol_name = str(symbol.name) if symbol.name else ""
 
                     # Additional filtering to match what strip would typically target
@@ -553,38 +554,41 @@ class AppleAppAnalyzer:
                 return 0
 
             # Create a copy of the binary and remove the symbols to see the new size
-            binary_copy = lief.MachO.parse(str(binary_path))  # type: ignore
-            if not binary_copy or binary_copy.size == 0:
-                logger.warning("Failed to create binary copy for symbol removal testing")
-                return 0
+            with trace_ctx("strip_symbols.create_binary_copy"):
+                binary_copy = lief.MachO.parse(str(binary_path))  # type: ignore
+                if not binary_copy or binary_copy.size == 0:
+                    logger.warning("Failed to create binary copy for symbol removal testing")
+                    return 0
 
-            binary_copy_obj = binary_copy.at(0)
+                binary_copy_obj = binary_copy.at(0)
 
-            removed_count = 0
-            for symbol in removable_symbols:
-                if symbol.name:
-                    binary_copy_obj.remove_symbol(str(symbol.name))
-                    removed_count += 1
+            with trace_ctx("strip_symbols.remove_symbols"):
+                removed_count = 0
+                for symbol in removable_symbols:
+                    if parser.binary.can_remove(symbol):
+                        binary_copy_obj.remove(symbol)
+                        removed_count += 1
 
             logger.debug(f"Successfully removed {removed_count} symbols")
             if removed_count == 0:
                 return 0
 
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_path = Path(temp_file.name)
-                try:
-                    binary_copy_obj.write(str(temp_path))
-                    modified_size = temp_path.stat().st_size
-                    actual_savings = original_size - modified_size
-
-                    logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
-                    return max(0, actual_savings)
-
-                finally:
+            with trace_ctx("strip_symbols.write_and_measure"):
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_path = Path(temp_file.name)
                     try:
-                        temp_path.unlink()
-                    except Exception:
-                        pass
+                        binary_copy_obj.write(str(temp_path))
+                        modified_size = temp_path.stat().st_size
+                        actual_savings = original_size - modified_size
+
+                        logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
+                        return max(0, actual_savings)
+
+                    finally:
+                        try:
+                            temp_path.unlink()
+                        except Exception:
+                            pass
 
         except Exception as e:
             logger.error(f"Error testing symbol removal for {binary_path}: {e}")
