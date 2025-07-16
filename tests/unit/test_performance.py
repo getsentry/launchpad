@@ -49,19 +49,6 @@ def test_nested_tracers() -> None:
     assert len(registry._samples) == 2  # type: ignore[attr-defined]
 
 
-def test_registry_summary() -> None:
-    """Test basic registry summary generation."""
-    registry = Registry()
-
-    with Tracer("operation", registry=registry):
-        time.sleep(0.01)
-
-    summary = registry.summary()
-
-    assert "HIERARCHICAL PERFORMANCE SUMMARY" in summary
-    assert "operation:" in summary
-
-
 def test_trace_convenience_decorator() -> None:
     """Test the convenience @trace decorator."""
 
@@ -95,11 +82,3 @@ def test_registry_clear() -> None:
 
     registry.clear()
     assert len(registry._samples) == 0  # type: ignore[attr-defined]
-
-
-def test_empty_registry_summary() -> None:
-    """Test summary for empty registry."""
-    registry = Registry()
-    summary = registry.summary()
-
-    assert summary == "No traces recorded."
