@@ -154,6 +154,7 @@ class Bundletool:
         output_dir: str | Path,
         device_spec: DeviceSpec,
         sign_apks: bool = True,
+        universal_apk: bool = False,
     ) -> None:
         """Build APKs from an Android App Bundle.
 
@@ -168,7 +169,14 @@ class Bundletool:
             BundletoolError: If build command fails
         """
         temp_apks_path = create_temp_directory("apks-") / "apks.apks"
-        build_apks_command = ["build-apks", f"--bundle={bundle_path}", f"--output={temp_apks_path}"]
+        build_apks_command = [
+            "build-apks",
+            f"--bundle={bundle_path}",
+            f"--output={temp_apks_path}",
+        ]
+
+        if universal_apk:
+            build_apks_command.append("--mode=universal")
 
         # Generate keystore and sign APKs if requested
         if sign_apks:
