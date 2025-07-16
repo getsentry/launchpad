@@ -73,8 +73,8 @@ class TestTreemapGeneration:
         # Verify app info
         app_info_name = results.app_info.name
         assert app_info_name == "Hacker News"
-        app_info_package_name = results.app_info.package_name
-        assert app_info_package_name == "com.emergetools.hackernews"
+        app_info_app_id = results.app_info.app_id
+        assert app_info_app_id == "com.emergetools.hackernews"
         app_info_version = results.app_info.version
         assert app_info_version == "1.0.2"
         app_info_build = results.app_info.build
@@ -163,8 +163,8 @@ class TestTreemapGeneration:
         # Verify app info
         app_info_name = results.app_info.name
         assert app_info_name == "Hacker News"
-        app_info_package_name = results.app_info.package_name
-        assert app_info_package_name == "com.emergetools.hackernews"
+        app_info_app_id = results.app_info.app_id
+        assert app_info_app_id == "com.emergetools.hackernews"
         app_info_version = results.app_info.version
         assert app_info_version == "1.0.2"
         app_info_build = results.app_info.build
