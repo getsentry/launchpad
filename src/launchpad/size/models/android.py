@@ -12,7 +12,6 @@ from .insights import (
 
 class AndroidAppInfo(BaseAppInfo):
     model_config = ConfigDict(frozen=True)
-    package_name: str = Field(..., description="Android package name")
 
 
 class OptimizeableImageFile(BaseModel):

@@ -17,10 +17,11 @@ interface FileAnalysisData {
 
 interface AppInfo {
   name: string;
+  app_id: string;
   version: string;
   build: string;
-  executable: string;
-  bundle_id: string;
+  // iOS-specific
+  executable?: string;
   minimum_os_version?: string;
   supported_platforms?: string[];
   sdk_version?: string;

@@ -220,7 +220,7 @@ class AppleAppAnalyzer:
 
         return AppleAppInfo(
             name=plist.get("CFBundleName", "Unknown"),
-            bundle_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
+            app_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
             version=plist.get("CFBundleShortVersionString", "Unknown"),
             build=plist.get("CFBundleVersion", "Unknown"),
             executable=plist.get("CFBundleExecutable", "Unknown"),

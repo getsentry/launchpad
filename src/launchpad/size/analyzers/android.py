@@ -63,7 +63,7 @@ class AndroidAnalyzer:
             name=manifest_dict["application"]["label"] or "Unknown",
             version=manifest_dict["version_name"] or "Unknown",
             build=manifest_dict["version_code"] or "Unknown",
-            package_name=manifest_dict["package_name"],
+            app_id=manifest_dict["package_name"],
         )
 
         return self.app_info
