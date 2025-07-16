@@ -13,21 +13,10 @@ steps:
         "--use",
       ]
 
-  # Authenticate with Docker Hub
-  - name: "gcr.io/cloud-builders/docker"
-    id: "dockerhub-auth"
-    waitFor: ["create-builder"]
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - "docker login --username=$$DOCKERHUB_USERNAME --password-stdin <<< $$DOCKERHUB_PAT"
-    secretEnv: ["DOCKERHUB_USERNAME", "DOCKERHUB_PAT"]
-
-
   # Login to GHCR
   - name: "gcr.io/cloud-builders/docker"
     id: "ghcr-login"
-    waitFor: ["dockerhub-auth"]
+    waitFor: ["create-builder"]
     entrypoint: "bash"
     args:
       - "-c"
@@ -52,9 +41,6 @@ steps:
             -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:$COMMIT_SHA \
             -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:$SHORT_SHA \
             -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:nightly \
-            -t $_DOCKERHUB_OWNER/$REPO_NAME:$COMMIT_SHA \
-            -t $_DOCKERHUB_OWNER/$REPO_NAME:$SHORT_SHA \
-            -t $_DOCKERHUB_OWNER/$REPO_NAME:nightly \
             --label org.opencontainers.image.revision=$COMMIT_SHA \
             --label org.opencontainers.image.version=$COMMIT_SHA \
             --label org.opencontainers.image.title=$REPO_NAME \
@@ -70,16 +56,11 @@ logsBucket: "gs://sentryio-cloudbuild-logs-wf7jff"
 
 availableSecrets:
   secretManager:
-    - versionName: "projects/${PROJECT_ID}/secrets/dockerhub_pat/versions/1"
-      env: "DOCKERHUB_PAT"
-    - versionName: "projects/${PROJECT_ID}/secrets/dockerhub_username/versions/1"
-      env: "DOCKERHUB_USERNAME"
     - versionName: "projects/${PROJECT_ID}/secrets/ghcr_user/versions/1"
       env: "GHCR_USER"
     - versionName: "projects/${PROJECT_ID}/secrets/ghcr_pat/versions/1"
       env: "GHCR_PAT"
 
 substitutions:
-  _DOCKERHUB_OWNER: "getsentry"
   _GHCR_OWNER: "getsentry"
 
