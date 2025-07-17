@@ -17,6 +17,7 @@ from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.hermes.utils import make_hermes_reports
+from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.loose_images import LooseImagesInsight
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
@@ -174,6 +175,9 @@ class AppleAppAnalyzer:
                 ),
                 small_files=self._generate_insight_with_tracing(SmallFilesInsight, insights_input, "small_files"),
                 loose_images=self._generate_insight_with_tracing(LooseImagesInsight, insights_input, "loose_images"),
+                image_optimization=self._generate_insight_with_tracing(
+                    ImageOptimizationInsight, insights_input, "image_optimization"
+                ),
             )
 
         results = AppleAnalysisResults(

@@ -76,6 +76,31 @@ class LooseImagesInsightResult(BaseInsightResult):
     total_file_count: int = Field(..., description="Total number of loose image files found")
 
 
+@dataclass
+class OptimizableImageFile:
+    """Information about an image file that can be optimized."""
+
+    file_info: FileInfo
+    optimization_type: str  # "minify", "convert_to_heic", "minify_heic"
+    current_size: int
+    optimized_size: int
+    current_quality: int | None = None  # For JPEG/PNG quality detection
+
+    @property
+    def potential_savings(self) -> int:
+        """Calculate potential savings from optimization."""
+        return max(0, self.current_size - self.optimized_size)
+
+
+class ImageOptimizationInsightResult(BaseInsightResult):
+    """Results from image optimization analysis."""
+
+    optimizable_files: List[OptimizableImageFile] = Field(
+        ..., description="Files that can be optimized with potential savings"
+    )
+    total_file_count: int = Field(..., description="Total number of optimizable files found")
+
+
 class AppleAppInfo(BaseAppInfo):
     """Apple-specific app information."""
 
@@ -152,6 +177,9 @@ class AppleInsightResults(BaseModel):
     small_files: SmallFilesInsightResult | None = Field(None, description="Small files analysis")
     loose_images: LooseImagesInsightResult | None = Field(
         None, description="Loose images not in asset catalogs analysis"
+    )
+    image_optimization: ImageOptimizationInsightResult | None = Field(
+        None, description="Image optimization analysis"
     )
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
