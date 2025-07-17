@@ -25,7 +25,7 @@ class TestAndroidAnalyzer:
         results = android_analyzer.analyze(artifact)
 
         assert results.app_info.name == "Hacker News"
-        assert results.app_info.package_name == "com.emergetools.hackernews"
+        assert results.app_info.app_id == "com.emergetools.hackernews"
         assert results.file_analysis is not None
         assert len(results.file_analysis.files) > 0
 

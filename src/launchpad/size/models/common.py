@@ -19,6 +19,7 @@ class BaseAppInfo(BaseModel):
     name: str = Field(..., description="App display name")
     version: str = Field(..., description="App version")
     build: str = Field(..., description="Build number")
+    app_id: str = Field(..., description="App ID (bundle id on iOS, package name on Android)")
 
 
 class BaseBinaryAnalysis(BaseModel):
@@ -62,7 +63,11 @@ class FileInfo(BaseModel):
 
     path: str = Field(..., description="Relative path in the bundle")
     full_path: Path = Field(..., exclude=True, description="Fully qualified path to the file")
-    size: int = Field(..., ge=0, description="Raw file size in bytes with no filesystem block size adjustments")
+    size: int = Field(
+        ...,
+        ge=0,
+        description="Raw file size in bytes with no filesystem block size adjustments",
+    )
     file_type: str = Field(..., description="File type/extension")
     hash_md5: str = Field(..., description="MD5 hash of file contents")
     treemap_type: TreemapType = Field(..., description="Type for treemap visualization")

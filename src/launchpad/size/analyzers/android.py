@@ -21,10 +21,9 @@ from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.android import (
     AndroidAnalysisResults,
-    AndroidAppInfo,
     AndroidInsightResults,
 )
-from launchpad.size.models.common import FileAnalysis, FileInfo
+from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.utils.file_utils import calculate_file_hash
@@ -46,9 +45,9 @@ class AndroidAnalyzer:
         **kwargs,
     ) -> None:
         self.skip_insights = skip_insights
-        self.app_info: AndroidAppInfo | None = None
+        self.app_info: BaseAppInfo | None = None
 
-    def preprocess(self, artifact: AndroidArtifact) -> AndroidAppInfo:
+    def preprocess(self, artifact: AndroidArtifact) -> BaseAppInfo:
         """Extract basic app information from the manifest.
 
         Args:
@@ -59,11 +58,11 @@ class AndroidAnalyzer:
         """
         manifest_dict = artifact.get_manifest().model_dump()
 
-        self.app_info = AndroidAppInfo(
+        self.app_info = BaseAppInfo(
             name=manifest_dict["application"]["label"] or "Unknown",
             version=manifest_dict["version_name"] or "Unknown",
             build=manifest_dict["version_code"] or "Unknown",
-            package_name=manifest_dict["package_name"],
+            app_id=manifest_dict["package_name"],
         )
 
         return self.app_info

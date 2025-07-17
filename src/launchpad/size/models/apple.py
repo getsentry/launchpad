@@ -122,7 +122,6 @@ class AppleAppInfo(BaseAppInfo):
     model_config = ConfigDict(frozen=True)
 
     executable: str = Field(..., description="Main executable name")
-    bundle_id: str = Field(..., description="Bundle identifier")
     minimum_os_version: str = Field(..., description="Minimum app version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
     sdk_version: str | None = Field(None, description="App SDK version used for build")
@@ -193,8 +192,8 @@ class AppleInsightResults(BaseModel):
     loose_images: LooseImagesInsightResult | None = Field(
         None, description="Loose images not in asset catalogs analysis"
     )
-    image_optimization: ImageOptimizationInsightResult | None = Field(None, description="Image optimization analysis")
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
+    image_optimization: ImageOptimizationInsightResult | None = Field(None, description="Image optimization analysis")
 
 
 @dataclass

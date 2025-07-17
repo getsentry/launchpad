@@ -43,20 +43,23 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: '0.75rem',
-          marginBottom: '1rem'
+          marginBottom: '1rem',
+          color: '#6c757d'
         }}>
           <div>
-            <strong style={{ color: '#6c757d' }}>Version:</strong> {data.app_info.version}
+            <strong>Version:</strong> {data.app_info.version}
           </div>
           <div>
-            <strong style={{ color: '#6c757d' }}>Build:</strong> {data.app_info.build}
+            <strong>Build:</strong> {data.app_info.build}
           </div>
           <div>
-            <strong style={{ color: '#6c757d' }}>Bundle ID:</strong> {data.app_info.bundle_id}
+            <strong>App ID:</strong> {data.app_info.app_id}
           </div>
-          <div>
-            <strong style={{ color: '#6c757d' }}>Executable:</strong> {data.app_info.executable}
-          </div>
+          {data.app_info.executable && (
+            <div>
+              <strong>Executable:</strong> {data.app_info.executable}
+            </div>
+          )}
         </div>
       </div>
 

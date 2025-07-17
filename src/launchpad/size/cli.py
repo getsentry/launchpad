@@ -41,12 +41,22 @@ from launchpad.utils.performance import GLOBAL_REGISTRY
     type=click.Path(path_type=Path),
     help="Working directory for temporary files (default: system temp).",
 )
-@click.option("--skip-swift-metadata", is_flag=True, help="Skip Swift metadata parsing for faster analysis.")
+@click.option(
+    "--skip-swift-metadata",
+    is_flag=True,
+    help="Skip Swift metadata parsing for faster analysis.",
+)
 @click.option("--skip-symbols", is_flag=True, help="Skip symbol extraction and analysis.")
 @click.option(
-    "--skip-component-analysis", is_flag=True, help="Skip detailed binary component analysis for faster processing."
+    "--skip-component-analysis",
+    is_flag=True,
+    help="Skip detailed binary component analysis for faster processing.",
 )
-@click.option("--skip-treemap", is_flag=True, help="Skip treemap generation for hierarchical size analysis.")
+@click.option(
+    "--skip-treemap",
+    is_flag=True,
+    help="Skip treemap generation for hierarchical size analysis.",
+)
 def size_command(
     input_path: Path,
     output: TextIO,
@@ -130,7 +140,7 @@ def _print_apple_table_output(results: AppleAnalysisResults) -> None:
 
     app_info = results.app_info
     app_table.add_row("Name", app_info.name)
-    app_table.add_row("Bundle ID", app_info.bundle_id)
+    app_table.add_row("Bundle ID", app_info.app_id)
     app_table.add_row("Version", f"{app_info.version} ({app_info.build})")
     app_table.add_row("Min OS", app_info.minimum_os_version)
     app_table.add_row("Platforms", ", ".join(app_info.supported_platforms))
@@ -167,7 +177,7 @@ def _print_android_table_output(results: AndroidAnalysisResults) -> None:
 
     app_info = results.app_info
     app_table.add_row("Name", app_info.name)
-    app_table.add_row("Package Name", app_info.package_name)
+    app_table.add_row("Package Name", app_info.app_id)
     app_table.add_row("Version", f"{app_info.version} ({app_info.build})")
 
     console.print(app_table)

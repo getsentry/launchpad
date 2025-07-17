@@ -2,7 +2,11 @@ from pathlib import Path
 
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.apple import MachOBinaryAnalysis, StripBinaryInsightResult, SymbolInfo
+from launchpad.size.models.apple import (
+    MachOBinaryAnalysis,
+    StripBinaryInsightResult,
+    SymbolInfo,
+)
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis
 
 
@@ -36,7 +40,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[binary_analysis],
@@ -77,7 +81,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[binary_analysis],
@@ -123,7 +127,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[binary_analysis],
@@ -209,7 +213,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[binary_analysis_1, binary_analysis_2, binary_analysis_3],
@@ -265,7 +269,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[binary_analysis],
@@ -300,7 +304,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[binary_analysis],
@@ -322,7 +326,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[non_macho_binary],
@@ -362,7 +366,7 @@ class TestStripSymbolsInsight:
         )
 
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[binary_analysis],
@@ -387,7 +391,7 @@ class TestStripSymbolsInsight:
     def test_generate_with_empty_binary_analysis(self):
         """Test that no insight is generated when binary_analysis is empty."""
         insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1"),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(files=[]),
             treemap=None,
             binary_analysis=[],  # Empty list

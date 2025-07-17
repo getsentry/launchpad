@@ -84,6 +84,32 @@ class AAB(AndroidArtifact):
         finally:
             cleanup_directory(apks_dir)
 
+    def get_universal_apk(self, device_spec: DeviceSpec = DeviceSpec()) -> APK:
+        if self._universal_apk is not None:
+            return self._universal_apk
+
+        apk_dir = create_temp_directory("apk-")
+        try:
+            bundletool = Bundletool()
+            bundletool.build_apks(
+                bundle_path=self._path,
+                output_dir=apk_dir,
+                device_spec=device_spec,
+                universal_apk=True,
+            )
+
+            apk = None
+            apk_files = list(apk_dir.glob("*.apk"))
+            if len(apk_files) != 1:
+                raise ValueError("Expected 1 APK, got %d" % len(apk_files))
+
+            apk = APK(apk_files[0], self.get_dex_mapping())
+
+            self._universal_apk = apk
+            return apk
+        finally:
+            cleanup_directory(apk_dir)
+
     def get_dex_mapping(self) -> DexMapping | None:
         if self._dex_mapping is not None:
             return self._dex_mapping
