@@ -395,14 +395,14 @@ class AppleAppAnalyzer:
                 file_hash = calculate_file_hash(element.full_path, algorithm="md5")
             else:
                 # can't hash a directory so use imageId as hash
-                file_hash = element.imageId
+                file_hash = element.image_id
 
             result.append(
                 FileInfo(
                     full_path=element.full_path,
                     path=str(relative_path) + "/" + element.name,
                     size=element.size,
-                    file_type=Path(element.name).suffix.lstrip(".") if element.type == "1" else "",
+                    file_type=Path(element.full_path).suffix.lstrip("."),
                     hash_md5=file_hash,
                     treemap_type=TreemapType.ASSETS,
                     children=[],

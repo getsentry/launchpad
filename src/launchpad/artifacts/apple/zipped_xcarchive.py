@@ -23,9 +23,9 @@ logger = get_logger(__name__)
 @dataclass
 class AssetCatalogElement:
     name: str
-    imageId: str
+    image_id: str
     size: int
-    type: str
+    type: int
     vector: bool
     filename: str
     full_path: Path
@@ -256,20 +256,31 @@ class ZippedXCArchive(AppleArtifact):
         name = item.get("name", "")
         image_id = item.get("imageId", "")
         size = item.get("size", 0)
-        asset_type = item.get("type", "")
+        asset_type = item.get("type", 0)
         is_vector = item.get("vector", False)
         filename = item.get("filename", "")
 
-        if asset_type == 1:
+        # Enhanced asset type handling
+        if asset_type == 1:  # Standard PNG image
             full_path = parent_path / f"{image_id}.png"
+        elif asset_type == 2:  # JPEG image
+            full_path = parent_path / f"{image_id}.jpg"
+        elif asset_type == 3:  # PDF/Vector image
+            full_path = parent_path / f"{image_id}.pdf"
+        elif asset_type == 4:  # HEIF image
+            full_path = parent_path / f"{image_id}.heic"
+        elif asset_type == 9:  # Color asset
+            full_path = parent_path / f"{image_id}.colorset"
+        elif asset_type == 10:  # Data asset
+            full_path = parent_path / image_id
         else:
             full_path = parent_path / image_id
 
         return AssetCatalogElement(
             name=name,
-            imageId=image_id,
+            image_id=image_id,
             size=size,
-            type=str(asset_type),
+            type=asset_type,
             vector=is_vector,
             filename=filename,
             full_path=full_path,
