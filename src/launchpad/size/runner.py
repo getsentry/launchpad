@@ -8,12 +8,11 @@ from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
-from launchpad.size.models.android import AndroidAppInfo
 from launchpad.size.models.apple import AppleAppInfo
-from launchpad.size.models.common import BaseAnalysisResults
+from launchpad.size.models.common import BaseAnalysisResults, BaseAppInfo
 
 
-def do_preprocess(path: Path, **flags: Any) -> AndroidAppInfo | AppleAppInfo:
+def do_preprocess(path: Path, **flags: Any) -> BaseAppInfo | AppleAppInfo:
     """Perform preprocessing step only to extract basic app info.
 
     Args:

@@ -82,7 +82,6 @@ class AppleAppInfo(BaseAppInfo):
     model_config = ConfigDict(frozen=True)
 
     executable: str = Field(..., description="Main executable name")
-    bundle_id: str = Field(..., description="Bundle identifier")
     minimum_os_version: str = Field(..., description="Minimum app version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
     sdk_version: str | None = Field(None, description="App SDK version used for build")
