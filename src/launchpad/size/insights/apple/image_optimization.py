@@ -40,7 +40,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     """Analyse image optimisation opportunities in iOS apps."""
 
     OPTIMIZABLE_FORMATS = {"png", "jpg", "jpeg", "heif", "heic"}
-    MIN_SAVINGS_THRESHOLD = 500
+    MIN_SAVINGS_THRESHOLD = 4096
     TARGET_JPEG_QUALITY = 85
     TARGET_HEIC_QUALITY = 85
     _MAX_WORKERS = 8
@@ -71,11 +71,9 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
 
         return ImageOptimizationInsightResult(
             optimizable_files=results,
-            total_file_count=len(results),
             total_savings=total_savings,
         )
 
-    @trace("image_optimization.analyze_file_info")
     def _analyze_file_info(self, file_info: FileInfo) -> OptimizableImageFile | None:
         return self._analyze_image_optimization(
             full_path=file_info.full_path,
@@ -113,7 +111,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                 elif fmt in {"heif", "heic"}:
                     if res := self._check_heic_minification(img, file_size):
                         minify_savings, minified_size = res.savings, res.optimized_size
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             logger.error("Failed to process %s: %s", display_path, exc)
             return None
 
@@ -140,7 +138,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                     work.save(buf, format="JPEG", quality=self.TARGET_JPEG_QUALITY, **save_params)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             logger.error("Minification check failed: %s", exc)
             return None
 
@@ -155,7 +153,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                 work.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             logger.error("HEIC conversion check failed: %s", exc)
             return None
 
@@ -165,7 +163,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                 img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             logger.error("HEIC minification check failed: %s", exc)
             return None
 
