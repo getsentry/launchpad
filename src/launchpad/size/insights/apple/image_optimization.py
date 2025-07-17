@@ -112,7 +112,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
             logger.error("Failed to process %s: %s", display_path, exc)
             return None
 
-        if (minify_savings | conversion_savings) < self.MIN_SAVINGS_THRESHOLD:
+        if max(minify_savings, conversion_savings) < self.MIN_SAVINGS_THRESHOLD:
             return None
 
         return OptimizableImageFile(
