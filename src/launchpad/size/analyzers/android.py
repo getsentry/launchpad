@@ -101,6 +101,7 @@ class AndroidAnalyzer:
             hermes_reports=hermes_reports,
         )
 
+        logger.debug("Building file treemap")
         treemap = treemap_builder.build_file_treemap(file_analysis)
 
         insights: AndroidInsightResults | None = None
@@ -133,6 +134,7 @@ class AndroidAnalyzer:
         )
 
     def _get_file_analysis(self, apks: list[APK]) -> FileAnalysis:
+        logger.debug("Getting file analysis")
         file_infos: list[FileInfo] = []
         total_size = 0
         path_to_file_info: dict[str, FileInfo] = {}
@@ -245,6 +247,7 @@ class AndroidAnalyzer:
         )
 
     def _get_class_definitions(self, apks: list[APK]) -> list[ClassDefinition]:
+        logger.debug("Getting class definitions")
         class_definitions: list[ClassDefinition] = []
         for apk in apks:
             class_definitions.extend(apk.get_class_definitions())
@@ -252,6 +255,7 @@ class AndroidAnalyzer:
 
     def _get_hermes_reports(self, apks: list[APK]) -> dict[str, HermesReport]:
         """Get Hermes reports from all APKs and combine them."""
+        logger.debug("Getting Hermes reports")
         all_reports: dict[str, HermesReport] = {}
         for apk in apks:
             extract_path = apk.get_extract_path()
