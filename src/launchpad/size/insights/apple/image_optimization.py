@@ -142,12 +142,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     def _check_heic_conversion(self, img: Image.Image, file_size: int) -> _OptimizationResult | None:
         try:
             with io.BytesIO() as buf:
-                work = (
-                    img.convert("RGB")
-                    if img.mode in {"RGBA", "LA", "P"} and not (img.mode == "RGBA" or "transparency" in img.info)
-                    else img
-                )
-                work.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
+                img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
         except Exception as exc:
