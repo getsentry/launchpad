@@ -14,7 +14,7 @@ local pipedream_config = {
   },
   rollback: {
     material_name: 'launchpad_repo',
-    stage: 'deploy-primary',
+    stage: 'deploy_primary',
     elastic_profile_id: 'launchpad',
   },
 };

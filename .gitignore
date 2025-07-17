@@ -49,3 +49,7 @@ install-devenv.sh
 
 # Local output files
 out.json
+
+# gocd generated output
+gocd/templates/vendor/
+gocd/generated-pipelines/

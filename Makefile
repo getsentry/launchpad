@@ -1,4 +1,4 @@
-.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status check-deps coverage
+.PHONY: help test test-unit test-integration lint format type-check fix check-format check-types clean build build-wheel clean-venv check ci all run-cli status check-deps coverage gocd
 
 # Default target
 help:
@@ -136,3 +136,17 @@ status:
 	@echo "Virtual environment: $$(if [ -d $(VENV_DIR) ]; then echo 'exists'; else echo 'missing'; fi)"
 	@echo "Pre-commit hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"
 	@echo "UV version: $$($(UV) --version 2>/dev/null || echo 'not installed')"
+
+
+gocd: ## Build GoCD pipelines
+	rm -rf ./gocd/generated-pipelines
+	mkdir -p ./gocd/generated-pipelines
+	cd ./gocd/templates && jb install && jb update
+	# Format
+	find . -type f \( -name '*.libsonnet' -o -name '*.jsonnet' \) -print0 | xargs -n 1 -0 jsonnetfmt -i
+	# Lint
+	find . -type f \( -name '*.libsonnet' -o -name '*.jsonnet' \) -print0 | xargs -n 1 -0 jsonnet-lint -J ./gocd/templates/vendor
+	# Build
+	cd ./gocd/templates && find . -type f \( -name '*.jsonnet' \) -print0 | xargs -n 1 -0 jsonnet --ext-code output-files=true -J vendor -m ../generated-pipelines
+	# Convert JSON to yaml
+	cd ./gocd/generated-pipelines && find . -type f \( -name '*.yaml' \) -print0 | xargs -n 1 -0 yq -p json -o yaml -i
