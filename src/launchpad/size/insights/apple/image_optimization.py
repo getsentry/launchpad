@@ -19,7 +19,6 @@ from launchpad.size.models.apple import (
 )
 from launchpad.size.models.common import FileInfo
 from launchpad.utils.logging import get_logger
-from launchpad.utils.performance import trace
 
 pillow_heif.register_heif_opener()  # type: ignore
 
@@ -45,7 +44,6 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     TARGET_HEIC_QUALITY = 85
     _MAX_WORKERS = 8
 
-    @trace("image_optimization.generate")
     def generate(self, input: InsightsInput) -> ImageOptimizationInsightResult | None:  # noqa: D401
         files = list(self._iter_optimizable_files(input.file_analysis.files))
         if not files:
@@ -83,7 +81,6 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
             source_object=file_info,
         )
 
-    @trace("image_optimization.analyze_single_image")
     def _analyze_image_optimization(
         self,
         *,
