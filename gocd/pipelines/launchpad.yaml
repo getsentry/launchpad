@@ -1,0 +1,66 @@
+# More information on gocd-flavor YAML can be found here:
+# - https://github.com/tomzo/gocd-yaml-config-plugin#pipeline
+# - https://www.notion.so/sentry/GoCD-New-Service-Quickstart-6d8db7a6964049b3b0e78b8a4b52e25d
+format_version: 10
+environments:
+    # Must start with "launchpad".
+    launchpad-env:
+        pipelines:
+            - launchpad-pipeline
+pipelines:
+    launchpad-pipeline:
+        environment_variables:
+            # These values can be customized per-pipeline run
+            # by clicking the run button with a plus sign.
+            # If you'd like to generate encrypted values,
+            # please refer to the Quickstart Guide.
+            EXAMPLE_PIPELINE_VAR: "Example pipeline variable"
+            # Read access to private repositories for the GoCD agent.
+            GITHUB_TOKEN: "{{SECRET:[devinfra-github][token]}}"
+        # Must start with "launchpad".
+        group: launchpad
+        lock_behavior: unlockWhenFinished
+        materials:
+            launchpad_repo:
+                git: git@github.com:getsentry/launchpad.git
+                shallow_clone: true
+                destination: launchpad
+                branch: main
+        # A pipeline executes stages sequentially.
+        stages:
+            - checks:
+                  fetch_materials: true
+                  # Since this is the first stage,
+                  # manual approval will block the pipeline from automatically
+                  # being run when the materials change upstream.
+                  approval:
+                      type: manual
+                  # A stage executes jobs in parallel.
+                  jobs:
+                      checks:
+                          timeout: 600 # 10 mins
+                          # Must be exactly "launchpad".
+                          elastic_profile_id: launchpad
+                          # A job executes tasks sequentially.
+                          tasks:
+                              - script: |
+                                    checks-gocd-pipeline-status \
+                                    checks-googlecloud-check-cloudbuild \
+                                    checks-githubactions-checkruns
+                          # TODO: add another script to specifically check the health of the most recent launchpad deploy
+            - deploy-launchpad:
+                  approval:
+                      type: success
+                      # Manual approval is only enabled if the previous stage
+                      # succeeded.
+                      allow_only_on_success: true
+                  jobs:
+                      run-demo-sh:
+                          timeout: 600
+                          elastic_profile_id: launchpad
+                          tasks:
+                              - script: |
+                                    gocd-trigger-pipeline \
+                                    --pipeline-name=deploy-launchpad \
+                                    --material-name=launchpad_repo \
+                                    --sha="${GO_REVISION_LAUNCHPAD_REPO}"
