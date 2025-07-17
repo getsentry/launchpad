@@ -150,8 +150,7 @@ class TestImageOptimizationInsightIntegration:
         result = insight.generate(insights_input)
         assert result is not None
         for optimizable_file in result.optimizable_files:
-            total_savings = optimizable_file.minify_savings + optimizable_file.conversion_savings
-            assert total_savings >= insight.MIN_SAVINGS_THRESHOLD
+            assert optimizable_file.potential_savings >= insight.MIN_SAVINGS_THRESHOLD
 
     def test_calculates_minification_savings(
         self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any], insights_input: InsightsInput
