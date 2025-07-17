@@ -81,15 +81,31 @@ class OptimizableImageFile:
     """Information about an image file that can be optimized."""
 
     file_info: FileInfo
-    optimization_type: str  # "minify", "convert_to_heic", "minify_heic"
     current_size: int
-    optimized_size: int
     current_quality: int | None = None  # For JPEG/PNG quality detection
+
+    # Minification savings (optimizing current format)
+    minify_savings: int = 0
+    minified_size: int | None = None
+
+    # HEIC conversion savings (converting to HEIC format)
+    conversion_savings: int = 0
+    heic_size: int | None = None
 
     @property
     def potential_savings(self) -> int:
-        """Calculate potential savings from optimization."""
-        return max(0, self.current_size - self.optimized_size)
+        """Calculate total potential savings from the best optimization."""
+        return max(self.minify_savings, self.conversion_savings)
+
+    @property
+    def best_optimization_type(self) -> str:
+        """Return the optimization type that provides the most savings."""
+        if self.conversion_savings > self.minify_savings:
+            return "convert_to_heic"
+        elif self.minify_savings > 0:
+            return "minify"
+        else:
+            return "none"
 
 
 class ImageOptimizationInsightResult(BaseInsightResult):

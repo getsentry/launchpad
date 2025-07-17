@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import logging
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
@@ -12,21 +13,29 @@ import pillow_heif  # type: ignore
 
 from PIL import Image
 
-from launchpad.size.models.treemap import TreemapType
-
-pillow_heif.register_heif_opener()  # type: ignore #
-logging.getLogger("PIL").setLevel(logging.WARNING)  # silence Pillow debug
-logging.getLogger("pillow_heif").setLevel(logging.WARNING)  # silence pillow‑heif debug
-
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.apple import (
     ImageOptimizationInsightResult,
     OptimizableImageFile,
 )
 from launchpad.size.models.common import FileInfo
+from launchpad.size.models.treemap import TreemapType
 from launchpad.utils.logging import get_logger
+from launchpad.utils.performance import trace
+
+pillow_heif.register_heif_opener()  # type: ignore #
+logging.getLogger("PIL").setLevel(logging.WARNING)  # silence Pillow debug
+logging.getLogger("pillow_heif").setLevel(logging.WARNING)  # silence pillow‑heif debug
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class OptimizationResult:
+    """Result of an image optimization check."""
+
+    savings: int
+    optimized_size: int
 
 
 class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
@@ -47,6 +56,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     # ------------------------------------------------------------------ #
     #  Public entry‑point
     # ------------------------------------------------------------------ #
+    @trace("image_optimization.generate")
     def generate(self, input: InsightsInput) -> ImageOptimizationInsightResult | None:  # noqa: D401
         """Generate insight for image optimization opportunities."""
         optimizable_files: List[OptimizableImageFile] = []
@@ -54,14 +64,22 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
         # Scan regular bundle files
         for file_info in filter(self._is_optimizable_image_file, input.file_analysis.files):
             try:
-                optimizable_files.extend(self._analyze_file_info(file_info))
+                optimizable_file = self._analyze_file_info(file_info)
+                if optimizable_file and (
+                    optimizable_file.minify_savings > 0 or optimizable_file.conversion_savings > 0
+                ):
+                    optimizable_files.append(optimizable_file)
             except Exception as exc:  # pragma: no cover
                 logger.error("Failed to analyze %s: %s", file_info.path, exc)
 
         for file_info in filter(lambda x: x.file_type == "car", input.file_analysis.files):
             for child in filter(self._is_optimizable_image_file, file_info.children):
                 try:
-                    optimizable_files.extend(self._analyze_file_info(child))
+                    optimizable_file = self._analyze_file_info(child)
+                    if optimizable_file and (
+                        optimizable_file.minify_savings > 0 or optimizable_file.conversion_savings > 0
+                    ):
+                        optimizable_files.append(optimizable_file)
                 except Exception as exc:  # pragma: no cover
                     logger.error("Failed to analyze %s: %s", child.path, exc)
 
@@ -80,7 +98,8 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     # ------------------------------------------------------------------ #
     #  Wrappers for different source objects
     # ------------------------------------------------------------------ #
-    def _analyze_file_info(self, file_info: FileInfo) -> List[OptimizableImageFile]:
+    @trace("image_optimization.analyze_file_info")
+    def _analyze_file_info(self, file_info: FileInfo) -> OptimizableImageFile | None:
         return self._analyze_image_optimization(
             full_path=file_info.full_path,
             file_size=file_info.size,
@@ -89,7 +108,8 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
             source_object=file_info,
         )
 
-    def _analyze_asset_element(self, asset_element: str) -> List[OptimizableImageFile]:
+    @trace("image_optimization.analyze_asset_element")
+    def _analyze_asset_element(self, asset_element: str) -> OptimizableImageFile | None:
         """Analyse a single AssetCatalogElement extracted from an .xcassets archive."""
         # Detect the true file‑type from the asset's file name (fallback to png)
         file_type = Path(asset_element).suffix.lstrip(".").lower() or "png"
@@ -115,6 +135,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     # ------------------------------------------------------------------ #
     #  Core optimisation routine
     # ------------------------------------------------------------------ #
+    @trace("image_optimization.analyze_single_image")
     def _analyze_image_optimization(
         self,
         *,
@@ -123,8 +144,11 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
         file_type: str,
         display_path: str,
         source_object: FileInfo,
-    ) -> List[OptimizableImageFile]:
-        results: List[OptimizableImageFile] = []
+    ) -> OptimizableImageFile | None:
+        minify_savings = 0
+        minified_size = None
+        conversion_savings = 0
+        heic_size = None
 
         try:
             with Image.open(full_path) as img:
@@ -132,34 +156,51 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                 fmt = (img.format or file_type).lower()
 
                 if fmt in {"png", "jpg", "jpeg"}:
-                    results.extend(
-                        filter(
-                            None,
-                            [
-                                self._check_minification(img, file_size, fmt, source_object),
-                                self._check_heic_conversion(img, file_size, source_object),
-                            ],
-                        )
-                    )
+                    # Check minification savings
+                    minify_result = self._check_minification(img, file_size, fmt)
+                    if minify_result:
+                        minify_savings = minify_result.savings
+                        minified_size = minify_result.optimized_size
+
+                    # Check HEIC conversion savings
+                    heic_result = self._check_heic_conversion(img, file_size)
+                    if heic_result:
+                        conversion_savings = heic_result.savings
+                        heic_size = heic_result.optimized_size
+
                 elif fmt in {"heif", "heic"}:
-                    minified = self._check_heic_minification(img, file_size, source_object)
-                    if minified:
-                        results.append(minified)
+                    # For HEIC files, only check minification
+                    heic_result = self._check_heic_minification(img, file_size)
+                    if heic_result:
+                        minify_savings = heic_result.savings
+                        minified_size = heic_result.optimized_size
+
         except Exception as exc:  # pragma: no cover
             logger.error("Failed to process %s: %s", display_path, exc)
 
-        return [r for r in results if r.potential_savings >= self.MIN_SAVINGS_THRESHOLD]
+        # Only return if we have meaningful savings
+        if minify_savings >= self.MIN_SAVINGS_THRESHOLD or conversion_savings >= self.MIN_SAVINGS_THRESHOLD:
+            return OptimizableImageFile(
+                file_info=source_object,
+                current_size=file_size,
+                minify_savings=minify_savings,
+                minified_size=minified_size,
+                conversion_savings=conversion_savings,
+                heic_size=heic_size,
+            )
+
+        return None
 
     # ------------------------------------------------------------------ #
     #  Individual optimisation checks
     # ------------------------------------------------------------------ #
+    @trace("image_optimization.check_minification")
     def _check_minification(
         self,
         img: Image.Image,
         file_size: int,
         format_name: str,
-        source_object: FileInfo,
-    ) -> OptimizableImageFile | None:
+    ) -> OptimizationResult | None:
         try:
             with io.BytesIO() as buf:
                 if format_name == "png":
@@ -171,23 +212,17 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                     work.save(buf, format="JPEG", quality=self.TARGET_JPEG_QUALITY, optimize=True)
                 new_size = buf.tell()
             if new_size < file_size:
-                return OptimizableImageFile(
-                    file_info=source_object,
-                    optimization_type="minify",
-                    current_size=file_size,
-                    optimized_size=new_size,
-                    current_quality=None,
-                )
+                return OptimizationResult(savings=file_size - new_size, optimized_size=new_size)
         except Exception as exc:  # pragma: no cover
-            logger.error("Minification check failed for %s: %s", source_object.path, exc)
+            logger.error("Minification check failed: %s", exc)
         return None
 
+    @trace("image_optimization.check_heic_conversion")
     def _check_heic_conversion(
         self,
         img: Image.Image,
         file_size: int,
-        source_object: FileInfo,
-    ) -> OptimizableImageFile | None:
+    ) -> OptimizationResult | None:
         try:
             with io.BytesIO() as buf:
                 work = img
@@ -198,35 +233,25 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                 work.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             if new_size < file_size:
-                return OptimizableImageFile(
-                    file_info=source_object,
-                    optimization_type="convert_to_heic",
-                    current_size=file_size,
-                    optimized_size=new_size,
-                )
+                return OptimizationResult(savings=file_size - new_size, optimized_size=new_size)
         except Exception as exc:  # pragma: no cover
-            logger.error("HEIC conversion check failed for %s: %s", source_object.path, exc)
+            logger.error("HEIC conversion check failed: %s", exc)
         return None
 
+    @trace("image_optimization.check_heic_minification")
     def _check_heic_minification(
         self,
         img: Image.Image,
         file_size: int,
-        source_object: FileInfo,
-    ) -> OptimizableImageFile | None:
+    ) -> OptimizationResult | None:
         try:
             with io.BytesIO() as buf:
                 img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             if new_size < file_size:
-                return OptimizableImageFile(
-                    file_info=source_object,
-                    optimization_type="minify_heic",
-                    current_size=file_size,
-                    optimized_size=new_size,
-                )
+                return OptimizationResult(savings=file_size - new_size, optimized_size=new_size)
         except Exception as exc:  # pragma: no cover
-            logger.error("HEIC minification check failed for %s: %s", source_object.path, exc)
+            logger.error("HEIC minification check failed: %s", exc)
         return None
 
     # ------------------------------------------------------------------ #
