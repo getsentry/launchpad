@@ -19,7 +19,9 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 )
 
 from launchpad.artifacts.android.aab import AAB
+from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
+from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
@@ -407,8 +409,10 @@ class LaunchpadService:
                 return ArtifactType.XCARCHIVE
             elif isinstance(artifact, (AAB, ZippedAAB)):
                 return ArtifactType.AAB
-            else:
+            elif isinstance(artifact, (APK, ZippedAPK)):
                 return ArtifactType.APK
+            else:
+                raise ValueError(f"Unsupported artifact type: {type(artifact)}")
 
         update_data = {
             "app_name": app_info.name,
