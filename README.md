@@ -62,62 +62,43 @@ make test-kafka-multiple
 
 ```bash
 # Direct iOS analysis
-launchpad apple-app path/to/app.xcarchive.zip
+launchpad size path/to/app.xcarchive.zip
 
 # Analyze an APK, AAB or Zip containing a single APK or AAB
-launchpad android path/to/app.apk
-launchpad android path/to/app.aab
-launchpad android path/to/zipped_aab.zip
+launchpad size path/to/app.apk
+launchpad size path/to/app.aab
+launchpad size path/to/zipped_aab.zip
 
 # Skip time-consuming analysis for faster results
-launchpad apple-app path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
+launchpad size path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
 
 # Custom output location
-launchpad apple-app path/to/app.xcarchive.zip -o my-report.json
-launchpad android app.apk -o detailed-report.json
+launchpad size path/to/app.xcarchive.zip -o my-report.json
+launchpad size app.apk -o detailed-report.json
 ```
 
 ### Usage
 
 ```
-$ launchpad apple-app --help
-Usage: launchpad apple-app [OPTIONS] INPUT_PATH
+$ launchpad size --help
+Usage: launchpad size [OPTIONS] INPUT_PATH
 
-  Analyze an Apple app bundle and generate a size report.
-
-  INPUT_PATH can be: - .xcarchive.zip file
+  Analyze provided artifact and generate a size report.
 
 Options:
-  -o, --output PATH      Output path for the JSON analysis report.  [default:
-                         apple-app-analysis-report.json]
-  --working-dir PATH     Working directory for temporary files (default:
-                         system temp).
-  --skip-swift-metadata  Skip Swift metadata parsing for faster analysis.
-  --skip-symbols         Skip symbol extraction and analysis.
-  --skip-range-mapping   Skip range mapping for binary content categorization.
-  --skip-treemap         Skip treemap generation for hierarchical size
-                         analysis.
-  -v, --verbose          Enable verbose logging output.
-  -q, --quiet            Suppress all output except errors.
-  --format [json|table]  Output format for results.  [default: json]
-  --help                 Show this message and exit
-```
-
-```
-$ launchpad android --help
-Usage: launchpad android [OPTIONS] INPUT_PATH
-
-  Analyze an Android app bundle and generate a size report.
-
-  INPUT_PATH can be: - Android .apk file - Android .aab file (coming soon)
-
-Options:
-  -o, --output PATH      Output path for the JSON analysis report.  [default:
-                         android-analysis-report.json]
-  -v, --verbose          Enable verbose logging output.
-  -q, --quiet            Suppress all output except errors.
-  --format [json|table]  Output format for results.  [default: json]
-  --help                 Show this message and exit.
+  -o, --output FILENAME      Output path for the analysis.  [default: -]
+  -v, --verbose              Enable verbose logging output.
+  -q, --quiet                Suppress all output except errors.
+  --format [json|table]      Output format for results.  [default: json]
+  --working-dir PATH         Working directory for temporary files (default:
+                             system temp).
+  --skip-swift-metadata      Skip Swift metadata parsing for faster analysis.
+  --skip-symbols             Skip symbol extraction and analysis.
+  --skip-component-analysis  Skip detailed binary component analysis for
+                             faster processing.
+  --skip-treemap             Skip treemap generation for hierarchical size
+                             analysis.
+  --help                     Show this message and exit.
 ```
 
 ## Development
