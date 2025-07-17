@@ -1,6 +1,5 @@
 from pathlib import Path
-from unittest.mock import Mock, patch, mock_open
-import pytest
+from unittest.mock import Mock, mock_open, patch
 
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.insight import InsightsInput
@@ -13,14 +12,14 @@ class TestImageOptimizationInsight:
     def setup_method(self):
         self.insight = ImageOptimizationInsight()
 
-    @patch('launchpad.size.insights.apple.image_optimization.pillow_available', True)
-    @patch('launchpad.size.insights.apple.image_optimization.Image')
+    @patch("launchpad.size.insights.apple.image_optimization.pillow_available", True)
+    @patch("launchpad.size.insights.apple.image_optimization.Image")
     def test_generate_with_optimizable_images(self, mock_image_class):
         """Test that insight is generated when app has optimizable images."""
         # Mock PIL Image
         mock_img = Mock()
-        mock_img.format = 'PNG'
-        mock_img.mode = 'RGB'
+        mock_img.format = "PNG"
+        mock_img.mode = "RGB"
         mock_img.save = Mock()
         mock_image_class.open.return_value.__enter__.return_value = mock_img
 
@@ -61,29 +60,33 @@ class TestImageOptimizationInsight:
         )
 
         # Mock file reading and optimization results
-        def mock_open_side_effect(path, mode='rb'):
-            if 'large.png' in str(path):
-                return mock_open(read_data=b'PNG_DATA' * 1000)()
-            elif 'picture.jpg' in str(path):
-                return mock_open(read_data=b'JPEG_DATA' * 2000)()
-            return mock_open(read_data=b'')()
+        def mock_open_side_effect(path, mode="rb"):
+            if "large.png" in str(path):
+                return mock_open(read_data=b"PNG_DATA" * 1000)()
+            elif "picture.jpg" in str(path):
+                return mock_open(read_data=b"JPEG_DATA" * 2000)()
+            return mock_open(read_data=b"")()
 
-        with patch('builtins.open', side_effect=mock_open_side_effect):
-            with patch.object(self.insight, '_analyze_image_optimization') as mock_analyze:
+        with patch("builtins.open", side_effect=mock_open_side_effect):
+            with patch.object(self.insight, "_analyze_image_optimization") as mock_analyze:
                 # Mock optimization results with savings above threshold
                 mock_analyze.side_effect = [
-                    [OptimizableImageFile(
-                        file_info=files[0],
-                        optimization_type="minify",
-                        current_size=50000,
-                        optimized_size=45000,
-                    )],
-                    [OptimizableImageFile(
-                        file_info=files[1],
-                        optimization_type="convert_to_heic",
-                        current_size=100000,
-                        optimized_size=85000,
-                    )],
+                    [
+                        OptimizableImageFile(
+                            file_info=files[0],
+                            optimization_type="minify",
+                            current_size=50000,
+                            optimized_size=45000,
+                        )
+                    ],
+                    [
+                        OptimizableImageFile(
+                            file_info=files[1],
+                            optimization_type="convert_to_heic",
+                            current_size=100000,
+                            optimized_size=85000,
+                        )
+                    ],
                 ]
 
                 result = self.insight.generate(insights_input)
@@ -93,7 +96,7 @@ class TestImageOptimizationInsight:
         assert len(result.optimizable_files) == 2
         assert result.total_savings == 20000  # 5000 + 15000
 
-    @patch('launchpad.size.insights.apple.image_optimization.pillow_available', False)
+    @patch("launchpad.size.insights.apple.image_optimization.pillow_available", False)
     def test_pillow_not_available_returns_none(self):
         """Test that no insight is generated when Pillow is not available."""
         files = [
@@ -187,7 +190,7 @@ class TestImageOptimizationInsight:
 
         assert not self.insight._is_optimizable_image(text_file)
 
-    @patch('launchpad.size.insights.apple.image_optimization.pillow_available', True)
+    @patch("launchpad.size.insights.apple.image_optimization.pillow_available", True)
     def test_no_optimizable_images_returns_none(self):
         """Test that no insight is generated when there are no optimizable images."""
         files = [

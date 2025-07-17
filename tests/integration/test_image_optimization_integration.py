@@ -1,7 +1,9 @@
-from pathlib import Path
-import tempfile
 import shutil
+import tempfile
+
+from pathlib import Path
 from unittest.mock import Mock
+
 import pytest
 
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
@@ -28,39 +30,41 @@ class TestImageOptimizationIntegration:
         """Create a simple test PNG image."""
         try:
             from PIL import Image
+
             # Create a simple test image
-            img = Image.new('RGB', (100, 100), color='red')
-            img.save(path, 'PNG')
+            img = Image.new("RGB", (100, 100), color="red")
+            img.save(path, "PNG")
 
             # If the file is smaller than requested, pad it with data
             current_size = path.stat().st_size
             target_size = size_kb * 1024
             if current_size < target_size:
-                with open(path, 'ab') as f:
-                    f.write(b'\x00' * (target_size - current_size))
+                with open(path, "ab") as f:
+                    f.write(b"\x00" * (target_size - current_size))
         except ImportError:
             # If PIL is not available, create a dummy file
-            with open(path, 'wb') as f:
-                f.write(b'\x89PNG\r\n\x1a\n' + b'\x00' * (size_kb * 1024 - 8))
+            with open(path, "wb") as f:
+                f.write(b"\x89PNG\r\n\x1a\n" + b"\x00" * (size_kb * 1024 - 8))
 
     def _create_test_jpg_image(self, path: Path, size_kb: int = 10) -> None:
         """Create a simple test JPG image."""
         try:
             from PIL import Image
+
             # Create a simple test image
-            img = Image.new('RGB', (100, 100), color='blue')
-            img.save(path, 'JPEG', quality=95)  # High quality for optimization potential
+            img = Image.new("RGB", (100, 100), color="blue")
+            img.save(path, "JPEG", quality=95)  # High quality for optimization potential
 
             # If the file is smaller than requested, pad it with dummy data at the end
             current_size = path.stat().st_size
             target_size = size_kb * 1024
             if current_size < target_size:
-                with open(path, 'ab') as f:
-                    f.write(b'\x00' * (target_size - current_size))
+                with open(path, "ab") as f:
+                    f.write(b"\x00" * (target_size - current_size))
         except ImportError:
             # If PIL is not available, create a dummy file
-            with open(path, 'wb') as f:
-                f.write(b'\xff\xd8\xff' + b'\x00' * (size_kb * 1024 - 3))
+            with open(path, "wb") as f:
+                f.write(b"\xff\xd8\xff" + b"\x00" * (size_kb * 1024 - 3))
 
     def test_image_optimization_with_real_files(self):
         """Test image optimization with real image files."""
@@ -113,7 +117,9 @@ class TestImageOptimizationIntegration:
         # If Pillow is not available, result should be None
         try:
             import pillow_heif  # type: ignore # noqa: F401
+
             from PIL import Image  # noqa: F401
+
             # PIL is available, should get results
             if result is None:
                 pytest.skip("No optimizations found with current test images")
@@ -176,7 +182,9 @@ class TestImageOptimizationIntegration:
         # Verify system files are excluded
         try:
             import pillow_heif  # type: ignore # noqa: F401
+
             from PIL import Image  # noqa: F401
+
             # PIL is available
             if result is not None:
                 # Should only include regular image, not system icons
@@ -218,7 +226,9 @@ class TestImageOptimizationIntegration:
         # Even if optimizations are found, they should be filtered by minimum threshold
         try:
             import pillow_heif  # type: ignore # noqa: F401
+
             from PIL import Image  # noqa: F401
+
             # PIL is available
             if result is not None:
                 # All reported files should have at least 500 bytes savings

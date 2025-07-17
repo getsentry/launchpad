@@ -28,6 +28,7 @@ class AssetCatalogElement:
     type: str
     vector: bool
     filename: str
+    full_path: Path
 
 
 @dataclass
@@ -235,7 +236,8 @@ class ZippedXCArchive(AppleArtifact):
             xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
             app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
 
-            file_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / json_name
+            parent_path = xcarchive_dir / "ParsedAssets" / app_bundle_path
+            file_path = parent_path / json_name
 
             if not file_path.exists():
                 logger.warning(f"Assets.json not found at {file_path}")
@@ -244,12 +246,28 @@ class ZippedXCArchive(AppleArtifact):
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            return [self._parse_asset_element(item) for item in data]
+            return [self._parse_asset_element(item, parent_path) for item in data]
         except Exception as e:
-            logger.warning(f"Failed to get asset catalog details for {relative_path}: {e}")
+            logger.error(f"Failed to get asset catalog details for {relative_path}: {e}")
             return []
 
-    def _parse_asset_element(self, item: dict[str, Any]) -> AssetCatalogElement:
+    def get_asset_catalog_images(self) -> List[str]:
+        """Get the details of an asset catalog file (Assets.car) by returning the
+        parsed JSON from ParsedAssets. Supports PNG, JPG, JPEG, and HEIC formats."""
+
+        app_bundle_path = self.get_app_bundle_path()
+        xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
+        app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
+        parent_path = xcarchive_dir / "ParsedAssets"
+
+        images: List[str] = []
+        for pattern in ["*.png", "*.jpg", "*.jpeg", "*.heic"]:
+            for image_path in parent_path.rglob(pattern):
+                images.append(str(image_path))
+
+        return images
+
+    def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
         """Parse a dictionary item into an AssetCatalogElement."""
         name = item.get("name", "")
         image_id = item.get("imageId", "")
@@ -258,13 +276,19 @@ class ZippedXCArchive(AppleArtifact):
         is_vector = item.get("vector", False)
         filename = item.get("filename", "")
 
+        if asset_type == 1:
+            full_path = parent_path / f"{image_id}.png"
+        else:
+            full_path = parent_path / image_id
+
         return AssetCatalogElement(
             name=name,
             imageId=image_id,
             size=size,
-            type=asset_type,
+            type=str(asset_type),
             vector=is_vector,
             filename=filename,
+            full_path=full_path,
         )
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:

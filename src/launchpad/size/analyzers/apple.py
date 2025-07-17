@@ -31,7 +31,7 @@ from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import FileAnalysis, FileInfo
-from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapElement, TreemapType
+from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
@@ -355,20 +355,19 @@ class AppleAppAnalyzer:
             # if file_type.lower() in {"png", "jpg", "jpeg", "webp"}:
             #     image_analysis_result = self._analyze_image(file_path, file_size)
 
-            children = []
+            children: List[FileInfo] = []
             if file_type == "car":
                 children = self._analyze_asset_catalog(xcarchive, relative_path)
-                children_size = sum([child.install_size for child in children])
+                children_size = sum([child.size for child in children])
                 children.append(
-                    TreemapElement(
-                        name="Other",
-                        install_size=file_size - children_size,
-                        download_size=0,
-                        element_type=TreemapType.ASSETS,
+                    FileInfo(
+                        full_path=file_path,
                         path=str(relative_path) + "/Other",
-                        is_directory=False,
+                        size=file_size - children_size,
+                        file_type="unknown",
+                        hash_md5=file_hash,
+                        treemap_type=TreemapType.ASSETS,
                         children=[],
-                        details={},
                     )
                 )
 
@@ -387,29 +386,29 @@ class AppleAppAnalyzer:
         return FileAnalysis(files=files)
 
     @trace("apple.analyze_asset_catalog")
-    def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[TreemapElement]:
+    def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[FileInfo]:
         """Analyze an asset catalog file."""
         catalog_details = xcarchive.get_asset_catalog_details(relative_path)
-        return [
-            TreemapElement(
-                name=element.name,
-                install_size=element.size,
-                # TODO: This field should be nullable, it doesn’t make sense
-                # to talk about download size of individual assets
-                # since they are all in one .car file.
-                download_size=0,
-                element_type=TreemapType.ASSETS,
-                path=str(relative_path) + "/" + element.name,
-                is_directory=False,
-                children=[],
-                details={
-                    "type": element.type,
-                    "vector": element.vector,
-                    "filename": element.filename,
-                },
+        result: List[FileInfo] = []
+        for element in catalog_details:
+            if element.full_path.exists() and element.full_path.is_file():
+                file_hash = calculate_file_hash(element.full_path, algorithm="md5")
+            else:
+                # can't hash a directory so use imageId as hash
+                file_hash = element.imageId
+
+            result.append(
+                FileInfo(
+                    full_path=element.full_path,
+                    path=str(relative_path) + "/" + element.name,
+                    size=element.size,
+                    file_type=Path(element.name).suffix.lstrip(".") if element.type == "1" else "",
+                    hash_md5=file_hash,
+                    treemap_type=TreemapType.ASSETS,
+                    children=[],
+                )
             )
-            for element in catalog_details
-        ]
+        return result
 
     def _generate_insight_with_tracing(
         self, insight_class: type, insights_input: InsightsInput, insight_name: str
@@ -451,7 +450,7 @@ class AppleAppAnalyzer:
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         sections = parser.extract_sections()
-        swift_protocol_conformances = []  # parser.parse_swift_protocol_conformances()
+        swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
 
         symbol_info = None

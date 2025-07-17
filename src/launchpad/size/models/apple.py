@@ -178,9 +178,7 @@ class AppleInsightResults(BaseModel):
     loose_images: LooseImagesInsightResult | None = Field(
         None, description="Loose images not in asset catalogs analysis"
     )
-    image_optimization: ImageOptimizationInsightResult | None = Field(
-        None, description="Image optimization analysis"
-    )
+    image_optimization: ImageOptimizationInsightResult | None = Field(None, description="Image optimization analysis")
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
 
