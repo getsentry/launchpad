@@ -251,22 +251,6 @@ class ZippedXCArchive(AppleArtifact):
             logger.error(f"Failed to get asset catalog details for {relative_path}: {e}")
             return []
 
-    def get_asset_catalog_images(self) -> List[str]:
-        """Get the details of an asset catalog file (Assets.car) by returning the
-        parsed JSON from ParsedAssets. Supports PNG, JPG, JPEG, and HEIC formats."""
-
-        app_bundle_path = self.get_app_bundle_path()
-        xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
-        app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
-        parent_path = xcarchive_dir / "ParsedAssets"
-
-        images: List[str] = []
-        for pattern in ["*.png", "*.jpg", "*.jpeg", "*.heic"]:
-            for image_path in parent_path.rglob(pattern):
-                images.append(str(image_path))
-
-        return images
-
     def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
         """Parse a dictionary item into an AssetCatalogElement."""
         name = item.get("name", "")
