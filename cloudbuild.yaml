@@ -13,19 +13,9 @@ steps:
         "--use",
       ]
 
-  # Login to GHCR
-  - name: "gcr.io/cloud-builders/docker"
-    id: "ghcr-login"
-    waitFor: ["create-builder"]
-    entrypoint: "bash"
-    args:
-      - "-c"
-      - "docker login ghcr.io --username $$GHCR_USER --password-stdin <<< $$GHCR_PAT"
-    secretEnv: ["GHCR_USER", "GHCR_PAT"]
-
   - name: "gcr.io/cloud-builders/docker"
     id: "build-image"
-    waitFor: ["ghcr-login"]
+    waitFor: ["create-builder"]
     entrypoint: "bash"
     args:
       - "-c"
@@ -34,13 +24,10 @@ steps:
         set -euxo pipefail
         docker buildx build \
             --push \
-            --platform linux/amd64,linux/arm64 \
+            --platform linux/amd64 \
             -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$COMMIT_SHA \
             -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$SHORT_SHA \
             -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:nightly \
-            -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:$COMMIT_SHA \
-            -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:$SHORT_SHA \
-            -t ghcr.io/$_GHCR_OWNER/$REPO_NAME:nightly \
             --label org.opencontainers.image.revision=$COMMIT_SHA \
             --label org.opencontainers.image.version=$COMMIT_SHA \
             --label org.opencontainers.image.title=$REPO_NAME \
@@ -53,14 +40,3 @@ steps:
             .
 
 logsBucket: "gs://sentryio-cloudbuild-logs-wf7jff"
-
-availableSecrets:
-  secretManager:
-    - versionName: "projects/${PROJECT_ID}/secrets/ghcr_user/versions/1"
-      env: "GHCR_USER"
-    - versionName: "projects/${PROJECT_ID}/secrets/ghcr_pat/versions/1"
-      env: "GHCR_PAT"
-
-substitutions:
-  _GHCR_OWNER: "getsentry"
-
