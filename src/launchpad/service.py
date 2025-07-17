@@ -401,7 +401,6 @@ class LaunchpadService:
                 self._safe_cleanup(temp_file, "temporary file")
             raise
 
-    # TODO
     def _prepare_update_data(self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact) -> Dict[str, Any]:
         def _get_artifact_type(artifact: Artifact) -> ArtifactType:
             if isinstance(artifact, ZippedXCArchive):
@@ -418,9 +417,7 @@ class LaunchpadService:
             "build_number": (int(app_info.build) if app_info.build.isdigit() else None),
             "artifact_type": _get_artifact_type(artifact).value,
         }
-        logger.info(f"Update data: {update_data}")
 
-        """Prepare update data based on app platform and artifact type."""
         if isinstance(app_info, AppleAppInfo):
             # TODO: add "date_built" field once exposed in 'AppleAppInfo'
             update_data["apple_app_info"] = {
@@ -430,6 +427,7 @@ class LaunchpadService:
                 "is_code_signature_valid": app_info.is_code_signature_valid,
                 "code_signature_errors": app_info.code_signature_errors,
             }
+
         # TODO: add "date_built" and custom android fields
         return update_data
 
