@@ -8,6 +8,8 @@ A microservice for analyzing iOS and Android apps.
 
 ### Development Setup
 
+Make sure you have [uv](https://docs.astral.sh/uv/getting-started/installation) installed. 
+
 ```bash
 git clone https://github.com/getsentry/launchpad.git
 cd launchpad
