@@ -81,8 +81,8 @@ class OptimizableImageFile:
     """Information about an image file that can be optimized."""
 
     file_info: FileInfo
+
     current_size: int
-    current_quality: int | None = None  # For JPEG/PNG quality detection
 
     # Minification savings (optimizing current format)
     minify_savings: int = 0
@@ -114,7 +114,6 @@ class ImageOptimizationInsightResult(BaseInsightResult):
     optimizable_files: List[OptimizableImageFile] = Field(
         ..., description="Files that can be optimized with potential savings"
     )
-    total_file_count: int = Field(..., description="Total number of optimizable files found")
 
 
 class AppleAppInfo(BaseAppInfo):
