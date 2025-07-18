@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .treemap import TreemapElement, TreemapResults, TreemapType
+from .treemap import TreemapResults, TreemapType
 
 
 class BaseAppInfo(BaseModel):
@@ -72,7 +72,7 @@ class FileInfo(BaseModel):
     hash_md5: str = Field(..., description="MD5 hash of file contents")
     treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
     # Some files can be further broken down, even though it's children are not files
-    children: List[TreemapElement] = Field(default_factory=list, description="Children of the file")
+    children: List[FileInfo] = Field(default_factory=list, description="Children of the file")
 
 
 class BaseAnalysisResults(BaseModel):

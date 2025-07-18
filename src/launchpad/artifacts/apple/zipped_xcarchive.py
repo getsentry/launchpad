@@ -23,11 +23,12 @@ logger = get_logger(__name__)
 @dataclass
 class AssetCatalogElement:
     name: str
-    imageId: str
+    image_id: str
     size: int
-    type: str
+    type: int
     vector: bool
     filename: str
+    full_path: Path
 
 
 @dataclass
@@ -235,7 +236,8 @@ class ZippedXCArchive(AppleArtifact):
             xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
             app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
 
-            file_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / json_name
+            parent_path = xcarchive_dir / "ParsedAssets" / app_bundle_path
+            file_path = parent_path / json_name
 
             if not file_path.exists():
                 logger.warning(f"Assets.json not found at {file_path}")
@@ -244,27 +246,44 @@ class ZippedXCArchive(AppleArtifact):
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            return [self._parse_asset_element(item) for item in data]
+            return [self._parse_asset_element(item, parent_path) for item in data]
         except Exception as e:
-            logger.warning(f"Failed to get asset catalog details for {relative_path}: {e}")
+            logger.error(f"Failed to get asset catalog details for {relative_path}: {e}")
             return []
 
-    def _parse_asset_element(self, item: dict[str, Any]) -> AssetCatalogElement:
+    def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
         """Parse a dictionary item into an AssetCatalogElement."""
         name = item.get("name", "")
         image_id = item.get("imageId", "")
         size = item.get("size", 0)
-        asset_type = item.get("type", "")
+        asset_type = item.get("type", 0)
         is_vector = item.get("vector", False)
         filename = item.get("filename", "")
 
+        # Enhanced asset type handling
+        if asset_type == 1:  # Standard PNG image
+            full_path = parent_path / f"{image_id}.png"
+        elif asset_type == 2:  # JPEG image
+            full_path = parent_path / f"{image_id}.jpg"
+        elif asset_type == 3:  # PDF/Vector image
+            full_path = parent_path / f"{image_id}.pdf"
+        elif asset_type == 4:  # HEIF image
+            full_path = parent_path / f"{image_id}.heic"
+        elif asset_type == 9:  # Color asset
+            full_path = parent_path / f"{image_id}.colorset"
+        elif asset_type == 10:  # Data asset
+            full_path = parent_path / image_id
+        else:
+            full_path = parent_path / image_id
+
         return AssetCatalogElement(
             name=name,
-            imageId=image_id,
+            image_id=image_id,
             size=size,
             type=asset_type,
             vector=is_vector,
             filename=filename,
+            full_path=full_path,
         )
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:

@@ -1,3 +1,5 @@
+import os
+
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
@@ -25,5 +27,5 @@ class DefaultFileElementBuilder(TreemapElementBuilder):
             path=file_info.path,
             is_directory=False,
             details=details,
-            children=file_info.children,
+            children=[self.build_element(child, os.path.basename(child.path)) for child in file_info.children],
         )
