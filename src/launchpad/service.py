@@ -18,6 +18,8 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
 
+from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
+from launchpad.api.update_api_models import UpdateData
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
@@ -414,26 +416,30 @@ class LaunchpadService:
             else:
                 raise ValueError(f"Unsupported artifact type: {type(artifact)}")
 
-        update_data = {
-            "app_name": app_info.name,
-            "app_id": app_info.app_id,
-            "build_version": app_info.version,
-            "build_number": (int(app_info.build) if app_info.build.isdigit() else None),
-            "artifact_type": _get_artifact_type(artifact).value,
-        }
+        build_number = int(app_info.build) if app_info.build.isdigit() else None
 
+        apple_app_info = None
         if isinstance(app_info, AppleAppInfo):
             # TODO: add "date_built" field once exposed in 'AppleAppInfo'
-            update_data["apple_app_info"] = {
-                "is_simulator": app_info.is_simulator,
-                "codesigning_type": app_info.codesigning_type,
-                "profile_name": app_info.profile_name,
-                "is_code_signature_valid": app_info.is_code_signature_valid,
-                "code_signature_errors": app_info.code_signature_errors,
-            }
-
+            apple_app_info = AppleAppInfoModel(
+                is_simulator=app_info.is_simulator,
+                codesigning_type=app_info.codesigning_type,
+                profile_name=app_info.profile_name,
+                is_code_signature_valid=app_info.is_code_signature_valid,
+                code_signature_errors=app_info.code_signature_errors,
+            )
         # TODO: add "date_built" and custom android fields
-        return update_data
+
+        update_data = UpdateData(
+            app_name=app_info.name,
+            app_id=app_info.app_id,
+            build_version=app_info.version,
+            build_number=build_number,
+            artifact_type=_get_artifact_type(artifact).value,
+            apple_app_info=apple_app_info,
+        )
+
+        return update_data.dict(exclude_none=True)
 
     def _create_analyzer(self, app_info: AppleAppInfo | BaseAppInfo) -> AndroidAnalyzer | AppleAppAnalyzer:
         """Create analyzer with preprocessed app info."""
