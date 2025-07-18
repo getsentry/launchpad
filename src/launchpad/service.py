@@ -18,9 +18,14 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
 
+from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
+from launchpad.api.update_api_models import UpdateData
 from launchpad.artifacts.android.aab import AAB
+from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
+from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.artifact import Artifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
     HEALTHCHECK_MAX_AGE_SECONDS,
@@ -221,7 +226,13 @@ class LaunchpadService:
             detailed_error = str(e)
 
             self._update_artifact_error(
-                sentry_client, artifact_id, project_id, organization_id, error_code, error_message, detailed_error
+                sentry_client,
+                artifact_id,
+                project_id,
+                organization_id,
+                error_code,
+                error_message,
+                detailed_error,
             )
             raise
 
@@ -260,21 +271,42 @@ class LaunchpadService:
     def _categorize_processing_error(self, exception: Exception) -> tuple[ProcessingErrorCode, ProcessingErrorMessage]:
         """Categorize an exception into error code and message."""
         if isinstance(exception, ValueError):
-            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
+            return (
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.ARTIFACT_PARSING_FAILED,
+            )
         elif isinstance(exception, NotImplementedError):
-            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
+            return (
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE,
+            )
         elif isinstance(exception, FileNotFoundError):
-            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
+            return (
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.ARTIFACT_PARSING_FAILED,
+            )
         elif isinstance(exception, RuntimeError):
             error_str = str(exception).lower()
             if "timeout" in error_str:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT, ProcessingErrorMessage.PROCESSING_TIMEOUT
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT,
+                    ProcessingErrorMessage.PROCESSING_TIMEOUT,
+                )
             elif "preprocess" in error_str:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.PREPROCESSING_FAILED
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.PREPROCESSING_FAILED,
+                )
             elif "size" in error_str or "analysis" in error_str:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.SIZE_ANALYSIS_FAILED
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.SIZE_ANALYSIS_FAILED,
+                )
             else:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNKNOWN_ERROR
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.UNKNOWN_ERROR,
+                )
         else:
             return ProcessingErrorCode.UNKNOWN, ProcessingErrorMessage.UNKNOWN_ERROR
 
@@ -311,7 +343,10 @@ class LaunchpadService:
                 org=organization_id,
                 project=project_id,
                 artifact_id=artifact_id,
-                data={"error_code": error_code.value, "error_message": final_error_message},
+                data={
+                    "error_code": error_code.value,
+                    "error_message": final_error_message,
+                },
             )
 
             if isinstance(result, ErrorResult):
@@ -320,7 +355,10 @@ class LaunchpadService:
                 logger.info(f"Successfully updated artifact {artifact_id} with error information")
 
         except Exception as e:
-            logger.error(f"Failed to update artifact {artifact_id} with error information: {e}", exc_info=True)
+            logger.error(
+                f"Failed to update artifact {artifact_id} with error information: {e}",
+                exc_info=True,
+            )
 
     def _download_artifact_to_temp_file(
         self,
@@ -337,7 +375,10 @@ class LaunchpadService:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
                 temp_file = tf.name
                 file_size = sentry_client.download_artifact_to_file(
-                    org=organization_id, project=project_id, artifact_id=artifact_id, out=tf
+                    org=organization_id,
+                    project=project_id,
+                    artifact_id=artifact_id,
+                    out=tf,
                 )
 
                 # Success case
@@ -364,30 +405,41 @@ class LaunchpadService:
                 self._safe_cleanup(temp_file, "temporary file")
             raise
 
-    def _prepare_update_data(self, app_info: AppleAppInfo | BaseAppInfo, artifact: Any) -> Dict[str, Any]:
-        """Prepare update data based on app platform and artifact type."""
+    def _prepare_update_data(self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact) -> Dict[str, Any]:
+        def _get_artifact_type(artifact: Artifact) -> ArtifactType:
+            if isinstance(artifact, ZippedXCArchive):
+                return ArtifactType.XCARCHIVE
+            elif isinstance(artifact, (AAB, ZippedAAB)):
+                return ArtifactType.AAB
+            elif isinstance(artifact, (APK, ZippedAPK)):
+                return ArtifactType.APK
+            else:
+                raise ValueError(f"Unsupported artifact type: {type(artifact)}")
+
+        build_number = int(app_info.build) if app_info.build.isdigit() else None
+
+        apple_app_info = None
         if isinstance(app_info, AppleAppInfo):
             # TODO: add "date_built" field once exposed in 'AppleAppInfo'
-            return {
-                "build_version": app_info.version,
-                "build_number": (int(app_info.build) if str(app_info.build).isdigit() else app_info.build),
-                "artifact_type": ArtifactType.XCARCHIVE.value,
-                "apple_app_info": {
-                    "is_simulator": app_info.is_simulator,
-                    "codesigning_type": app_info.codesigning_type,
-                    "profile_name": app_info.profile_name,
-                    "is_code_signature_valid": app_info.is_code_signature_valid,
-                    "code_signature_errors": app_info.code_signature_errors,
-                },
-            }
-        else:
-            artifact_type = ArtifactType.AAB if isinstance(artifact, (AAB, ZippedAAB)) else ArtifactType.APK
-            # TODO: add "date_built" and custom android fields
-            return {
-                "build_version": app_info.version,
-                "build_number": (int(app_info.build) if app_info.build.isdigit() else None),
-                "artifact_type": artifact_type.value,
-            }
+            apple_app_info = AppleAppInfoModel(
+                is_simulator=app_info.is_simulator,
+                codesigning_type=app_info.codesigning_type,
+                profile_name=app_info.profile_name,
+                is_code_signature_valid=app_info.is_code_signature_valid,
+                code_signature_errors=app_info.code_signature_errors,
+            )
+        # TODO: add "date_built" and custom android fields
+
+        update_data = UpdateData(
+            app_name=app_info.name,
+            app_id=app_info.app_id,
+            build_version=app_info.version,
+            build_number=build_number,
+            artifact_type=_get_artifact_type(artifact).value,
+            apple_app_info=apple_app_info,
+        )
+
+        return update_data.dict(exclude_none=True)
 
     def _create_analyzer(self, app_info: AppleAppInfo | BaseAppInfo) -> AndroidAnalyzer | AppleAppAnalyzer:
         """Create analyzer with preprocessed app info."""
