@@ -2,23 +2,21 @@ import os
 import subprocess
 import sys
 
-from devenv.lib import config, venv, fs  # type: ignore
+from devenv import constants
+from devenv.lib import proc, config, venv, fs, uv # type: ignore
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def run_uv_command(cmd: list[str], cwd: str) -> None:
-    """Run a uv command and handle errors."""
-    print(f"Running: uv {' '.join(cmd)}")
-    result = subprocess.run(["uv"] + cmd, cwd=cwd, capture_output=True, text=True)
-    if result.stdout:
-        print(result.stdout)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
-    if result.returncode != 0:
-        raise subprocess.CalledProcessError(result.returncode, ["uv"] + cmd)
-
 def main(context: dict[str, str]) -> int:
     reporoot = context["reporoot"]
+    cfg = config.get_repo(reporoot)
+
+    uv.install(
+        cfg["uv"]["version"],
+        cfg["uv"][constants.SYSTEM_MACHINE],
+        cfg["uv"][f"{constants.SYSTEM_MACHINE}_sha256"],
+        reporoot,
+    )
 
     venv_dir, python_version, requirements, editable_paths, bins = venv.get(reporoot, "launchpad")  # type: ignore
     url, sha256 = config.get_python(reporoot, python_version)  # type: ignore
@@ -28,12 +26,12 @@ def main(context: dict[str, str]) -> int:
     print(f"syncing venv with {requirements} using uv...")
 
     # Install requirements using uv, the `devenv.sync` method hardcodes pip
-    run_uv_command(["pip", "install", "-r", requirements], reporoot)
+    proc.run(("uv", "pip", "install", "-r", requirements))
 
     # Install editable packages if specified (uv handles this via pip backend)
     if editable_paths is not None:
         for path in editable_paths:
-            run_uv_command(["pip", "install", "-e", path], reporoot)
+            proc.run(("uv", "pip", "install", "-e", path))
 
     # Create symlinks for binaries if specified
     if bins is not None:
