@@ -24,3 +24,5 @@ aiohttp-test-utils>=0.5.0
 sortedcontainers-stubs>=2.4.0
 kafka-python>=2.0.0
 sentry-protos==0.2.0
+
+objgraph==3.6.2
