@@ -78,7 +78,7 @@ class LooseImagesInsightResult(BaseInsightResult):
 
 
 class MainBinaryExportMetadataResult(BaseInsightResult):
-    """Results from main binary exported symbols analysis."""
+    """Results from main binary exported symbols metadata analysis."""
 
 
 @dataclass
