@@ -318,14 +318,7 @@ class AppleAppAnalyzer:
 
     @trace("apple.analyze_files")
     def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
-        """Analyze all files in the app bundle.
-
-        Args:
-            xcarchive: The XCArchive to analyze
-
-        Returns:
-            File analysis results
-        """
+        """Analyze all files in the app bundle."""
         logger.debug("Analyzing files in app bundle")
 
         files: List[FileInfo] = []
@@ -340,20 +333,13 @@ class AppleAppAnalyzer:
             file_size = get_file_size(file_path)
 
             # Get file type from extension first
-            file_type = file_path.suffix.lower().lstrip(".")
-
             # If no extension or unknown type, use file command
+            file_type = file_path.suffix.lower().lstrip(".")
             if not file_type or file_type == "unknown":
                 file_type = self._detect_file_type(file_path)
 
             # Calculate hash for duplicate detection
             file_hash = calculate_file_hash(file_path, algorithm="md5")
-
-            # Analyze image if applicable
-            # TODO: image analysis
-            # image_analysis_result = None
-            # if file_type.lower() in {"png", "jpg", "jpeg", "webp"}:
-            #     image_analysis_result = self._analyze_image(file_path, file_size)
 
             children: List[FileInfo] = []
             if file_type == "car":
