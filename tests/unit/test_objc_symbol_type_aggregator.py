@@ -1,5 +1,16 @@
+from typing import cast
+
+import lief
+
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator, ObjCSymbolTypeGroup
+
+
+class MockSymbol:
+    """Mock symbol class for testing purposes."""
+
+    def __init__(self, name: str = "mock_symbol"):
+        self.name = name
 
 
 class TestObjCSymbolTypeAggregator:
@@ -16,8 +27,20 @@ class TestObjCSymbolTypeAggregator:
         aggregator = ObjCSymbolTypeAggregator()
 
         swift_symbols = [
-            SymbolSize(mangled_name="_$s6Sentry0A14OnDemandReplayC", section=None, address=0x1000, size=100),
-            SymbolSize(mangled_name="_$s6Sentry0A18UserFeedbackWidgetC", section=None, address=0x2000, size=200),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="_$s6Sentry0A14OnDemandReplayC",
+                section=None,
+                address=0x1000,
+                size=100,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="_$s6Sentry0A18UserFeedbackWidgetC",
+                section=None,
+                address=0x2000,
+                size=200,
+            ),
         ]
 
         result = aggregator.aggregate_symbols(swift_symbols)
@@ -29,12 +52,14 @@ class TestObjCSymbolTypeAggregator:
 
         cpp_symbols = [
             SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_ZNKSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4sizeEv",
                 section=None,
                 address=0x1000,
                 size=100,
             ),
             SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC1ERKS5_",
                 section=None,
                 address=0x2000,
@@ -51,15 +76,49 @@ class TestObjCSymbolTypeAggregator:
 
         mixed_symbols = [
             # Swift symbols (should be filtered out)
-            SymbolSize(mangled_name="_$s6Sentry0A14OnDemandReplayC", section=None, address=0x1000, size=100),
-            SymbolSize(mangled_name="_$s6Sentry0A18UserFeedbackWidgetC", section=None, address=0x2000, size=200),
-            # Objective-C symbols
-            SymbolSize(mangled_name="-[NSString stringByAppendingString:]", section=None, address=0x3000, size=150),
             SymbolSize(
-                mangled_name="-[NSString stringByAppendingPathComponent:]", section=None, address=0x4000, size=180
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="_$s6Sentry0A14OnDemandReplayC",
+                section=None,
+                address=0x1000,
+                size=100,
             ),
-            SymbolSize(mangled_name="+[NSArray arrayWithObject:]", section=None, address=0x5000, size=120),
-            SymbolSize(mangled_name="_OBJC_CLASS_$_NSString", section=None, address=0x6000, size=300),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="_$s6Sentry0A18UserFeedbackWidgetC",
+                section=None,
+                address=0x2000,
+                size=200,
+            ),
+            # Objective-C symbols
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="-[NSString stringByAppendingString:]",
+                section=None,
+                address=0x3000,
+                size=150,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="-[NSString stringByAppendingPathComponent:]",
+                section=None,
+                address=0x4000,
+                size=180,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="+[NSArray arrayWithObject:]",
+                section=None,
+                address=0x5000,
+                size=120,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="_OBJC_CLASS_$_NSString",
+                section=None,
+                address=0x6000,
+                size=300,
+            ),
         ]
 
         result = aggregator.aggregate_symbols(mixed_symbols)
@@ -112,10 +171,26 @@ class TestObjCSymbolTypeAggregator:
         aggregator = ObjCSymbolTypeAggregator()
 
         symbols = [
-            SymbolSize(mangled_name="-[NSString(MyCategory) customMethod]", section=None, address=0x1000, size=100),
-            SymbolSize(mangled_name="-[NSString stringByAppendingString:]", section=None, address=0x2000, size=150),
             SymbolSize(
-                mangled_name="-[NSString(AnotherCategory) anotherMethod]", section=None, address=0x3000, size=120
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="-[NSString(MyCategory) customMethod]",
+                section=None,
+                address=0x1000,
+                size=100,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="-[NSString stringByAppendingString:]",
+                section=None,
+                address=0x2000,
+                size=150,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="-[NSString(AnotherCategory) anotherMethod]",
+                section=None,
+                address=0x3000,
+                size=120,
             ),
         ]
 
@@ -156,9 +231,27 @@ class TestObjCSymbolTypeAggregator:
     def test_objc_symbol_type_group_total_size(self):
         """Test ObjCSymbolTypeGroup total_size property."""
         symbols = [
-            SymbolSize(mangled_name="test1", section=None, address=0x1000, size=100),
-            SymbolSize(mangled_name="test2", section=None, address=0x2000, size=200),
-            SymbolSize(mangled_name="test3", section=None, address=0x3000, size=300),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="test1",
+                section=None,
+                address=0x1000,
+                size=100,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="test2",
+                section=None,
+                address=0x2000,
+                size=200,
+            ),
+            SymbolSize(
+                symbol=cast(lief.MachO.Symbol, MockSymbol()),
+                mangled_name="test3",
+                section=None,
+                address=0x3000,
+                size=300,
+            ),
         ]
 
         group = ObjCSymbolTypeGroup(class_name="TestClass", method_name="testMethod", symbol_count=3, symbols=symbols)

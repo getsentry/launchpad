@@ -17,6 +17,7 @@ class TestStripSymbolsInsight:
     def test_generate_with_debug_sections_and_symbols(self):
         """Test that insight is generated when binaries have both debug sections and strippable symbols."""
         symbol_info = SymbolInfo(
+            symbol_sizes=[],  # Not needed for this test
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=5000,  # 5KB of strippable symbols
@@ -36,7 +37,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=symbol_info,
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         insights_input = InsightsInput(
@@ -77,7 +79,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=None,  # No symbol info
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         insights_input = InsightsInput(
@@ -105,6 +108,7 @@ class TestStripSymbolsInsight:
     def test_generate_with_symbols_only(self):
         """Test that insight is generated when binaries have only strippable symbols."""
         symbol_info = SymbolInfo(
+            symbol_sizes=[],  # Not needed for this test
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=15000,  # 15KB of strippable symbols
@@ -123,7 +127,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=symbol_info,
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         insights_input = InsightsInput(
@@ -152,6 +157,7 @@ class TestStripSymbolsInsight:
         """Test that insight correctly aggregates multiple binaries."""
         # Binary 1: Both debug sections and symbols
         symbol_info_1 = SymbolInfo(
+            symbol_sizes=[],  # Not needed for this test
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=3000,
@@ -170,7 +176,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=symbol_info_1,
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         # Binary 2: Only debug sections
@@ -187,11 +194,13 @@ class TestStripSymbolsInsight:
             },
             symbol_info=None,
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         # Binary 3: Only symbols
         symbol_info_3 = SymbolInfo(
+            symbol_sizes=[],  # Not needed for this test
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=8000,
@@ -209,7 +218,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=symbol_info_3,
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         insights_input = InsightsInput(
@@ -265,7 +275,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=None,  # No symbol info
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         insights_input = InsightsInput(
@@ -282,6 +293,7 @@ class TestStripSymbolsInsight:
     def test_generate_with_zero_size_strippable_symbols(self):
         """Test that binaries with zero-size strippable symbols are ignored."""
         symbol_info = SymbolInfo(
+            symbol_sizes=[],  # Not needed for this test
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=0,  # No strippable symbols
@@ -300,7 +312,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=symbol_info,
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         insights_input = InsightsInput(
@@ -362,7 +375,8 @@ class TestStripSymbolsInsight:
             },
             symbol_info=None,
             swift_metadata=None,
-            range_map=None,
+            binary_analysis=None,
+            is_main_binary=False,
         )
 
         insights_input = InsightsInput(
