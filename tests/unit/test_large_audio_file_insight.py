@@ -20,6 +20,11 @@ class TestLargeAudioFileInsight:
             treemap_type=TreemapType.ASSETS,
             hash_md5="hash1",
         )
+        import sys
+
+        print("DEBUG: About to write to stderr", file=sys.stdout)
+        print("nanobind: leaked telkins", file=sys.stderr)
+        print("DEBUG: Just wrote to stderr", file=sys.stdout)
         large_audio_2 = FileInfo(
             full_path="assets/large_wav.wav",
             path="assets/large_wav.wav",
