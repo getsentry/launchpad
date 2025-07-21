@@ -28,7 +28,7 @@ class AssetCatalogElement:
     type: int
     vector: bool
     filename: str
-    full_path: Path
+    full_path: Path | None
 
 
 @dataclass
@@ -269,12 +269,8 @@ class ZippedXCArchive(AppleArtifact):
             full_path = parent_path / f"{image_id}.pdf"
         elif asset_type == 4:  # HEIF image
             full_path = parent_path / f"{image_id}.heic"
-        elif asset_type == 9:  # Color asset
-            full_path = parent_path / f"{image_id}.colorset"
-        elif asset_type == 10:  # Data asset
-            full_path = parent_path / image_id
         else:
-            full_path = parent_path / image_id
+            full_path = None
 
         return AssetCatalogElement(
             name=name,

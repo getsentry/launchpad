@@ -62,7 +62,9 @@ class FileInfo(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     path: str = Field(..., description="Relative path in the bundle")
-    full_path: Path = Field(..., exclude=True, description="Fully qualified path to the file")
+
+    # Some FileInfo objects are not always backed by a file (e.g. asset catalog elements), so full_path is None
+    full_path: Path | None = Field(..., exclude=True, description="Fully qualified path to the file")
     size: int = Field(
         ...,
         ge=0,

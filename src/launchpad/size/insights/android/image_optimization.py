@@ -16,6 +16,9 @@ class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):
         optimizeable_image_files: list[OptimizeableImageFile] = []
 
         for file_info in input.file_analysis.files:
+            if not file_info.full_path:
+                continue
+
             if file_info.file_type not in ["png", "bmp", "jpg", "jpeg"]:
                 continue
 

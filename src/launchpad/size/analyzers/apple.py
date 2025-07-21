@@ -377,10 +377,10 @@ class AppleAppAnalyzer:
         catalog_details = xcarchive.get_asset_catalog_details(relative_path)
         result: List[FileInfo] = []
         for element in catalog_details:
-            if element.full_path.exists() and element.full_path.is_file():
+            if element.full_path and element.full_path.exists() and element.full_path.is_file():
                 file_hash = calculate_file_hash(element.full_path, algorithm="md5")
             else:
-                # can't hash a directory so use imageId as hash
+                # not every element is backed by a file, so use imageId as hash
                 file_hash = element.image_id
 
             result.append(
@@ -388,7 +388,7 @@ class AppleAppAnalyzer:
                     full_path=element.full_path,
                     path=str(relative_path) + "/" + element.name,
                     size=element.size,
-                    file_type=Path(element.full_path).suffix.lstrip("."),
+                    file_type=Path(element.full_path).suffix.lstrip(".") if element.full_path else "other",
                     hash_md5=file_hash,
                     treemap_type=TreemapType.ASSETS,
                     children=[],
