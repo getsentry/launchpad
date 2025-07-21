@@ -36,7 +36,7 @@ def main(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Verify file exists
+    # Verify file existssss
     if not os.path.exists(file_path):
         click.echo(f"❌ File not found: {file_path}")
         sys.exit(1)
