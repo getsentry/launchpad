@@ -36,6 +36,7 @@ class BinaryInfo:
     name: str
     path: Path
     dsym_path: Path | None
+    is_main_binary: bool
 
 
 class ZippedXCArchive(AppleArtifact):
@@ -181,7 +182,7 @@ class ZippedXCArchive(AppleArtifact):
         main_uuid = self._extract_binary_uuid(main_binary_path)
         main_dsym_path = dsym_files.get(main_uuid) if main_uuid else None
 
-        binaries.append(BinaryInfo(main_executable, main_binary_path, main_dsym_path))
+        binaries.append(BinaryInfo(main_executable, main_binary_path, main_dsym_path, is_main_binary=True))
 
         # Find framework binaries
         for framework_path in app_bundle_path.rglob("*.framework"):
@@ -193,7 +194,9 @@ class ZippedXCArchive(AppleArtifact):
                 framework_uuid = self._extract_binary_uuid(framework_binary_path)
                 framework_dsym_path = dsym_files.get(framework_uuid) if framework_uuid else None
 
-                binaries.append(BinaryInfo(framework_name, framework_binary_path, framework_dsym_path))
+                binaries.append(
+                    BinaryInfo(framework_name, framework_binary_path, framework_dsym_path, is_main_binary=False)
+                )
 
         # Find app extension binaries
         for extension_path in app_bundle_path.rglob("*.appex"):
@@ -220,6 +223,7 @@ class ZippedXCArchive(AppleArtifact):
                                     extension_name,
                                     extension_binary_path,
                                     extension_dsym_path,
+                                    is_main_binary=False,
                                 )
                             )
                     except Exception as e:

@@ -150,6 +150,7 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
     )
     symbol_info: SymbolInfo | None = Field(None, description="Symbol information", exclude=True)
     objc_method_names: List[str] = Field(default_factory=list, description="Objective-C method names", exclude=True)
+    is_main_binary: bool = Field(False, description="Whether this is the main binary")
 
 
 class StripBinaryFileInfo(BaseModel):
