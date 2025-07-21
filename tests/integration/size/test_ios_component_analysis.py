@@ -71,6 +71,8 @@ class TestIOSBinaryComponentAnalysis:
                 f"Component {tag.name} size should be {expected_size}, got {actual_size}"
             )
 
+        assert results.file_analysis.file_count == 31
+
     def test_component_analysis_completeness(self, sample_app_path: Path) -> None:
         """Test that components are properly analyzed in real binary."""
         analyzer = AppleAppAnalyzer(skip_component_analysis=False)
