@@ -61,24 +61,13 @@ def nanobind_leak_detector() -> Generator[NanobindLeakDetector, None, None]:
     try:
         yield detector
     finally:
-        # Stop capturing and check for leaks after the test
         detector.stop_capture_and_check()
 
-        # If leaks were detected, fail the test with a clear message
         if detector.leak_detected:
             leak_summary = "\n".join(f"  • {msg}" for msg in detector.leak_messages)
             pytest.fail(
                 f"❌ NANOBIND MEMORY LEAK DETECTED ❌\n\n"
-                f"This test caused nanobind memory leaks, which can lead to dangerous memory issues.\n"
-                f"Leaked objects indicate that Python objects backed by C++ objects weren't properly cleaned up.\n\n"
+                f"This change caused nanobind memory leaks, which can lead to dangerous memory issues.\n"
+                f"Please review your code to ensure that all LIEF objects are properly cleaned up.\n\n"
                 f"Leak messages detected:\n{leak_summary}\n\n"
-                f"💡 Common causes:\n"
-                f"  • LIEF objects not being properly garbage collected\n"
-                f"  • Circular references preventing cleanup\n"
-                f"  • Missing explicit cleanup of binary objects\n\n"
-                f"🔧 Potential fixes:\n"
-                f"  • Ensure LIEF binary objects are explicitly deleted when done\n"
-                f"  • Use context managers or try/finally blocks for cleanup\n"
-                f"  • Call gc.collect() after processing large binaries\n"
-                f"  • Check for circular references in object graphs"
             )
