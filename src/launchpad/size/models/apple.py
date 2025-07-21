@@ -21,6 +21,7 @@ from .insights import (
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
+    UnnecessaryFilesInsightResult,
 )
 
 
@@ -203,6 +204,7 @@ class AppleInsightResults(BaseModel):
     main_binary_exported_symbols: MainBinaryExportMetadataResult | None = Field(
         None, description="Main binary exported symbols analysis"
     )
+    unnecessary_files: UnnecessaryFilesInsightResult | None = Field(None, description="Unnecessary files analysis")
 
 
 @dataclass

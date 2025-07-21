@@ -23,6 +23,7 @@ from launchpad.size.insights.apple.loose_images import LooseImagesInsight
 from launchpad.size.insights.apple.main_binary_export_metadata import MainBinaryExportMetadataInsight
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
+from launchpad.size.insights.apple.unnecessary_files import UnnecessaryFilesInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
 from launchpad.size.insights.common.hermes_debug_info import (
     HermesDebugInfoInsight,
@@ -181,6 +182,9 @@ class AppleAppAnalyzer:
                 ),
                 main_binary_exported_symbols=self._generate_insight_with_tracing(
                     MainBinaryExportMetadataInsight, insights_input, "main_binary_exported_symbols"
+                ),
+                unnecessary_files=self._generate_insight_with_tracing(
+                    UnnecessaryFilesInsight, insights_input, "unnecessary_files"
                 ),
             )
 

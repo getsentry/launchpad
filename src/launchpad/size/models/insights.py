@@ -46,3 +46,9 @@ class HermesDebugInfoInsightResult(BaseInsightResult):
     """Results from Hermes debug info analysis."""
 
     files: List[FileInfo] = Field(..., description="Hermes bytecode files with debug info")
+
+
+class UnnecessaryFilesInsightResult(BaseInsightResult):
+    """Results from unnecessary files analysis."""
+
+    files: List[FileInfo] = Field(..., description="Unnecessary files that are not needed for the app to run")
