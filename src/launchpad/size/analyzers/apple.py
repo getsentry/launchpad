@@ -20,6 +20,7 @@ from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.loose_images import LooseImagesInsight
+from launchpad.size.insights.apple.main_binary_export_metadata import MainBinaryExportMetadataInsight
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
@@ -177,6 +178,9 @@ class AppleAppAnalyzer:
                 loose_images=self._generate_insight_with_tracing(LooseImagesInsight, insights_input, "loose_images"),
                 image_optimization=self._generate_insight_with_tracing(
                     ImageOptimizationInsight, insights_input, "image_optimization"
+                ),
+                main_binary_exported_symbols=self._generate_insight_with_tracing(
+                    MainBinaryExportMetadataInsight, insights_input, "main_binary_exported_symbols"
                 ),
             )
 
@@ -443,6 +447,7 @@ class AppleAppAnalyzer:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
                 symbol_info = SymbolInfo(
+                    symbol_sizes=symbol_sizes,
                     swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     strippable_symbols_size=strippable_symbols_size,
@@ -452,6 +457,7 @@ class AppleAppAnalyzer:
         else:
             if strippable_symbols_size > 0:
                 symbol_info = SymbolInfo(
+                    symbol_sizes=[],
                     swift_type_groups=[],
                     objc_type_groups=[],
                     strippable_symbols_size=strippable_symbols_size,

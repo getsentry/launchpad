@@ -8,6 +8,7 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 from launchpad.size.models.binary_component import BinaryAnalysis
@@ -74,6 +75,10 @@ class LooseImagesInsightResult(BaseInsightResult):
         ..., description="Groups of loose images that could be moved to asset catalogs"
     )
     total_file_count: int = Field(..., description="Total number of loose image files found")
+
+
+class MainBinaryExportMetadataResult(BaseInsightResult):
+    """Results from main binary exported symbols analysis."""
 
 
 @dataclass
@@ -195,10 +200,14 @@ class AppleInsightResults(BaseModel):
     )
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
     image_optimization: ImageOptimizationInsightResult | None = Field(None, description="Image optimization analysis")
+    main_binary_exported_symbols: MainBinaryExportMetadataResult | None = Field(
+        None, description="Main binary exported symbols analysis"
+    )
 
 
 @dataclass
 class SymbolInfo:
+    symbol_sizes: List[SymbolSize]
     swift_type_groups: List[SwiftSymbolTypeGroup]
     objc_type_groups: List[ObjCSymbolTypeGroup]
     strippable_symbols_size: int = 0
