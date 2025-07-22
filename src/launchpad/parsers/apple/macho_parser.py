@@ -248,11 +248,10 @@ class MachOParser:
         if not init_sec:
             return []
 
-        ptr_size = 8 if self.binary.header.cpu_type == lief.MachO.Header.CPU_TYPE.ARM64 else 4
-        endianness = "<"  # Mach-O on x86-64/arm64 is little-endian
-        fmt = f"{endianness}{'Q' if ptr_size == 8 else 'I'}"
+        if self.binary.header.cpu_type != lief.MachO.Header.CPU_TYPE.ARM64:
+            return []
 
-        addrs = [struct.unpack(fmt, init_sec[i : i + ptr_size])[0] for i in range(0, len(init_sec), ptr_size)]
+        addrs = [struct.unpack("<Q", init_sec[i : i + 8])[0] for i in range(0, len(init_sec), 8)]
 
         symbols_by_addr = sorted((s for s in self.binary.symbols if s.value), key=lambda s: s.value)
         addr_only = [s.value for s in symbols_by_addr]
