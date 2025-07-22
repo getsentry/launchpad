@@ -20,6 +20,7 @@ from aiohttp.web import (
 )
 
 from .utils.logging import get_logger
+from .utils.statsd import get_statsd
 
 logger = get_logger(__name__)
 
@@ -70,6 +71,7 @@ class LaunchpadServer:
         self._shutdown_event = asyncio.Event()
         self.config = config or get_server_config()
         self.health_check_callback = health_check_callback
+        self._statsd = get_statsd()
 
         # Override config with explicit parameters if provided
         if host is not None:
@@ -134,10 +136,14 @@ class LaunchpadServer:
 
                     # Map status to HTTP code
                     status_code = {"ok": 200, "degraded": 503}.get(health_data["status"], 500)
+
+                    # Send service check to Datadog
+                    self._report_health_status(status_code == 200)
                     return web.json_response(health_data, status=status_code)
 
                 except Exception as e:
                     logger.error(f"Health check callback failed: {e}", exc_info=True)
+                    self._report_health_status(False)
                     return web.json_response(
                         {
                             "status": "error",
@@ -148,6 +154,7 @@ class LaunchpadServer:
                     )
             else:
                 # Fallback to basic health check if no callback
+                self._report_health_status(True)
                 return web.json_response(
                     {
                         "status": "ok",
@@ -159,6 +166,7 @@ class LaunchpadServer:
                 )
         except Exception as e:
             logger.error(f"Health check failed: {e}", exc_info=True)
+            self._report_health_status(False)
             return web.json_response({"status": "error", "service": "launchpad", "error": str(e)}, status=500)
 
     async def ready_check(self, request: Request) -> Response:
@@ -170,6 +178,14 @@ class LaunchpadServer:
                 "service": "launchpad",
                 "environment": self.config["environment"],
             }
+        )
+
+    def _report_health_status(self, is_healthy: bool) -> None:
+        """Report health check status to Datadog."""
+        self._statsd.service_check(
+            "launchpad.health_check",
+            self._statsd.OK if is_healthy else self._statsd.CRITICAL,
+            tags=[f"environment:{self.config['environment']}"],
         )
 
     async def start(self) -> None:
