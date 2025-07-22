@@ -17,6 +17,6 @@ class UpdateData(BaseModel):
     app_id: str
     build_version: str
     build_number: Optional[int]
-    artifact_type: str
+    artifact_type: int
     apple_app_info: Optional[AppleAppInfo] = None
     # TODO: add "date_built" and custom android fields
