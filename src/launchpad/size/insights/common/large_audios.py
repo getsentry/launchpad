@@ -7,7 +7,7 @@ from launchpad.size.models.insights import (
 class LargeAudioFileInsight(Insight[LargeAudioFileInsightResult]):
     """Insight for identifying audio files larger than 5MB."""
 
-    def generate(self, input: InsightsInput) -> LargeAudioFileInsightResult:
+    def generate(self, input: InsightsInput) -> LargeAudioFileInsightResult | None:
         size_threshold_bytes = 5 * 1024 * 1024  # 5MB - chosen arbitrarily, we can change this later
 
         # Android supported audio types: https://developer.android.com/media/platform/supported-formats#audio-formats
@@ -30,6 +30,9 @@ class LargeAudioFileInsight(Insight[LargeAudioFileInsightResult]):
         audio_files = [file for file in input.file_analysis.files if file.file_type in audio_types]
 
         large_files = [file for file in audio_files if file.size > size_threshold_bytes]
+
+        if len(large_files) == 0:
+            return None
 
         # Sort by largest first
         large_files.sort(key=lambda f: f.size, reverse=True)

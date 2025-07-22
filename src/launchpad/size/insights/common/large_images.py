@@ -5,7 +5,7 @@ from launchpad.size.models.insights import LargeImageFileInsightResult
 class LargeImageFileInsight(Insight[LargeImageFileInsightResult]):
     """Insight for identifying image files larger than 10MB."""
 
-    def generate(self, input: InsightsInput) -> LargeImageFileInsightResult:
+    def generate(self, input: InsightsInput) -> LargeImageFileInsightResult | None:
         size_threshold_bytes = 10 * 1024 * 1024  # 10MB - chosen arbitrarily, we can change this later
 
         # Android supported image types: https://developer.android.com/media/platform/supported-formats#image-formats
@@ -29,6 +29,9 @@ class LargeImageFileInsight(Insight[LargeImageFileInsightResult]):
         image_files = [file for file in input.file_analysis.files if file.file_type in image_types]
 
         large_files = [file for file in image_files if file.size > size_threshold_bytes]
+
+        if len(large_files) == 0:
+            return None
 
         # Sort by largest first
         large_files.sort(key=lambda f: f.size, reverse=True)

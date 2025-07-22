@@ -12,7 +12,7 @@ from launchpad.size.models.insights import (
 class HermesDebugInfoInsight(Insight[HermesDebugInfoInsightResult]):
     """Insight for identifying Hermes bytecode files with debug info that can be stripped."""
 
-    def generate(self, input: InsightsInput) -> HermesDebugInfoInsightResult:
+    def generate(self, input: InsightsInput) -> HermesDebugInfoInsightResult | None:
         """Generate insight for Hermes bytecode files with debug info.
 
         Identifies Hermes bytecode files that contain debug info sections
@@ -36,6 +36,9 @@ class HermesDebugInfoInsight(Insight[HermesDebugInfoInsightResult]):
                 if debug_info_size > 0:
                     files_with_debug_info.append(file_info)
                     total_savings += debug_info_size
+
+        if len(files_with_debug_info) == 0:
+            return None
 
         files_with_debug_info.sort(
             key=lambda f: input.hermes_reports[f.path]["sections"]["Debug info"]["bytes"]
