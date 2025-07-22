@@ -32,6 +32,15 @@ interface AppInfo {
   code_signature_errors?: string[];
 }
 
+export interface InsightResult {
+  total_savings: number;
+  files?: {
+    path: string;
+    size: number;
+    file_type: number;
+  }[];
+}
+
 export interface FileAnalysisReport {
   file_analysis: FileAnalysisData;
   treemap: TreemapResults;
@@ -41,18 +50,20 @@ export interface FileAnalysisReport {
     [key: string]: unknown;
   };
   insights?: {
-    duplicate_files?: unknown;
-    large_images?: unknown;
-    large_videos?: unknown;
-    large_audio?: unknown;
-    hermes_debug_info?: unknown;
-    webp_optimization?: unknown;
-    strip_binary?: unknown;
-    localized_strings?: unknown;
-    [key: string]: unknown;
+    duplicate_files?: InsightResult | null;
+    large_images?: InsightResult | null;
+    large_videos?: InsightResult | null;
+    large_audio?: InsightResult | null;
+    hermes_debug_info?: InsightResult | null;
+    webp_optimization?: InsightResult | null;
+    strip_binary?: InsightResult | null;
+    localized_strings?: InsightResult | null;
+    [key: string]: InsightResult | null | undefined;
   };
   generated_at: string;
   use_si_units: boolean;
+  install_size: number;
+  download_size: number;
 }
 
 export function parseFileAnalysisReport(data: unknown): FileAnalysisReport {

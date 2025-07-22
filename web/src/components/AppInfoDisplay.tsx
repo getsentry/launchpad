@@ -86,7 +86,7 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
             textAlign: 'center'
           }}>
             <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
-              {formatSize(data.treemap.total_install_size)}
+              {formatSize(data.install_size)}
             </div>
             <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Install Size</div>
           </div>
@@ -98,7 +98,7 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
             textAlign: 'center'
           }}>
             <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
-              {formatSize(data.treemap.total_download_size)}
+              {formatSize(data.download_size)}
             </div>
             <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Download Size</div>
           </div>

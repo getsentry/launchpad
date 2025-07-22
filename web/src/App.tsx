@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './App.css';
 import AppInfoDisplay from './components/AppInfoDisplay';
 import FileUpload from './components/FileUpload';
+import InsightsDisplay from './components/InsightsDisplay';
 import TreemapVisualization from './components/TreemapVisualization';
 import type { FileAnalysisReport } from './utils/dataConverter';
 
@@ -9,7 +10,6 @@ function App() {
   const [treemapData, setTreemapData] = useState<FileAnalysisReport | null>(null);
   const [sizeMode, setSizeMode] = useState<'install' | 'download'>('install');
   const [error, setError] = useState<string | null>(null);
-  const [showInsights, setShowInsights] = useState(false);
 
   const handleDataLoad = (data: FileAnalysisReport) => {
     setTreemapData(data);
@@ -89,51 +89,8 @@ function App() {
             {/* App Info Display */}
             <AppInfoDisplay data={treemapData} />
 
-            {/* Insights Debug Display */}
-            {treemapData.insights && (
-              <div style={{ marginTop: '2rem' }}>
-                <button
-                  onClick={() => setShowInsights(!showInsights)}
-                  style={{
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '8px 16px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  {showInsights ? 'Hide' : 'Show'} Insights Debug Data
-                </button>
-
-                {showInsights && (
-                  <div style={{
-                    marginTop: '1rem',
-                    backgroundColor: '#f8f9fa',
-                    border: '1px solid #dee2e6',
-                    borderRadius: '4px',
-                    padding: '1rem'
-                  }}>
-                    <h3 style={{ margin: '0 0 1rem 0', color: '#343a40' }}>
-                      Insights Data (Debug)
-                    </h3>
-                    <pre style={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #dee2e6',
-                      borderRadius: '4px',
-                      padding: '1rem',
-                      overflow: 'auto',
-                      fontSize: '12px',
-                      lineHeight: '1.4',
-                      maxHeight: '400px'
-                    }}>
-                      {JSON.stringify(treemapData.insights, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Insights Display */}
+            <InsightsDisplay data={treemapData} />
           </div>
         )}
       </main>
