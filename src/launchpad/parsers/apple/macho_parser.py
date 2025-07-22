@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import bisect
 import struct
 
 from pathlib import Path
 from typing import Dict, List
 
 import lief
+
+from launchpad.utils.performance import trace
 
 from ...utils.logging import get_logger
 from .binary_utils import parse_null_terminated_strings
@@ -190,6 +193,7 @@ class MachOParser:
 
         return self._imported_symbols_cache
 
+    @trace(name="parse_objc_method_names")
     def parse_objc_method_names(self) -> List[str]:
         """Parse Objective-C method names from the __objc_methname section.
 
@@ -213,6 +217,7 @@ class MachOParser:
             logger.error(f"Failed to parse Objective-C method names: {e}")
             return []
 
+    @trace(name="has_swift_imageinfo")
     def has_swift_imageinfo(self) -> bool:
         """Check if the binary has Swift image info with non-zero Swift version.
 
@@ -236,3 +241,36 @@ class MachOParser:
         except Exception as e:
             logger.error("Could not parse __objc_imageinfo: %s", e)
             return False
+
+    @trace(name="static_inits")
+    def static_inits(self) -> List[lief.Symbol]:
+        init_sec = self.get_section_bytes("__mod_init_func")
+        if not init_sec:
+            return []
+
+        ptr_size = 8 if self.binary.header.cpu_type == lief.MachO.Header.CPU_TYPE.ARM64 else 4
+        endianness = "<"  # Mach-O on x86-64/arm64 is little-endian
+        fmt = f"{endianness}{'Q' if ptr_size == 8 else 'I'}"
+
+        addrs = [struct.unpack(fmt, init_sec[i : i + ptr_size])[0] for i in range(0, len(init_sec), ptr_size)]
+
+        symbols_by_addr = sorted((s for s in self.binary.symbols if s.value), key=lambda s: s.value)
+        addr_only = [s.value for s in symbols_by_addr]
+
+        def find_symbol(addr: int) -> lief.Symbol | None:
+            idx = bisect.bisect_left(addr_only, addr)
+            return symbols_by_addr[idx] if idx < len(addr_only) and addr_only[idx] == addr else None
+
+        symbols: List[lief.Symbol] = []
+        for a in addrs:
+            sym = find_symbol(a)
+            if sym:
+                symbols.append(sym)
+
+        # TODO: there are some addresses that are not in the symbols list
+        # but are present in the FUNCTION_STARTS section. we could flag these
+        # cases but wouldn't have a meaningful name for them.
+
+        logger.debug(f"Found {len(symbols)} static initializers")
+
+        return symbols

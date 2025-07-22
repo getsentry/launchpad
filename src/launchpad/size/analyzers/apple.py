@@ -439,6 +439,7 @@ class AppleAppAnalyzer:
         sections = parser.extract_sections()
         swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
+        static_inits = parser.static_inits()
 
         symbol_info = None
 
@@ -454,6 +455,7 @@ class AppleAppAnalyzer:
                     symbol_sizes=symbol_sizes,
                     swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
                     objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                    static_inits=static_inits,
                     strippable_symbols_size=strippable_symbols_size,
                 )
             else:
@@ -464,6 +466,7 @@ class AppleAppAnalyzer:
                     symbol_sizes=[],
                     swift_type_groups=[],
                     objc_type_groups=[],
+                    static_inits=static_inits,
                     strippable_symbols_size=strippable_symbols_size,
                 )
             logger.info("No dwarf binary path provided, skipping detailed symbol analysis")

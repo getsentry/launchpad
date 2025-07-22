@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
+import lief
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
@@ -212,6 +214,7 @@ class SymbolInfo:
     symbol_sizes: List[SymbolSize]
     swift_type_groups: List[SwiftSymbolTypeGroup]
     objc_type_groups: List[ObjCSymbolTypeGroup]
+    static_inits: List[lief.Symbol]
     strippable_symbols_size: int = 0
 
     def get_symbols_by_section(self) -> dict[str, list[tuple[str, str, int, int]]]:
