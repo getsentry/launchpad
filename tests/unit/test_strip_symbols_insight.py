@@ -20,6 +20,7 @@ class TestStripSymbolsInsight:
             symbol_sizes=[],  # Not needed for this test
             swift_type_groups=[],
             objc_type_groups=[],
+            static_inits=[],
             strippable_symbols_size=5000,  # 5KB of strippable symbols
         )
 
@@ -112,6 +113,7 @@ class TestStripSymbolsInsight:
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=15000,  # 15KB of strippable symbols
+            static_inits=[],
         )
 
         binary_analysis = MachOBinaryAnalysis(
@@ -161,6 +163,7 @@ class TestStripSymbolsInsight:
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=3000,
+            static_inits=[],
         )
 
         binary_analysis_1 = MachOBinaryAnalysis(
@@ -204,6 +207,7 @@ class TestStripSymbolsInsight:
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=8000,
+            static_inits=[],
         )
 
         binary_analysis_3 = MachOBinaryAnalysis(
@@ -297,6 +301,7 @@ class TestStripSymbolsInsight:
             swift_type_groups=[],
             objc_type_groups=[],
             strippable_symbols_size=0,  # No strippable symbols
+            static_inits=[],
         )
 
         binary_analysis = MachOBinaryAnalysis(
