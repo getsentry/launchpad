@@ -214,7 +214,7 @@ class SymbolInfo:
     symbol_sizes: List[SymbolSize]
     swift_type_groups: List[SwiftSymbolTypeGroup]
     objc_type_groups: List[ObjCSymbolTypeGroup]
-    static_inits: List[lief.Symbol]
+    static_inits: List[lief.Symbol | str]
     strippable_symbols_size: int = 0
 
     def get_symbols_by_section(self) -> dict[str, list[tuple[str, str, int, int]]]:

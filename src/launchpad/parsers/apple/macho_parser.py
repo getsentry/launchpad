@@ -243,7 +243,7 @@ class MachOParser:
             return False
 
     @trace(name="static_inits")
-    def static_inits(self) -> List[lief.Symbol]:
+    def static_inits(self) -> List[lief.Symbol | str]:
         init_sec = self.get_section_bytes("__mod_init_func")
         if not init_sec:
             return []
@@ -261,15 +261,18 @@ class MachOParser:
             idx = bisect.bisect_left(addr_only, addr)
             return symbols_by_addr[idx] if idx < len(addr_only) and addr_only[idx] == addr else None
 
-        symbols: List[lief.Symbol] = []
+        symbols: List[lief.Symbol | str] = []
+        count = 0
         for a in addrs:
+            count += 1
             sym = find_symbol(a)
             if sym:
                 symbols.append(sym)
-
-        # TODO: there are some addresses that are not in the symbols list
-        # but are present in the FUNCTION_STARTS section. we could flag these
-        # cases but wouldn't have a meaningful name for them.
+            else:
+                # TODO: there are some addresses that are not in the symbols list
+                # but are present in the FUNCTION_STARTS section. for now we can just
+                # add a placeholder symbol name.
+                symbols.append(f"__mod_init_func_{count}")
 
         logger.debug(f"Found {len(symbols)} static initializers")
 
