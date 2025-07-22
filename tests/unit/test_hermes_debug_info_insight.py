@@ -122,9 +122,7 @@ class TestHermesDebugInfoInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, HermesDebugInfoInsightResult)
-        assert len(result.files) == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_non_hermes_files(self):
         """Test that non-Hermes files are ignored."""
@@ -151,9 +149,7 @@ class TestHermesDebugInfoInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, HermesDebugInfoInsightResult)
-        assert len(result.files) == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_no_hermes_reports(self):
         """Test that insight returns empty result when no Hermes reports are provided."""
@@ -178,9 +174,7 @@ class TestHermesDebugInfoInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, HermesDebugInfoInsightResult)
-        assert len(result.files) == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_multiple_hermes_files(self):
         """Test that multiple Hermes files with debug info are handled correctly."""

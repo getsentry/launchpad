@@ -22,7 +22,7 @@ class HermesDebugInfoInsight(Insight[HermesDebugInfoInsightResult]):
         total_savings = 0
 
         if not input.hermes_reports:
-            return HermesDebugInfoInsightResult(files=[], total_savings=0)
+            return None
 
         # Find Hermes files in the file analysis
         for file_info in input.file_analysis.files:

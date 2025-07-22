@@ -98,9 +98,7 @@ class TestLargeVideoFileInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, LargeVideoFileInsightResult)
-        assert len(result.files) == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_empty_file_list(self):
         file_analysis = FileAnalysis(files=[])
@@ -114,9 +112,7 @@ class TestLargeVideoFileInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, LargeVideoFileInsightResult)
-        assert len(result.files) == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_exactly_threshold_size(self):
         threshold_file = FileInfo(
@@ -139,9 +135,7 @@ class TestLargeVideoFileInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, LargeVideoFileInsightResult)
-        assert len(result.files) == 0  # Should not include files exactly at threshold
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_different_video_formats(self):
         mp4_file = FileInfo(

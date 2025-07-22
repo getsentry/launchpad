@@ -90,9 +90,7 @@ class TestLargeAudioFileInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, LargeAudioFileInsightResult)
-        assert len(result.files) == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_empty_file_list(self):
         file_analysis = FileAnalysis(files=[])
@@ -106,9 +104,7 @@ class TestLargeAudioFileInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, LargeAudioFileInsightResult)
-        assert len(result.files) == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_exactly_threshold_size(self):
         threshold_audio = FileInfo(
@@ -131,9 +127,7 @@ class TestLargeAudioFileInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, LargeAudioFileInsightResult)
-        assert len(result.files) == 0  # Should not include files exactly at threshold
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_mixed_file_types(self):
         large_audio = FileInfo(
