@@ -32,12 +32,12 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
                     group = DuplicateFileGroup(
                         filename=group_filename,
                         files=sorted_files,
-                        savings=savings_for_this_group,
+                        total_savings=savings_for_this_group,
                     )
                     groups.append(group)
                     total_savings += savings_for_this_group
 
-        groups = sorted(groups, key=lambda g: (-g.savings, g.filename))
+        groups = sorted(groups, key=lambda g: (-g.total_savings, g.filename))
 
         return DuplicateFilesInsightResult(
             groups=groups,

@@ -62,7 +62,7 @@ export interface DuplicateFileGroup {
     size: number;
     file_type: string;
   }[];
-  savings: number;
+  total_savings: number;
 }
 
 export interface DuplicateFilesInsightResult {

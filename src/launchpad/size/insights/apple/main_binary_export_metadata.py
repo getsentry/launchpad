@@ -5,6 +5,8 @@ from launchpad.size.models.apple import MachOBinaryAnalysis, MainBinaryExportMet
 class MainBinaryExportMetadataInsight(Insight[MainBinaryExportMetadataResult]):
     """Insight for analyzing the exported symbols metadata in the main binary."""
 
+    MIN_EXPORTS_THRESHOLD = 1024
+
     def generate(self, input: InsightsInput) -> MainBinaryExportMetadataResult | None:
         """Generate insight for main binary exported symbols analysis."""
 
@@ -23,7 +25,7 @@ class MainBinaryExportMetadataInsight(Insight[MainBinaryExportMetadataResult]):
                 dyld_exports_trie_component = component
                 break
 
-        if not dyld_exports_trie_component:
+        if not dyld_exports_trie_component or dyld_exports_trie_component.size < self.MIN_EXPORTS_THRESHOLD:
             return None
 
         return MainBinaryExportMetadataResult(total_savings=dyld_exports_trie_component.size)

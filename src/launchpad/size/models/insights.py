@@ -20,7 +20,7 @@ class DuplicateFileGroup(BaseModel):
 
     filename: str = Field(..., description="The filename (without path)")
     files: List[FileInfo] = Field(..., description="All duplicate files with this filename")
-    savings: int = Field(..., ge=0, description="Total savings for this filename group")
+    total_savings: int = Field(..., ge=0, description="Total savings for this filename group")
 
     @property
     def duplicate_count(self) -> int:
