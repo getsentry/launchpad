@@ -1,5 +1,5 @@
 import React from 'react';
-import type { DuplicateFilesInsightResult, FileAnalysisReport, InsightResult, StripBinaryInsightResult } from '../utils/dataConverter';
+import type { DuplicateFilesInsightResult, FileAnalysisReport, InsightResult, LooseImagesInsightResult, StripBinaryInsightResult } from '../utils/dataConverter';
 
 interface InsightsDisplayProps {
   data: FileAnalysisReport;
@@ -89,12 +89,19 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       return hasValidSavings || hasFiles;
     }
 
+    // Handle loose images differently (has image_groups instead of files)
+    if (key === 'loose_images') {
+      const looseImagesInsight = value as LooseImagesInsightResult;
+      const hasImageGroups = looseImagesInsight.image_groups && Array.isArray(looseImagesInsight.image_groups) && looseImagesInsight.image_groups.length > 0;
+      return hasValidSavings || hasImageGroups;
+    }
+
     const regularInsight = value as InsightResult;
     const hasFiles = regularInsight.files && Array.isArray(regularInsight.files) && regularInsight.files.length > 0;
 
     // Include insights that either have savings or have files to show
     return hasValidSavings || hasFiles;
-  }) as [string, InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult][];
+  }) as [string, InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | LooseImagesInsightResult][];
 
   if (insightEntries.length === 0) {
     return null;
@@ -406,6 +413,101 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                               Symbol table: {formatSize(file.symbol_table_savings)}
                             </div>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : key === 'loose_images' ? (
+              // Handle loose images with image groups
+              (() => {
+                const looseImagesInsight = insight as LooseImagesInsightResult;
+                return looseImagesInsight.image_groups && looseImagesInsight.image_groups.length > 0 && (
+                  <div>
+                    <h4 style={{
+                      margin: '0 0 0.75rem 0',
+                      color: '#495057',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}>
+                      Loose Image Groups ({looseImagesInsight.image_groups.length} groups, {looseImagesInsight.total_file_count} files)
+                    </h4>
+                    <div style={{
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      maxHeight: '400px',
+                      overflowY: 'auto'
+                    }}>
+                      {looseImagesInsight.image_groups.map((group, groupIndex) => (
+                        <div
+                          key={groupIndex}
+                          style={{
+                            marginBottom: groupIndex < looseImagesInsight.image_groups.length - 1 ? '1rem' : '0',
+                            padding: '0.75rem',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '4px',
+                            border: '1px solid #e9ecef'
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '0.5rem',
+                            paddingBottom: '0.5rem',
+                            borderBottom: '1px solid #f0f0f0'
+                          }}>
+                            <div style={{
+                              color: '#343a40',
+                              fontWeight: '600',
+                              fontSize: '0.9rem'
+                            }}>
+                              🖼️ {group.canonical_name}
+                            </div>
+                            <div style={{
+                              color: '#28a745',
+                              fontSize: '0.85rem',
+                              fontWeight: '600'
+                            }}>
+                              {formatSize(group.images.reduce((sum, img) => sum + img.size, 0))}
+                            </div>
+                          </div>
+                          {group.images.map((image, imageIndex) => (
+                            <div
+                              key={imageIndex}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '0.3rem 0',
+                                borderBottom: imageIndex < group.images.length - 1 ? '1px solid #f0f0f0' : 'none',
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              <div style={{
+                                flex: 1,
+                                color: '#6c757d',
+                                fontFamily: 'monospace',
+                                fontSize: '0.75rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                marginRight: '1rem'
+                              }}>
+                                {image.path}
+                              </div>
+                              <div style={{
+                                color: '#6c757d',
+                                fontSize: '0.75rem',
+                                fontWeight: '500',
+                                flexShrink: 0
+                              }}>
+                                {formatSize(image.size)}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>

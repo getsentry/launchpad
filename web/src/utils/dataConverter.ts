@@ -70,6 +70,22 @@ export interface DuplicateFilesInsightResult {
   groups: DuplicateFileGroup[];
 }
 
+export interface LooseImageGroup {
+  canonical_name: string;
+  images: {
+    path: string;
+    size: number;
+    file_type: string;
+    hash_md5: string;
+  }[];
+}
+
+export interface LooseImagesInsightResult {
+  total_savings: number;
+  image_groups: LooseImageGroup[];
+  total_file_count: number;
+}
+
 export interface FileAnalysisReport {
   file_analysis: FileAnalysisData;
   treemap: TreemapResults;
@@ -87,7 +103,8 @@ export interface FileAnalysisReport {
     webp_optimization?: InsightResult | null;
     strip_binary?: StripBinaryInsightResult | null;
     localized_strings?: InsightResult | null;
-    [key: string]: InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | null | undefined;
+    loose_images?: LooseImagesInsightResult | null;
+    [key: string]: InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | LooseImagesInsightResult | null | undefined;
   };
   generated_at: string;
   use_si_units: boolean;
