@@ -78,6 +78,7 @@ export interface LooseImageGroup {
     file_type: string;
     hash_md5: string;
   }[];
+  total_savings: number;
 }
 
 export interface LooseImagesInsightResult {

@@ -3,15 +3,13 @@ import re
 
 from collections import defaultdict
 
-from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.apple import LooseImageGroup, LooseImagesInsightResult
 from launchpad.size.models.common import FileInfo
-from launchpad.utils.file_utils import to_nearest_block_size
 
 
 class LooseImagesInsight(Insight[LooseImagesInsightResult]):
-    """Insight for analyzing loose images that are not included in iOS asset catalogs."""
+    """Insight for analyzing loose images that can benefit from app thinning via asset catalogs."""
 
     IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf", "webp", "heif", "heic", "tiff", "tif", "bmp"}
 
@@ -19,11 +17,10 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
     CANONICAL_NAME_PATTERN = re.compile(r"^(.+?)(?:[@~][^.]*)?(\.[^.]+)$")
 
     def generate(self, input: InsightsInput) -> LooseImagesInsightResult | None:
-        """Generate insight for raw images analysis.
+        """Generate insight for loose images that can benefit from app thinning.
 
-        Finds all image files that are not in asset catalogs,
-        excludes system images like AppIcon and iMessage App Icon,
-        groups them by canonical name, and calculates potential savings.
+        Only includes image groups with multiple scale variants (e.g., @1x, @2x, @3x)
+        since these are the ones that can benefit from being moved to asset catalogs.
         """
 
         # Find all image files that are not in asset catalogs
@@ -41,44 +38,31 @@ class LooseImagesInsight(Insight[LooseImagesInsightResult]):
             canonical_name = self._get_canonical_image_name(image_file.path)
             image_groups_dict[canonical_name].append(image_file)
 
-        image_groups = [
+        # Only include groups with multiple images (multiple scale variants)
+        # Single images can't benefit from app thinning
+        multi_scale_groups = [
             LooseImageGroup(canonical_name=canonical_name, images=images)
             for canonical_name, images in image_groups_dict.items()
+            if len(images) > 1
         ]
 
-        image_groups.sort(key=lambda group: group.total_size, reverse=True)
+        if not multi_scale_groups:
+            return None
 
-        # Calculate total savings and avoid double-counting:
-        # 1. Files eliminated via app thinning: full block-aligned disk usage saved
-        # 2. Files that remain: only block alignment waste saved
-        # TODO: calculate code-signing overhead savings
+        multi_scale_groups.sort(key=lambda group: group.total_savings, reverse=True)
 
-        total_savings = 0
-        eliminated_files: set[str] = set()
-
-        # First pass: identify files that would be eliminated via app thinning
-        for group in image_groups:
-            eliminated_files.update(self._get_eliminated_files(group))
-
-        # Second pass: calculate savings for each file
-        for image_file in raw_image_files:
-            block_aligned_size = to_nearest_block_size(image_file.size, APPLE_FILESYSTEM_BLOCK_SIZE)
-
-            if image_file.path in eliminated_files:
-                # File eliminated via app thinning: save full block-aligned size
-                total_savings += block_aligned_size
-            else:
-                # File remains: save only block alignment waste
-                total_savings += block_aligned_size - image_file.size
+        # Calculate total savings: sum of savings from all groups
+        total_savings = sum(group.total_savings for group in multi_scale_groups)
+        total_file_count = sum(len(group.images) for group in multi_scale_groups)
 
         return LooseImagesInsightResult(
-            image_groups=image_groups,
-            total_file_count=len(raw_image_files),
+            image_groups=multi_scale_groups,
+            total_file_count=total_file_count,
             total_savings=total_savings,
         )
 
     def _is_loose_image_file(self, file_info: FileInfo) -> bool:
-        """Check if a file is a raw image that should be moved to an asset catalog."""
+        """Check if a file is a loose image that should be moved to an asset catalog."""
         # Must be an image file
         if file_info.file_type not in self.IMAGE_EXTENSIONS:
             return False

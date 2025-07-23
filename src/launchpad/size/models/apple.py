@@ -8,7 +8,7 @@ from typing import List
 
 import lief
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
@@ -27,8 +27,7 @@ from .insights import (
 )
 
 
-@dataclass
-class LooseImageGroup:
+class LooseImageGroup(BaseModel):
     """Group of loose image files with the same canonical name."""
 
     canonical_name: str
@@ -38,6 +37,17 @@ class LooseImageGroup:
     def total_size(self) -> int:
         """Total size of all images in this group."""
         return sum(img.size for img in self.images)
+
+    @computed_field
+    @property
+    def total_savings(self) -> int:
+        """Size savings by moving to asset catalog (excluding largest image that would be kept)."""
+        if len(self.images) <= 1:
+            return 0
+
+        # Sort by size descending, exclude the largest (highest scale) image
+        sorted_images = sorted(self.images, key=lambda img: img.size, reverse=True)
+        return sum(img.size for img in sorted_images[1:])  # Skip the largest image
 
 
 class AppleAnalysisResults(BaseAnalysisResults):

@@ -264,7 +264,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                               fontSize: '0.85rem',
                               fontWeight: '600'
                             }}>
-                              {formatSize(group.savings)} savings
+                              {formatSize(group.total_savings)} savings
                             </div>
                           </div>
                           {group.files.map((file, fileIndex) => (
@@ -471,7 +471,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                               fontSize: '0.85rem',
                               fontWeight: '600'
                             }}>
-                              {formatSize(group.images.reduce((sum, img) => sum + img.size, 0))}
+                              {formatSize(group.total_savings)}
                             </div>
                           </div>
                           {group.images.map((image, imageIndex) => (
