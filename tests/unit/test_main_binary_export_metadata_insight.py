@@ -26,7 +26,8 @@ class TestMainBinaryExportMetadataInsight:
         )
 
         main_binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -62,7 +63,8 @@ class TestMainBinaryExportMetadataInsight:
         )
 
         main_binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -87,7 +89,8 @@ class TestMainBinaryExportMetadataInsight:
     def test_generate_with_no_main_binary(self):
         """Test that no insight is generated when there is no main binary."""
         framework_binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("Frameworks/MyFramework.framework/MyFramework"),
+            binary_absolute_path=Path("Frameworks/MyFramework.framework/MyFramework"),
+            binary_relative_path="Frameworks/MyFramework.framework/MyFramework",
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -112,7 +115,8 @@ class TestMainBinaryExportMetadataInsight:
     def test_generate_with_main_binary_but_no_binary_analysis(self):
         """Test that no insight is generated when main binary has no binary_analysis."""
         main_binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -159,7 +163,8 @@ class TestMainBinaryExportMetadataInsight:
         )
 
         main_binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=150000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -172,7 +177,8 @@ class TestMainBinaryExportMetadataInsight:
 
         # Create framework binary (non-main)
         framework_binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("Frameworks/MyFramework.framework/MyFramework"),
+            binary_absolute_path=Path("Frameworks/MyFramework.framework/MyFramework"),
+            binary_relative_path="Frameworks/MyFramework.framework/MyFramework",
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -229,7 +235,8 @@ class TestMainBinaryExportMetadataInsight:
         binary_analysis = BinaryAnalysis(file_path="MyApp", total_size=100000, components=[dyld_exports_trie_component])
 
         main_binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
