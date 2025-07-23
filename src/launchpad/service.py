@@ -37,6 +37,7 @@ from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
 from launchpad.size.runner import do_preprocess, do_size
+from launchpad.utils.file_utils import cleanup_directory
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import DogStatsd, get_statsd
 
@@ -201,6 +202,15 @@ class LaunchpadService:
                 sentry_client.upload_installable_app(organization_id, project_id, artifact_id, str(ipa_path))
                 self._safe_cleanup(str(ipa_path), "installable app")
                 logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
+            elif isinstance(artifact, (AAB, ZippedAAB)):
+                temp_dir = Path(tempfile.mkdtemp())
+                if isinstance(artifact, AAB):
+                    universal_apk = artifact.get_universal_apk(temp_dir)
+                else:  # ZippedAAB
+                    universal_apk = artifact.get_aab().get_universal_apk(temp_dir)
+                sentry_client.upload_installable_app(organization_id, project_id, artifact_id, universal_apk._path)
+                cleanup_directory(temp_dir)
+                logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
 
             analyzer = self._create_analyzer(app_info)
             logger.info(f"Running full analysis on {temp_file}...")
@@ -221,7 +231,13 @@ class LaunchpadService:
             detailed_error = str(e)
 
             self._update_artifact_error(
-                sentry_client, artifact_id, project_id, organization_id, error_code, error_message, detailed_error
+                sentry_client,
+                artifact_id,
+                project_id,
+                organization_id,
+                error_code,
+                error_message,
+                detailed_error,
             )
             raise
 
@@ -260,21 +276,42 @@ class LaunchpadService:
     def _categorize_processing_error(self, exception: Exception) -> tuple[ProcessingErrorCode, ProcessingErrorMessage]:
         """Categorize an exception into error code and message."""
         if isinstance(exception, ValueError):
-            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
+            return (
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.ARTIFACT_PARSING_FAILED,
+            )
         elif isinstance(exception, NotImplementedError):
-            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
+            return (
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE,
+            )
         elif isinstance(exception, FileNotFoundError):
-            return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
+            return (
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.ARTIFACT_PARSING_FAILED,
+            )
         elif isinstance(exception, RuntimeError):
             error_str = str(exception).lower()
             if "timeout" in error_str:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT, ProcessingErrorMessage.PROCESSING_TIMEOUT
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT,
+                    ProcessingErrorMessage.PROCESSING_TIMEOUT,
+                )
             elif "preprocess" in error_str:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.PREPROCESSING_FAILED
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.PREPROCESSING_FAILED,
+                )
             elif "size" in error_str or "analysis" in error_str:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.SIZE_ANALYSIS_FAILED
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.SIZE_ANALYSIS_FAILED,
+                )
             else:
-                return ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR, ProcessingErrorMessage.UNKNOWN_ERROR
+                return (
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.UNKNOWN_ERROR,
+                )
         else:
             return ProcessingErrorCode.UNKNOWN, ProcessingErrorMessage.UNKNOWN_ERROR
 
@@ -311,7 +348,10 @@ class LaunchpadService:
                 org=organization_id,
                 project=project_id,
                 artifact_id=artifact_id,
-                data={"error_code": error_code.value, "error_message": final_error_message},
+                data={
+                    "error_code": error_code.value,
+                    "error_message": final_error_message,
+                },
             )
 
             if isinstance(result, ErrorResult):
@@ -320,7 +360,10 @@ class LaunchpadService:
                 logger.info(f"Successfully updated artifact {artifact_id} with error information")
 
         except Exception as e:
-            logger.error(f"Failed to update artifact {artifact_id} with error information: {e}", exc_info=True)
+            logger.error(
+                f"Failed to update artifact {artifact_id} with error information: {e}",
+                exc_info=True,
+            )
 
     def _download_artifact_to_temp_file(
         self,
@@ -337,7 +380,10 @@ class LaunchpadService:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
                 temp_file = tf.name
                 file_size = sentry_client.download_artifact_to_file(
-                    org=organization_id, project=project_id, artifact_id=artifact_id, out=tf
+                    org=organization_id,
+                    project=project_id,
+                    artifact_id=artifact_id,
+                    out=tf,
                 )
 
                 # Success case
