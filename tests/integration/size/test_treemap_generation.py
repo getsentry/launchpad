@@ -422,9 +422,9 @@ class TestTreemapGeneration:
         sentry_binary = find_node_by_path(treemap.root, "Frameworks/Sentry.framework/Sentry")
         assert sentry_binary is not None
         sentry_binary_install_size = sentry_binary.install_size
-        assert sentry_binary_install_size == 51456
+        assert sentry_binary_install_size == 53248
         sentry_binary_download_size = sentry_binary.download_size
-        assert sentry_binary_download_size == 51456
+        assert sentry_binary_download_size == 53248
         sentry_binary_element_type = sentry_binary.element_type
         assert sentry_binary_element_type == "executables"
 

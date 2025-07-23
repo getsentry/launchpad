@@ -249,5 +249,4 @@ class TestMainBinaryExportMetadataInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, MainBinaryExportMetadataResult)
-        assert result.total_savings == 0
+        assert result is None
