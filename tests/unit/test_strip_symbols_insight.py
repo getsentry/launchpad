@@ -25,7 +25,8 @@ class TestStripSymbolsInsight:
         )
 
         binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("Frameworks/MyFramework.framework/MyFramework"),
+            binary_absolute_path=Path("Frameworks/MyFramework.framework/MyFramework"),
+            binary_relative_path="Frameworks/MyFramework.framework/MyFramework",
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -67,7 +68,8 @@ class TestStripSymbolsInsight:
     def test_generate_with_debug_sections_only(self):
         """Test that insight is generated when binaries have only debug sections."""
         binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -117,7 +119,8 @@ class TestStripSymbolsInsight:
         )
 
         binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=80000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -167,7 +170,8 @@ class TestStripSymbolsInsight:
         )
 
         binary_analysis_1 = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -185,7 +189,8 @@ class TestStripSymbolsInsight:
 
         # Binary 2: Only debug sections
         binary_analysis_2 = MachOBinaryAnalysis(
-            binary_path=Path("Frameworks/TestFramework.framework/TestFramework"),
+            binary_absolute_path=Path("Frameworks/TestFramework.framework/TestFramework"),
+            binary_relative_path="Frameworks/TestFramework.framework/TestFramework",
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -211,7 +216,8 @@ class TestStripSymbolsInsight:
         )
 
         binary_analysis_3 = MachOBinaryAnalysis(
-            binary_path=Path("Frameworks/AnotherFramework.framework/AnotherFramework"),
+            binary_absolute_path=Path("Frameworks/AnotherFramework.framework/AnotherFramework"),
+            binary_relative_path="Frameworks/AnotherFramework.framework/AnotherFramework",
             executable_size=60000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -267,7 +273,8 @@ class TestStripSymbolsInsight:
     def test_generate_with_no_strippable_content(self):
         """Test that no insight is generated when binaries have no strippable content."""
         binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -305,7 +312,8 @@ class TestStripSymbolsInsight:
         )
 
         binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
@@ -357,7 +365,8 @@ class TestStripSymbolsInsight:
     def test_debug_sections_detection(self):
         """Test that all debug sections are correctly detected."""
         binary_analysis = MachOBinaryAnalysis(
-            binary_path=Path("MyApp"),
+            binary_absolute_path=Path("MyApp"),
+            binary_relative_path="MyApp",
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
