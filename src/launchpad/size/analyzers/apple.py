@@ -134,7 +134,7 @@ class AppleAppAnalyzer:
                 logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
                 if binary_info.dsym_path:
                     logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
-                binary = self._analyze_binary(binary_info)
+                binary = self._analyze_binary(binary_info, app_bundle_path)
                 if binary and binary.binary_analysis is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
@@ -412,7 +412,9 @@ class AppleAppAnalyzer:
             return insight_class().generate(insights_input)
 
     @trace("apple.analyze_binary")
-    def _analyze_binary(self, binary_info: BinaryInfo, skip_swift_metadata: bool = False) -> MachOBinaryAnalysis | None:
+    def _analyze_binary(
+        self, binary_info: BinaryInfo, app_bundle_path: Path, skip_swift_metadata: bool = False
+    ) -> MachOBinaryAnalysis | None:
         binary_path = binary_info.path
         dwarf_binary_path = binary_info.dsym_path
         is_main_binary = binary_info.is_main_binary
@@ -486,7 +488,8 @@ class AppleAppAnalyzer:
             binary_analysis = analyzer.analyze()
 
         return MachOBinaryAnalysis(
-            binary_path=binary_path,
+            binary_absolute_path=binary_path,
+            binary_relative_path=str(binary_path.relative_to(app_bundle_path)),
             executable_size=executable_size,
             architectures=architectures,
             linked_libraries=linked_libraries,

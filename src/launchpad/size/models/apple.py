@@ -76,9 +76,9 @@ class LooseImageGroup(BaseModel):
         if len(self.images) <= 1:
             return 0
 
-        # Sort by size descending, exclude the largest (highest scale) image
-        sorted_images = sorted(self.images, key=lambda img: img.size, reverse=True)
-        return sum(img.size for img in sorted_images[1:])  # Skip the largest image
+        # TODO: this doesn't handle some edge cases yet like when there are iphone/ipad variants
+        max_size = max(img.size for img in self.images)
+        return sum(img.size for img in self.images) - max_size
 
 
 class LooseImagesInsightResult(BaseInsightResult):
@@ -159,7 +159,10 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    binary_path: Path = Field(..., description="Fully qualified path to the binary within the app bundle")
+    binary_absolute_path: Path = Field(
+        ..., description="Fully qualified path to the binary within the app bundle", exclude=True
+    )
+    binary_relative_path: str = Field(..., description="Path to the binary within the app bundle")
     swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
     binary_analysis: BinaryAnalysis | None = Field(
         None,
