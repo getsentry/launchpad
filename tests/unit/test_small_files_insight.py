@@ -64,10 +64,10 @@ class TestSmallFilesInsight:
             assert file.size < APPLE_FILESYSTEM_BLOCK_SIZE
 
     def test_generate_with_few_total_files(self):
-        """Test that no insight is generated when app has <= 100 total files."""
-        # Create exactly 100 files (should not trigger insight)
+        """Test that no insight is generated when app has < 100 total files."""
+        # Create exactly 99 files (should not trigger insight)
         files: list[FileInfo] = []
-        for i in range(100):
+        for i in range(99):
             file = FileInfo(
                 full_path=Path(f"assets/file{i}.png"),
                 path=f"assets/file{i}.png",
@@ -150,10 +150,7 @@ class TestSmallFilesInsight:
 
         result = self.insight.generate(insights_input)
 
-        assert isinstance(result, SmallFilesInsightResult)
-        assert len(result.files) == 0  # No small files
-        assert result.file_count == 0
-        assert result.total_savings == 0
+        assert result is None
 
     def test_generate_with_empty_file_list(self):
         """Test that no insight is generated when there are no files."""
