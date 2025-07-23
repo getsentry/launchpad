@@ -20,6 +20,9 @@ class SmallFilesInsight(Insight[SmallFilesInsightResult]):
         small_files: list[FileInfo] = []
         total_savings = 0
 
+        if len(input.file_analysis.files) < self.TOTAL_FILES_THRESHOLD:
+            return None
+
         for file_info in input.file_analysis.files:
             if file_info.size < APPLE_FILESYSTEM_BLOCK_SIZE:
                 small_files.append(file_info)
@@ -27,7 +30,7 @@ class SmallFilesInsight(Insight[SmallFilesInsightResult]):
                 wasted_space = APPLE_FILESYSTEM_BLOCK_SIZE - file_info.size
                 total_savings += wasted_space
 
-        if len(input.file_analysis.files) > self.TOTAL_FILES_THRESHOLD:
+        if len(small_files) > 0:
             return SmallFilesInsightResult(
                 files=small_files,
                 file_count=len(small_files),
