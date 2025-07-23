@@ -20,24 +20,37 @@ class TestServiceIntegration:
     @pytest.mark.asyncio
     async def test_service_startup_and_health(self, tmp_path):
         """Test that the service can start up and respond to health checks."""
-        # Create a temporary healthcheck file
+        # Create and set up healthcheck file
         healthcheck_file = tmp_path / "healthcheck"
-        healthcheck_file.touch()
 
-        with patch.dict("os.environ", {"KAFKA_HEALTHCHECK_FILE": str(healthcheck_file)}):
+        # Mock all dependencies in one context
+        with (
+            patch.dict("os.environ", {"KAFKA_HEALTHCHECK_FILE": str(healthcheck_file)}),
+            patch(
+                "launchpad.service.get_service_config",
+                return_value={
+                    "statsd_host": "127.0.0.1",
+                    "statsd_port": 8125,
+                    "sentry_base_url": "https://sentry.example.com",
+                },
+            ),
+            patch("launchpad.service.get_statsd"),
+            patch("launchpad.service.initialize_sentry_sdk"),
+            patch("launchpad.service.get_server_config", return_value={"host": "127.0.0.1", "port": 8080}),
+        ):
             service = LaunchpadService()
+            service.kafka_processor = Mock()  # Mock Kafka to avoid real connection
 
-            # Mock the Kafka processor to avoid needing actual Kafka
-            service.kafka_processor = Mock()
-            service._healthcheck_file = str(healthcheck_file)
-
+            # Ensure healthcheck file exists with fresh timestamp
+            healthcheck_file.touch()
             await service.setup()
+            healthcheck_file.touch()  # Simulate Kafka healthcheck update
 
-            # Test health check
+            # Verify health check response
             health = await service.health_check()
             assert health["service"] == "launchpad"
             assert health["status"] == "ok"
-            assert "kafka" in health["components"]
+            assert health["components"]["kafka"]["status"] == "healthy"
 
     @pytest.mark.asyncio
     async def test_kafka_message_processing(self):
