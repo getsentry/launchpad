@@ -27,29 +27,6 @@ from .insights import (
 )
 
 
-class LooseImageGroup(BaseModel):
-    """Group of loose image files with the same canonical name."""
-
-    canonical_name: str
-    images: List[FileInfo]
-
-    @property
-    def total_size(self) -> int:
-        """Total size of all images in this group."""
-        return sum(img.size for img in self.images)
-
-    @computed_field
-    @property
-    def total_savings(self) -> int:
-        """Size savings by moving to asset catalog (excluding largest image that would be kept)."""
-        if len(self.images) <= 1:
-            return 0
-
-        # Sort by size descending, exclude the largest (highest scale) image
-        sorted_images = sorted(self.images, key=lambda img: img.size, reverse=True)
-        return sum(img.size for img in sorted_images[1:])  # Skip the largest image
-
-
 class AppleAnalysisResults(BaseAnalysisResults):
     """Complete Apple analysis results."""
 
@@ -81,6 +58,29 @@ class SmallFilesInsightResult(BaseInsightResult):
     file_count: int = Field(..., description="Number of small files found")
 
 
+class LooseImageGroup(BaseModel):
+    """Group of loose image files with the same canonical name."""
+
+    canonical_name: str
+    images: List[FileInfo]
+
+    @property
+    def total_size(self) -> int:
+        """Total size of all images in this group."""
+        return sum(img.size for img in self.images)
+
+    @computed_field
+    @property
+    def total_savings(self) -> int:
+        """Size savings by moving to asset catalog (excluding largest image that would be kept)."""
+        if len(self.images) <= 1:
+            return 0
+
+        # Sort by size descending, exclude the largest (highest scale) image
+        sorted_images = sorted(self.images, key=lambda img: img.size, reverse=True)
+        return sum(img.size for img in sorted_images[1:])  # Skip the largest image
+
+
 class LooseImagesInsightResult(BaseInsightResult):
     """Results from loose images analysis."""
 
@@ -94,21 +94,21 @@ class MainBinaryExportMetadataResult(BaseInsightResult):
     """Results from main binary exported symbols metadata analysis."""
 
 
-@dataclass
-class OptimizableImageFile:
+class OptimizableImageFile(BaseModel):
     """Information about an image file that can be optimized."""
 
-    file_info: FileInfo
+    model_config = ConfigDict(frozen=True)
 
-    current_size: int
+    file_info: FileInfo = Field(..., description="File information")
+    current_size: int = Field(..., description="Current file size in bytes")
 
     # Minification savings (optimizing current format)
-    minify_savings: int = 0
-    minified_size: int | None = None
+    minify_savings: int = Field(default=0, ge=0, description="Potential savings from minification")
+    minified_size: int | None = Field(default=None, description="Size after minification")
 
     # HEIC conversion savings (converting to HEIC format)
-    conversion_savings: int = 0
-    heic_size: int | None = None
+    conversion_savings: int = Field(default=0, ge=0, description="Potential savings from HEIC conversion")
+    heic_size: int | None = Field(default=None, description="Size after HEIC conversion")
 
     @property
     def potential_savings(self) -> int:
