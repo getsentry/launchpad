@@ -37,8 +37,37 @@ export interface InsightResult {
   files?: {
     path: string;
     size: number;
-    file_type: number;
+    file_type: string;
   }[];
+}
+
+export interface StripBinaryFileInfo {
+  file_path: string;
+  debug_sections_savings: number;
+  symbol_table_savings: number;
+  total_savings: number;
+}
+
+export interface StripBinaryInsightResult {
+  total_savings: number;
+  files: StripBinaryFileInfo[];
+  total_debug_sections_savings: number;
+  total_symbol_table_savings: number;
+}
+
+export interface DuplicateFileGroup {
+  filename: string;
+  files: {
+    path: string;
+    size: number;
+    file_type: string;
+  }[];
+  savings: number;
+}
+
+export interface DuplicateFilesInsightResult {
+  total_savings: number;
+  groups: DuplicateFileGroup[];
 }
 
 export interface FileAnalysisReport {
@@ -50,15 +79,15 @@ export interface FileAnalysisReport {
     [key: string]: unknown;
   };
   insights?: {
-    duplicate_files?: InsightResult | null;
+    duplicate_files?: DuplicateFilesInsightResult | null;
     large_images?: InsightResult | null;
     large_videos?: InsightResult | null;
     large_audio?: InsightResult | null;
     hermes_debug_info?: InsightResult | null;
     webp_optimization?: InsightResult | null;
-    strip_binary?: InsightResult | null;
+    strip_binary?: StripBinaryInsightResult | null;
     localized_strings?: InsightResult | null;
-    [key: string]: InsightResult | null | undefined;
+    [key: string]: InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | null | undefined;
   };
   generated_at: string;
   use_si_units: boolean;

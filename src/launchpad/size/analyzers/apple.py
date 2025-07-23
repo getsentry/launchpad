@@ -16,6 +16,7 @@ from launchpad.parsers.apple.macho_size_analyzer import MachOSizeAnalyzer
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
+from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
@@ -37,7 +38,7 @@ from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
-from launchpad.utils.file_utils import calculate_file_hash, get_file_size
+from launchpad.utils.file_utils import calculate_file_hash, get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
 from launchpad.utils.performance import trace, trace_ctx
 
@@ -338,7 +339,7 @@ class AppleAppAnalyzer:
                 continue
 
             relative_path = file_path.relative_to(app_bundle_path)
-            file_size = get_file_size(file_path)
+            file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
             # Get file type from extension first
             # If no extension or unknown type, use file command

@@ -57,7 +57,7 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
 
         strip_files.sort(key=lambda x: x.total_savings, reverse=True)
 
-        if strip_files:
+        if len(strip_files) > 0:
             return StripBinaryInsightResult(
                 files=strip_files,
                 total_savings=total_savings,

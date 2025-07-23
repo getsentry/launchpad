@@ -1,9 +1,11 @@
+import os
+
 from collections import defaultdict
 from typing import Dict, List
 
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.insights import DuplicateFilesInsightResult
+from launchpad.size.models.insights import DuplicateFileGroup, DuplicateFilesInsightResult
 
 
 class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
@@ -13,20 +15,31 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
             if file.hash_md5:
                 files_by_hash[file.hash_md5].append(file)
 
-        duplicate_files: List[FileInfo] = []
+        groups: List[DuplicateFileGroup] = []
         total_savings = 0
 
         for file_list in files_by_hash.values():
             if len(file_list) > 1:
+                # Calculate savings: total size - size of one copy we keep
                 total_file_size = sum(f.size for f in file_list)
-                savings = total_file_size - file_list[0].size
+                savings_for_this_group = total_file_size - file_list[0].size
 
-                if savings > 0:  # Only include if there are actual savings
-                    # Add all files except the first one (which we'll keep)
-                    duplicate_files.extend(file_list[1:])
-                    total_savings += savings
+                if savings_for_this_group > 0:  # Only include if there are actual savings
+                    sorted_files = sorted(file_list, key=lambda f: (-f.size, f.path))
+                    filenames = sorted(set(os.path.basename(f.path) for f in sorted_files))
+                    group_filename = filenames[0]
+
+                    group = DuplicateFileGroup(
+                        filename=group_filename,
+                        files=sorted_files,
+                        savings=savings_for_this_group,
+                    )
+                    groups.append(group)
+                    total_savings += savings_for_this_group
+
+        groups = sorted(groups, key=lambda g: (-g.savings, g.filename))
 
         return DuplicateFilesInsightResult(
-            files=duplicate_files,
+            groups=groups,
             total_savings=total_savings,
         )

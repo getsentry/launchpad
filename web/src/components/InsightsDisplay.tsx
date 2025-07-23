@@ -1,5 +1,5 @@
 import React from 'react';
-import type { FileAnalysisReport, InsightResult } from '../utils/dataConverter';
+import type { DuplicateFilesInsightResult, FileAnalysisReport, InsightResult, StripBinaryInsightResult } from '../utils/dataConverter';
 
 interface InsightsDisplayProps {
   data: FileAnalysisReport;
@@ -66,7 +66,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
     return icons[key] || '💡';
   };
 
-  const insightEntries = Object.entries(insights).filter(([, value]) => {
+  const insightEntries = Object.entries(insights).filter(([key, value]) => {
     // Skip null, undefined, or invalid insights
     if (!value || typeof value !== 'object') {
       return false;
@@ -74,11 +74,27 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
 
     // Skip insights that don't have meaningful data
     const hasValidSavings = typeof value.total_savings === 'number' && value.total_savings >= 0;
-    const hasFiles = value.files && Array.isArray(value.files) && value.files.length > 0;
+
+    // Handle duplicate files differently (has groups instead of files)
+    if (key === 'duplicate_files') {
+      const duplicateInsight = value as DuplicateFilesInsightResult;
+      const hasGroups = duplicateInsight.groups && Array.isArray(duplicateInsight.groups) && duplicateInsight.groups.length > 0;
+      return hasValidSavings || hasGroups;
+    }
+
+    // Handle strip binary differently (has custom file format)
+    if (key === 'strip_binary') {
+      const stripInsight = value as StripBinaryInsightResult;
+      const hasFiles = stripInsight.files && Array.isArray(stripInsight.files) && stripInsight.files.length > 0;
+      return hasValidSavings || hasFiles;
+    }
+
+    const regularInsight = value as InsightResult;
+    const hasFiles = regularInsight.files && Array.isArray(regularInsight.files) && regularInsight.files.length > 0;
 
     // Include insights that either have savings or have files to show
     return hasValidSavings || hasFiles;
-  }) as [string, InsightResult][];
+  }) as [string, InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult][];
 
   if (insightEntries.length === 0) {
     return null;
@@ -187,59 +203,274 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
               </div>
             </div>
 
-            {insight.files && insight.files.length > 0 && (
-              <div>
-                <h4 style={{
-                  margin: '0 0 0.75rem 0',
-                  color: '#495057',
-                  fontSize: '1rem',
-                  fontWeight: '600'
-                }}>
-                  Affected Files ({insight.files.length})
-                </h4>
-                <div style={{
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '6px',
-                  padding: '0.75rem',
-                  maxHeight: '200px',
-                  overflowY: 'auto'
-                }}>
-                  {insight.files.map((file, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        padding: '0.4rem 0',
-                        borderBottom: index < insight.files!.length - 1 ? '1px solid #e9ecef' : 'none',
-                        fontSize: '0.85rem'
-                      }}
-                    >
+            {key === 'duplicate_files' ? (
+              // Handle duplicate files with groups
+              (() => {
+                const duplicateInsight = insight as DuplicateFilesInsightResult;
+                const totalFiles = duplicateInsight.groups?.reduce((sum, group) => sum + group.files.length, 0) || 0;
+
+                return duplicateInsight.groups && duplicateInsight.groups.length > 0 && (
+                  <div>
+                    <h4 style={{
+                      margin: '0 0 0.75rem 0',
+                      color: '#495057',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}>
+                      Duplicate File Groups ({duplicateInsight.groups.length} groups, {totalFiles} files)
+                    </h4>
+                    <div style={{
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      maxHeight: '400px',
+                      overflowY: 'auto'
+                    }}>
+                      {duplicateInsight.groups.map((group, groupIndex) => (
+                        <div
+                          key={groupIndex}
+                          style={{
+                            marginBottom: groupIndex < duplicateInsight.groups!.length - 1 ? '1rem' : '0',
+                            padding: '0.75rem',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '4px',
+                            border: '1px solid #e9ecef'
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '0.5rem',
+                            paddingBottom: '0.5rem',
+                            borderBottom: '1px solid #f0f0f0'
+                          }}>
+                            <div style={{
+                              color: '#343a40',
+                              fontWeight: '600',
+                              fontSize: '0.9rem'
+                            }}>
+                              📄 {group.filename}
+                            </div>
+                            <div style={{
+                              color: '#28a745',
+                              fontSize: '0.85rem',
+                              fontWeight: '600'
+                            }}>
+                              {formatSize(group.savings)} savings
+                            </div>
+                          </div>
+                          {group.files.map((file, fileIndex) => (
+                            <div
+                              key={fileIndex}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '0.3rem 0',
+                                borderBottom: fileIndex < group.files.length - 1 ? '1px solid #f0f0f0' : 'none',
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              <div style={{
+                                flex: 1,
+                                color: '#6c757d',
+                                fontFamily: 'monospace',
+                                fontSize: '0.75rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                marginRight: '1rem'
+                              }}>
+                                {file.path}
+                              </div>
+                              <div style={{
+                                color: '#6c757d',
+                                fontSize: '0.75rem',
+                                fontWeight: '500',
+                                flexShrink: 0
+                              }}>
+                                {formatSize(file.size)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : key === 'strip_binary' ? (
+              // Handle strip binary with custom file format
+              (() => {
+                const stripInsight = insight as StripBinaryInsightResult;
+                return stripInsight.files && stripInsight.files.length > 0 && (
+                  <div>
+                    <h4 style={{
+                      margin: '0 0 0.75rem 0',
+                      color: '#495057',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}>
+                      Binary Files ({stripInsight.files.length})
+                    </h4>
+                    <div style={{
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      marginBottom: '1rem'
+                    }}>
                       <div style={{
-                        flex: 1,
-                        color: '#495057',
-                        fontFamily: 'monospace',
-                        fontSize: '0.8rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        marginRight: '1rem'
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: '0.75rem',
+                        marginBottom: '0.75rem',
+                        padding: '0.75rem',
+                        backgroundColor: '#e3f2fd',
+                        borderRadius: '4px'
                       }}>
-                        {file.path}
-                      </div>
-                      <div style={{
-                        color: '#6c757d',
-                        fontSize: '0.8rem',
-                        fontWeight: '500',
-                        flexShrink: 0
-                      }}>
-                        {formatSize(file.size)}
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '0.25rem' }}>
+                            Debug Sections Savings
+                          </div>
+                          <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1976d2' }}>
+                            {formatSize(stripInsight.total_debug_sections_savings)}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.8rem', color: '#6c757d', marginBottom: '0.25rem' }}>
+                            Symbol Table Savings
+                          </div>
+                          <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1976d2' }}>
+                            {formatSize(stripInsight.total_symbol_table_savings)}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div style={{
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      maxHeight: '200px',
+                      overflowY: 'auto'
+                    }}>
+                      {stripInsight.files.map((file, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            padding: '0.75rem',
+                            marginBottom: index < stripInsight.files.length - 1 ? '0.5rem' : '0',
+                            backgroundColor: '#ffffff',
+                            borderRadius: '4px',
+                            border: '1px solid #e9ecef'
+                          }}
+                        >
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '0.5rem'
+                          }}>
+                            <div style={{
+                              flex: 1,
+                              color: '#495057',
+                              fontFamily: 'monospace',
+                              fontSize: '0.8rem',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              marginRight: '1rem'
+                            }}>
+                              {file.file_path}
+                            </div>
+                            <div style={{
+                              color: '#28a745',
+                              fontSize: '0.8rem',
+                              fontWeight: '600',
+                              flexShrink: 0
+                            }}>
+                              {formatSize(file.total_savings)} total
+                            </div>
+                          </div>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '0.5rem',
+                            fontSize: '0.75rem',
+                            color: '#6c757d'
+                          }}>
+                            <div>
+                              Debug sections: {formatSize(file.debug_sections_savings)}
+                            </div>
+                            <div>
+                              Symbol table: {formatSize(file.symbol_table_savings)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              // Handle regular insights with files array
+              (() => {
+                const regularInsight = insight as InsightResult;
+                return regularInsight.files && regularInsight.files.length > 0 && (
+                  <div>
+                    <h4 style={{
+                      margin: '0 0 0.75rem 0',
+                      color: '#495057',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}>
+                      Affected Files ({regularInsight.files.length})
+                    </h4>
+                    <div style={{
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      maxHeight: '200px',
+                      overflowY: 'auto'
+                    }}>
+                      {regularInsight.files.map((file, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '0.4rem 0',
+                            borderBottom: index < regularInsight.files!.length - 1 ? '1px solid #e9ecef' : 'none',
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          <div style={{
+                            flex: 1,
+                            color: '#495057',
+                            fontFamily: 'monospace',
+                            fontSize: '0.8rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            marginRight: '1rem'
+                          }}>
+                            {file.path}
+                          </div>
+                          <div style={{
+                            color: '#6c757d',
+                            fontSize: '0.8rem',
+                            fontWeight: '500',
+                            flexShrink: 0
+                          }}>
+                            {formatSize(file.size)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()
             )}
           </div>
         ))}

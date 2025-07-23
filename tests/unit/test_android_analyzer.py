@@ -33,7 +33,7 @@ class TestAndroidAnalyzer:
         assert results.insights.duplicate_files is not None
 
         duplicate_insight = results.insights.duplicate_files
-        assert hasattr(duplicate_insight, "files")
+        assert hasattr(duplicate_insight, "groups")
         assert hasattr(duplicate_insight, "total_savings")
         assert hasattr(duplicate_insight, "duplicate_count")
         assert isinstance(duplicate_insight.total_savings, int)
