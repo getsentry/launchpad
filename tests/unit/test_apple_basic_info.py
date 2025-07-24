@@ -26,3 +26,7 @@ class TestAppleBasicInfo:
         assert basic_info.is_code_signature_valid is True
         assert basic_info.code_signature_errors == []
         assert basic_info.main_binary_uuid == "BEB3C0D6-2518-343D-BB6F-FF5581C544E8"
+        assert basic_info.profile_expiration_date is not None
+        assert basic_info.profile_expiration_date == "2025-12-02T18:15:00"
+        assert basic_info.certificate_expiration_date is not None
+        assert basic_info.certificate_expiration_date == "2025-01-01T17:56:11+00:00"

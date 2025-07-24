@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Tuple
 
 import lief
 
+from cryptography import x509
+
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.macho_parser import MachOParser
@@ -213,8 +215,15 @@ class AppleAppAnalyzer:
         provisioning_profile = xcarchive.get_provisioning_profile()
         codesigning_type = None
         profile_name = None
+        profile_expiration_date = None
+        certificate_expiration_date = None
         if provisioning_profile:
             codesigning_type, profile_name = self._get_profile_type(provisioning_profile)
+            expiration_date = provisioning_profile.get("ExpirationDate")
+            if expiration_date:
+                # Convert datetime to ISO format string
+                profile_expiration_date = expiration_date.isoformat()
+            certificate_expiration_date = self._extract_certificate_expiration_date(provisioning_profile)
 
         supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
         is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
@@ -241,6 +250,8 @@ class AppleAppAnalyzer:
             is_simulator=is_simulator,
             codesigning_type=codesigning_type,
             profile_name=profile_name,
+            profile_expiration_date=profile_expiration_date,
+            certificate_expiration_date=certificate_expiration_date,
             is_code_signature_valid=is_code_signature_valid,
             code_signature_errors=code_signature_errors,
             main_binary_uuid=xcarchive.get_main_binary_uuid(),
@@ -281,6 +292,40 @@ class AppleAppAnalyzer:
 
         # If no devices are provisioned, it's an app store profile
         return "appstore", profile_name
+
+    def _extract_certificate_expiration_date(self, provisioning_profile: dict[str, Any]) -> str | None:
+        """Extract the earliest expiration date from developer certificates.
+
+        Args:
+            provisioning_profile: Dictionary containing the mobileprovision contents
+
+        Returns:
+            ISO format string of the earliest certificate expiration date, or None if no certificates found
+        """
+        developer_certs = provisioning_profile.get("DeveloperCertificates", [])
+        if not developer_certs:
+            return None
+
+        earliest_expiration = None
+
+        for cert_data in developer_certs:
+            try:
+                # Parse DER certificate
+                cert = x509.load_der_x509_certificate(cert_data)
+                expiration_date = cert.not_valid_after_utc
+
+                # Track the earliest expiration date
+                if earliest_expiration is None or expiration_date < earliest_expiration:
+                    earliest_expiration = expiration_date
+
+            except Exception as e:
+                logger.error(f"Failed to parse certificate: {e}")
+                continue
+
+        if earliest_expiration:
+            return earliest_expiration.isoformat()
+
+        return None
 
     def _generate_insight_with_tracing(
         self, insight_class: type, insights_input: InsightsInput, insight_name: str

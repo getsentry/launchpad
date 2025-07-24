@@ -436,6 +436,8 @@ class LaunchpadService:
                 is_code_signature_valid=app_info.is_code_signature_valid,
                 code_signature_errors=app_info.code_signature_errors,
                 main_binary_uuid=app_info.main_binary_uuid,
+                profile_expiration_date=app_info.profile_expiration_date,
+                certificate_expiration_date=app_info.certificate_expiration_date,
             )
         # TODO: add "date_built" and custom android fields
 
