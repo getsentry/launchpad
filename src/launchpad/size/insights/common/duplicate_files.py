@@ -1,12 +1,11 @@
-import hashlib
 import os
 
 from collections import defaultdict
-from pathlib import Path
-from typing import Dict, List
+from pathlib import PurePosixPath
+from typing import Dict, List, Set
 
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.common import FileInfo, TreemapType
+from launchpad.size.models.common import FileInfo
 from launchpad.size.models.insights import (
     DuplicateFileGroup,
     DuplicateFilesInsightResult,
@@ -16,41 +15,60 @@ from launchpad.size.models.insights import (
 class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
     EXTENSION_ALLOWLIST = [".xcprivacy"]
 
-    # Make sure to group all duplicates in a directory that has one of these extensions
-    DIRECTORY_EXTENSIONS = [".bundle"]
+    MIN_DIR_SIZE_BYTES = 0
 
     def generate(self, input: InsightsInput) -> DuplicateFilesInsightResult | None:
+        files = input.file_analysis.files
+
         groups: List[DuplicateFileGroup] = []
         total_savings = 0
+        covered_dirs: Set[str] = set()
 
-        covered_containers: set[str] = set()
-        for infos in self._duplicate_directories(input.file_analysis.files).values():
-            if len(infos) < 2:
+        # -----------------------------
+        # 1) Duplicate DIRECTORIES
+        # -----------------------------
+        dir_groups = self._directory_duplicate_candidates(files)
+
+        # Process shallower (outer) groups first so we can suppress nested ones
+        dir_groups.sort(key=lambda ds: self._min_depth([d.path for d in ds]))
+
+        for dirs in dir_groups:
+            # If any member of this group is under an already covered dir, skip whole group
+            if self._any_path_under_any([d.path for d in dirs], covered_dirs):
                 continue
 
-            infos.sort(key=lambda f: (-f.size, f.path))
-            group_size = sum(fi.size for fi in infos)
-            savings = group_size - infos[0].size
+            # Savings if we keep the largest one and dedupe the rest
+            dirs.sort(key=lambda d: (-d.size, d.path))
+            if len(dirs) < 2:
+                continue
+
+            group_size = sum(d.size for d in dirs)
+            savings = group_size - dirs[0].size
             if savings <= 0:
                 continue
 
             groups.append(
                 DuplicateFileGroup(
-                    filename=os.path.basename(infos[0].path),
-                    files=infos,
+                    filename=os.path.basename(dirs[0].path) or "/",
+                    files=dirs,
                     total_savings=savings,
                 )
             )
             total_savings += savings
-            for info in infos:
-                covered_containers.add(info.path)
 
+            for d in dirs:
+                covered_dirs.add(d.path)
+
+        # -----------------------------
+        # 2) Duplicate FILES
+        # -----------------------------
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
-        for f in input.file_analysis.files:
+        for f in files:
             if (
-                f.hash_md5
+                not self._is_dir(f)
+                and f.hash_md5
                 and not self._is_allowed_extension(f.path)
-                and not any(f.path.startswith(c + "/") or f.path == c for c in covered_containers)  # ← NEW GUARD
+                and not self._is_under_any(f.path, covered_dirs)
             ):
                 files_by_hash[f.hash_md5].append(f)
 
@@ -63,12 +81,9 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
             if savings <= 0:
                 continue
 
-            container = self._directory_grouping(dup_files[0].path)
-            name = os.path.basename(container) if container else os.path.basename(dup_files[0].path)
-
             groups.append(
                 DuplicateFileGroup(
-                    filename=name,
+                    filename=os.path.basename(dup_files[0].path),
                     files=dup_files,
                     total_savings=savings,
                 )
@@ -77,50 +92,50 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
 
         groups.sort(key=lambda g: (-g.total_savings, g.filename))
 
-        if len(groups) > 0:
+        if groups:
             return DuplicateFilesInsightResult(groups=groups, total_savings=total_savings)
-
         return None
+
+    # -------------------------------------------------------------------------
+    # Helpers
+    # -------------------------------------------------------------------------
+
+    def _directory_duplicate_candidates(self, files: List[FileInfo]) -> List[List[FileInfo]]:
+        """
+        Returns a list of duplicate-directory groups (lists of FileInfo) where
+        each group shares the same already-computed directory hash and has >= 2 members.
+        """
+        by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
+        for f in files:
+            if self._is_dir(f) and f.hash_md5 and f.size >= self.MIN_DIR_SIZE_BYTES:
+                by_hash[f.hash_md5].append(f)
+
+        return [dirs for dirs in by_hash.values() if len(dirs) > 1]
 
     def _is_allowed_extension(self, file_path: str) -> bool:
         return any(file_path.endswith(ext) for ext in self.EXTENSION_ALLOWLIST)
 
-    def _directory_grouping(self, file_path: str) -> str | None:
-        p = Path(file_path)
-        for i, part in enumerate(p.parts):
-            if any(part.endswith(ext) for ext in self.DIRECTORY_EXTENSIONS):
-                return str(Path(*p.parts[: i + 1]))
-        return None
+    @staticmethod
+    def _is_under_any(path: str, containers: Set[str]) -> bool:
+        for c in containers:
+            if path == c or path.startswith(c + "/"):
+                return True
+        return False
 
-    def _duplicate_directories(self, files: List[FileInfo]) -> Dict[str, List[FileInfo]]:
-        dir_to_children: Dict[str, List[FileInfo]] = defaultdict(list)
-        for f in files:
-            if f.hash_md5:
-                root = self._directory_grouping(f.path)
-                if root:
-                    dir_to_children[root].append(f)
+    @staticmethod
+    def _any_path_under_any(paths: List[str], containers: Set[str]) -> bool:
+        for p in paths:
+            if DuplicateFilesInsight._is_under_any(p, containers):
+                return True
+        return False
 
-        dup_dirs: Dict[str, List[FileInfo]] = defaultdict(list)
-        for root, children in dir_to_children.items():
-            if not children:
-                continue
+    @staticmethod
+    def _min_depth(paths: List[str]) -> int:
+        def depth(p: str) -> int:
+            return 0 if not p else len(PurePosixPath(p).parts)
 
-            md5 = hashlib.md5()
-            for h in sorted(c.hash_md5 for c in children if c.hash_md5):
-                md5.update(h.encode())
-            folder_hash = md5.hexdigest()
+        return min(depth(p) for p in paths) if paths else 0
 
-            dup_dirs[folder_hash].append(
-                FileInfo(
-                    full_path=(
-                        children[0].full_path.parent / root if children[0].full_path is not None else Path(root)
-                    ),
-                    path=root,
-                    size=sum(c.size for c in children),
-                    file_type="directory",
-                    hash_md5=folder_hash,
-                    treemap_type=TreemapType.FILES,
-                    children=children,
-                )
-            )
-        return dup_dirs
+    @staticmethod
+    def _is_dir(f: FileInfo) -> bool:
+        return f.is_dir or f.file_type == "directory"

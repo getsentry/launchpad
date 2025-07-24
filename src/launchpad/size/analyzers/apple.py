@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
-
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -16,7 +14,6 @@ from launchpad.parsers.apple.macho_size_analyzer import MachOSizeAnalyzer
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
-from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
@@ -33,12 +30,11 @@ from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.common import FileAnalysis, FileInfo
-from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
+from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
-from launchpad.utils.file_utils import calculate_file_hash, get_file_size, to_nearest_block_size
+from launchpad.utils.file_utils import get_file_size
 from launchpad.utils.logging import get_logger
 from launchpad.utils.performance import trace, trace_ctx
 
@@ -114,7 +110,7 @@ class AppleAppAnalyzer:
         app_info = self.app_info
         logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
 
-        file_analysis = self._analyze_files(artifact)
+        file_analysis = analyze_apple_files(artifact)
         logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
         app_bundle_path = artifact.get_app_bundle_path()
@@ -249,46 +245,6 @@ class AppleAppAnalyzer:
             code_signature_errors=code_signature_errors,
         )
 
-    @trace("apple.detect_file_type")
-    def _detect_file_type(self, file_path: Path) -> str:
-        """Detect file type using the file command.
-
-        Args:
-            file_path: Path to the file to analyze
-
-        Returns:
-            File type string from file command output, normalized to common types
-        """
-        try:
-            result = subprocess.run(["file", str(file_path)], capture_output=True, text=True, check=True)
-            # Extract just the file type description after the colon
-            file_type = result.stdout.split(":", 1)[1].strip().lower()
-            logger.debug(f"Detected file type for {file_path}: {file_type}")
-
-            # Normalize common file types
-            if "mach-o" in file_type:
-                return "macho"
-            elif "executable" in file_type:
-                return "executable"
-            elif "text" in file_type:
-                return "text"
-            elif "directory" in file_type:
-                return "directory"
-            elif "symbolic link" in file_type:
-                return "symlink"
-            elif "hermes javascript bytecode" in file_type:
-                return "hermes"
-            elif "empty" in file_type:
-                return "empty"
-
-            return file_type
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"Failed to detect file type for {file_path}: {e}")
-            return "unknown"
-        except Exception as e:
-            logger.warning(f"Unexpected error detecting file type for {file_path}: {e}")
-            return "unknown"
-
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:
         """Determine the type of provisioning profile and its name.
         Args:
@@ -324,86 +280,6 @@ class AppleAppAnalyzer:
 
         # If no devices are provisioned, it's an app store profile
         return "appstore", profile_name
-
-    @trace("apple.analyze_files")
-    def _analyze_files(self, xcarchive: ZippedXCArchive) -> FileAnalysis:
-        """Analyze all files in the app bundle."""
-        logger.debug("Analyzing files in app bundle")
-
-        files: List[FileInfo] = []
-        app_bundle_path = xcarchive.get_app_bundle_path()
-
-        # Walk through all files in the bundle
-        for file_path in app_bundle_path.rglob("*"):
-            if not file_path.is_file():
-                continue
-
-            relative_path = file_path.relative_to(app_bundle_path)
-            file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
-
-            # Get file type from extension first
-            # If no extension or unknown type, use file command
-            file_type = file_path.suffix.lower().lstrip(".")
-            if not file_type or file_type == "unknown":
-                file_type = self._detect_file_type(file_path)
-
-            # Calculate hash for duplicate detection
-            file_hash = calculate_file_hash(file_path, algorithm="md5")
-
-            children: List[FileInfo] = []
-            if file_type == "car":
-                children = self._analyze_asset_catalog(xcarchive, relative_path)
-                children_size = sum([child.size for child in children])
-                children.append(
-                    FileInfo(
-                        full_path=file_path,
-                        path=str(relative_path) + "/Other",
-                        size=file_size - children_size,
-                        file_type="unknown",
-                        hash_md5=file_hash,
-                        treemap_type=TreemapType.ASSETS,
-                        children=[],
-                    )
-                )
-
-            file_info = FileInfo(
-                full_path=file_path,
-                path=str(relative_path),
-                size=file_size,
-                file_type=file_type or "unknown",
-                hash_md5=file_hash,
-                treemap_type=FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.FILES),
-                children=children,
-            )
-
-            files.append(file_info)
-
-        return FileAnalysis(files=files)
-
-    @trace("apple.analyze_asset_catalog")
-    def _analyze_asset_catalog(self, xcarchive: ZippedXCArchive, relative_path: Path) -> List[FileInfo]:
-        """Analyze an asset catalog file."""
-        catalog_details = xcarchive.get_asset_catalog_details(relative_path)
-        result: List[FileInfo] = []
-        for element in catalog_details:
-            if element.full_path and element.full_path.exists() and element.full_path.is_file():
-                file_hash = calculate_file_hash(element.full_path, algorithm="md5")
-            else:
-                # not every element is backed by a file, so use imageId as hash
-                file_hash = element.image_id
-
-            result.append(
-                FileInfo(
-                    full_path=element.full_path,
-                    path=str(relative_path) + "/" + element.name,
-                    size=element.size,
-                    file_type=Path(element.full_path).suffix.lstrip(".") if element.full_path else "other",
-                    hash_md5=file_hash,
-                    treemap_type=TreemapType.ASSETS,
-                    children=[],
-                )
-            )
-        return result
 
     def _generate_insight_with_tracing(
         self, insight_class: type, insights_input: InsightsInput, insight_name: str
@@ -505,6 +381,8 @@ class AppleAppAnalyzer:
     def _test_strip_symbols_removal(self, parser: MachOParser, binary_path: Path) -> int:
         """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
         import tempfile
+
+        return 0
 
         try:
             with trace_ctx("strip_symbols.get_original_size"):

@@ -34,21 +34,31 @@ class BaseBinaryAnalysis(BaseModel):
 
 
 class FileAnalysis(BaseModel):
-    """Analysis results for files in the app bundle."""
+    """Analysis results for files and directories in the app bundle."""
 
     model_config = ConfigDict(frozen=True)
 
-    files: List[FileInfo] = Field(..., description="List of all files in the bundle")
+    files: List[FileInfo] = Field(..., description="List of all files and directories in the bundle")
 
     @property
     def total_size(self) -> int:
-        """Total bundle size in bytes."""
+        """Total bundle size in bytes (directories have size 0)."""
         return sum(f.size for f in self.files)
 
     @property
     def file_count(self) -> int:
-        """Total number of files."""
+        """Total number of files and directories."""
         return len(self.files)
+
+    @property
+    def files_only_count(self) -> int:
+        """Total number of files (excluding directories)."""
+        return len([f for f in self.files if not f.is_dir])
+
+    @property
+    def directory_count(self) -> int:
+        """Total number of directories."""
+        return len([f for f in self.files if f.is_dir])
 
     @property
     def file_type_sizes(self) -> Dict[str, int]:
@@ -57,22 +67,23 @@ class FileAnalysis(BaseModel):
 
 
 class FileInfo(BaseModel):
-    """Information about a file in the app bundle."""
+    """Information about a file or directory in the app bundle."""
 
     model_config = ConfigDict(frozen=True)
 
     path: str = Field(..., description="Relative path in the bundle")
 
     # Some FileInfo objects are not always backed by a file (e.g. asset catalog elements), so full_path is None
-    full_path: Path | None = Field(..., exclude=True, description="Fully qualified path to the file")
+    full_path: Path | None = Field(..., exclude=True, description="Fully qualified path to the file or directory")
     size: int = Field(
         ...,
         ge=0,
-        description="Raw file size in bytes with no filesystem block size adjustments",
+        description="Raw file size in bytes with no filesystem block size adjustments (0 for directories)",
     )
-    file_type: str = Field(..., description="File type/extension")
-    hash_md5: str = Field(..., description="MD5 hash of file contents")
+    file_type: str = Field(..., description="File type/extension or 'directory'")
+    hash_md5: str = Field(..., description="MD5 hash of file contents or directory identifier")
     treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
+    is_dir: bool = Field(..., description="True if this is a directory, False if it's a file")
     # Some files can be further broken down, even though it's children are not files
     children: List[FileInfo] = Field(default_factory=list, description="Children of the file")
 
