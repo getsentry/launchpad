@@ -59,9 +59,9 @@ class TestSmallFilesInsight:
         assert result.file_count == 50
         # Each small file wastes 3072 bytes (4096 - 1024)
         assert result.total_savings == 50 * (APPLE_FILESYSTEM_BLOCK_SIZE - 1024)
-        # Verify all returned files are small
-        for file in result.files:
-            assert file.size < APPLE_FILESYSTEM_BLOCK_SIZE
+        # Verify all returned files have correct savings calculation
+        for file_savings in result.files:
+            assert file_savings.total_savings == APPLE_FILESYSTEM_BLOCK_SIZE - 1024
 
     def test_generate_with_few_total_files(self):
         """Test that no insight is generated when app has < 100 total files."""
@@ -123,6 +123,9 @@ class TestSmallFilesInsight:
         assert result.file_count == 30
         # Each small file wastes 2048 bytes (4096 - 2048)
         assert result.total_savings == 30 * (APPLE_FILESYSTEM_BLOCK_SIZE - 2048)
+        # Verify savings calculation for each file
+        for file_savings in result.files:
+            assert file_savings.total_savings == APPLE_FILESYSTEM_BLOCK_SIZE - 2048
 
     def test_generate_with_many_files_but_no_small_files(self):
         """Test that insight is generated but with empty results when no small files exist."""
@@ -209,6 +212,9 @@ class TestSmallFilesInsight:
         assert result.file_count == 20
         # Each small file wastes 1 byte (4096 - 4095)
         assert result.total_savings == 20 * 1
+        # Verify savings calculation for each file
+        for file_savings in result.files:
+            assert file_savings.total_savings == 1
 
     def test_calculate_savings_correctly(self):
         """Test that savings calculation is correct for various file sizes."""

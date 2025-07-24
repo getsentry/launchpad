@@ -22,6 +22,8 @@ The iOS analysis code ONLY has to work with `.xcarchive.zip` files as input.
 
 # Python rules
 
+ALWAYS USE THE `.venv/bin/python` VERSION WHEN RUNNING COMMANDS.
+
 For the Python code make sure to follow all of Sentry's best practices, as well as modern Python best practices. Try to use types as much as possible. If standard repo setup is not present, feel free to configure it and add it to the repo since this is currently a bare setup.
 
 For the CLI, make sure to use the `click` library.

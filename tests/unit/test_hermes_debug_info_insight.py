@@ -68,7 +68,7 @@ class TestHermesDebugInfoInsight:
 
         assert isinstance(result, HermesDebugInfoInsightResult)
         assert len(result.files) == 1
-        assert result.files[0].path == "assets/index.jsbundle"
+        assert result.files[0].file_path == "assets/index.jsbundle"
         assert result.total_savings == 2048  # Debug info size
 
     def test_generate_with_hermes_files_without_debug_info(self):
@@ -237,6 +237,6 @@ class TestHermesDebugInfoInsight:
         assert isinstance(result, HermesDebugInfoInsightResult)
         assert len(result.files) == 2
         # Should be sorted by debug info size (largest first)
-        assert result.files[0].path == "assets/vendor.hbc"  # Larger debug info
-        assert result.files[1].path == "assets/index.jsbundle"  # Smaller debug info
-        assert result.total_savings == 3072  # 1024 + 2048
+        assert result.files[0].file_path == "assets/vendor.hbc"  # Larger debug info
+        assert result.files[1].file_path == "assets/index.jsbundle"  # Smaller debug info
+        assert result.total_savings == 1024 + 2048  # Total debug info size

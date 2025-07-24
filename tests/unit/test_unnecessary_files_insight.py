@@ -88,9 +88,9 @@ class TestUnnecessaryFilesInsight:
         assert result.total_savings == 10000  # 5000 + 3000 + 2000
 
         # Files should be sorted by size descending
-        assert result.files[0].size == 5000  # README.md
-        assert result.files[1].size == 3000  # build.sh
-        assert result.files[2].size == 2000  # Debug.xcconfig
+        assert result.files[0].total_savings == 5000  # README.md
+        assert result.files[1].total_savings == 3000  # build.sh
+        assert result.files[2].total_savings == 2000  # Debug.xcconfig
 
     def test_generate_with_no_unnecessary_files(self):
         """Test that no insight is generated when no unnecessary files are found."""
@@ -145,7 +145,7 @@ class TestUnnecessaryFilesInsight:
             result = self.insight.generate(insights_input)
             assert result is not None, f"Should match {filename}"
             assert len(result.files) == 1
-            assert result.files[0].path == filename
+            assert result.files[0].file_path == filename
 
     def test_pattern_matching_changelog_files(self):
         """Test that various CHANGELOG file patterns are matched."""
@@ -169,7 +169,7 @@ class TestUnnecessaryFilesInsight:
             result = self.insight.generate(insights_input)
             assert result is not None, f"Should match {filename}"
             assert len(result.files) == 1
-            assert result.files[0].path == filename
+            assert result.files[0].file_path == filename
 
     def test_pattern_matching_shell_scripts(self):
         """Test that shell script patterns are matched."""
@@ -193,7 +193,7 @@ class TestUnnecessaryFilesInsight:
             result = self.insight.generate(insights_input)
             assert result is not None, f"Should match {filename}"
             assert len(result.files) == 1
-            assert result.files[0].path == filename
+            assert result.files[0].file_path == filename
 
     def test_pattern_matching_development_files(self):
         """Test that various development files are matched."""
@@ -222,7 +222,7 @@ class TestUnnecessaryFilesInsight:
             result = self.insight.generate(insights_input)
             assert result is not None, f"Should match {filename}"
             assert len(result.files) == 1
-            assert result.files[0].path == filename
+            assert result.files[0].file_path == filename
 
     def test_pattern_matching_exact_filenames(self):
         """Test that exact filename matches work correctly."""
@@ -245,7 +245,7 @@ class TestUnnecessaryFilesInsight:
             result = self.insight.generate(insights_input)
             assert result is not None, f"Should match exact filename {filename}"
             assert len(result.files) == 1
-            assert result.files[0].path == filename
+            assert result.files[0].file_path == filename
 
         # These should NOT match (similar but not exact)
         non_matches = [
@@ -321,7 +321,7 @@ class TestUnnecessaryFilesInsight:
             if should_match:
                 assert result is not None, f"Should match {filename}"
                 assert len(result.files) == 1
-                assert result.files[0].path == filename
+                assert result.files[0].file_path == filename
             else:
                 assert result is None, f"Should not match {filename}"
 
@@ -361,6 +361,6 @@ class TestUnnecessaryFilesInsight:
         assert len(result.files) == 3
 
         # Should be sorted by size descending
-        assert result.files[0].size == 5000  # README.md
-        assert result.files[1].size == 3000  # medium.xcconfig
-        assert result.files[2].size == 1000  # small.sh
+        assert result.files[0].total_savings == 5000  # README.md
+        assert result.files[1].total_savings == 3000  # medium.xcconfig
+        assert result.files[2].total_savings == 1000  # small.sh
