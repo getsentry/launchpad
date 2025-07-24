@@ -617,7 +617,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                   </div>
                 );
               })()
-            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_comments', 'small_files'].includes(key) ? (
+            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_minify', 'small_files'].includes(key) ? (
               // Handle insights that now use FileSavingsResult format
               (() => {
                 const fileSavingsInsight = insight as FileSavingsInsightResult;
