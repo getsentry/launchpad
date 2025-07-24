@@ -50,6 +50,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       webp_optimization: 'WebP Optimization',
       strip_binary: 'Binary Stripping',
       localized_strings: 'Localized Strings',
+      localized_strings_comments: 'Localized Strings Comments',
       small_files: 'Small Files',
       unnecessary_files: 'Unnecessary Files',
       main_binary_exported_symbols: 'Main Binary Export Metadata',
@@ -67,6 +68,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       webp_optimization: 'Images that could be converted to WebP format for better compression',
       strip_binary: 'Debug symbols and metadata that can be removed from binaries',
       localized_strings: 'Localization strings with potential optimization savings',
+      localized_strings_comments: 'Comments in localized strings files that can be stripped to save space',
       small_files: 'Small files wasting space due to filesystem block size constraints',
       main_binary_exported_symbols: 'Export metadata in main binaries that could be optimized',
       unnecessary_files: 'Unnecessary files that can be removed to save space',
@@ -84,6 +86,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       webp_optimization: '🗜️',
       strip_binary: '⚡',
       localized_strings: '🌐',
+      localized_strings_comments: '💬',
       small_files: '📄',
       main_binary_exported_symbols: '📦',
       unnecessary_files: '🗑️',
@@ -614,7 +617,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                   </div>
                 );
               })()
-            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'small_files'].includes(key) ? (
+            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_comments', 'small_files'].includes(key) ? (
               // Handle insights that now use FileSavingsResult format
               (() => {
                 const fileSavingsInsight = insight as FileSavingsInsightResult;

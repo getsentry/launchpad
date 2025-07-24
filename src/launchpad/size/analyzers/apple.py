@@ -17,6 +17,7 @@ from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolType
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
+from launchpad.size.insights.apple.localized_strings_minify import MinifyLocalizedStringsInsight
 from launchpad.size.insights.apple.loose_images import LooseImagesInsight
 from launchpad.size.insights.apple.main_binary_export_metadata import MainBinaryExportMetadataInsight
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
@@ -168,6 +169,9 @@ class AppleAppAnalyzer:
                 strip_binary=self._generate_insight_with_tracing(StripSymbolsInsight, insights_input, "strip_binary"),
                 localized_strings=self._generate_insight_with_tracing(
                     LocalizedStringsInsight, insights_input, "localized_strings"
+                ),
+                localized_strings_minify=self._generate_insight_with_tracing(
+                    MinifyLocalizedStringsInsight, insights_input, "localized_strings_minify"
                 ),
                 hermes_debug_info=self._generate_insight_with_tracing(
                     HermesDebugInfoInsight, insights_input, "hermes_debug_info"

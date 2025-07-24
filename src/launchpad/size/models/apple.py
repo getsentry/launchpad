@@ -54,6 +54,14 @@ class LocalizedStringInsightResult(BaseInsightResult):
     )
 
 
+class LocalizedStringCommentsInsightResult(BaseInsightResult):
+    """Results from localized string comments analysis."""
+
+    files: List[FileSavingsResult] = Field(
+        ..., description="Localized strings files with comment stripping opportunities"
+    )
+
+
 class SmallFilesInsightResult(BaseInsightResult):
     """Results from small files analysis."""
 
@@ -215,6 +223,9 @@ class AppleInsightResults(BaseModel):
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
     localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
+    localized_strings_minify: LocalizedStringCommentsInsightResult | None = Field(
+        None, description="Localized strings comments analysis"
+    )
     small_files: SmallFilesInsightResult | None = Field(None, description="Small files analysis")
     loose_images: LooseImagesInsightResult | None = Field(
         None, description="Loose images not in asset catalogs analysis"
