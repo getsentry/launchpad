@@ -19,7 +19,7 @@ class TestLargeAudioFileInsight:
             size=8 * 1024 * 1024,  # 8MB
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         large_audio_2 = FileInfo(
             full_path=Path("assets/large_wav.wav"),
@@ -27,7 +27,7 @@ class TestLargeAudioFileInsight:
             size=6 * 1024 * 1024,  # 6MB
             file_type="wav",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
         small_audio = FileInfo(
             full_path=Path("assets/small_audio.mp3"),
@@ -35,7 +35,7 @@ class TestLargeAudioFileInsight:
             size=3 * 1024 * 1024,  # 3MB
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
 
         file_analysis = FileAnalysis(files=[large_audio_1, large_audio_2, small_audio])
@@ -69,7 +69,7 @@ class TestLargeAudioFileInsight:
             size=3 * 1024 * 1024,  # 3MB
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         small_audio_2 = FileInfo(
             full_path=Path("assets/small_audio2.aac"),
@@ -77,7 +77,7 @@ class TestLargeAudioFileInsight:
             size=4 * 1024 * 1024,  # 4MB
             file_type="aac",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         file_analysis = FileAnalysis(files=[small_audio_1, small_audio_2])
@@ -114,7 +114,7 @@ class TestLargeAudioFileInsight:
             size=5 * 1024 * 1024,  # Exactly 5MB
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         file_analysis = FileAnalysis(files=[threshold_audio])
@@ -137,7 +137,7 @@ class TestLargeAudioFileInsight:
             size=8 * 1024 * 1024,  # 8MB
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         large_image = FileInfo(
             full_path=Path("assets/large_image.png"),
@@ -145,7 +145,7 @@ class TestLargeAudioFileInsight:
             size=15 * 1024 * 1024,  # 15MB
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
         small_audio = FileInfo(
             full_path=Path("assets/small_audio.wav"),
@@ -153,7 +153,7 @@ class TestLargeAudioFileInsight:
             size=3 * 1024 * 1024,  # 3MB
             file_type="wav",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
 
         file_analysis = FileAnalysis(files=[large_audio, large_image, small_audio])
@@ -183,7 +183,7 @@ class TestLargeAudioFileInsight:
             size=6 * 1024 * 1024,  # 6MB
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         aac_file = FileInfo(
             full_path=Path("assets/audio.aac"),
@@ -191,7 +191,7 @@ class TestLargeAudioFileInsight:
             size=7 * 1024 * 1024,  # 7MB
             file_type="aac",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
         flac_file = FileInfo(
             full_path=Path("assets/audio.flac"),
@@ -199,7 +199,7 @@ class TestLargeAudioFileInsight:
             size=9 * 1024 * 1024,  # 9MB
             file_type="flac",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
         ogg_file = FileInfo(
             full_path=Path("assets/audio.ogg"),
@@ -207,7 +207,7 @@ class TestLargeAudioFileInsight:
             size=4 * 1024 * 1024,  # 4MB (below threshold)
             file_type="ogg",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash4",
+            hash="hash4",
         )
 
         file_analysis = FileAnalysis(files=[mp3_file, aac_file, flac_file, ogg_file])

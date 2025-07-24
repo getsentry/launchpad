@@ -5,7 +5,7 @@ interface FileAnalysisFile {
   path: string;
   size: number;
   file_type: string;
-  hash_md5: string;
+  hash: string;
 }
 
 interface FileAnalysisData {
@@ -76,7 +76,7 @@ export interface LooseImageGroup {
     path: string;
     size: number;
     file_type: string;
-    hash_md5: string;
+    hash: string;
   }[];
   total_savings: number;
 }

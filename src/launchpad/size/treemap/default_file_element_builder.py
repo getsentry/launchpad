@@ -12,7 +12,7 @@ class DefaultFileElementBuilder(TreemapElementBuilder):
         download_size = int(file_info.size * self.download_compression_ratio)
 
         details: dict[str, object] = {
-            "hash": file_info.hash_md5,  # File hash for deduplication
+            "hash": file_info.hash,  # File hash for deduplication
         }
 
         # Add file extension only for actual files (not binary subsections)

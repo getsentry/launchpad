@@ -19,7 +19,7 @@ class TestLargeVideoFileInsight:
             size=25 * 1024 * 1024,  # 25MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         large_video_2 = FileInfo(
             full_path=Path("assets/large_video.mov"),
@@ -27,7 +27,7 @@ class TestLargeVideoFileInsight:
             size=18 * 1024 * 1024,  # 18MB
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
         small_video = FileInfo(
             full_path=Path("assets/small_video.mp4"),
@@ -35,7 +35,7 @@ class TestLargeVideoFileInsight:
             size=5 * 1024 * 1024,  # 5MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
         image_file = FileInfo(
             full_path=Path("assets/large_image.png"),
@@ -43,7 +43,7 @@ class TestLargeVideoFileInsight:
             size=15 * 1024 * 1024,  # 15MB (should be ignored)
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash4",
+            hash="hash4",
         )
 
         file_analysis = FileAnalysis(files=[large_video_1, large_video_2, small_video, image_file])
@@ -77,7 +77,7 @@ class TestLargeVideoFileInsight:
             size=5 * 1024 * 1024,  # 5MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         small_video_2 = FileInfo(
             full_path=Path("assets/small_video2.mov"),
@@ -85,7 +85,7 @@ class TestLargeVideoFileInsight:
             size=8 * 1024 * 1024,  # 8MB
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         file_analysis = FileAnalysis(files=[small_video_1, small_video_2])
@@ -122,7 +122,7 @@ class TestLargeVideoFileInsight:
             size=10 * 1024 * 1024,  # Exactly 10MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         file_analysis = FileAnalysis(files=[threshold_file])
@@ -145,7 +145,7 @@ class TestLargeVideoFileInsight:
             size=15 * 1024 * 1024,  # 15MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         mov_file = FileInfo(
             full_path=Path("assets/video.mov"),
@@ -153,7 +153,7 @@ class TestLargeVideoFileInsight:
             size=12 * 1024 * 1024,  # 12MB
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
         webm_file = FileInfo(
             full_path=Path("assets/video.webm"),
@@ -161,7 +161,7 @@ class TestLargeVideoFileInsight:
             size=20 * 1024 * 1024,  # 20MB
             file_type="webm",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
         mkv_file = FileInfo(
             full_path=Path("assets/video.mkv"),
@@ -169,7 +169,7 @@ class TestLargeVideoFileInsight:
             size=8 * 1024 * 1024,  # 8MB (below threshold)
             file_type="mkv",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash4",
+            hash="hash4",
         )
 
         file_analysis = FileAnalysis(files=[mp4_file, mov_file, webm_file, mkv_file])
@@ -202,7 +202,7 @@ class TestLargeVideoFileInsight:
             size=15 * 1024 * 1024,  # 15MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         image_file = FileInfo(
             full_path=Path("assets/image.png"),
@@ -210,7 +210,7 @@ class TestLargeVideoFileInsight:
             size=20 * 1024 * 1024,  # 20MB (should be ignored)
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
         text_file = FileInfo(
             full_path=Path("assets/data.txt"),
@@ -218,7 +218,7 @@ class TestLargeVideoFileInsight:
             size=25 * 1024 * 1024,  # 25MB (should be ignored)
             file_type="txt",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
 
         file_analysis = FileAnalysis(files=[video_file, image_file, text_file])

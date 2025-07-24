@@ -19,6 +19,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
 
     def generate(self, input: InsightsInput) -> DuplicateFilesInsightResult | None:
         files = input.file_analysis.files
+        directories = input.file_analysis.directories
 
         groups: List[DuplicateFileGroup] = []
         total_savings = 0
@@ -27,7 +28,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         # -----------------------------
         # 1) Duplicate DIRECTORIES
         # -----------------------------
-        dir_groups = self._directory_duplicate_candidates(files)
+        dir_groups = self._directory_duplicate_candidates(directories)
 
         # Process shallower (outer) groups first so we can suppress nested ones
         dir_groups.sort(key=lambda ds: self._min_depth([d.path for d in ds]))
@@ -64,13 +65,8 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         # -----------------------------
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
         for f in files:
-            if (
-                not self._is_dir(f)
-                and f.hash_md5
-                and not self._is_allowed_extension(f.path)
-                and not self._is_under_any(f.path, covered_dirs)
-            ):
-                files_by_hash[f.hash_md5].append(f)
+            if f.hash and not self._is_allowed_extension(f.path) and not self._is_under_any(f.path, covered_dirs):
+                files_by_hash[f.hash].append(f)
 
         for dup_files in files_by_hash.values():
             if len(dup_files) < 2:
@@ -100,15 +96,15 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
     # Helpers
     # -------------------------------------------------------------------------
 
-    def _directory_duplicate_candidates(self, files: List[FileInfo]) -> List[List[FileInfo]]:
+    def _directory_duplicate_candidates(self, directories: List[FileInfo]) -> List[List[FileInfo]]:
         """
         Returns a list of duplicate-directory groups (lists of FileInfo) where
         each group shares the same already-computed directory hash and has >= 2 members.
         """
         by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
-        for f in files:
-            if self._is_dir(f) and f.hash_md5 and f.size >= self.MIN_DIR_SIZE_BYTES:
-                by_hash[f.hash_md5].append(f)
+        for f in directories:
+            if f.hash and f.size >= self.MIN_DIR_SIZE_BYTES:
+                by_hash[f.hash].append(f)
 
         return [dirs for dirs in by_hash.values() if len(dirs) > 1]
 
@@ -135,7 +131,3 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
             return 0 if not p else len(PurePosixPath(p).parts)
 
         return min(depth(p) for p in paths) if paths else 0
-
-    @staticmethod
-    def _is_dir(f: FileInfo) -> bool:
-        return f.is_dir or f.file_type == "directory"

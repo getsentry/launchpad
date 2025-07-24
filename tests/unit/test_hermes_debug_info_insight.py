@@ -24,7 +24,7 @@ class TestHermesDebugInfoInsight:
             size=1024 * 1024,  # 1MB
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         # Create Hermes report with debug info
@@ -80,7 +80,7 @@ class TestHermesDebugInfoInsight:
             size=1024 * 1024,  # 1MB
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         # Create Hermes report without debug info
@@ -133,7 +133,7 @@ class TestHermesDebugInfoInsight:
             size=1024 * 1024,  # 1MB
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         file_analysis = FileAnalysis(files=[non_hermes_file])
@@ -159,7 +159,7 @@ class TestHermesDebugInfoInsight:
             size=1024 * 1024,  # 1MB
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         file_analysis = FileAnalysis(files=[hermes_file])
@@ -185,7 +185,7 @@ class TestHermesDebugInfoInsight:
             size=1024 * 1024,  # 1MB
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         hermes_file_2 = FileInfo(
             full_path=Path("assets/vendor.hbc"),
@@ -193,7 +193,7 @@ class TestHermesDebugInfoInsight:
             size=512 * 1024,  # 512KB
             file_type="hbc",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         # Create Hermes reports with different debug info sizes

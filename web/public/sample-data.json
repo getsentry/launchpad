@@ -8,67 +8,67 @@
           "path": "HackerNews",
           "size": 2628128,
           "file_type": "unknown",
-          "hash_md5": "9be613d41e87fc737691d6eae65ef868"
+          "hash": "9be613d41e87fc737691d6eae65ef868"
         },
         {
           "path": "PkgInfo",
           "size": 8,
           "file_type": "unknown",
-          "hash_md5": "23b7d7d024abb0f558420e098800bf27"
+          "hash": "23b7d7d024abb0f558420e098800bf27"
         },
         {
           "path": "_CodeSignature/CodeResources",
           "size": 8523,
           "file_type": "unknown",
-          "hash_md5": "c055dde49c13eb268ee256bfaab270af"
+          "hash": "c055dde49c13eb268ee256bfaab270af"
         },
         {
           "path": "Frameworks/Sentry.framework/Sentry",
           "size": 51456,
           "file_type": "unknown",
-          "hash_md5": "885ec86bb33e7489367f169bf7ad10eb"
+          "hash": "885ec86bb33e7489367f169bf7ad10eb"
         },
         {
           "path": "Frameworks/Common.framework/Common",
           "size": 188992,
           "file_type": "unknown",
-          "hash_md5": "03b50a5c46df571c54cd680b90d471df"
+          "hash": "03b50a5c46df571c54cd680b90d471df"
         },
         {
           "path": "Frameworks/Reaper.framework/Reaper",
           "size": 51440,
           "file_type": "unknown",
-          "hash_md5": "dc56b59c17e9fdfb19c1dbf6631cfbee"
+          "hash": "dc56b59c17e9fdfb19c1dbf6631cfbee"
         },
         {
           "path": "Frameworks/Reaper.framework/_CodeSignature/CodeResources",
           "size": 1798,
           "file_type": "unknown",
-          "hash_md5": "4928eb799bb841e9d412ed5bb2abb4d7"
+          "hash": "4928eb799bb841e9d412ed5bb2abb4d7"
         },
         {
           "path": "Frameworks/Common.framework/_CodeSignature/CodeResources",
           "size": 1798,
           "file_type": "unknown",
-          "hash_md5": "4dd70944d296b9be7e67a3539f888996"
+          "hash": "4dd70944d296b9be7e67a3539f888996"
         },
         {
           "path": "Frameworks/Sentry.framework/_CodeSignature/CodeResources",
           "size": 2034,
           "file_type": "unknown",
-          "hash_md5": "c4db10dccf2de9f141799d6b1ef97138"
+          "hash": "c4db10dccf2de9f141799d6b1ef97138"
         },
         {
           "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension",
           "size": 152400,
           "file_type": "unknown",
-          "hash_md5": "f3dbc38d127461b656272ad6f9796953"
+          "hash": "f3dbc38d127461b656272ad6f9796953"
         },
         {
           "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/_CodeSignature/CodeResources",
           "size": 3304,
           "file_type": "unknown",
-          "hash_md5": "893b80e17e4098504590992a97f1d1d4"
+          "hash": "893b80e17e4098504590992a97f1d1d4"
         }
       ],
       "png": [
@@ -76,13 +76,13 @@
           "path": "AppIcon60x60@2x.png",
           "size": 10040,
           "file_type": "png",
-          "hash_md5": "bcba3ca728dc0f3d06391aa9f92e0b5a"
+          "hash": "bcba3ca728dc0f3d06391aa9f92e0b5a"
         },
         {
           "path": "AppIcon76x76@2x~ipad.png",
           "size": 15008,
           "file_type": "png",
-          "hash_md5": "a15ef67ba856ec744c20a3aef9da1237"
+          "hash": "a15ef67ba856ec744c20a3aef9da1237"
         }
       ],
       "car": [
@@ -90,13 +90,13 @@
           "path": "Assets.car",
           "size": 4785504,
           "file_type": "car",
-          "hash_md5": "1b9f45846c27187e515a7453de0b44e2"
+          "hash": "1b9f45846c27187e515a7453de0b44e2"
         },
         {
           "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/Assets.car",
           "size": 23504,
           "file_type": "car",
-          "hash_md5": "10708a136443bc6369686c040c2515ef"
+          "hash": "10708a136443bc6369686c040c2515ef"
         }
       ],
       "plist": [
@@ -104,43 +104,43 @@
           "path": "Hacker-News-Info.plist",
           "size": 402,
           "file_type": "plist",
-          "hash_md5": "d619378dad2b5c879026f42ee40151a4"
+          "hash": "d619378dad2b5c879026f42ee40151a4"
         },
         {
           "path": "Info.plist",
           "size": 1863,
           "file_type": "plist",
-          "hash_md5": "7d63330f5ff96011402d66984317b717"
+          "hash": "7d63330f5ff96011402d66984317b717"
         },
         {
           "path": "Fonts_Fonts.bundle/Info.plist",
           "size": 668,
           "file_type": "plist",
-          "hash_md5": "6275a17bffb670de4f09848c3e2e16d3"
+          "hash": "6275a17bffb670de4f09848c3e2e16d3"
         },
         {
           "path": "Frameworks/Sentry.framework/Info.plist",
           "size": 746,
           "file_type": "plist",
-          "hash_md5": "30d677d01465852100014817224bec17"
+          "hash": "30d677d01465852100014817224bec17"
         },
         {
           "path": "Frameworks/Common.framework/Info.plist",
           "size": 743,
           "file_type": "plist",
-          "hash_md5": "49c7946b12351d1b0632391ef66aca48"
+          "hash": "49c7946b12351d1b0632391ef66aca48"
         },
         {
           "path": "Frameworks/Reaper.framework/Info.plist",
           "size": 749,
           "file_type": "plist",
-          "hash_md5": "bdaa1c3b3fb41f39204b7b5b7d12e98f"
+          "hash": "bdaa1c3b3fb41f39204b7b5b7d12e98f"
         },
         {
           "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/Info.plist",
           "size": 1098,
           "file_type": "plist",
-          "hash_md5": "10e17dc4ef12e95c112faf6e765a9b52"
+          "hash": "10e17dc4ef12e95c112faf6e765a9b52"
         }
       ],
       "mobileprovision": [
@@ -148,13 +148,13 @@
           "path": "embedded.mobileprovision",
           "size": 37798,
           "file_type": "mobileprovision",
-          "hash_md5": "512485ed4385e31a645f40a0239fcbb6"
+          "hash": "512485ed4385e31a645f40a0239fcbb6"
         },
         {
           "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/embedded.mobileprovision",
           "size": 37798,
           "file_type": "mobileprovision",
-          "hash_md5": "512485ed4385e31a645f40a0239fcbb6"
+          "hash": "512485ed4385e31a645f40a0239fcbb6"
         }
       ],
       "ttf": [
@@ -162,19 +162,19 @@
           "path": "Fonts_Fonts.bundle/ibm_plex_sans_medium.ttf",
           "size": 177104,
           "file_type": "ttf",
-          "hash_md5": "361336a2ed1908c5cd8dec2e10aa71a2"
+          "hash": "361336a2ed1908c5cd8dec2e10aa71a2"
         },
         {
           "path": "Fonts_Fonts.bundle/ibm_plex_sans_regular.ttf",
           "size": 133720,
           "file_type": "ttf",
-          "hash_md5": "ea96a0afddbe8ff439be465b16cbd381"
+          "hash": "ea96a0afddbe8ff439be465b16cbd381"
         },
         {
           "path": "Fonts_Fonts.bundle/ibm_plex_sans_bold.ttf",
           "size": 135932,
           "file_type": "ttf",
-          "hash_md5": "be4cc57a744421b843e08a2001436f40"
+          "hash": "be4cc57a744421b843e08a2001436f40"
         }
       ],
       "xcprivacy": [
@@ -182,7 +182,7 @@
           "path": "Frameworks/Sentry.framework/PrivacyInfo.xcprivacy",
           "size": 2108,
           "file_type": "xcprivacy",
-          "hash_md5": "72147fd439c166b667c137f8f5b604eb"
+          "hash": "72147fd439c166b667c137f8f5b604eb"
         }
       ],
       "bundle": [
@@ -190,7 +190,7 @@
           "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/Fonts_Fonts.bundle",
           "size": 24,
           "file_type": "bundle",
-          "hash_md5": "4a7acfa65b4e20c34a2f7bbb521d996b"
+          "hash": "4a7acfa65b4e20c34a2f7bbb521d996b"
         }
       ]
     },
@@ -201,13 +201,13 @@
             "path": "embedded.mobileprovision",
             "size": 37798,
             "file_type": "mobileprovision",
-            "hash_md5": "512485ed4385e31a645f40a0239fcbb6"
+            "hash": "512485ed4385e31a645f40a0239fcbb6"
           },
           {
             "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/embedded.mobileprovision",
             "size": 37798,
             "file_type": "mobileprovision",
-            "hash_md5": "512485ed4385e31a645f40a0239fcbb6"
+            "hash": "512485ed4385e31a645f40a0239fcbb6"
           }
         ],
         "potential_savings": 37798
@@ -218,121 +218,121 @@
         "path": "Assets.car",
         "size": 4785504,
         "file_type": "car",
-        "hash_md5": "1b9f45846c27187e515a7453de0b44e2"
+        "hash": "1b9f45846c27187e515a7453de0b44e2"
       },
       {
         "path": "HackerNews",
         "size": 2628128,
         "file_type": "unknown",
-        "hash_md5": "9be613d41e87fc737691d6eae65ef868"
+        "hash": "9be613d41e87fc737691d6eae65ef868"
       },
       {
         "path": "Frameworks/Common.framework/Common",
         "size": 188992,
         "file_type": "unknown",
-        "hash_md5": "03b50a5c46df571c54cd680b90d471df"
+        "hash": "03b50a5c46df571c54cd680b90d471df"
       },
       {
         "path": "Fonts_Fonts.bundle/ibm_plex_sans_medium.ttf",
         "size": 177104,
         "file_type": "ttf",
-        "hash_md5": "361336a2ed1908c5cd8dec2e10aa71a2"
+        "hash": "361336a2ed1908c5cd8dec2e10aa71a2"
       },
       {
         "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension",
         "size": 152400,
         "file_type": "unknown",
-        "hash_md5": "f3dbc38d127461b656272ad6f9796953"
+        "hash": "f3dbc38d127461b656272ad6f9796953"
       },
       {
         "path": "Fonts_Fonts.bundle/ibm_plex_sans_bold.ttf",
         "size": 135932,
         "file_type": "ttf",
-        "hash_md5": "be4cc57a744421b843e08a2001436f40"
+        "hash": "be4cc57a744421b843e08a2001436f40"
       },
       {
         "path": "Fonts_Fonts.bundle/ibm_plex_sans_regular.ttf",
         "size": 133720,
         "file_type": "ttf",
-        "hash_md5": "ea96a0afddbe8ff439be465b16cbd381"
+        "hash": "ea96a0afddbe8ff439be465b16cbd381"
       },
       {
         "path": "Frameworks/Sentry.framework/Sentry",
         "size": 51456,
         "file_type": "unknown",
-        "hash_md5": "885ec86bb33e7489367f169bf7ad10eb"
+        "hash": "885ec86bb33e7489367f169bf7ad10eb"
       },
       {
         "path": "Frameworks/Reaper.framework/Reaper",
         "size": 51440,
         "file_type": "unknown",
-        "hash_md5": "dc56b59c17e9fdfb19c1dbf6631cfbee"
+        "hash": "dc56b59c17e9fdfb19c1dbf6631cfbee"
       },
       {
         "path": "embedded.mobileprovision",
         "size": 37798,
         "file_type": "mobileprovision",
-        "hash_md5": "512485ed4385e31a645f40a0239fcbb6"
+        "hash": "512485ed4385e31a645f40a0239fcbb6"
       },
       {
         "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/embedded.mobileprovision",
         "size": 37798,
         "file_type": "mobileprovision",
-        "hash_md5": "512485ed4385e31a645f40a0239fcbb6"
+        "hash": "512485ed4385e31a645f40a0239fcbb6"
       },
       {
         "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/Assets.car",
         "size": 23504,
         "file_type": "car",
-        "hash_md5": "10708a136443bc6369686c040c2515ef"
+        "hash": "10708a136443bc6369686c040c2515ef"
       },
       {
         "path": "AppIcon76x76@2x~ipad.png",
         "size": 15008,
         "file_type": "png",
-        "hash_md5": "a15ef67ba856ec744c20a3aef9da1237"
+        "hash": "a15ef67ba856ec744c20a3aef9da1237"
       },
       {
         "path": "AppIcon60x60@2x.png",
         "size": 10040,
         "file_type": "png",
-        "hash_md5": "bcba3ca728dc0f3d06391aa9f92e0b5a"
+        "hash": "bcba3ca728dc0f3d06391aa9f92e0b5a"
       },
       {
         "path": "_CodeSignature/CodeResources",
         "size": 8523,
         "file_type": "unknown",
-        "hash_md5": "c055dde49c13eb268ee256bfaab270af"
+        "hash": "c055dde49c13eb268ee256bfaab270af"
       },
       {
         "path": "PlugIns/HackerNewsHomeWidgetExtension.appex/_CodeSignature/CodeResources",
         "size": 3304,
         "file_type": "unknown",
-        "hash_md5": "893b80e17e4098504590992a97f1d1d4"
+        "hash": "893b80e17e4098504590992a97f1d1d4"
       },
       {
         "path": "Frameworks/Sentry.framework/PrivacyInfo.xcprivacy",
         "size": 2108,
         "file_type": "xcprivacy",
-        "hash_md5": "72147fd439c166b667c137f8f5b604eb"
+        "hash": "72147fd439c166b667c137f8f5b604eb"
       },
       {
         "path": "Frameworks/Sentry.framework/_CodeSignature/CodeResources",
         "size": 2034,
         "file_type": "unknown",
-        "hash_md5": "c4db10dccf2de9f141799d6b1ef97138"
+        "hash": "c4db10dccf2de9f141799d6b1ef97138"
       },
       {
         "path": "Info.plist",
         "size": 1863,
         "file_type": "plist",
-        "hash_md5": "7d63330f5ff96011402d66984317b717"
+        "hash": "7d63330f5ff96011402d66984317b717"
       },
       {
         "path": "Frameworks/Reaper.framework/_CodeSignature/CodeResources",
         "size": 1798,
         "file_type": "unknown",
-        "hash_md5": "4928eb799bb841e9d412ed5bb2abb4d7"
+        "hash": "4928eb799bb841e9d412ed5bb2abb4d7"
       }
     ]
   },

@@ -51,5 +51,5 @@ class TestAndroidAnalyzer:
         results = android_analyzer.analyze(android_artifact)
 
         for file_info in results.file_analysis.files:
-            assert file_info.hash_md5 is not None
-            assert len(file_info.hash_md5) > 0
+            assert file_info.hash is not None
+            assert len(file_info.hash) > 0

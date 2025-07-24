@@ -84,7 +84,7 @@ class TestImageOptimizationInsightIntegration:
                     full_path=path,
                     size=path.stat().st_size,
                     file_type=path.suffix[1:].lower() if path.suffix else "unknown",
-                    hash_md5=calculate_file_hash(path),
+                    hash=calculate_file_hash(path),
                     treemap_type=TreemapType.ASSETS,
                     children=[],
                 )
@@ -162,7 +162,7 @@ class TestImageOptimizationInsightIntegration:
             full_path=large_png,
             size=large_png.stat().st_size,
             file_type="png",
-            hash_md5=calculate_file_hash(large_png),
+            hash=calculate_file_hash(large_png),
             treemap_type=TreemapType.ASSETS,
             children=[],
         )
@@ -196,7 +196,7 @@ class TestImageOptimizationInsightIntegration:
             full_path=large_jpeg,
             size=large_jpeg.stat().st_size,
             file_type="jpg",
-            hash_md5=calculate_file_hash(large_jpeg),
+            hash=calculate_file_hash(large_jpeg),
             treemap_type=TreemapType.ASSETS,
             children=[],
         )
@@ -237,7 +237,7 @@ class TestImageOptimizationInsightIntegration:
             full_path=corrupted_file,
             size=corrupted_file.stat().st_size,
             file_type="png",
-            hash_md5=calculate_file_hash(corrupted_file),
+            hash=calculate_file_hash(corrupted_file),
             treemap_type=TreemapType.ASSETS,
             children=[],
         )
@@ -294,7 +294,7 @@ class TestImageOptimizationInsightIntegration:
                     full_path=small_png,
                     size=small_png.stat().st_size,
                     file_type="png",
-                    hash_md5=calculate_file_hash(small_png),
+                    hash=calculate_file_hash(small_png),
                     treemap_type=TreemapType.ASSETS,
                     children=[],
                 )

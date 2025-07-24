@@ -42,7 +42,8 @@ class TestDuplicateFilesInsight:
                 size=5000,
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
-                hash_md5="plist_hash_1",
+                hash="plist_hash_1",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("SwiftMath_SwiftMath.bundle/mathFonts.bundle/GenericFont.plist"),
@@ -50,7 +51,8 @@ class TestDuplicateFilesInsight:
                 size=4000,
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
-                hash_md5="plist_hash_2",
+                hash="plist_hash_2",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("SwiftMath_SwiftMath.bundle/Resources/config.json"),
@@ -58,7 +60,8 @@ class TestDuplicateFilesInsight:
                 size=3000,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="json_hash_1",
+                hash="json_hash_1",
+                is_dir=False,
             ),
         ]
 
@@ -71,7 +74,8 @@ class TestDuplicateFilesInsight:
                 size=5000,
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
-                hash_md5="plist_hash_1",  # Same hash as bundle1
+                hash="plist_hash_1",  # Same hash as bundle1
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path(
@@ -81,7 +85,8 @@ class TestDuplicateFilesInsight:
                 size=4000,
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
-                hash_md5="plist_hash_2",  # Same hash as bundle1
+                hash="plist_hash_2",  # Same hash as bundle1
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path(
@@ -91,7 +96,8 @@ class TestDuplicateFilesInsight:
                 size=3000,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="json_hash_1",  # Same hash as bundle1
+                hash="json_hash_1",  # Same hash as bundle1
+                is_dir=False,
             ),
         ]
 
@@ -103,7 +109,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="icon_hash",
+                hash="icon_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Backup/icon.png"),
@@ -111,7 +118,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="icon_hash",  # Same hash - these should be detected
+                hash="icon_hash",  # Same hash - these should be detected
+                is_dir=False,
             ),
         ]
 
@@ -161,7 +169,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="strings",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="strings_hash",
+                hash="strings_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Frameworks/MyFramework.framework/Resources.bundle/es.lproj/Localizable.strings"),
@@ -169,7 +178,8 @@ class TestDuplicateFilesInsight:
                 size=1500,
                 file_type="strings",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="strings_hash_es",
+                hash="strings_hash_es",
+                is_dir=False,
             ),
             # Duplicate of the same bundle in a different location
             FileInfo(
@@ -178,7 +188,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="strings",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="strings_hash",
+                hash="strings_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Backup/MyFramework.framework/Resources.bundle/es.lproj/Localizable.strings"),
@@ -186,7 +197,8 @@ class TestDuplicateFilesInsight:
                 size=1500,
                 file_type="strings",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="strings_hash_es",
+                hash="strings_hash_es",
+                is_dir=False,
             ),
         ]
 
@@ -213,7 +225,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="xcprivacy",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="privacy_hash",
+                hash="privacy_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Backup/PrivacyInfo.xcprivacy"),
@@ -221,7 +234,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="xcprivacy",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="privacy_hash",  # Same hash but should be ignored
+                hash="privacy_hash",  # Same hash but should be ignored
+                is_dir=False,
             ),
             # Duplicate regular files (should be detected)
             FileInfo(
@@ -230,7 +244,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="config_hash",
+                hash="config_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Backup/config.json"),
@@ -238,7 +253,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="config_hash",
+                hash="config_hash",
+                is_dir=False,
             ),
         ]
 
@@ -263,7 +279,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash1",
+                hash="hash1",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("file2.png"),
@@ -271,7 +288,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash2",
+                hash="hash2",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("file3.png"),
@@ -279,7 +297,8 @@ class TestDuplicateFilesInsight:
                 size=3000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash3",
+                hash="hash3",
+                is_dir=False,
             ),
         ]
 
@@ -298,7 +317,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="",  # Empty hash
+                hash="",  # Empty hash
+                is_dir=False,
             ),
             # Duplicate files with valid hashes
             FileInfo(
@@ -307,7 +327,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="valid_hash",
+                hash="valid_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("valid2.png"),
@@ -315,7 +336,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="valid_hash",
+                hash="valid_hash",
+                is_dir=False,
             ),
         ]
 
@@ -341,7 +363,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="small_hash",
+                hash="small_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("small2.png"),
@@ -349,7 +372,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="small_hash",
+                hash="small_hash",
+                is_dir=False,
             ),
             # Large duplicate group
             FileInfo(
@@ -358,7 +382,8 @@ class TestDuplicateFilesInsight:
                 size=5000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="large_hash",
+                hash="large_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("large2.png"),
@@ -366,7 +391,8 @@ class TestDuplicateFilesInsight:
                 size=5000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="large_hash",
+                hash="large_hash",
+                is_dir=False,
             ),
             # Medium duplicate group
             FileInfo(
@@ -375,7 +401,8 @@ class TestDuplicateFilesInsight:
                 size=3000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="medium_hash",
+                hash="medium_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("medium2.png"),
@@ -383,7 +410,8 @@ class TestDuplicateFilesInsight:
                 size=3000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="medium_hash",
+                hash="medium_hash",
+                is_dir=False,
             ),
         ]
 
@@ -411,7 +439,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="config_hash",
+                hash="config_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("OtherLibrary.bundle/config.json"),
@@ -419,7 +448,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="config_hash",
+                hash="config_hash",
+                is_dir=False,
             ),
             # Files outside containers
             FileInfo(
@@ -428,7 +458,8 @@ class TestDuplicateFilesInsight:
                 size=1500,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="standalone_hash",
+                hash="standalone_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Backup/standalone_config.json"),
@@ -436,7 +467,8 @@ class TestDuplicateFilesInsight:
                 size=1500,
                 file_type="json",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="standalone_hash",
+                hash="standalone_hash",
+                is_dir=False,
             ),
         ]
 
@@ -477,7 +509,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="txt",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="bundle_file1",
+                hash="bundle_file1",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Framework1.framework/Resources.bundle/file2.txt"),
@@ -485,7 +518,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="txt",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="bundle_file2",
+                hash="bundle_file2",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Framework2.framework/Resources.bundle/file1.txt"),
@@ -493,7 +527,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="txt",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="bundle_file1",  # Same content as Framework1
+                hash="bundle_file1",  # Same content as Framework1
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Framework2.framework/Resources.bundle/file2.txt"),
@@ -501,7 +536,8 @@ class TestDuplicateFilesInsight:
                 size=2000,
                 file_type="txt",
                 treemap_type=TreemapType.RESOURCES,
-                hash_md5="bundle_file2",  # Same content as Framework1
+                hash="bundle_file2",  # Same content as Framework1
+                is_dir=False,
             ),
             # Individual duplicates outside containers (should be detected separately)
             FileInfo(
@@ -510,7 +546,8 @@ class TestDuplicateFilesInsight:
                 size=5000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="icon_hash",
+                hash="icon_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Backup/icon.png"),
@@ -518,7 +555,8 @@ class TestDuplicateFilesInsight:
                 size=5000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="icon_hash",
+                hash="icon_hash",
+                is_dir=False,
             ),
             # Files with None full_path (should still be processed)
             FileInfo(
@@ -527,7 +565,8 @@ class TestDuplicateFilesInsight:
                 size=3000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="embedded_hash",
+                hash="embedded_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=None,
@@ -535,7 +574,8 @@ class TestDuplicateFilesInsight:
                 size=3000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="embedded_hash",
+                hash="embedded_hash",
+                is_dir=False,
             ),
             # Allowlisted files (should be ignored)
             FileInfo(
@@ -544,7 +584,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="xcprivacy",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="privacy_hash",
+                hash="privacy_hash",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Backup/PrivacyInfo.xcprivacy"),
@@ -552,7 +593,8 @@ class TestDuplicateFilesInsight:
                 size=1000,
                 file_type="xcprivacy",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="privacy_hash",  # Should be ignored
+                hash="privacy_hash",  # Should be ignored
+                is_dir=False,
             ),
         ]
 

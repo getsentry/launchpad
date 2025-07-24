@@ -39,6 +39,7 @@ class FileAnalysis(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     files: List[FileInfo] = Field(..., description="List of all files and directories in the bundle")
+    directories: List[FileInfo] = Field(..., description="List of all directories in the bundle")
 
     @property
     def total_size(self) -> int:
@@ -81,7 +82,7 @@ class FileInfo(BaseModel):
         description="Raw file size in bytes with no filesystem block size adjustments (0 for directories)",
     )
     file_type: str = Field(..., description="File type/extension or 'directory'")
-    hash_md5: str = Field(..., description="MD5 hash of file contents or directory identifier")
+    hash: str = Field(..., description="MD5 hash of file contents or directory identifier")
     treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
     is_dir: bool = Field(..., description="True if this is a directory, False if it's a file")
     # Some files can be further broken down, even though it's children are not files

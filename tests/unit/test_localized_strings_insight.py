@@ -21,7 +21,7 @@ class TestLocalizedStringsInsight:
             size=60 * 1024,  # 60KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash1",
+            hash="hash1",
         )
         localized_file_2 = FileInfo(
             full_path=Path("es.lproj/Localizable.strings"),
@@ -29,7 +29,7 @@ class TestLocalizedStringsInsight:
             size=50 * 1024,  # 50KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash2",
+            hash="hash2",
         )
         # Non-localized file that should be ignored
         other_file = FileInfo(
@@ -38,7 +38,7 @@ class TestLocalizedStringsInsight:
             size=1024,
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
 
         file_analysis = FileAnalysis(files=[localized_file_1, localized_file_2, other_file])
@@ -70,7 +70,7 @@ class TestLocalizedStringsInsight:
             size=40 * 1024,  # 40KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash1",
+            hash="hash1",
         )
         localized_file_2 = FileInfo(
             full_path=Path("es.lproj/Localizable.strings"),
@@ -78,7 +78,7 @@ class TestLocalizedStringsInsight:
             size=30 * 1024,  # 30KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         file_analysis = FileAnalysis(files=[localized_file_1, localized_file_2])
@@ -102,7 +102,7 @@ class TestLocalizedStringsInsight:
             size=100 * 1024,  # Exactly 100KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         file_analysis = FileAnalysis(files=[localized_file])
@@ -126,7 +126,7 @@ class TestLocalizedStringsInsight:
             size=1024,
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         other_file_2 = FileInfo(
             full_path=Path("Info.plist"),
@@ -134,7 +134,7 @@ class TestLocalizedStringsInsight:
             size=2048,
             file_type="plist",
             treemap_type=TreemapType.PLISTS,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         file_analysis = FileAnalysis(files=[other_file_1, other_file_2])
@@ -173,7 +173,7 @@ class TestLocalizedStringsInsight:
             size=150 * 1024,  # 150KB - should trigger insight
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash1",
+            hash="hash1",
         )
         other_strings_file = FileInfo(
             full_path=Path("en.lproj/Other.strings"),
@@ -181,7 +181,7 @@ class TestLocalizedStringsInsight:
             size=50 * 1024,  # 50KB - should be ignored
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         file_analysis = FileAnalysis(files=[localized_file, other_strings_file])
@@ -209,7 +209,7 @@ class TestLocalizedStringsInsight:
             size=150 * 1024,  # 150KB - should be included
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash1",
+            hash="hash1",
         )
         invalid_localized_file = FileInfo(
             full_path=Path("Localizable.strings"),  # Not in .lproj directory
@@ -217,7 +217,7 @@ class TestLocalizedStringsInsight:
             size=50 * 1024,  # 50KB - should be ignored
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         file_analysis = FileAnalysis(files=[valid_localized_file, invalid_localized_file])

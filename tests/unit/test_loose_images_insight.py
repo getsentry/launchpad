@@ -21,7 +21,7 @@ class TestLooseImagesInsight:
                 size=1024000,
                 file_type="car",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_car",
+                hash="hash_car",
             ),
             # Raw images that should be flagged
             FileInfo(
@@ -30,7 +30,7 @@ class TestLooseImagesInsight:
                 size=10240,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_home",
+                hash="hash_home",
             ),
             FileInfo(
                 full_path=Path("icons/home@2x.png"),
@@ -38,7 +38,7 @@ class TestLooseImagesInsight:
                 size=20480,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_home_2x",
+                hash="hash_home_2x",
             ),
             FileInfo(
                 full_path=Path("buttons/submit.jpg"),
@@ -46,7 +46,7 @@ class TestLooseImagesInsight:
                 size=15360,
                 file_type="jpg",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_submit",
+                hash="hash_submit",
             ),
             # Non-image file (should be ignored)
             FileInfo(
@@ -55,7 +55,7 @@ class TestLooseImagesInsight:
                 size=2048,
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
-                hash_md5="hash_plist",
+                hash="hash_plist",
             ),
         ]
 
@@ -96,7 +96,7 @@ class TestLooseImagesInsight:
                 size=5120,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_app_icon",
+                hash="hash_app_icon",
             ),
             FileInfo(
                 full_path=Path("iMessage App Icon-60@2x.png"),
@@ -104,7 +104,7 @@ class TestLooseImagesInsight:
                 size=7168,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_imessage_icon",
+                hash="hash_imessage_icon",
             ),
             FileInfo(
                 full_path=Path("regular_icon.png"),
@@ -112,7 +112,7 @@ class TestLooseImagesInsight:
                 size=3072,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_regular",
+                hash="hash_regular",
             ),
             FileInfo(
                 full_path=Path("regular_icon@2x.png"),
@@ -120,7 +120,7 @@ class TestLooseImagesInsight:
                 size=6144,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_regular_2x",
+                hash="hash_regular_2x",
             ),
         ]
 
@@ -150,7 +150,7 @@ class TestLooseImagesInsight:
                 size=5120,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_sticker",
+                hash="hash_sticker",
             ),
             FileInfo(
                 full_path=Path("regular/image.png"),
@@ -158,7 +158,7 @@ class TestLooseImagesInsight:
                 size=3072,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_regular",
+                hash="hash_regular",
             ),
             FileInfo(
                 full_path=Path("regular/image@2x.png"),
@@ -166,7 +166,7 @@ class TestLooseImagesInsight:
                 size=6144,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_regular_2x",
+                hash="hash_regular_2x",
             ),
         ]
 
@@ -197,7 +197,7 @@ class TestLooseImagesInsight:
                 size=1024000,
                 file_type="car",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_car",
+                hash="hash_car",
             ),
             FileInfo(
                 full_path=Path("Info.plist"),
@@ -205,7 +205,7 @@ class TestLooseImagesInsight:
                 size=2048,
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
-                hash_md5="hash_plist",
+                hash="hash_plist",
             ),
         ]
 
@@ -230,7 +230,7 @@ class TestLooseImagesInsight:
                 size=5000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_1x",
+                hash="hash_1x",
             ),
             FileInfo(
                 full_path=Path("icon@2x.png"),
@@ -238,7 +238,7 @@ class TestLooseImagesInsight:
                 size=10000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_2x",
+                hash="hash_2x",
             ),
             FileInfo(
                 full_path=Path("icon@3x.png"),
@@ -246,7 +246,7 @@ class TestLooseImagesInsight:
                 size=15000,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_3x",
+                hash="hash_3x",
             ),
             FileInfo(
                 full_path=Path("different.jpg"),
@@ -254,7 +254,7 @@ class TestLooseImagesInsight:
                 size=8000,
                 file_type="jpg",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash_diff",
+                hash="hash_diff",
             ),
         ]
 

@@ -37,7 +37,7 @@ class TestUnnecessaryFilesInsight:
                 size=5000,
                 file_type="md",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash1",
+                hash="hash1",
             ),
             # Shell script
             FileInfo(
@@ -46,7 +46,7 @@ class TestUnnecessaryFilesInsight:
                 size=3000,
                 file_type="sh",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash2",
+                hash="hash2",
             ),
             # Xcode config
             FileInfo(
@@ -55,7 +55,7 @@ class TestUnnecessaryFilesInsight:
                 size=2000,
                 file_type="xcconfig",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash3",
+                hash="hash3",
             ),
         ]
 
@@ -67,7 +67,7 @@ class TestUnnecessaryFilesInsight:
                 size=100000,
                 file_type="",
                 treemap_type=TreemapType.EXECUTABLES,
-                hash_md5="hash4",
+                hash="hash4",
             ),
             # Asset file
             FileInfo(
@@ -76,7 +76,7 @@ class TestUnnecessaryFilesInsight:
                 size=50000,
                 file_type="car",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash5",
+                hash="hash5",
             ),
         ]
 
@@ -101,7 +101,7 @@ class TestUnnecessaryFilesInsight:
                 size=100000,
                 file_type="",
                 treemap_type=TreemapType.EXECUTABLES,
-                hash_md5="hash1",
+                hash="hash1",
             ),
             FileInfo(
                 full_path=Path("Assets.car"),
@@ -109,7 +109,7 @@ class TestUnnecessaryFilesInsight:
                 size=50000,
                 file_type="car",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5="hash2",
+                hash="hash2",
             ),
         ]
 
@@ -139,7 +139,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type="txt",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -163,7 +163,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type="txt",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -187,7 +187,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type="sh",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -216,7 +216,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type=filename.split(".")[-1] if "." in filename else "",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -239,7 +239,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type="",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -260,7 +260,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type="",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -282,7 +282,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type="txt",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -313,7 +313,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type=filename.split(".")[-1] if "." in filename else "",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash",
+                hash="hash",
             )
             insights_input = self._create_insights_input([file_info])
             result = self.insight.generate(insights_input)
@@ -334,7 +334,7 @@ class TestUnnecessaryFilesInsight:
                 size=1000,
                 file_type="sh",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash1",
+                hash="hash1",
             ),
             FileInfo(
                 full_path=Path("README.md"),
@@ -342,7 +342,7 @@ class TestUnnecessaryFilesInsight:
                 size=5000,
                 file_type="md",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash2",
+                hash="hash2",
             ),
             FileInfo(
                 full_path=Path("medium.xcconfig"),
@@ -350,7 +350,7 @@ class TestUnnecessaryFilesInsight:
                 size=3000,
                 file_type="xcconfig",
                 treemap_type=TreemapType.OTHER,
-                hash_md5="hash3",
+                hash="hash3",
             ),
         ]
 

@@ -27,7 +27,7 @@ class TestSmallFilesInsight:
                 size=1024,  # 1KB - small file
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5=f"hash_small_{i}",
+                hash=f"hash_small_{i}",
             )
             small_files.append(small_file)
 
@@ -39,7 +39,7 @@ class TestSmallFilesInsight:
                 size=8192,  # 8KB - large file
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5=f"hash_large_{i}",
+                hash=f"hash_large_{i}",
             )
             large_files.append(large_file)
 
@@ -74,7 +74,7 @@ class TestSmallFilesInsight:
                 size=512,  # Small file
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5=f"hash_{i}",
+                hash=f"hash_{i}",
             )
             files.append(file)
 
@@ -103,7 +103,7 @@ class TestSmallFilesInsight:
                 size=size,
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5=f"hash_{i}",
+                hash=f"hash_{i}",
             )
             files.append(file)
 
@@ -138,7 +138,7 @@ class TestSmallFilesInsight:
                 size=8192,  # All large files
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
-                hash_md5=f"hash_{i}",
+                hash=f"hash_{i}",
             )
             files.append(file)
 
@@ -192,7 +192,7 @@ class TestSmallFilesInsight:
                 size=size,
                 file_type="bin",
                 treemap_type=TreemapType.OTHER,
-                hash_md5=f"hash_{i}",
+                hash=f"hash_{i}",
             )
             files.append(file)
 
@@ -231,7 +231,7 @@ class TestSmallFilesInsight:
                 size=size,
                 file_type="bin",
                 treemap_type=TreemapType.OTHER,
-                hash_md5=f"hash_{i}",
+                hash=f"hash_{i}",
             )
             files.append(file)
             expected_savings += APPLE_FILESYSTEM_BLOCK_SIZE - size
@@ -244,7 +244,7 @@ class TestSmallFilesInsight:
                 size=8192,
                 file_type="bin",
                 treemap_type=TreemapType.OTHER,
-                hash_md5=f"hash_large_{i}",
+                hash=f"hash_large_{i}",
             )
             files.append(file)
 

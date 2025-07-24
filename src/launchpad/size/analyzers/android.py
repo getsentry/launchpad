@@ -170,7 +170,7 @@ class AndroidAnalyzer:
                                 size=file_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
-                                hash_md5=file_hash,
+                                hash=file_hash,
                             )
                             path_to_file_info["Dex"] = merged_dex_info
                             logger.debug("Created merged DEX representation: %s", relative_path)
@@ -190,7 +190,7 @@ class AndroidAnalyzer:
                                 size=merged_size,
                                 file_type=file_type,
                                 treemap_type=treemap_type,
-                                hash_md5="",
+                                hash="",
                             )
                             path_to_file_info["Dex"] = merged_dex_info
                         continue
@@ -216,7 +216,7 @@ class AndroidAnalyzer:
                             size=merged_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
-                            hash_md5="",
+                            hash="",
                         )
                         path_to_file_info[relative_path] = merged_file_info
                     else:
@@ -228,7 +228,7 @@ class AndroidAnalyzer:
                             size=file_size,
                             file_type=file_type,
                             treemap_type=treemap_type,
-                            hash_md5=file_hash,
+                            hash=file_hash,
                         )
                         path_to_file_info[relative_path] = file_info
 

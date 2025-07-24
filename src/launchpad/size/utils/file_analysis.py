@@ -78,7 +78,7 @@ def analyze_apple_files(
                         path=f"{rel}/Other",
                         size=size - children_size,
                         file_type="unknown",
-                        hash_md5=file_hash,  # keep the same field name for BC, even if algo != md5
+                        hash=file_hash,  # keep the same field name for BC, even if algo != md5
                         treemap_type=TreemapType.ASSETS,
                         is_dir=False,
                         children=[],
@@ -90,7 +90,7 @@ def analyze_apple_files(
                 path=rel,
                 size=size,
                 file_type=file_type or "unknown",
-                hash_md5=file_hash,
+                hash=file_hash,
                 treemap_type=FILE_TYPE_TO_TREEMAP_TYPE.get(file_type, TreemapType.FILES),
                 is_dir=False,
                 children=children,
@@ -104,10 +104,7 @@ def analyze_apple_files(
     # Bottom-up hash all directories from deepest to root
     directories_with_hashes = _hash_directories_bottom_up(dirs, files, children_by_dir, algo=algo)
 
-    # Merge files + updated dirs
-    all_items = list(files.values()) + list(directories_with_hashes.values())
-
-    return FileAnalysis(files=all_items)
+    return FileAnalysis(files=list(files.values()), directories=list(directories_with_hashes.values()))
 
 
 def _make_directory_info(full_path: Path, rel: str) -> FileInfo:
@@ -117,7 +114,7 @@ def _make_directory_info(full_path: Path, rel: str) -> FileInfo:
         path=rel,
         size=0,
         file_type="directory",
-        hash_md5="",  # to be filled
+        hash="",  # to be filled
         treemap_type=TreemapType.FILES,
         is_dir=True,
         children=[],
@@ -139,7 +136,7 @@ def _hash_directories_bottom_up(
     updated: Dict[str, FileInfo] = {}
 
     # Pre-populate lookup for file hashes/sizes
-    file_hash_lookup = {f.path: f.hash_md5 for f in files.values()}
+    file_hash_lookup = {f.path: f.hash for f in files.values()}
     file_size_lookup = {f.path: f.size for f in files.values()}
     dir_hash_lookup: Dict[str, str] = {}
     dir_size_lookup: Dict[str, int] = {}
@@ -176,7 +173,7 @@ def _hash_directories_bottom_up(
             path=d.path,
             size=total_size,
             file_type=d.file_type,
-            hash_md5=digest,
+            hash=digest,
             treemap_type=d.treemap_type,
             is_dir=True,
             children=d.children,
@@ -207,7 +204,7 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
                 path=str(relative_path / element.name),
                 size=element.size,
                 file_type=Path(element.full_path).suffix.lstrip(".") if element.full_path else "other",
-                hash_md5=file_hash,
+                hash=file_hash,
                 treemap_type=TreemapType.ASSETS,
                 is_dir=False,
                 children=[],

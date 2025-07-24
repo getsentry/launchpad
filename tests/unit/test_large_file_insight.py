@@ -19,7 +19,7 @@ class TestLargeImageFileInsight:
             size=15 * 1024 * 1024,  # 15MB
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         large_file_2 = FileInfo(
             full_path=Path("assets/large_image.png"),
@@ -27,7 +27,7 @@ class TestLargeImageFileInsight:
             size=12 * 1024 * 1024,  # 12MB
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
         small_file = FileInfo(
             full_path=Path("assets/small_image.png"),
@@ -35,7 +35,7 @@ class TestLargeImageFileInsight:
             size=5 * 1024 * 1024,  # 5MB
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash3",
+            hash="hash3",
         )
 
         file_analysis = FileAnalysis(files=[large_file_1, large_file_2, small_file])
@@ -63,7 +63,7 @@ class TestLargeImageFileInsight:
             size=5 * 1024 * 1024,  # 5MB
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
         small_file_2 = FileInfo(
             full_path=Path("assets/small_image2.png"),
@@ -71,7 +71,7 @@ class TestLargeImageFileInsight:
             size=8 * 1024 * 1024,  # 8MB
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash2",
+            hash="hash2",
         )
 
         file_analysis = FileAnalysis(files=[small_file_1, small_file_2])
@@ -108,7 +108,7 @@ class TestLargeImageFileInsight:
             size=10 * 1024 * 1024,  # Exactly 10MB
             file_type="png",
             treemap_type=TreemapType.ASSETS,
-            hash_md5="hash1",
+            hash="hash1",
         )
 
         file_analysis = FileAnalysis(files=[threshold_file])

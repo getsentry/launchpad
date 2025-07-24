@@ -25,7 +25,7 @@
             "children": [],
             "details": {
               "file_type": "unknown",
-              "hash_md5": "9be613d41e87fc737691d6eae65ef868"
+              "hash": "9be613d41e87fc737691d6eae65ef868"
             }
           },
           {
@@ -38,7 +38,7 @@
             "children": [],
             "details": {
               "file_type": "unknown",
-              "hash_md5": "03b50a5c46df571c54cd680b90d471df"
+              "hash": "03b50a5c46df571c54cd680b90d471df"
             }
           }
         ],
@@ -65,7 +65,7 @@
             "children": [],
             "details": {
               "file_type": "car",
-              "hash_md5": "1b9f45846c27187e515a7453de0b44e2"
+              "hash": "1b9f45846c27187e515a7453de0b44e2"
             }
           }
         ],
@@ -92,7 +92,7 @@
             "children": [],
             "details": {
               "file_type": "ttf",
-              "hash_md5": "361336a2ed1908c5cd8dec2e10aa71a2"
+              "hash": "361336a2ed1908c5cd8dec2e10aa71a2"
             }
           }
         ],
