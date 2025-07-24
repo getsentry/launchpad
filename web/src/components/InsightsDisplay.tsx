@@ -257,7 +257,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                               fontWeight: '600',
                               fontSize: '0.9rem'
                             }}>
-                              📄 {group.filename}
+                              📄 {group.filename} ({group.files.length} files)
                             </div>
                             <div style={{
                               color: '#28a745',
