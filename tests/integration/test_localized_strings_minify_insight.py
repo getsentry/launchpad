@@ -128,7 +128,7 @@ class TestLocalizedStringsProcessor:
         only_comments = "/* Just a comment */\n// Another comment"
         assert processor.strip_comments_and_normalize(only_comments) == ""
 
-        # Malformed strings (no quotes)
+        # Malformed strings (no quotes) - should be filtered out
         malformed = "hello = world;\nkey = value;"
         result = processor.strip_comments_and_normalize(malformed)
         assert result == ""  # Should filter out malformed entries
@@ -175,8 +175,8 @@ class TestLocalizedStringsProcessor:
         assert '"math.simple" = ' not in result  # No spaces around main assignment
 
 
-class TestLocalizedStringsCommentsInsight:
-    """Test the LocalizedStringsCommentsInsight functionality."""
+class TestMinifyLocalizedStringsInsight:
+    """Test the MinifyLocalizedStringsInsight functionality."""
 
     def _create_test_app_info(self) -> AppleAppInfo:
         """Create a test AppleAppInfo with all required fields."""
@@ -228,23 +228,24 @@ class TestLocalizedStringsCommentsInsight:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Create a strings file with comments
+            # Create a strings file with lots of comments to ensure meaningful block savings
             strings_file = temp_path / "en.lproj" / "Localizable.strings"
             strings_file.parent.mkdir(parents=True)
-            strings_content = """
-/* This is a comment about hello */
-"hello" = "Hello";
 
-// This is another comment about goodbye
-/* Multi-line
-   comment about
-   the goodbye string */
-"goodbye" = "Goodbye";
+            # Generate content that will cross filesystem block boundaries
+            strings_content = ""
+            # Add substantial comments and whitespace to ensure block-level savings
+            for i in range(50):
+                strings_content += f"""
+/* This is a very long comment for key{i} that takes up quite a bit of space
+   and continues on multiple lines to ensure we have substantial content
+   that will result in meaningful filesystem block savings when removed */
+"key{i}"    =    "Value {i} with some content";
 
-/* Welcome message comment that is quite long and takes up multiple lines
-   to describe what this string is used for in the application interface */
-"welcome" = "Welcome to our app";
+// Another comment for variety
+/* More comment content to pad the file size significantly */
 """
+
             strings_file.write_text(strings_content)
 
             insight = MinifyLocalizedStringsInsight()
@@ -278,19 +279,21 @@ class TestLocalizedStringsCommentsInsight:
             assert result.files[0].total_savings > 0
             assert result.total_savings > insight.THRESHOLD_BYTES
 
-    def test_localized_strings_with_no_comments(self):
-        """Test that insight returns None when strings files have no comments."""
+    def test_localized_strings_with_whitespace_only(self):
+        """Test that insight can find savings from whitespace normalization even without comments."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Create a strings file without comments
+            # Create content with substantial whitespace that will result in block-level savings
             strings_file = temp_path / "en.lproj" / "Localizable.strings"
             strings_file.parent.mkdir(parents=True)
-            strings_content = """
-"hello" = "Hello";
-"goodbye" = "Goodbye";
-"welcome" = "Welcome to our app";
-"""
+
+            # Generate enough content with excessive whitespace to cross filesystem blocks
+            strings_content = ""
+            for i in range(100):  # More entries with more whitespace
+                # Add lots of whitespace that will be normalized away
+                strings_content += f'"key{i}"          =          "Value {i} with substantial content to ensure we have enough data";\n'
+
             strings_file.write_text(strings_content)
 
             insight = MinifyLocalizedStringsInsight()
@@ -318,23 +321,67 @@ class TestLocalizedStringsCommentsInsight:
             )
 
             result = insight.generate(input_data)
-            assert result is None
+            # Should find savings from whitespace normalization
+            assert result is not None
+            assert len(result.files) == 1
+            assert result.files[0].total_savings > 0
+
+    def test_localized_strings_no_savings_small_file(self):
+        """Test that insight returns None when file is too small to have meaningful savings."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create a very small strings file without comments or extra whitespace
+            strings_file = temp_path / "en.lproj" / "Localizable.strings"
+            strings_file.parent.mkdir(parents=True)
+            strings_content = '"hello"="Hello";\n"goodbye"="Goodbye";\n'  # Already optimized, very small
+            strings_file.write_text(strings_content)
+
+            insight = MinifyLocalizedStringsInsight()
+
+            input_data = InsightsInput(
+                app_info=self._create_test_app_info(),
+                file_analysis=FileAnalysis(
+                    files=[
+                        FileInfo(
+                            full_path=strings_file,
+                            path="en.lproj/Localizable.strings",
+                            size=len(strings_content.encode("utf-8")),
+                            file_type="strings",
+                            hash="abcd1234",
+                            treemap_type=TreemapType.FILES,
+                            is_dir=False,
+                            children=[],
+                        )
+                    ],
+                    directories=[],
+                ),
+                binary_analysis=[],
+                treemap=None,
+                hermes_reports={},
+            )
+
+            result = insight.generate(input_data)
+            assert result is None  # Too small to have meaningful block-aligned savings
 
     def test_multiple_localized_strings_files(self):
         """Test that insight works with multiple localized strings files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Create multiple strings files with comments
+            # Create multiple strings files with substantial content
             for lang in ["en", "es", "fr"]:
                 strings_file = temp_path / f"{lang}.lproj" / "Localizable.strings"
                 strings_file.parent.mkdir(parents=True)
-                strings_content = f"""
-/* Comment for {lang} hello */
-"hello" = "Hello in {lang}";
 
-/* Comment for {lang} goodbye */
-"goodbye" = "Goodbye in {lang}";
+                # Generate substantial content for each language
+                strings_content = ""
+                for i in range(30):
+                    strings_content += f"""
+/* Comment for {lang} key{i} with substantial content that will be stripped */
+"key{i}"      =      "Hello in {lang} - Value {i} with enough content";
+
+// Line comment for variety
 """
                 strings_file.write_text(strings_content)
 
