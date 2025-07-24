@@ -61,7 +61,7 @@ class ZippedXCArchive(AppleArtifact):
                 plist_data = plistlib.load(f)
 
             self._plist = plist_data
-            return plist_data  # Return plist_data directly to fix typing issue
+            return plist_data
         except Exception as e:
             raise RuntimeError(f"Failed to parse Info.plist: {e}")
 
@@ -242,10 +242,8 @@ class ZippedXCArchive(AppleArtifact):
                         watch_executable = watch_plist.get("CFBundleExecutable")
                         if watch_executable:
                             watch_binary_path = watch_path / watch_executable
-                            # Use the full watch app name as the key to avoid conflicts
                             watch_name = f"Watch/{watch_path.stem}/{watch_executable}"
 
-                            # Find corresponding dSYM for watch app
                             watch_uuid = self._extract_binary_uuid(watch_binary_path)
                             watch_dsym_path = dsym_files.get(watch_uuid) if watch_uuid else None
 

@@ -33,7 +33,7 @@ class SmallFilesInsight(Insight[SmallFilesInsightResult]):
             file_savings = [
                 FileSavingsResult(
                     file_path=file.path,
-                    total_savings=APPLE_FILESYSTEM_BLOCK_SIZE - file.size,  # Wasted space savings
+                    total_savings=APPLE_FILESYSTEM_BLOCK_SIZE - file.size,
                 )
                 for file in small_files
             ]
