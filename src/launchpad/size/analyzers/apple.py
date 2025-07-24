@@ -18,14 +18,14 @@ from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.loose_images import LooseImagesInsight
-from launchpad.size.insights.apple.main_binary_export_metadata import MainBinaryExportMetadataInsight
+from launchpad.size.insights.apple.main_binary_export_metadata import (
+    MainBinaryExportMetadataInsight,
+)
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.apple.unnecessary_files import UnnecessaryFilesInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
-from launchpad.size.insights.common.hermes_debug_info import (
-    HermesDebugInfoInsight,
-)
+from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsight
 from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
@@ -243,6 +243,7 @@ class AppleAppAnalyzer:
             profile_name=profile_name,
             is_code_signature_valid=is_code_signature_valid,
             code_signature_errors=code_signature_errors,
+            main_binary_uuid=xcarchive.get_main_binary_uuid(),
         )
 
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:

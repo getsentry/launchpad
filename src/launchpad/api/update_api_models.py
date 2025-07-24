@@ -9,6 +9,7 @@ class AppleAppInfo(BaseModel):
     profile_name: Optional[str] = None
     is_code_signature_valid: Optional[bool] = None
     code_signature_errors: Optional[List[str]] = None
+    main_binary_uuid: Optional[str] = None
     # TODO: add "date_built" field once exposed in 'AppleAppInfo'
 
 

@@ -14,9 +14,7 @@ from typing import Any, Dict, cast
 
 from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
 from launchpad.api.update_api_models import UpdateData
@@ -437,6 +435,7 @@ class LaunchpadService:
                 profile_name=app_info.profile_name,
                 is_code_signature_valid=app_info.is_code_signature_valid,
                 code_signature_errors=app_info.code_signature_errors,
+                main_binary_uuid=app_info.main_binary_uuid,
             )
         # TODO: add "date_built" and custom android fields
 

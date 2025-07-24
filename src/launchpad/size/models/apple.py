@@ -157,6 +157,7 @@ class AppleAppInfo(BaseAppInfo):
     code_signature_errors: List[str] = Field(
         default_factory=list, description="List of code signature validation errors"
     )
+    main_binary_uuid: str | None = Field(None, description="UUID of the main binary")
 
 
 class MachOBinaryAnalysis(BaseBinaryAnalysis):

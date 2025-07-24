@@ -25,3 +25,4 @@ class TestAppleBasicInfo:
         assert basic_info.codesigning_type == "development"
         assert basic_info.is_code_signature_valid is True
         assert basic_info.code_signature_errors == []
+        assert basic_info.main_binary_uuid == "BEB3C0D6-2518-343D-BB6F-FF5581C544E8"

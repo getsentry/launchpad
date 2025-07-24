@@ -160,6 +160,10 @@ class ZippedXCArchive(AppleArtifact):
 
         raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
 
+    def get_main_binary_uuid(self) -> str | None:
+        main_binary_path = self._get_main_binary_path()
+        return self._extract_binary_uuid(main_binary_path)
+
     def get_all_binary_paths(self) -> List[BinaryInfo]:
         """Find all binaries in the app bundle and their corresponding dSYM files.
 
@@ -176,7 +180,7 @@ class ZippedXCArchive(AppleArtifact):
         main_executable = self.get_plist().get("CFBundleExecutable")
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
-        main_binary_path = Path(os.path.join(str(app_bundle_path), main_executable))
+        main_binary_path = self._get_main_binary_path()
 
         # Find corresponding dSYM for main executable
         main_uuid = self._extract_binary_uuid(main_binary_path)
@@ -283,6 +287,13 @@ class ZippedXCArchive(AppleArtifact):
         except Exception as e:
             logger.error(f"Failed to get asset catalog details for {relative_path}: {e}")
             return []
+
+    def _get_main_binary_path(self) -> Path:
+        app_bundle_path = self.get_app_bundle_path()
+        main_executable = self.get_plist().get("CFBundleExecutable")
+        if main_executable is None:
+            raise RuntimeError("CFBundleExecutable not found in Info.plist")
+        return Path(os.path.join(str(app_bundle_path), main_executable))
 
     def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
         """Parse a dictionary item into an AssetCatalogElement."""
