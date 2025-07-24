@@ -90,8 +90,19 @@ class LooseImagesInsightResult(BaseInsightResult):
     total_file_count: int = Field(..., description="Total number of loose image files found")
 
 
+class FileSavingsResult(BaseModel):
+    """File savings information."""
+
+    model_config = ConfigDict(frozen=True)
+
+    file_path: str = Field(..., description="Path to the binary file within the app bundle")
+    total_savings: int = Field(..., ge=0, description="Size of the dyld_exports_trie component in bytes")
+
+
 class MainBinaryExportMetadataResult(BaseInsightResult):
     """Results from main binary exported symbols metadata analysis."""
+
+    files: List[FileSavingsResult] = Field(..., description="Main binaries with export metadata that could be reduced")
 
 
 class OptimizableImageFile(BaseModel):

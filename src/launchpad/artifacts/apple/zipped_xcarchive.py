@@ -61,7 +61,7 @@ class ZippedXCArchive(AppleArtifact):
                 plist_data = plistlib.load(f)
 
             self._plist = plist_data
-            return self._plist
+            return plist_data  # Return plist_data directly to fix typing issue
         except Exception as e:
             raise RuntimeError(f"Failed to parse Info.plist: {e}")
 
@@ -223,11 +223,42 @@ class ZippedXCArchive(AppleArtifact):
                                     extension_name,
                                     extension_binary_path,
                                     extension_dsym_path,
-                                    is_main_binary=False,
+                                    is_main_binary=True,  # App extension main executables are main binaries
                                 )
                             )
                     except Exception as e:
                         logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
+
+        # Find Watch app binaries
+        for watch_path in app_bundle_path.rglob("Watch/*.app"):
+            if watch_path.is_dir():
+                watch_plist_path = watch_path / "Info.plist"
+                if watch_plist_path.exists():
+                    try:
+                        import plistlib
+
+                        with open(watch_plist_path, "rb") as f:
+                            watch_plist = plistlib.load(f)
+                        watch_executable = watch_plist.get("CFBundleExecutable")
+                        if watch_executable:
+                            watch_binary_path = watch_path / watch_executable
+                            # Use the full watch app name as the key to avoid conflicts
+                            watch_name = f"Watch/{watch_path.stem}/{watch_executable}"
+
+                            # Find corresponding dSYM for watch app
+                            watch_uuid = self._extract_binary_uuid(watch_binary_path)
+                            watch_dsym_path = dsym_files.get(watch_uuid) if watch_uuid else None
+
+                            binaries.append(
+                                BinaryInfo(
+                                    watch_name,
+                                    watch_binary_path,
+                                    watch_dsym_path,
+                                    is_main_binary=True,  # Watch app main executables are main binaries
+                                )
+                            )
+                    except Exception as e:
+                        logger.warning(f"Failed to read Watch app Info.plist at {watch_path}: {e}")
 
         return binaries
 
