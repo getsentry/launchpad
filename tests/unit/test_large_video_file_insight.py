@@ -20,6 +20,7 @@ class TestLargeVideoFileInsight:
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         large_video_2 = FileInfo(
             full_path=Path("assets/large_video.mov"),
@@ -28,6 +29,7 @@ class TestLargeVideoFileInsight:
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
         small_video = FileInfo(
             full_path=Path("assets/small_video.mp4"),
@@ -36,6 +38,7 @@ class TestLargeVideoFileInsight:
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
         image_file = FileInfo(
             full_path=Path("assets/large_image.png"),
@@ -44,9 +47,10 @@ class TestLargeVideoFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash4",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_video_1, large_video_2, small_video, image_file])
+        file_analysis = FileAnalysis(files=[large_video_1, large_video_2, small_video, image_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -78,6 +82,7 @@ class TestLargeVideoFileInsight:
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         small_video_2 = FileInfo(
             full_path=Path("assets/small_video2.mov"),
@@ -86,9 +91,10 @@ class TestLargeVideoFileInsight:
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_video_1, small_video_2])
+        file_analysis = FileAnalysis(files=[small_video_1, small_video_2], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -102,7 +108,7 @@ class TestLargeVideoFileInsight:
         assert result is None
 
     def test_generate_with_empty_file_list(self):
-        file_analysis = FileAnalysis(files=[])
+        file_analysis = FileAnalysis(files=[], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -123,9 +129,10 @@ class TestLargeVideoFileInsight:
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[threshold_file])
+        file_analysis = FileAnalysis(files=[threshold_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -146,6 +153,7 @@ class TestLargeVideoFileInsight:
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         mov_file = FileInfo(
             full_path=Path("assets/video.mov"),
@@ -154,6 +162,7 @@ class TestLargeVideoFileInsight:
             file_type="mov",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
         webm_file = FileInfo(
             full_path=Path("assets/video.webm"),
@@ -162,6 +171,7 @@ class TestLargeVideoFileInsight:
             file_type="webm",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
         mkv_file = FileInfo(
             full_path=Path("assets/video.mkv"),
@@ -170,9 +180,10 @@ class TestLargeVideoFileInsight:
             file_type="mkv",
             treemap_type=TreemapType.ASSETS,
             hash="hash4",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[mp4_file, mov_file, webm_file, mkv_file])
+        file_analysis = FileAnalysis(files=[mp4_file, mov_file, webm_file, mkv_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -203,6 +214,7 @@ class TestLargeVideoFileInsight:
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         image_file = FileInfo(
             full_path=Path("assets/image.png"),
@@ -211,6 +223,7 @@ class TestLargeVideoFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
         text_file = FileInfo(
             full_path=Path("assets/data.txt"),
@@ -219,9 +232,10 @@ class TestLargeVideoFileInsight:
             file_type="txt",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[video_file, image_file, text_file])
+        file_analysis = FileAnalysis(files=[video_file, image_file, text_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

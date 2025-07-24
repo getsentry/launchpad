@@ -22,6 +22,7 @@ class TestLooseImagesInsight:
                 file_type="car",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_car",
+                is_dir=False,
             ),
             # Raw images that should be flagged
             FileInfo(
@@ -31,6 +32,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_home",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("icons/home@2x.png"),
@@ -39,6 +41,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_home_2x",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("buttons/submit.jpg"),
@@ -47,6 +50,7 @@ class TestLooseImagesInsight:
                 file_type="jpg",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_submit",
+                is_dir=False,
             ),
             # Non-image file (should be ignored)
             FileInfo(
@@ -56,10 +60,11 @@ class TestLooseImagesInsight:
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
                 hash="hash_plist",
+                is_dir=False,
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -97,6 +102,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_app_icon",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("iMessage App Icon-60@2x.png"),
@@ -105,6 +111,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_imessage_icon",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("regular_icon.png"),
@@ -113,6 +120,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_regular",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("regular_icon@2x.png"),
@@ -121,10 +129,11 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_regular_2x",
+                is_dir=False,
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -151,6 +160,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_sticker",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("regular/image.png"),
@@ -159,6 +169,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_regular",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("regular/image@2x.png"),
@@ -167,10 +178,11 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_regular_2x",
+                is_dir=False,
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -198,6 +210,7 @@ class TestLooseImagesInsight:
                 file_type="car",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_car",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("Info.plist"),
@@ -206,10 +219,11 @@ class TestLooseImagesInsight:
                 file_type="plist",
                 treemap_type=TreemapType.PLISTS,
                 hash="hash_plist",
+                is_dir=False,
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -231,6 +245,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_1x",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("icon@2x.png"),
@@ -239,6 +254,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_2x",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("icon@3x.png"),
@@ -247,6 +263,7 @@ class TestLooseImagesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_3x",
+                is_dir=False,
             ),
             FileInfo(
                 full_path=Path("different.jpg"),
@@ -255,10 +272,11 @@ class TestLooseImagesInsight:
                 file_type="jpg",
                 treemap_type=TreemapType.ASSETS,
                 hash="hash_diff",
+                is_dir=False,
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,

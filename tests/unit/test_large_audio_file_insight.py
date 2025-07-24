@@ -20,6 +20,7 @@ class TestLargeAudioFileInsight:
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         large_audio_2 = FileInfo(
             full_path=Path("assets/large_wav.wav"),
@@ -28,6 +29,7 @@ class TestLargeAudioFileInsight:
             file_type="wav",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
         small_audio = FileInfo(
             full_path=Path("assets/small_audio.mp3"),
@@ -36,9 +38,10 @@ class TestLargeAudioFileInsight:
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_audio_1, large_audio_2, small_audio])
+        file_analysis = FileAnalysis(files=[large_audio_1, large_audio_2, small_audio], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -70,6 +73,7 @@ class TestLargeAudioFileInsight:
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         small_audio_2 = FileInfo(
             full_path=Path("assets/small_audio2.aac"),
@@ -78,9 +82,10 @@ class TestLargeAudioFileInsight:
             file_type="aac",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_audio_1, small_audio_2])
+        file_analysis = FileAnalysis(files=[small_audio_1, small_audio_2], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -94,7 +99,7 @@ class TestLargeAudioFileInsight:
         assert result is None
 
     def test_generate_with_empty_file_list(self):
-        file_analysis = FileAnalysis(files=[])
+        file_analysis = FileAnalysis(files=[], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -115,9 +120,10 @@ class TestLargeAudioFileInsight:
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[threshold_audio])
+        file_analysis = FileAnalysis(files=[threshold_audio], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -138,6 +144,7 @@ class TestLargeAudioFileInsight:
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         large_image = FileInfo(
             full_path=Path("assets/large_image.png"),
@@ -146,6 +153,7 @@ class TestLargeAudioFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
         small_audio = FileInfo(
             full_path=Path("assets/small_audio.wav"),
@@ -154,9 +162,10 @@ class TestLargeAudioFileInsight:
             file_type="wav",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_audio, large_image, small_audio])
+        file_analysis = FileAnalysis(files=[large_audio, large_image, small_audio], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -184,6 +193,7 @@ class TestLargeAudioFileInsight:
             file_type="mp3",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         aac_file = FileInfo(
             full_path=Path("assets/audio.aac"),
@@ -192,6 +202,7 @@ class TestLargeAudioFileInsight:
             file_type="aac",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
         flac_file = FileInfo(
             full_path=Path("assets/audio.flac"),
@@ -200,6 +211,7 @@ class TestLargeAudioFileInsight:
             file_type="flac",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
         ogg_file = FileInfo(
             full_path=Path("assets/audio.ogg"),
@@ -208,9 +220,10 @@ class TestLargeAudioFileInsight:
             file_type="ogg",
             treemap_type=TreemapType.ASSETS,
             hash="hash4",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[mp3_file, aac_file, flac_file, ogg_file])
+        file_analysis = FileAnalysis(files=[mp3_file, aac_file, flac_file, ogg_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

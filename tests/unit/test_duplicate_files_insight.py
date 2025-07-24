@@ -19,7 +19,9 @@ class TestDuplicateFilesInsight:
 
     def _create_insights_input(self, files: list[FileInfo]) -> InsightsInput:
         """Helper method to create InsightsInput for testing."""
-        file_analysis = FileAnalysis(files=files)
+        # Separate directories from the files list
+        directories = [f for f in files if f.is_dir]
+        file_analysis = FileAnalysis(files=files, directories=directories)
         return InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -123,7 +125,33 @@ class TestDuplicateFilesInsight:
             ),
         ]
 
-        all_files = bundle1_files + bundle2_files + other_duplicate_files
+        # Create directory entries for the duplicate bundle directories
+        bundle_directories = [
+            # First SwiftMath_SwiftMath.bundle directory
+            FileInfo(
+                full_path=Path("SwiftMath_SwiftMath.bundle"),
+                path="SwiftMath_SwiftMath.bundle",
+                size=12000,  # Total size of all files in bundle
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="bundle_hash",  # Same hash for identical content
+                is_dir=True,
+            ),
+            # Second SwiftMath_SwiftMath.bundle directory (duplicate)
+            FileInfo(
+                full_path=Path(
+                    "Frameworks/SwiftMath_-5E59CDD896963160_PackageProduct.framework/SwiftMath_SwiftMath.bundle"
+                ),
+                path="Frameworks/SwiftMath_-5E59CDD896963160_PackageProduct.framework/SwiftMath_SwiftMath.bundle",
+                size=12000,  # Same total size
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="bundle_hash",  # Same hash for identical content
+                is_dir=True,
+            ),
+        ]
+
+        all_files = bundle_directories + bundle1_files + bundle2_files + other_duplicate_files
         insights_input = self._create_insights_input(all_files)
         result = self.insight.generate(insights_input)
 
@@ -202,7 +230,32 @@ class TestDuplicateFilesInsight:
             ),
         ]
 
-        insights_input = self._create_insights_input(files)
+        # Add directory entries for the duplicate Resources.bundle directories
+        bundle_directories = [
+            # First Resources.bundle directory
+            FileInfo(
+                full_path=Path("Frameworks/MyFramework.framework/Resources.bundle"),
+                path="Frameworks/MyFramework.framework/Resources.bundle",
+                size=3500,  # Total size of all files in bundle (2000 + 1500)
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="resources_bundle_hash",  # Same hash for identical content
+                is_dir=True,
+            ),
+            # Second Resources.bundle directory (duplicate)
+            FileInfo(
+                full_path=Path("Backup/MyFramework.framework/Resources.bundle"),
+                path="Backup/MyFramework.framework/Resources.bundle",
+                size=3500,  # Same total size
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="resources_bundle_hash",  # Same hash for identical content
+                is_dir=True,
+            ),
+        ]
+
+        all_files = files + bundle_directories
+        insights_input = self._create_insights_input(all_files)
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, DuplicateFilesInsightResult)
@@ -598,7 +651,32 @@ class TestDuplicateFilesInsight:
             ),
         ]
 
-        insights_input = self._create_insights_input(files)
+        # Add directory entries for the duplicate Resources.bundle directories
+        bundle_directories = [
+            # First Resources.bundle directory
+            FileInfo(
+                full_path=Path("Framework1.framework/Resources.bundle"),
+                path="Framework1.framework/Resources.bundle",
+                size=3000,  # Total size of all files in bundle (1000 + 2000)
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="resources_bundle_hash",  # Same hash for identical content
+                is_dir=True,
+            ),
+            # Second Resources.bundle directory (duplicate)
+            FileInfo(
+                full_path=Path("Framework2.framework/Resources.bundle"),
+                path="Framework2.framework/Resources.bundle",
+                size=3000,  # Same total size
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="resources_bundle_hash",  # Same hash for identical content
+                is_dir=True,
+            ),
+        ]
+
+        all_files = files + bundle_directories
+        insights_input = self._create_insights_input(all_files)
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, DuplicateFilesInsightResult)

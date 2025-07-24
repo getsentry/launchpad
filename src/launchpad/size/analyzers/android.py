@@ -171,6 +171,7 @@ class AndroidAnalyzer:
                                 file_type=file_type,
                                 treemap_type=treemap_type,
                                 hash=file_hash,
+                                is_dir=False,
                             )
                             path_to_file_info["Dex"] = merged_dex_info
                             logger.debug("Created merged DEX representation: %s", relative_path)
@@ -191,6 +192,7 @@ class AndroidAnalyzer:
                                 file_type=file_type,
                                 treemap_type=treemap_type,
                                 hash="",
+                                is_dir=False,
                             )
                             path_to_file_info["Dex"] = merged_dex_info
                         continue
@@ -217,6 +219,7 @@ class AndroidAnalyzer:
                             file_type=file_type,
                             treemap_type=treemap_type,
                             hash="",
+                            is_dir=False,
                         )
                         path_to_file_info[relative_path] = merged_file_info
                     else:
@@ -229,6 +232,7 @@ class AndroidAnalyzer:
                             file_type=file_type,
                             treemap_type=treemap_type,
                             hash=file_hash,
+                            is_dir=False,
                         )
                         path_to_file_info[relative_path] = file_info
 
@@ -242,8 +246,12 @@ class AndroidAnalyzer:
                 files_by_type[file_info.file_type] = []
             files_by_type[file_info.file_type].append(file_info)
 
+        # Separate directories from files (though APKs typically don't have directory entries)
+        directories = [f for f in file_infos if f.is_dir]
+
         return FileAnalysis(
             files=file_infos,
+            directories=directories,
         )
 
     def _get_class_definitions(self, apks: list[APK]) -> list[ClassDefinition]:

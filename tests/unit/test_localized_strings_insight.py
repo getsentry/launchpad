@@ -22,6 +22,7 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
+            is_dir=False,
         )
         localized_file_2 = FileInfo(
             full_path=Path("es.lproj/Localizable.strings"),
@@ -30,6 +31,7 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash2",
+            is_dir=False,
         )
         # Non-localized file that should be ignored
         other_file = FileInfo(
@@ -39,9 +41,10 @@ class TestLocalizedStringsInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[localized_file_1, localized_file_2, other_file])
+        file_analysis = FileAnalysis(files=[localized_file_1, localized_file_2, other_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -71,6 +74,7 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
+            is_dir=False,
         )
         localized_file_2 = FileInfo(
             full_path=Path("es.lproj/Localizable.strings"),
@@ -79,9 +83,10 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash2",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[localized_file_1, localized_file_2])
+        file_analysis = FileAnalysis(files=[localized_file_1, localized_file_2], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -103,9 +108,10 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[localized_file])
+        file_analysis = FileAnalysis(files=[localized_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -127,6 +133,7 @@ class TestLocalizedStringsInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         other_file_2 = FileInfo(
             full_path=Path("Info.plist"),
@@ -135,9 +142,10 @@ class TestLocalizedStringsInsight:
             file_type="plist",
             treemap_type=TreemapType.PLISTS,
             hash="hash2",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[other_file_1, other_file_2])
+        file_analysis = FileAnalysis(files=[other_file_1, other_file_2], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -152,7 +160,7 @@ class TestLocalizedStringsInsight:
 
     def test_generate_with_empty_file_list(self):
         """Test that no insight is generated with empty file list."""
-        file_analysis = FileAnalysis(files=[])
+        file_analysis = FileAnalysis(files=[], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -174,6 +182,7 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
+            is_dir=False,
         )
         other_strings_file = FileInfo(
             full_path=Path("en.lproj/Other.strings"),
@@ -182,9 +191,10 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash2",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[localized_file, other_strings_file])
+        file_analysis = FileAnalysis(files=[localized_file, other_strings_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -210,6 +220,7 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
+            is_dir=False,
         )
         invalid_localized_file = FileInfo(
             full_path=Path("Localizable.strings"),  # Not in .lproj directory
@@ -218,9 +229,10 @@ class TestLocalizedStringsInsight:
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash2",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[valid_localized_file, invalid_localized_file])
+        file_analysis = FileAnalysis(files=[valid_localized_file, invalid_localized_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

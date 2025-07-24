@@ -25,6 +25,7 @@ class TestHermesDebugInfoInsight:
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
 
         # Create Hermes report with debug info
@@ -53,7 +54,7 @@ class TestHermesDebugInfoInsight:
             "file_size": 102400,
         }
 
-        file_analysis = FileAnalysis(files=[hermes_file])
+        file_analysis = FileAnalysis(files=[hermes_file], directories=[])
         hermes_reports = {"assets/index.jsbundle": hermes_report}
 
         insights_input = InsightsInput(
@@ -81,6 +82,7 @@ class TestHermesDebugInfoInsight:
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
 
         # Create Hermes report without debug info
@@ -109,7 +111,7 @@ class TestHermesDebugInfoInsight:
             "file_size": 102400,
         }
 
-        file_analysis = FileAnalysis(files=[hermes_file])
+        file_analysis = FileAnalysis(files=[hermes_file], directories=[])
         hermes_reports = {"assets/index.jsbundle": hermes_report}
 
         insights_input = InsightsInput(
@@ -134,9 +136,10 @@ class TestHermesDebugInfoInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[non_hermes_file])
+        file_analysis = FileAnalysis(files=[non_hermes_file], directories=[])
         hermes_reports: dict[str, HermesReport] = {}
 
         insights_input = InsightsInput(
@@ -160,9 +163,10 @@ class TestHermesDebugInfoInsight:
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[hermes_file])
+        file_analysis = FileAnalysis(files=[hermes_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -186,6 +190,7 @@ class TestHermesDebugInfoInsight:
             file_type="jsbundle",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         hermes_file_2 = FileInfo(
             full_path=Path("assets/vendor.hbc"),
@@ -194,6 +199,7 @@ class TestHermesDebugInfoInsight:
             file_type="hbc",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
 
         # Create Hermes reports with different debug info sizes
@@ -218,7 +224,7 @@ class TestHermesDebugInfoInsight:
             "file_size": 102400,
         }
 
-        file_analysis = FileAnalysis(files=[hermes_file_1, hermes_file_2])
+        file_analysis = FileAnalysis(files=[hermes_file_1, hermes_file_2], directories=[])
         hermes_reports = {
             "assets/index.jsbundle": hermes_report_1,
             "assets/vendor.hbc": hermes_report_2,

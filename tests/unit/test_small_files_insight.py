@@ -28,6 +28,7 @@ class TestSmallFilesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash=f"hash_small_{i}",
+                is_dir=False,
             )
             small_files.append(small_file)
 
@@ -40,10 +41,11 @@ class TestSmallFilesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash=f"hash_large_{i}",
+                is_dir=False,
             )
             large_files.append(large_file)
 
-        file_analysis = FileAnalysis(files=small_files + large_files)
+        file_analysis = FileAnalysis(files=small_files + large_files, directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -75,10 +77,11 @@ class TestSmallFilesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash=f"hash_{i}",
+                is_dir=False,
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -104,10 +107,11 @@ class TestSmallFilesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash=f"hash_{i}",
+                is_dir=False,
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -139,10 +143,11 @@ class TestSmallFilesInsight:
                 file_type="png",
                 treemap_type=TreemapType.ASSETS,
                 hash=f"hash_{i}",
+                is_dir=False,
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -157,7 +162,7 @@ class TestSmallFilesInsight:
 
     def test_generate_with_empty_file_list(self):
         """Test that no insight is generated when there are no files."""
-        file_analysis = FileAnalysis(files=[])
+        file_analysis = FileAnalysis(files=[], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -193,10 +198,11 @@ class TestSmallFilesInsight:
                 file_type="bin",
                 treemap_type=TreemapType.OTHER,
                 hash=f"hash_{i}",
+                is_dir=False,
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -232,6 +238,7 @@ class TestSmallFilesInsight:
                 file_type="bin",
                 treemap_type=TreemapType.OTHER,
                 hash=f"hash_{i}",
+                is_dir=False,
             )
             files.append(file)
             expected_savings += APPLE_FILESYSTEM_BLOCK_SIZE - size
@@ -245,10 +252,11 @@ class TestSmallFilesInsight:
                 file_type="bin",
                 treemap_type=TreemapType.OTHER,
                 hash=f"hash_large_{i}",
+                is_dir=False,
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files)
+        file_analysis = FileAnalysis(files=files, directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

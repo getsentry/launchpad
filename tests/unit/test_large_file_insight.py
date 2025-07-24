@@ -20,6 +20,7 @@ class TestLargeImageFileInsight:
             file_type="mp4",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         large_file_2 = FileInfo(
             full_path=Path("assets/large_image.png"),
@@ -28,6 +29,7 @@ class TestLargeImageFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
         small_file = FileInfo(
             full_path=Path("assets/small_image.png"),
@@ -36,9 +38,10 @@ class TestLargeImageFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash3",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_file_1, large_file_2, small_file])
+        file_analysis = FileAnalysis(files=[large_file_1, large_file_2, small_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -64,6 +67,7 @@ class TestLargeImageFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
         small_file_2 = FileInfo(
             full_path=Path("assets/small_image2.png"),
@@ -72,9 +76,10 @@ class TestLargeImageFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash2",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_file_1, small_file_2])
+        file_analysis = FileAnalysis(files=[small_file_1, small_file_2], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -88,7 +93,7 @@ class TestLargeImageFileInsight:
         assert result is None
 
     def test_generate_with_empty_file_list(self):
-        file_analysis = FileAnalysis(files=[])
+        file_analysis = FileAnalysis(files=[], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -109,9 +114,10 @@ class TestLargeImageFileInsight:
             file_type="png",
             treemap_type=TreemapType.ASSETS,
             hash="hash1",
+            is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[threshold_file])
+        file_analysis = FileAnalysis(files=[threshold_file], directories=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

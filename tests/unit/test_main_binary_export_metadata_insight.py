@@ -40,7 +40,7 @@ class TestMainBinaryExportMetadataInsight:
 
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[main_binary_analysis],
         )
@@ -77,7 +77,7 @@ class TestMainBinaryExportMetadataInsight:
 
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[main_binary_analysis],
         )
@@ -103,7 +103,7 @@ class TestMainBinaryExportMetadataInsight:
 
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[framework_binary_analysis],
         )
@@ -129,7 +129,7 @@ class TestMainBinaryExportMetadataInsight:
 
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[main_binary_analysis],
         )
@@ -142,7 +142,7 @@ class TestMainBinaryExportMetadataInsight:
         """Test that no insight is generated when binary_analysis list is empty."""
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[],  # Empty list
         )
@@ -191,7 +191,7 @@ class TestMainBinaryExportMetadataInsight:
 
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[framework_binary_analysis, main_binary_analysis],  # Framework first, main second
         )
@@ -214,7 +214,7 @@ class TestMainBinaryExportMetadataInsight:
 
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[non_macho_binary],
         )
@@ -249,7 +249,7 @@ class TestMainBinaryExportMetadataInsight:
 
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[]),
+            file_analysis=FileAnalysis(files=[], directories=[]),
             treemap=None,
             binary_analysis=[main_binary_analysis],
         )
