@@ -4,7 +4,7 @@ from pathlib import Path
 
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.insights import UnnecessaryFilesInsightResult
+from launchpad.size.models.insights import FileSavingsResult, UnnecessaryFilesInsightResult
 
 
 class UnnecessaryFilesInsight(Insight[UnnecessaryFilesInsightResult]):
@@ -48,9 +48,10 @@ class UnnecessaryFilesInsight(Insight[UnnecessaryFilesInsightResult]):
 
         if unnecessary_files:
             unnecessary_files.sort(key=lambda f: f.size, reverse=True)
+            files = [FileSavingsResult(file_path=file.path, total_savings=file.size) for file in unnecessary_files]
 
             return UnnecessaryFilesInsightResult(
-                files=unnecessary_files,
+                files=files,
                 total_savings=total_size,
             )
 

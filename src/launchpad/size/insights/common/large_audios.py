@@ -1,7 +1,5 @@
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.insights import (
-    LargeAudioFileInsightResult,
-)
+from launchpad.size.models.insights import FileSavingsResult, LargeAudioFileInsightResult
 
 
 class LargeAudioFileInsight(Insight[LargeAudioFileInsightResult]):
@@ -34,10 +32,16 @@ class LargeAudioFileInsight(Insight[LargeAudioFileInsightResult]):
         if len(large_files) == 0:
             return None
 
-        # Sort by largest first
         large_files.sort(key=lambda f: f.size, reverse=True)
 
-        # Calculate total potential savings (assuming files can be optimized to 50% of their size)
-        total_savings = sum(file.size // 2 for file in large_files)
+        file_savings = [
+            FileSavingsResult(
+                file_path=file.path,
+                total_savings=file.size // 2,  # Assuming files can be optimized to 50% of their size
+            )
+            for file in large_files
+        ]
 
-        return LargeAudioFileInsightResult(files=large_files, total_savings=total_savings)
+        total_savings = sum(savings.total_savings for savings in file_savings)
+
+        return LargeAudioFileInsightResult(files=file_savings, total_savings=total_savings)

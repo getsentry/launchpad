@@ -5,6 +5,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from .common import FileInfo
 
 
+class FileSavingsResult(BaseModel):
+    """File savings information."""
+
+    model_config = ConfigDict(frozen=True)
+
+    file_path: str = Field(..., description="Path to the file within the app bundle")
+    total_savings: int = Field(..., ge=0, description="Potential size savings or file size in bytes")
+
+
 class BaseInsightResult(BaseModel):
     """Base class for all insight results."""
 
@@ -47,28 +56,28 @@ class DuplicateFilesInsightResult(BaseInsightResult):
 class LargeImageFileInsightResult(BaseInsightResult):
     """Results from large image files analysis."""
 
-    files: List[FileInfo] = Field(..., description="Image files larger than 10MB")
+    files: List[FileSavingsResult] = Field(..., description="Image files larger than 10MB with their sizes")
 
 
 class LargeVideoFileInsightResult(BaseInsightResult):
     """Results from large video files analysis."""
 
-    files: List[FileInfo] = Field(..., description="Video files larger than 10MB")
+    files: List[FileSavingsResult] = Field(..., description="Video files larger than 10MB with their sizes")
 
 
 class LargeAudioFileInsightResult(BaseInsightResult):
     """Results from large audio files analysis."""
 
-    files: List[FileInfo] = Field(..., description="Audio files larger than 5MB")
+    files: List[FileSavingsResult] = Field(..., description="Audio files larger than 5MB with their sizes")
 
 
 class HermesDebugInfoInsightResult(BaseInsightResult):
     """Results from Hermes debug info analysis."""
 
-    files: List[FileInfo] = Field(..., description="Hermes bytecode files with debug info")
+    files: List[FileSavingsResult] = Field(..., description="Hermes bytecode files with potential debug info savings")
 
 
 class UnnecessaryFilesInsightResult(BaseInsightResult):
     """Results from unnecessary files analysis."""
 
-    files: List[FileInfo] = Field(..., description="Unnecessary files that are not needed for the app to run")
+    files: List[FileSavingsResult] = Field(..., description="Unnecessary files with their sizes that could be removed")

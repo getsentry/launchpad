@@ -19,6 +19,7 @@ from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileIn
 from .insights import (
     BaseInsightResult,
     DuplicateFilesInsightResult,
+    FileSavingsResult,
     HermesDebugInfoInsightResult,
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
@@ -48,13 +49,15 @@ class AppleAnalysisResults(BaseAnalysisResults):
 class LocalizedStringInsightResult(BaseInsightResult):
     """Results from localized string analysis."""
 
-    files: List[FileInfo] = Field(..., description="Localized strings files exceeding 100KB threshold")
+    files: List[FileSavingsResult] = Field(
+        ..., description="Localized strings files exceeding 100KB threshold with their sizes"
+    )
 
 
 class SmallFilesInsightResult(BaseInsightResult):
     """Results from small files analysis."""
 
-    files: List[FileInfo] = Field(..., description="Files smaller than filesystem block size")
+    files: List[FileSavingsResult] = Field(..., description="Files smaller than filesystem block size with their sizes")
     file_count: int = Field(..., description="Number of small files found")
 
 
@@ -88,15 +91,6 @@ class LooseImagesInsightResult(BaseInsightResult):
         ..., description="Groups of loose images that could be moved to asset catalogs"
     )
     total_file_count: int = Field(..., description="Total number of loose image files found")
-
-
-class FileSavingsResult(BaseModel):
-    """File savings information."""
-
-    model_config = ConfigDict(frozen=True)
-
-    file_path: str = Field(..., description="Path to the binary file within the app bundle")
-    total_savings: int = Field(..., ge=0, description="Size of the dyld_exports_trie component in bytes")
 
 
 class MainBinaryExportMetadataResult(BaseInsightResult):

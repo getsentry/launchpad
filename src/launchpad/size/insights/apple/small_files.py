@@ -2,6 +2,7 @@ from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.apple import SmallFilesInsightResult
 from launchpad.size.models.common import FileInfo
+from launchpad.size.models.insights import FileSavingsResult
 
 
 class SmallFilesInsight(Insight[SmallFilesInsightResult]):
@@ -26,13 +27,19 @@ class SmallFilesInsight(Insight[SmallFilesInsightResult]):
         for file_info in input.file_analysis.files:
             if file_info.size < APPLE_FILESYSTEM_BLOCK_SIZE:
                 small_files.append(file_info)
-                # Calculate wasted space due to block size alignment
-                wasted_space = APPLE_FILESYSTEM_BLOCK_SIZE - file_info.size
-                total_savings += wasted_space
+                total_savings += APPLE_FILESYSTEM_BLOCK_SIZE - file_info.size
 
         if len(small_files) > 0:
+            file_savings = [
+                FileSavingsResult(
+                    file_path=file.path,
+                    total_savings=APPLE_FILESYSTEM_BLOCK_SIZE - file.size,  # Wasted space savings
+                )
+                for file in small_files
+            ]
+
             return SmallFilesInsightResult(
-                files=small_files,
+                files=file_savings,
                 file_count=len(small_files),
                 total_savings=total_savings,
             )

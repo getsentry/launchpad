@@ -5,6 +5,7 @@ from typing import List
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.insights import (
+    FileSavingsResult,
     HermesDebugInfoInsightResult,
 )
 
@@ -47,7 +48,9 @@ class HermesDebugInfoInsight(Insight[HermesDebugInfoInsightResult]):
             reverse=True,
         )
 
+        files = [FileSavingsResult(file_path=file.path, total_savings=file.size) for file in files_with_debug_info]
+
         return HermesDebugInfoInsightResult(
-            files=files_with_debug_info,
+            files=files,
             total_savings=total_savings,
         )

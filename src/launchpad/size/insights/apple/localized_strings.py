@@ -1,6 +1,7 @@
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.apple import LocalizedStringInsightResult
 from launchpad.size.models.common import FileInfo
+from launchpad.size.models.insights import FileSavingsResult
 
 
 class LocalizedStringsInsight(Insight[LocalizedStringInsightResult]):
@@ -25,10 +26,11 @@ class LocalizedStringsInsight(Insight[LocalizedStringInsightResult]):
                 localized_files.append(file_info)
                 total_size += file_info.size
 
-        # Only return insight if total size exceeds threshold
         if total_size > self.THRESHOLD_BYTES:
+            file_savings = [FileSavingsResult(file_path=file.path, total_savings=file.size) for file in localized_files]
+
             return LocalizedStringInsightResult(
-                files=localized_files,
+                files=file_savings,
                 total_savings=total_size,
             )
 
