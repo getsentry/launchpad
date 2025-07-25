@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
+
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -36,6 +39,7 @@ from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
+from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size
 from launchpad.utils.logging import get_logger
@@ -373,7 +377,7 @@ class AppleAppAnalyzer:
         symbol_info = None
 
         # Always test symbol removal on the main app binary (not dSYM)
-        strippable_symbols_size = self._test_strip_symbols_removal(parser, binary_path)
+        strippable_symbols_size = self._test_strip_symbols_removal(binary_path)
 
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
@@ -428,97 +432,41 @@ class AppleAppAnalyzer:
         )
 
     @trace("apple.test_strip_symbols_removal")
-    def _test_strip_symbols_removal(self, parser: MachOParser, binary_path: Path) -> int:
-        """Test actual symbol removal using LIEF to get real size savings, similar to what strip does."""
-        import tempfile
-
-        return 0
-
+    def _test_strip_symbols_removal(self, binary_path: Path) -> int:
+        """Test actual symbol removal using AppleStrip to get real size savings."""
         try:
             with trace_ctx("strip_symbols.get_original_size"):
                 original_size = binary_path.stat().st_size
 
-            with trace_ctx("strip_symbols.check_swift_imageinfo"):
-                has_swift_imageinfo = parser.has_swift_imageinfo()
+            # Create a temporary file path for the stripped output
+            with trace_ctx("strip_symbols.create_temp_output"):
+                temp_fd, temp_path = tempfile.mkstemp(suffix=".stripped")
+                os.close(temp_fd)
+                os.unlink(temp_path)
+                temp_output_path = Path(temp_path)
 
-            removable_symbols: list[lief.MachO.Symbol] = []
-            total_symbols = 0
+            try:
+                strip_flags = ["-S", "-x", "-T"]
 
-            with trace_ctx("strip_symbols.analyze_symbols"):
-                for symbol in parser.binary.symbols:
-                    total_symbols += 1
+                with trace_ctx("strip_symbols.strip_binary"):
+                    apple_strip = AppleStrip()
+                    result = apple_strip.strip(input_file=binary_path, output_file=temp_output_path, flags=strip_flags)
 
-                    symbol_name = str(symbol.name) if symbol.name else ""
-
-                    # Additional filtering to match what strip would typically target
-                    # Only remove symbols that match strip's typical patterns
-                    should_remove = (
-                        # Debug symbols (strip -S targets)
-                        symbol.type == lief.MachO.Symbol.TYPE.ABSOLUTE_SYM
-                        or symbol_name.startswith(("__debug", "__zdebug", "__apple_", "l_OBJC_LABEL_", "ltmp"))
-                        or "debug" in symbol_name.lower()
-                        or
-                        # Local symbols (strip -x targets)
-                        symbol.category == lief.MachO.Symbol.CATEGORY.LOCAL
-                        or
-                        # Swift symbols (strip -T targets) - only if __objc_imageinfo has non-zero Swift version
-                        (has_swift_imageinfo and symbol_name.startswith(("_$S", "_$s")))
-                        or
-                        # Compiler-generated symbols
-                        symbol_name.startswith(("L", "l", "_OBJC_$_CATEGORY_", "_OBJC_$_PROP_LIST_"))
-                        or
-                        # Temporary symbols
-                        symbol_name.startswith(("tmp", "temp", "unnamed_"))
-                        or
-                        # Swift compiler symbols (other than the -T targeted ones)
-                        symbol_name.startswith(("__swift_FORCE_LOAD", "__swift_"))
-                    )
-
-                    if should_remove:
-                        removable_symbols.append(symbol)
-
-            logger.debug(
-                f"Symbol removal test for {binary_path.name}: {len(removable_symbols)}/{total_symbols} symbols removable"
-            )
-            if not removable_symbols:
-                return 0
-
-            # Create a copy of the binary and remove the symbols to see the new size
-            with trace_ctx("strip_symbols.create_binary_copy"):
-                binary_copy = lief.MachO.parse(str(binary_path))  # type: ignore
-                if not binary_copy or binary_copy.size == 0:
-                    logger.warning("Failed to create binary copy for symbol removal testing")
+                if result.returncode != 0:
+                    logger.error(f"Strip command failed for {binary_path.name} with return code {result.returncode}")
                     return 0
 
-                binary_copy_obj = binary_copy.at(0)
+                with trace_ctx("strip_symbols.calculate_savings"):
+                    stripped_size = temp_output_path.stat().st_size
+                    actual_savings = original_size - stripped_size
 
-            with trace_ctx("strip_symbols.remove_symbols"):
-                removed_count = 0
-                for symbol in removable_symbols:
-                    if parser.binary.can_remove(symbol):
-                        binary_copy_obj.remove(symbol)
-                        removed_count += 1
+                return max(0, actual_savings)
 
-            logger.debug(f"Successfully removed {removed_count} symbols")
-            if removed_count == 0:
-                return 0
-
-            with trace_ctx("strip_symbols.write_and_measure"):
-                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                    temp_path = Path(temp_file.name)
-                    try:
-                        binary_copy_obj.write(str(temp_path))
-                        modified_size = temp_path.stat().st_size
-                        actual_savings = original_size - modified_size
-
-                        logger.debug(f"Symbol removal savings for {binary_path.name}: {actual_savings:,} bytes")
-                        return max(0, actual_savings)
-
-                    finally:
-                        try:
-                            temp_path.unlink()
-                        except Exception:
-                            pass
+            finally:
+                try:
+                    temp_output_path.unlink()
+                except Exception:
+                    pass
 
         except Exception as e:
             logger.error(f"Error testing symbol removal for {binary_path}: {e}")
