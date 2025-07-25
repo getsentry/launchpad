@@ -106,8 +106,6 @@ class TreemapResults(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     root: TreemapElement = Field(..., description="Root element of the treemap")
-    total_install_size: int = Field(..., ge=0, description="Total install size")
-    total_download_size: int = Field(..., ge=0, description="Total download size")
     file_count: int = Field(..., ge=0, description="Total number of files analyzed")
     category_breakdown: Dict[str, Dict[str, int]] = Field(
         default_factory=dict, description="Size breakdown by category"

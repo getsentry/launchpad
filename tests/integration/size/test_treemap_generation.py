@@ -46,10 +46,10 @@ class TestTreemapGeneration:
         assert treemap is not None
         file_count = treemap.file_count
         assert file_count == 177
-        total_install_size = treemap.total_install_size
-        assert total_install_size == 9171936
-        total_download_size = treemap.total_download_size
-        assert total_download_size == 8552372
+        install_size = results.install_size
+        assert install_size == 8542503
+        download_size = results.download_size
+        assert download_size == 8542503
 
         # Verify root element
         root = treemap.root
@@ -136,10 +136,10 @@ class TestTreemapGeneration:
         assert treemap is not None
         file_count = treemap.file_count
         assert file_count == 169
-        total_install_size = treemap.total_install_size
-        assert total_install_size == 7218144
-        # total_download_size = treemap.total_download_size
-        # assert total_download_size == 6606156  # TODO: fix this flake
+        install_size = results.install_size
+        assert install_size == 6596287
+        download_size = results.download_size
+        assert download_size == 6596287
 
         # Verify root element
         root = treemap.root
@@ -226,8 +226,6 @@ class TestTreemapGeneration:
 
         # Verify standard Pydantic structure
         assert "root" in treemap_dict
-        assert "total_install_size" in treemap_dict
-        assert "total_download_size" in treemap_dict
         assert "file_count" in treemap_dict
         assert "category_breakdown" in treemap_dict
         assert "platform" in treemap_dict
@@ -277,8 +275,6 @@ class TestTreemapGeneration:
 
         # Verify standard Pydantic structure
         assert "root" in treemap_dict
-        assert "total_install_size" in treemap_dict
-        assert "total_download_size" in treemap_dict
         assert "file_count" in treemap_dict
         assert "category_breakdown" in treemap_dict
         assert "platform" in treemap_dict
@@ -326,10 +322,6 @@ class TestTreemapGeneration:
         assert treemap is not None
         file_count = treemap.file_count
         assert file_count > 0
-        total_install_size = treemap.total_install_size
-        assert total_install_size > 0
-        total_download_size = treemap.total_download_size
-        assert total_download_size > 0
 
         # Verify root element
         root = treemap.root

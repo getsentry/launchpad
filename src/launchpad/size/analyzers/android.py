@@ -129,6 +129,9 @@ class AndroidAnalyzer:
             treemap=treemap,
             file_analysis=file_analysis,
             insights=insights,
+            # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
+            download_size=file_analysis.total_size,
+            install_size=file_analysis.total_size,
             analysis_duration=None,
             use_si_units=False,
         )

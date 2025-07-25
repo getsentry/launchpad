@@ -75,8 +75,6 @@ class TreemapBuilder:
 
         return TreemapResults(
             root=root,
-            total_install_size=total_install_size,
-            total_download_size=total_download_size,
             file_count=file_analysis.file_count,
             category_breakdown=category_breakdown,
             platform=self.platform,

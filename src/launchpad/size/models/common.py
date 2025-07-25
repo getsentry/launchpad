@@ -98,6 +98,8 @@ class BaseAnalysisResults(BaseModel):
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
     use_si_units: bool = Field(default=False, description="Whether to use SI units for size display")
+    download_size: int = Field(..., description="Estimated download size in bytes")
+    install_size: int = Field(..., description="Estimated install size in bytes")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with serializable datetime."""

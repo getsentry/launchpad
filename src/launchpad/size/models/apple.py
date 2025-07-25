@@ -42,8 +42,6 @@ class AppleAnalysisResults(BaseAnalysisResults):
     insights: AppleInsightResults | None = Field(
         description="Generated insights from the analysis",
     )
-    download_size: int = Field(..., description="Estimated download size in bytes")
-    install_size: int = Field(..., description="Estimated install size in bytes")
 
 
 class LocalizedStringInsightResult(BaseInsightResult):
