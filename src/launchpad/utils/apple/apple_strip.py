@@ -44,10 +44,14 @@ class AppleStrip:
             )
             return result
         except subprocess.CalledProcessError as e:
-            error_msg = f"Strip command failed: {' '.join(cmd)}"
+            error_msg = f"Strip command failed: {' '.join(cmd)}\nReturn code: {e.returncode}"
             if e.stderr:
                 error_msg += f"\nStderr: {e.stderr.decode('utf-8', errors='replace')}"
-            raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from e
+            if e.stdout:
+                error_msg += f"\nStdout: {e.stdout.decode('utf-8', errors='replace')}"
+            enhanced_error = subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr)
+            enhanced_error.args = (error_msg,)
+            raise enhanced_error from e
 
     def _get_strip_path(self) -> str:
         # TODO: eventually remove this and wire this up to our deps tool

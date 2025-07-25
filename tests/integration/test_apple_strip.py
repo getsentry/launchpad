@@ -46,7 +46,7 @@ class TestAppleStrip:
             result = apple_strip.strip(
                 input_file=stripped_binary_path,
                 output_file=None,  # Strip in-place
-                flags=["-STx"],
+                flags=["-S", "-T", "-x"],  # Use separate flags for better compatibility
             )
 
             # Verify the strip command succeeded
@@ -85,7 +85,7 @@ class TestAppleStrip:
             result = apple_strip.strip(
                 input_file=sentry_binary_path,
                 output_file=output_path,
-                flags=["-STx"],  # Strip debug symbols
+                flags=["-S", "-T", "-x"],  # Strip debug symbols and local symbols
             )
 
             # Verify the strip command succeeded
