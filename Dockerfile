@@ -44,6 +44,9 @@ COPY pyproject.toml .
 COPY README.md .
 COPY LICENSE .
 
+# Ensure the strip binary is executable
+RUN chmod +x scripts/strip/dist/strip
+
 # Conditionally copy test fixtures only for test builds
 RUN if [ "$TEST_BUILD" = "true" ]; then \
         echo "Test build detected - including test fixtures"; \
