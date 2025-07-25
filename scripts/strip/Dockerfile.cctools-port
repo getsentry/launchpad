@@ -21,8 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /src
 # Pin if you want reproducibility
-ARG CCTOOLS_PORT_REF=master
-RUN git clone --depth 1 --branch ${CCTOOLS_PORT_REF} https://github.com/tpoechtrager/cctools-port.git
+ARG CCTOOLS_PORT_REF=7224fd5c9390ea15cff6ee69ff92ea677b40014b
+RUN git clone https://github.com/tpoechtrager/cctools-port.git && \
+    cd cctools-port && \
+    git checkout ${CCTOOLS_PORT_REF}
 
 WORKDIR /src/cctools-port/cctools
 RUN ./autogen.sh

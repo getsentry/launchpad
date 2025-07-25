@@ -16,7 +16,7 @@ Options:
 EOF
 }
 
-DOCKERFILE="Dockerfile.osxcross"
+DOCKERFILE="Dockerfile.cctools-port"
 OUT_DIR="dist"
 VERIFY=1
 
