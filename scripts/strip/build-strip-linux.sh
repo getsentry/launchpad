@@ -3,20 +3,20 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Build the real Apple cctools `strip` (via osxcross) and export it locally.
+Build the real Apple cctools `strip` and export it locally.
 
 Usage:
   build-strip-linux.sh [-f DOCKERFILE] [-o OUT_DIR] [--no-verify]
 
 Options:
-  -f, --file DOCKERFILE   Dockerfile to use (default: Dockerfile.osxcross)
+  -f, --file DOCKERFILE   Dockerfile to use (default: Dockerfile.cctools)
   -o, --out  OUT_DIR      Output directory for the exported binary (default: dist)
       --no-verify         Skip the verify stage
   -h, --help              Show this help
 EOF
 }
 
-DOCKERFILE="Dockerfile.cctools-port"
+DOCKERFILE="Dockerfile.cctools"
 OUT_DIR="dist"
 VERIFY=1
 
