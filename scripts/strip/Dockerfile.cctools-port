@@ -17,11 +17,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     ca-certificates \
     file \
+    libblocksruntime-dev \
+    curl \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# Build libdispatch from source
+WORKDIR /tmp
+RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
+    cd swift-corelibs-libdispatch && \
+    git checkout swift-5.9-RELEASE && \
+    mkdir build && cd build && \
+    cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX=/usr && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && rm -rf /tmp/swift-corelibs-libdispatch
 
 WORKDIR /src
 # Pin if you want reproducibility
-ARG CCTOOLS_PORT_REF=7224fd5c9390ea15cff6ee69ff92ea677b40014b
+ARG CCTOOLS_PORT_REF=1024.3-ld64-955.13
 RUN git clone https://github.com/tpoechtrager/cctools-port.git && \
     cd cctools-port && \
     git checkout ${CCTOOLS_PORT_REF}
