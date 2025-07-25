@@ -142,23 +142,10 @@ class AndroidAnalyzer:
         total_size = 0
         path_to_file_info: dict[str, FileInfo] = {}
 
-        # Define a set of macOS-only files to ignore (case-insensitive)
-        MAC_ONLY_FILES = {".ds_store", "._.ds_store", "icon\r", "__macosx"}
-
         for apk in apks:
             extract_path = apk.get_extract_path()
             for file_path in extract_path.rglob("*"):
                 if file_path.is_file():
-                    # Filter out macOS-only files by name or by path component
-                    lower_name = file_path.name.lower()
-                    if lower_name in MAC_ONLY_FILES:
-                        logger.debug("Skipping macOS-only file: %s", file_path)
-                        continue
-                    # Also skip files inside __MACOSX directories
-                    if any(part.lower() == "__macosx" for part in file_path.parts):
-                        logger.debug("Skipping file inside __MACOSX: %s", file_path)
-                        continue
-
                     logger.debug("Processing file: %s", file_path)
                     relative_path = str(file_path.relative_to(extract_path))
 
