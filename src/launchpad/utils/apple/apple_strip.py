@@ -49,6 +49,19 @@ class AppleStrip:
                 error_msg += f"\nStderr: {e.stderr.decode('utf-8', errors='replace')}"
             if e.stdout:
                 error_msg += f"\nStdout: {e.stdout.decode('utf-8', errors='replace')}"
+
+            # Add library dependency check for debugging
+            import subprocess as sp
+
+            try:
+                ldd_result = sp.run(["ldd", self._strip_path], capture_output=True, text=True, timeout=10)
+                if ldd_result.returncode == 0:
+                    error_msg += f"\nLibrary dependencies:\n{ldd_result.stdout}"
+                else:
+                    error_msg += f"\nLDD failed: {ldd_result.stderr}"
+            except Exception as ldd_err:
+                error_msg += f"\nCould not check library dependencies: {ldd_err}"
+
             enhanced_error = subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr)
             enhanced_error.args = (error_msg,)
             raise enhanced_error from e

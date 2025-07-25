@@ -78,10 +78,11 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--verbose",
-    "--tb=auto",
+    "--tb=long",
     "--maxfail=10",
     "--durations=10",
     "--color=yes",
+    "--capture=no",
 ]
 markers = [
     "unit: Unit tests",
