@@ -65,8 +65,11 @@ docker buildx build \
   --load \
   .
 
+
 # Copy the necessary binaries
+mkdir -p "${OUT_DIR}"
 docker run --rm cctools-temp tar -cf - -C /out/bin strip ld | tar -xf - -C "${OUT_DIR}"
+
 
 if [[ ! -f "${STRIP_BIN}" ]]; then
   echo "ERROR: ${STRIP_BIN} was not produced." >&2
