@@ -377,7 +377,7 @@ class AppleAppAnalyzer:
         symbol_info = None
 
         # Always test symbol removal on the main app binary (not dSYM)
-        strippable_symbols_size = self._test_strip_symbols_removal(binary_path)
+        strippable_symbols_size = self._check_strip_symbols_removal(binary_path)
 
         if dwarf_binary_path:
             dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
@@ -432,7 +432,7 @@ class AppleAppAnalyzer:
         )
 
     @trace("apple.test_strip_symbols_removal")
-    def _test_strip_symbols_removal(self, binary_path: Path) -> int:
+    def _check_strip_symbols_removal(self, binary_path: Path) -> int:
         """Test actual symbol removal using AppleStrip to get real size savings."""
         try:
             with trace_ctx("strip_symbols.get_original_size"):
