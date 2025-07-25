@@ -106,11 +106,21 @@ jobs:
       - name: Install dependencies
         run: make install-dev
 
-      - name: Install dependencies
-        run: ./scripts/deps --print-paths >> "$GITHUB_PATH"
+      - name: Build Docker image with test fixtures
+        run: docker build --build-arg TEST_BUILD=true -t launchpad-test .
 
-      - name: Coverage
-        run: make coverage
+      - name: Run coverage in Docker
+        run: |
+          docker run --rm \
+            -e LAUNCHPAD_ENV=development \
+            -e LAUNCHPAD_HOST=localhost \
+            -e LAUNCHPAD_PORT=2218 \
+            -e KAFKA_BOOTSTRAP_SERVERS="localhost:9092" \
+            -e KAFKA_GROUP_ID="launchpad-test" \
+            -e KAFKA_TOPICS="preprod-artifact-events" \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            launchpad-test make coverage
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
