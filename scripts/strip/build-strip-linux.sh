@@ -6,7 +6,7 @@ usage() {
 Build the real Apple cctools `strip` (via osxcross) and export it locally.
 
 Usage:
-  build-strip.sh [-f DOCKERFILE] [-o OUT_DIR] [--no-verify]
+  build-strip-linux.sh [-f DOCKERFILE] [-o OUT_DIR] [--no-verify]
 
 Options:
   -f, --file DOCKERFILE   Dockerfile to use (default: Dockerfile.osxcross)
