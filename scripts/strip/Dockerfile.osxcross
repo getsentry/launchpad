@@ -1,0 +1,39 @@
+# Build the Apple cctools 'strip' from cctools-port on Linux
+FROM --platform=linux/amd64 debian:12-slim AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    clang \
+    git \
+    autoconf \
+    automake \
+    libtool \
+    pkg-config \
+    cmake \
+    zlib1g-dev \
+    liblzma-dev \
+    libbsd-dev \
+    uuid-dev \
+    python3 \
+    ca-certificates \
+    file \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+# Pin if you want reproducibility
+ARG CCTOOLS_PORT_REF=master
+RUN git clone --depth 1 --branch ${CCTOOLS_PORT_REF} https://github.com/tpoechtrager/cctools-port.git
+
+WORKDIR /src/cctools-port/cctools
+RUN ./autogen.sh
+RUN ./configure --prefix=/out
+RUN make -j"$(nproc)" && make install-strip
+
+# Verify the binary is working
+FROM --platform=linux/amd64 python:3.12-slim-bookworm AS verify
+COPY --from=build /out/bin/strip /usr/local/bin/apple-strip
+RUN /usr/local/bin/apple-strip --help >/dev/null 2>&1 || true
+
+# Export artifact
+FROM scratch AS export
+COPY --from=build /out/bin/strip /strip

@@ -3,6 +3,7 @@
 __pycache__/
 *.egg-info/
 dist/
+!scripts/strip/dist/
 build/
 .pytest_cache/
 .coverage
