@@ -80,6 +80,7 @@ COPY LICENSE .
 COPY --from=libdispatch-build /usr/lib/x86_64-linux-gnu/libdispatch.so* /usr/lib/x86_64-linux-gnu/
 
 # Ensure the strip and ld binaries are executable and create necessary symlinks
+COPY scripts/strip/dist/strip scripts/strip/dist/ld /app/scripts/strip/dist/
 RUN chmod +x /app/scripts/strip/dist/strip /app/scripts/strip/dist/ld && \
     ln -sf /usr/lib/x86_64-linux-gnu/libBlocksRuntime.so.0 /usr/lib/x86_64-linux-gnu/libBlocksRuntime.so && \
     ldconfig
