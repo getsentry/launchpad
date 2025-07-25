@@ -56,19 +56,29 @@ if [[ $VERIFY -eq 1 ]]; then
     .
 fi
 
-echo "==> Exporting binary to ${OUT_DIR} via export stage"
+echo "==> Exporting binaries to ${OUT_DIR} via build stage"
+# Export both strip and ld binaries
 docker buildx build \
-  --target export \
+  --target build \
   -f "${DOCKERFILE}" \
-  -o "type=local,dest=${OUT_DIR}" \
+  -t cctools-temp \
+  --load \
   .
+
+# Copy the necessary binaries
+docker run --rm cctools-temp tar -cf - -C /out/bin strip ld | tar -xf - -C "${OUT_DIR}"
 
 if [[ ! -f "${STRIP_BIN}" ]]; then
   echo "ERROR: ${STRIP_BIN} was not produced." >&2
   exit 1
 fi
 
-chmod +x "${STRIP_BIN}"
+if [[ ! -f "${OUT_DIR}/ld" ]]; then
+  echo "ERROR: ${OUT_DIR}/ld was not produced." >&2
+  exit 1
+fi
+
+chmod +x "${STRIP_BIN}" "${OUT_DIR}/ld"
 
 echo "==> Build complete!"
 echo "Binary: ${STRIP_BIN}"
