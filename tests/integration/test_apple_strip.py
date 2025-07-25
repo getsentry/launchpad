@@ -21,38 +21,30 @@ class TestAppleStrip:
 
     def test_strip_sentry_binary(self, sentry_zip_path: Path) -> None:
         """Test stripping the main Sentry binary from the iOS framework."""
-        # Create a temporary directory for extraction
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Extract the zip file
             with zipfile.ZipFile(sentry_zip_path, "r") as zip_ref:
                 zip_ref.extractall(temp_path)
 
-            # Find the main Sentry binary
             sentry_binary_path = temp_path / "Sentry-ios-arm64_arm64e" / "Sentry.framework" / "Sentry"
             assert sentry_binary_path.exists(), f"Sentry binary not found at {sentry_binary_path}"
 
-            # Get original size for reference
             original_size = sentry_binary_path.stat().st_size
             assert original_size > 0, "Original binary should have non-zero size"
 
-            # Create a copy for stripping (preserve original for comparison)
             stripped_binary_path = temp_path / "Sentry_stripped"
             shutil.copy2(sentry_binary_path, stripped_binary_path)
 
-            # Strip the binary
             apple_strip = AppleStrip()
             result = apple_strip.strip(
                 input_file=stripped_binary_path,
                 output_file=None,  # Strip in-place
-                flags=["-S", "-T", "-x"],  # Use separate flags for better compatibility
+                flags=["-S", "-T", "-x"],
             )
 
-            # Verify the strip command succeeded
             assert result.returncode == 0, f"Strip command failed with return code {result.returncode}"
 
-            # Check the stripped binary size
             stripped_size = stripped_binary_path.stat().st_size
             expected_size = 14355952
 
@@ -61,7 +53,6 @@ class TestAppleStrip:
                 f"Original size was {original_size}"
             )
 
-            # Verify the binary was actually stripped (should be smaller than original)
             assert stripped_size < original_size, (
                 f"Stripped binary ({stripped_size} bytes) should be smaller than original ({original_size} bytes)"
             )
@@ -71,27 +62,22 @@ class TestAppleStrip:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Extract the zip file
             with zipfile.ZipFile(sentry_zip_path, "r") as zip_ref:
                 zip_ref.extractall(temp_path)
 
-            # Find the main Sentry binary
             sentry_binary_path = temp_path / "Sentry-ios-arm64_arm64e" / "Sentry.framework" / "Sentry"
             assert sentry_binary_path.exists(), f"Sentry binary not found at {sentry_binary_path}"
 
-            # Strip to a new output file
             output_path = temp_path / "Sentry_output_stripped"
             apple_strip = AppleStrip()
             result = apple_strip.strip(
                 input_file=sentry_binary_path,
                 output_file=output_path,
-                flags=["-S", "-T", "-x"],  # Strip debug symbols and local symbols
+                flags=["-S", "-T", "-x"],
             )
 
-            # Verify the strip command succeeded
             assert result.returncode == 0, f"Strip command failed with return code {result.returncode}"
 
-            # Check the output file exists and has expected size
             assert output_path.exists(), f"Output file not created at {output_path}"
             stripped_size = output_path.stat().st_size
             expected_size = 14355952
@@ -100,7 +86,6 @@ class TestAppleStrip:
                 f"Stripped binary size {stripped_size} does not match expected size {expected_size}"
             )
 
-            # Verify original file is unchanged
             original_size = sentry_binary_path.stat().st_size
             assert stripped_size < original_size, (
                 f"Stripped binary ({stripped_size} bytes) should be smaller than original ({original_size} bytes)"

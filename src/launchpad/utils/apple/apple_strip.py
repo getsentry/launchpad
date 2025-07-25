@@ -46,9 +46,9 @@ class AppleStrip:
         except subprocess.CalledProcessError as e:
             error_msg = f"Strip command failed: {' '.join(cmd)}\nReturn code: {e.returncode}"
             if e.stderr:
-                error_msg += f"\nStderr: {e.stderr.decode('utf-8', errors='replace')}"
+                error_msg += f"\nStderr: {e.stderr}"
             if e.stdout:
-                error_msg += f"\nStdout: {e.stdout.decode('utf-8', errors='replace')}"
+                error_msg += f"\nStdout: {e.stdout}"
 
             raise subprocess.CalledProcessError(e.returncode, e.cmd, e.output, e.stderr) from e
 
