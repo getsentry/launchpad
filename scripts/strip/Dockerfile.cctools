@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /tmp
 RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
     cd swift-corelibs-libdispatch && \
-    git checkout swift-5.9-RELEASE && \
+    git checkout 731d5c61ab5437e0e9bbfca7d318519a9d34f395 && \
     mkdir build && cd build && \
     cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX=/usr && \
     make -j$(nproc) && \
