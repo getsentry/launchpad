@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -314,7 +314,7 @@ class AppleAppAnalyzer:
         if not developer_certs:
             return None
 
-        earliest_expiration = None
+        earliest_expiration: datetime | None = None
 
         for cert_data in developer_certs:
             try:
@@ -438,13 +438,13 @@ class AppleAppAnalyzer:
             with trace_ctx("strip_symbols.get_original_size"):
                 original_size = binary_path.stat().st_size
 
-            # Create a temporary file path for the stripped output
+            # Create a temporary file for the stripped output
             with trace_ctx("strip_symbols.create_temp_output"):
-                temp_fd, temp_path = tempfile.mkstemp(suffix=".stripped")
-                os.close(temp_fd)
-                os.unlink(temp_path)
-                temp_output_path = Path(temp_path)
+                temp_file = tempfile.NamedTemporaryFile(suffix=".stripped", delete=False)
+                temp_output_path = Path(temp_file.name)
+                temp_file.close()
 
+            actual_savings = 0
             try:
                 is_dylib = binary.header.file_type == lief.MachO.Header.FILE_TYPE.DYLIB
                 if is_dylib:
@@ -458,19 +458,19 @@ class AppleAppAnalyzer:
 
                 if result.returncode != 0:
                     logger.error(f"Strip command failed for {binary_path.name} with return code {result.returncode}")
-                    return 0
-
-                with trace_ctx("strip_symbols.calculate_savings"):
-                    stripped_size = temp_output_path.stat().st_size
-                    actual_savings = original_size - stripped_size
-
-                return max(0, actual_savings)
+                    actual_savings = 0
+                else:
+                    with trace_ctx("strip_symbols.calculate_savings"):
+                        stripped_size = temp_output_path.stat().st_size
+                        actual_savings = max(0, original_size - stripped_size)
 
             finally:
                 try:
                     temp_output_path.unlink()
                 except Exception:
                     pass
+
+            return actual_savings
 
         except Exception as e:
             logger.error(f"Error testing symbol removal for {binary_path}: {e}")

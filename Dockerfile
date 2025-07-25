@@ -11,9 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp
+# Pin to specific commit hash for swift-5.9-RELEASE for security
+# Commit hash: 731d5c61ab5437e0e9bbfca7d318519a9d34f395 (swift-5.9-RELEASE tag)
 RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
     cd swift-corelibs-libdispatch && \
-    git checkout swift-5.9-RELEASE && \
+    # Verify we're cloning from the expected repository
+    git remote -v | grep -q "github.com/apple/swift-corelibs-libdispatch" && \
+    # Pin to specific commit hash instead of tag for security
+    git checkout 731d5c61ab5437e0e9bbfca7d318519a9d34f395 && \
+    # Verify the commit hash matches our expectation
+    test "$(git rev-parse HEAD)" = "731d5c61ab5437e0e9bbfca7d318519a9d34f395" && \
     mkdir build && cd build && \
     cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX=/usr && \
     make -j$(nproc) && \
@@ -38,18 +45,18 @@ RUN groupadd --gid 1000 app && \
 # Install system dependencies including JDK 17
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        curl \
-        git \
-        build-essential \
-        openjdk-17-jdk \
-        unzip \
-        zip \
-        file \
-        libbsd0 \
-        liblzma5 \
-        zlib1g \
-        libblocksruntime0 \
-        && \
+    curl \
+    git \
+    build-essential \
+    openjdk-17-jdk \
+    unzip \
+    zip \
+    file \
+    libbsd0 \
+    liblzma5 \
+    zlib1g \
+    libblocksruntime0 \
+    && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -79,10 +86,10 @@ RUN chmod +x /app/scripts/strip/dist/strip /app/scripts/strip/dist/ld && \
 
 # Conditionally copy test fixtures only for test builds
 RUN if [ "$TEST_BUILD" = "true" ]; then \
-        echo "Test build detected - including test fixtures"; \
+    echo "Test build detected - including test fixtures"; \
     else \
-        echo "Production build - excluding test fixtures"; \
-        rm -rf tests/_fixtures; \
+    echo "Production build - excluding test fixtures"; \
+    rm -rf tests/_fixtures; \
     fi
 
 RUN pip install -e .
