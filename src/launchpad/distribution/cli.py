@@ -9,7 +9,7 @@ from ..utils.console import console
 from ..utils.logging import setup_logging
 
 
-@click.command()
+@click.command("distribution")
 @click.argument("apk_path", type=click.Path(exists=True, path_type=Path))
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
 def distribution_command(apk_path: Path, verbose: bool) -> None:
