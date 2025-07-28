@@ -108,6 +108,9 @@ class TestImageOptimizationInsightIntegration:
             is_simulator=False,
             codesigning_type=None,
             profile_name=None,
+            profile_expiration_date=None,
+            certificate_expiration_date=None,
+            main_binary_uuid=None,
             is_code_signature_valid=True,
             code_signature_errors=[],
         )
@@ -130,7 +133,7 @@ class TestImageOptimizationInsightIntegration:
         assert result.total_savings > 0
         assert len(result.optimizable_files) > 0
 
-        optimizable_paths = {f.file_info.path for f in result.optimizable_files}
+        optimizable_paths = {f.file_path for f in result.optimizable_files}
         assert any("large_unoptimized.png" in path for path in optimizable_paths)
         assert any("large_photo.jpg" in path for path in optimizable_paths)
 
@@ -140,7 +143,7 @@ class TestImageOptimizationInsightIntegration:
         """Test that App Icons and sticker pack images are excluded from optimization."""
         result = insight.generate(insights_input)
         assert result is not None
-        optimizable_paths = {f.file_info.path for f in result.optimizable_files}
+        optimizable_paths = {f.file_path for f in result.optimizable_files}
         assert not any("AppIcon" in path for path in optimizable_paths)
         assert not any("stickerpack" in path for path in optimizable_paths)
 
@@ -218,7 +221,7 @@ class TestImageOptimizationInsightIntegration:
         assert result.total_savings > 0, "Expected total savings > 0 for large JPEG"
         assert len(result.optimizable_files) >= 1, "Expected at least one optimizable file"
 
-        jpeg_result = next((f for f in result.optimizable_files if "large_photo.jpg" in f.file_info.path), None)
+        jpeg_result = next((f for f in result.optimizable_files if "large_photo.jpg" in f.file_path), None)
         assert jpeg_result is not None, "Expected to find large_photo.jpg in optimization results"
 
         # For a large JPEG (2000x1500 at quality=95), HEIC should provide savings
@@ -273,6 +276,9 @@ class TestImageOptimizationInsightIntegration:
                 is_simulator=False,
                 codesigning_type=None,
                 profile_name=None,
+                profile_expiration_date=None,
+                certificate_expiration_date=None,
+                main_binary_uuid=None,
                 is_code_signature_valid=True,
                 code_signature_errors=[],
             ),
