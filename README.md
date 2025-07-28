@@ -139,3 +139,9 @@ make fix
 # Full CI pipeline
 make ci
 ```
+
+## License
+
+See [License](./LICENSE) for information about Sentry's licensing.
+
+This project also uses custom binaries for `strip` and `ld`. The source code of these is available at [https://github.com/tpoechtrager/cctools-port](https://github.com/tpoechtrager/cctools-port) and falls under the Apple Public Source License Version 2.0.
