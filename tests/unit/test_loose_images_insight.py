@@ -75,14 +75,16 @@ class TestLooseImagesInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LooseImagesInsightResult)
-        assert result.total_file_count == 2  # Only 2 files from the multi-scale group
-        assert len(result.image_groups) == 1  # Only 1 group: "home.png" (submit.jpg is single file, excluded)
+        total_file_count = sum(len(group.files) for group in result.groups)
+        assert total_file_count == 2  # Only 2 files from the multi-scale group
+        assert len(result.groups) == 1  # Only 1 group: "home.png" (submit.jpg is single file, excluded)
 
         # Verify home group has both @1x and @2x variants
-        home_group = next((g for g in result.image_groups if g.canonical_name == "home.png"), None)
+        home_group = next((g for g in result.groups if g.name == "home.png"), None)
         assert home_group is not None
-        assert len(home_group.images) == 2
-        assert home_group.total_size == 10240 + 20480
+        assert len(home_group.files) == 2
+        total_size = sum(f.total_savings for f in home_group.files)
+        assert total_size == 10240 + 20480
         # The home group's total_savings should be 10240 (excluding the larger @2x image)
         assert home_group.total_savings == 10240
 
@@ -144,11 +146,12 @@ class TestLooseImagesInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LooseImagesInsightResult)
-        assert result.total_file_count == 2  # Both regular_icon files
-        assert len(result.image_groups) == 1
-        assert result.image_groups[0].canonical_name == "regular_icon.png"
+        total_file_count = sum(len(group.files) for group in result.groups)
+        assert total_file_count == 2  # Both regular_icon files
+        assert len(result.groups) == 1
+        assert result.groups[0].name == "regular_icon.png"
         # Should exclude smaller image size from savings
-        assert result.image_groups[0].total_savings == 3072
+        assert result.groups[0].total_savings == 3072
 
     def test_excludes_stickerpack_images(self):
         """Test that images in .stickerpack directories are excluded."""
@@ -193,11 +196,12 @@ class TestLooseImagesInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LooseImagesInsightResult)
-        assert result.total_file_count == 2  # Both regular images
-        assert len(result.image_groups) == 1
-        assert result.image_groups[0].canonical_name == "image.png"
+        total_file_count = sum(len(group.files) for group in result.groups)
+        assert total_file_count == 2  # Both regular images
+        assert len(result.groups) == 1
+        assert result.groups[0].name == "image.png"
         # Should exclude smaller image size from savings
-        assert result.image_groups[0].total_savings == 3072
+        assert result.groups[0].total_savings == 3072
 
     def test_no_raw_images_returns_none(self):
         """Test that no insight is generated when there are no raw images."""
@@ -287,14 +291,16 @@ class TestLooseImagesInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LooseImagesInsightResult)
-        assert result.total_file_count == 3  # Only icon group (different.jpg is single file, excluded)
-        assert len(result.image_groups) == 1
+        total_file_count = sum(len(group.files) for group in result.groups)
+        assert total_file_count == 3  # Only icon group (different.jpg is single file, excluded)
+        assert len(result.groups) == 1
 
         # Find the icon group
-        icon_group = next((g for g in result.image_groups if g.canonical_name == "icon.png"), None)
+        icon_group = next((g for g in result.groups if g.name == "icon.png"), None)
         assert icon_group is not None
-        assert len(icon_group.images) == 3  # @1x, @2x, @3x
-        assert icon_group.total_size == 30000  # 5000 + 10000 + 15000
+        assert len(icon_group.files) == 3  # @1x, @2x, @3x
+        total_size = sum(f.total_savings for f in icon_group.files)
+        assert total_size == 30000  # 5000 + 10000 + 15000
         # Should exclude the largest image (@3x = 15000) from savings
         assert icon_group.total_savings == 15000  # 5000 + 10000
 

@@ -163,7 +163,7 @@ class TestDuplicateFilesInsight:
         assert len(result.groups) == 2
 
         # Find the bundle group
-        bundle_group = next((g for g in result.groups if "SwiftMath_SwiftMath.bundle" in g.filename), None)
+        bundle_group = next((g for g in result.groups if "SwiftMath_SwiftMath.bundle" in g.name), None)
         assert bundle_group is not None
         assert len(bundle_group.files) == 2  # Two bundle instances
         # Bundle savings = total size of one bundle (smaller one gets eliminated)
@@ -171,7 +171,7 @@ class TestDuplicateFilesInsight:
         assert bundle_group.total_savings == bundle_size
 
         # Find the icon group
-        icon_group = next((g for g in result.groups if g.filename == "icon.png"), None)
+        icon_group = next((g for g in result.groups if g.name == "icon.png"), None)
         assert icon_group is not None
         assert len(icon_group.files) == 2  # Two icon files
         assert icon_group.total_savings == 2000  # Size of one duplicate
@@ -183,9 +183,9 @@ class TestDuplicateFilesInsight:
         # None of the groups should contain the individual plist or json files
         for group in result.groups:
             for file in group.files:
-                assert "GenericFont-Bold.plist" not in file.path
-                assert "GenericFont.plist" not in file.path
-                assert "config.json" not in file.path
+                assert "GenericFont-Bold.plist" not in file.file_path
+                assert "GenericFont.plist" not in file.file_path
+                assert "config.json" not in file.file_path
 
     def test_directory_grouping_with_nested_bundles(self):
         """Test that directory grouping works correctly with nested .bundle directories."""
@@ -263,7 +263,7 @@ class TestDuplicateFilesInsight:
 
         # Should detect the duplicate Resources.bundle directories
         group = result.groups[0]
-        assert group.filename == "Resources.bundle"
+        assert group.name == "Resources.bundle"
         assert len(group.files) == 2
         bundle_size = 2000 + 1500  # 3500 per bundle
         assert group.total_savings == bundle_size
@@ -319,7 +319,7 @@ class TestDuplicateFilesInsight:
 
         # Should only detect the config.json duplicates, not .xcprivacy
         group = result.groups[0]
-        assert group.filename == "config.json"
+        assert group.name == "config.json"
         assert len(group.files) == 2
         assert group.total_savings == 2000
 
@@ -402,7 +402,7 @@ class TestDuplicateFilesInsight:
 
         # Should only detect the files with valid hashes
         group = result.groups[0]
-        assert group.filename == "valid1.png"
+        assert group.name == "valid1.png"
         assert len(group.files) == 2
         assert group.total_savings == 2000
 
@@ -475,11 +475,11 @@ class TestDuplicateFilesInsight:
         assert len(result.groups) == 3
 
         # Should be sorted by savings: large (5000), medium (3000), small (1000)
-        assert result.groups[0].filename == "large1.png"
+        assert result.groups[0].name == "large1.png"
         assert result.groups[0].total_savings == 5000
-        assert result.groups[1].filename == "medium1.png"
+        assert result.groups[1].name == "medium1.png"
         assert result.groups[1].total_savings == 3000
-        assert result.groups[2].filename == "small1.png"
+        assert result.groups[2].name == "small1.png"
         assert result.groups[2].total_savings == 1000
 
     def test_container_name_preference_over_filename(self):
@@ -532,8 +532,8 @@ class TestDuplicateFilesInsight:
         assert len(result.groups) == 2
 
         # Find the container-based group
-        container_group = next((g for g in result.groups if "bundle" not in g.filename.lower()), None)
-        standalone_group = next((g for g in result.groups if g.filename == "standalone_config.json"), None)
+        container_group = next((g for g in result.groups if "bundle" not in g.name.lower()), None)
+        standalone_group = next((g for g in result.groups if g.name == "standalone_config.json"), None)
 
         # Both groups should exist
         assert container_group is not None
@@ -688,20 +688,20 @@ class TestDuplicateFilesInsight:
         assert len(result.groups) == 3
 
         # Verify the bundle group
-        bundle_group = next((g for g in result.groups if g.filename == "Resources.bundle"), None)
+        bundle_group = next((g for g in result.groups if g.name == "Resources.bundle"), None)
         assert bundle_group is not None
         assert len(bundle_group.files) == 2
         bundle_size = 1000 + 2000  # 3000 per bundle
         assert bundle_group.total_savings == bundle_size
 
         # Verify the icon group
-        icon_group = next((g for g in result.groups if g.filename == "icon.png"), None)
+        icon_group = next((g for g in result.groups if g.name == "icon.png"), None)
         assert icon_group is not None
         assert len(icon_group.files) == 2
         assert icon_group.total_savings == 5000
 
         # Verify the embedded icon group
-        embedded_group = next((g for g in result.groups if g.filename == "embedded_icon.png"), None)
+        embedded_group = next((g for g in result.groups if g.name == "embedded_icon.png"), None)
         assert embedded_group is not None
         assert len(embedded_group.files) == 2
         assert embedded_group.total_savings == 3000
@@ -711,5 +711,5 @@ class TestDuplicateFilesInsight:
         assert result.total_savings == expected_total
 
         # Verify that .xcprivacy files were ignored (no group for them)
-        privacy_group = next((g for g in result.groups if "xcprivacy" in g.filename), None)
+        privacy_group = next((g for g in result.groups if "xcprivacy" in g.name), None)
         assert privacy_group is None

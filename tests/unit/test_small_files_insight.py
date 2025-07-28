@@ -58,7 +58,6 @@ class TestSmallFilesInsight:
 
         assert isinstance(result, SmallFilesInsightResult)
         assert len(result.files) == 50  # Only small files returned
-        assert result.file_count == 50
         # Each small file wastes 3072 bytes (4096 - 1024)
         assert result.total_savings == 50 * (APPLE_FILESYSTEM_BLOCK_SIZE - 1024)
         # Verify all returned files have correct savings calculation
@@ -124,7 +123,6 @@ class TestSmallFilesInsight:
 
         assert isinstance(result, SmallFilesInsightResult)
         assert len(result.files) == 30  # Only small files
-        assert result.file_count == 30
         # Each small file wastes 2048 bytes (4096 - 2048)
         assert result.total_savings == 30 * (APPLE_FILESYSTEM_BLOCK_SIZE - 2048)
         # Verify savings calculation for each file
@@ -215,7 +213,6 @@ class TestSmallFilesInsight:
 
         assert isinstance(result, SmallFilesInsightResult)
         assert len(result.files) == 20  # Only files under block size
-        assert result.file_count == 20
         # Each small file wastes 1 byte (4096 - 4095)
         assert result.total_savings == 20 * 1
         # Verify savings calculation for each file
@@ -269,5 +266,4 @@ class TestSmallFilesInsight:
 
         assert isinstance(result, SmallFilesInsightResult)
         assert len(result.files) == len(test_sizes)
-        assert result.file_count == len(test_sizes)
         assert result.total_savings == expected_savings
