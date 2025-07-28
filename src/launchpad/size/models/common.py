@@ -95,7 +95,7 @@ class BaseAnalysisResults(BaseModel):
     model_config = ConfigDict(frozen=True)
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
-    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
+    file_analysis: FileAnalysis = Field(..., description="File-level analysis results", exclude=True)
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
     use_si_units: bool = Field(default=False, description="Whether to use SI units for size display")
     download_size: int = Field(..., description="Estimated download size in bytes")

@@ -30,82 +30,124 @@ class FileSavingsResultGroup(BaseModel):
     total_savings: int = Field(..., ge=0, description="Total savings for this group")
 
 
-class DuplicateFilesInsightResult(BaseInsightResult):
-    """Results from duplicate files analysis."""
+class FilesInsightResult(BaseInsightResult):
+    """Base class for insights that return a list of files with savings."""
 
-    groups: List[FileSavingsResultGroup] = Field(..., description="Groups of duplicate files by filename")
-
-
-class LargeImageFileInsightResult(BaseInsightResult):
-    """Results from large image files analysis."""
-
-    files: List[FileSavingsResult] = Field(..., description="Image files larger than 10MB with their sizes")
+    files: List[FileSavingsResult] = Field(..., description="Files with potential savings")
 
 
-class LargeVideoFileInsightResult(BaseInsightResult):
-    """Results from large video files analysis."""
+class GroupsInsightResult(BaseInsightResult):
+    """Base class for insights that return grouped file results."""
 
-    files: List[FileSavingsResult] = Field(..., description="Video files larger than 10MB with their sizes")
-
-
-class LargeAudioFileInsightResult(BaseInsightResult):
-    """Results from large audio files analysis."""
-
-    files: List[FileSavingsResult] = Field(..., description="Audio files larger than 5MB with their sizes")
+    groups: List[FileSavingsResultGroup] = Field(..., description="Groups of files with savings information")
 
 
-class HermesDebugInfoInsightResult(BaseInsightResult):
-    """Results from Hermes debug info analysis."""
+class DuplicateFilesInsightResult(GroupsInsightResult):
+    """Results from duplicate files analysis.
 
-    files: List[FileSavingsResult] = Field(..., description="Hermes bytecode files with potential debug info savings")
+    Groups contain duplicate files organized by filename.
+    """
 
-
-class UnnecessaryFilesInsightResult(BaseInsightResult):
-    """Results from unnecessary files analysis."""
-
-    files: List[FileSavingsResult] = Field(..., description="Unnecessary files with their sizes that could be removed")
+    pass
 
 
-class WebPOptimizationInsightResult(BaseInsightResult):
-    """Results from WebP optimization analysis."""
+class LargeImageFileInsightResult(FilesInsightResult):
+    """Results from large image files analysis.
 
-    files: List[FileSavingsResult] = Field(..., description="Optimizeable image files")
+    Files contain image files larger than 10MB with their sizes.
+    """
 
-
-class LocalizedStringInsightResult(BaseInsightResult):
-    """Results from localized string analysis."""
-
-    files: List[FileSavingsResult] = Field(
-        ..., description="Localized strings files exceeding 100KB threshold with their sizes"
-    )
+    pass
 
 
-class LocalizedStringCommentsInsightResult(BaseInsightResult):
-    """Results from localized string comments analysis."""
+class LargeVideoFileInsightResult(FilesInsightResult):
+    """Results from large video files analysis.
 
-    files: List[FileSavingsResult] = Field(
-        ..., description="Localized strings files with comment stripping opportunities"
-    )
+    Files contain video files larger than 10MB with their sizes.
+    """
 
-
-class SmallFilesInsightResult(BaseInsightResult):
-    """Results from small files analysis."""
-
-    files: List[FileSavingsResult] = Field(..., description="Files smaller than filesystem block size with their sizes")
+    pass
 
 
-class LooseImagesInsightResult(BaseInsightResult):
-    """Results from loose images analysis."""
+class LargeAudioFileInsightResult(FilesInsightResult):
+    """Results from large audio files analysis.
 
-    groups: List[FileSavingsResultGroup] = Field(
-        ..., description="Groups of loose images that could be moved to asset catalogs"
-    )
+    Files contain audio files larger than 5MB with their sizes.
+    """
+
+    pass
 
 
-class MainBinaryExportMetadataResult(BaseInsightResult):
-    """Results from main binary exported symbols metadata analysis."""
+class HermesDebugInfoInsightResult(FilesInsightResult):
+    """Results from Hermes debug info analysis.
 
-    files: List[FileSavingsResult] = Field(..., description="Main binaries with export metadata that could be reduced")
+    Files contain Hermes bytecode files with potential debug info savings.
+    """
+
+    pass
+
+
+class UnnecessaryFilesInsightResult(FilesInsightResult):
+    """Results from unnecessary files analysis.
+
+    Files contain unnecessary files with their sizes that could be removed.
+    """
+
+    pass
+
+
+class WebPOptimizationInsightResult(FilesInsightResult):
+    """Results from WebP optimization analysis.
+
+    Files contain optimizeable image files.
+    """
+
+    pass
+
+
+class LocalizedStringInsightResult(FilesInsightResult):
+    """Results from localized string analysis.
+
+    Files contain localized strings files exceeding 100KB threshold with their sizes.
+    """
+
+    pass
+
+
+class LocalizedStringCommentsInsightResult(FilesInsightResult):
+    """Results from localized string comments analysis.
+
+    Files contain localized strings files with comment stripping opportunities.
+    """
+
+    pass
+
+
+class SmallFilesInsightResult(FilesInsightResult):
+    """Results from small files analysis.
+
+    Files contain files smaller than filesystem block size with their sizes.
+    """
+
+    pass
+
+
+class LooseImagesInsightResult(GroupsInsightResult):
+    """Results from loose images analysis.
+
+    Groups contain loose images that could be moved to asset catalogs.
+    """
+
+    pass
+
+
+class MainBinaryExportMetadataResult(FilesInsightResult):
+    """Results from main binary exported symbols metadata analysis.
+
+    Files contain main binaries with export metadata that could be reduced.
+    """
+
+    pass
 
 
 class OptimizableImageFile(BaseModel):
