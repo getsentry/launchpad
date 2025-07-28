@@ -7,7 +7,7 @@ import os
 import click
 
 from . import __version__
-from .distribution import distribution_command
+from .distribution.cli import distribution_command
 from .service import run_service
 from .size.cli import size_command
 from .utils.console import console
