@@ -1,3 +1,4 @@
+# Use curl --data-binary @codecov.yml https://codecov.io/validate to validate changes.
 github_checks:
   annotations: false
 coverage:
@@ -5,4 +6,6 @@ coverage:
     project:
       default:
         informational: true
+    patch:
+      default: false
 
