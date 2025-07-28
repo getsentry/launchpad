@@ -31,6 +31,7 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 - Package management and virtual environment via `uv`
 - Use `| None` instead of `Optional`
 - When writing comments try to keep them short and informative
+- Prefer empty `__init__.py` files.
 
 ### Code Quality
 
