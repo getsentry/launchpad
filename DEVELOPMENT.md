@@ -44,3 +44,8 @@ Run `make help` to see all available commands.
 
 - Python 3.11 or 3.12
 - Make
+
+## Style
+
+- Prefer empty `__init__.py` files. See https://github.com/getsentry/launchpad/pull/56.
+
