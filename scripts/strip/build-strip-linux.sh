@@ -53,7 +53,7 @@ if [[ $VERIFY -eq 1 ]]; then
     -f "${DOCKERFILE}" \
     -t "${VERIFY_TAG}" \
     --load \
-    .
+    . || { echo "Verification failed"; exit 1; }
 fi
 
 echo "==> Exporting binaries to ${OUT_DIR} via build stage"

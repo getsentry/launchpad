@@ -120,6 +120,7 @@ jobs:
             -e KAFKA_TOPICS="preprod-artifact-events" \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
+            --user $(id -u):$(id -g) \
             launchpad-test python -m pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 
       - name: Upload coverage reports to Codecov
