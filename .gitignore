@@ -49,6 +49,7 @@ install-devenv.sh
 
 # Local output files
 out.json
+output/
 
 # gocd generated output
 gocd/templates/vendor/

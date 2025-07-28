@@ -69,7 +69,7 @@
         "--verbose",
         "tests/_fixtures/ios/HackerNews.xcarchive.zip",
         "--output",
-        "apple-size-output.json"
+        "output/apple-size-output.json"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
@@ -90,7 +90,7 @@
         "--verbose",
         "tests/_fixtures/android/zipped_aab.zip",
         "--output",
-        "android-size-output.json"
+        "output/android-size-output.json"
       ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
