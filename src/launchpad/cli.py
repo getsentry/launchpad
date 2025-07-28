@@ -7,6 +7,7 @@ import os
 import click
 
 from . import __version__
+from .distribution import distribution_command
 from .service import run_service
 from .size.cli import size_command
 from .utils.console import console
@@ -81,6 +82,7 @@ def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
 
 
 cli.add_command(size_command)
+cli.add_command(distribution_command)
 
 
 def main() -> None:
