@@ -79,9 +79,11 @@ COPY LICENSE .
 # Copy libdispatch from the build stage
 COPY --from=libdispatch-build /usr/lib/x86_64-linux-gnu/libdispatch.so* /usr/lib/x86_64-linux-gnu/
 
-# Ensure the strip and ld binaries are executable and create necessary symlinks
+# Copy and verify the strip and ld binaries, then make them executable
 COPY scripts/strip/dist/strip scripts/strip/dist/ld /app/scripts/strip/dist/
-RUN chmod +x /app/scripts/strip/dist/strip /app/scripts/strip/dist/ld && \
+RUN echo "4cd01dd28294a3ebeff031d6ba947aee1c2dd9c402f504f9866eec302466b11d  /app/scripts/strip/dist/strip" | sha256sum -c - && \
+    echo "05b2cbe0786aab0e2ffba665a6fe2303d2a9e2e77ac8b18cfc015dffe2c2d3f7  /app/scripts/strip/dist/ld" | sha256sum -c - && \
+    chmod +x /app/scripts/strip/dist/strip /app/scripts/strip/dist/ld && \
     ln -sf /usr/lib/x86_64-linux-gnu/libBlocksRuntime.so.0 /usr/lib/x86_64-linux-gnu/libBlocksRuntime.so && \
     ldconfig
 

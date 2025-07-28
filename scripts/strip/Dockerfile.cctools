@@ -26,7 +26,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /tmp
 RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
     cd swift-corelibs-libdispatch && \
+    # Verify we're cloning from the expected repository
+    git remote -v | grep -q "github.com/apple/swift-corelibs-libdispatch" && \
+    # Pin to specific commit hash for security
     git checkout 731d5c61ab5437e0e9bbfca7d318519a9d34f395 && \
+    # Verify the commit hash matches our expectation
+    test "$(git rev-parse HEAD)" = "731d5c61ab5437e0e9bbfca7d318519a9d34f395" && \
     mkdir build && cd build && \
     cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX=/usr && \
     make -j$(nproc) && \
@@ -38,7 +43,11 @@ WORKDIR /src
 ARG CCTOOLS_PORT_REF=1024.3-ld64-955.13
 RUN git clone https://github.com/tpoechtrager/cctools-port.git && \
     cd cctools-port && \
-    git checkout ${CCTOOLS_PORT_REF}
+    # Verify we're cloning from the expected repository
+    git remote -v | grep -q "github.com/tpoechtrager/cctools-port" && \
+    git checkout ${CCTOOLS_PORT_REF} && \
+    # Verify we successfully checked out the expected ref
+    git log -1 --oneline
 
 WORKDIR /src/cctools-port/cctools
 RUN ./autogen.sh
@@ -47,8 +56,25 @@ RUN make -j"$(nproc)" && make install-strip
 
 # Verify the binary is working
 FROM --platform=linux/amd64 python:3.12-slim-bookworm AS verify
+# Install runtime dependencies needed by the strip binaries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libbsd0 \
+    liblzma5 \
+    zlib1g \
+    libblocksruntime0 \
+    && rm -rf /var/lib/apt/lists/*
+# Copy libdispatch from build stage
+COPY --from=build /usr/lib/x86_64-linux-gnu/libdispatch.so* /usr/lib/x86_64-linux-gnu/
+# Create BlocksRuntime symlink and update library cache
+RUN ln -sf /usr/lib/x86_64-linux-gnu/libBlocksRuntime.so.0 /usr/lib/x86_64-linux-gnu/libBlocksRuntime.so && \
+    ldconfig
 COPY --from=build /out/bin/strip /usr/local/bin/apple-strip
-RUN /usr/local/bin/apple-strip --help >/dev/null 2>&1 || true
+COPY --from=build /out/bin/ld /usr/local/bin/apple-ld
+# Test that the binaries actually work and produce expected output
+# Note: apple-strip shows usage on invalid flags, use that as verification
+RUN /usr/local/bin/apple-strip --invalid-flag 2>&1 | grep -q "Usage:" && \
+    /usr/local/bin/apple-ld --help >/dev/null 2>&1 && \
+    echo "Basic functionality tests passed"
 
 # Export artifact
 FROM scratch AS export
