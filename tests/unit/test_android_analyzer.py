@@ -38,11 +38,8 @@ class TestAndroidAnalyzer:
         duplicate_insight = results.insights.duplicate_files
         assert hasattr(duplicate_insight, "groups")
         assert hasattr(duplicate_insight, "total_savings")
-        assert hasattr(duplicate_insight, "duplicate_count")
         assert isinstance(duplicate_insight.total_savings, int)
-        assert isinstance(duplicate_insight.duplicate_count, int)
         assert duplicate_insight.total_savings == 51709
-        assert duplicate_insight.duplicate_count == 53
 
     def test_duplicate_files_have_hashes(self, test_apk_path: Path, android_analyzer: AndroidAnalyzer) -> None:
         """Test that all files have MD5 hashes for duplicate detection."""

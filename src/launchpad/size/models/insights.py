@@ -2,8 +2,6 @@ from typing import List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from launchpad.size.models.common import FileInfo
-
 
 class BaseInsightResult(BaseModel):
     """Base class for all insight results."""
@@ -37,16 +35,6 @@ class DuplicateFilesInsightResult(BaseInsightResult):
 
     groups: List[FileSavingsResultGroup] = Field(..., description="Groups of duplicate files by filename")
 
-    @property
-    def duplicate_count(self) -> int:
-        """Total number of duplicate files across all groups."""
-        return sum(len(group.files) - 1 for group in self.groups)
-
-    @property
-    def total_files(self) -> int:
-        """Total number of files across all groups."""
-        return sum(len(group.files) for group in self.groups)
-
 
 class LargeImageFileInsightResult(BaseInsightResult):
     """Results from large image files analysis."""
@@ -78,16 +66,10 @@ class UnnecessaryFilesInsightResult(BaseInsightResult):
     files: List[FileSavingsResult] = Field(..., description="Unnecessary files with their sizes that could be removed")
 
 
-class OptimizeableImageFile(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    file_info: FileInfo = Field(..., description="File info")
-    potential_savings: int = Field(..., description="Potential savings")
+class WebPOptimizationInsightResult(BaseInsightResult):
+    """Results from WebP optimization analysis."""
 
-
-class WebPOptimizationInsightResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    # list of file paths and their potential savings
-    optimizeable_image_files: list[OptimizeableImageFile] = Field(..., description="Optimizeable image files")
+    files: List[FileSavingsResult] = Field(..., description="Optimizeable image files")
 
 
 class LocalizedStringInsightResult(BaseInsightResult):

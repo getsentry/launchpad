@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.insights import OptimizeableImageFile, WebPOptimizationInsightResult
+from launchpad.size.models.insights import FileSavingsResult, WebPOptimizationInsightResult
 from launchpad.utils.file_utils import get_file_size
 from launchpad.utils.logging import get_logger
 
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):
     def generate(self, input: InsightsInput) -> WebPOptimizationInsightResult | None:
-        optimizeable_image_files: list[OptimizeableImageFile] = []
+        optimizable_files: list[FileSavingsResult] = []
 
         for file_info in input.file_analysis.files:
             if not file_info.full_path:
@@ -47,12 +47,14 @@ class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):
                     logger.debug(
                         f"Found optimizable image {file_info.full_path}: {original_size} -> {webp_size} bytes (savings: {savings})"
                     )
-                    optimizeable_image_files.append(
-                        OptimizeableImageFile(file_info=file_info, potential_savings=savings)
-                    )
+                    optimizable_files.append(FileSavingsResult(file_path=file_info.path, total_savings=savings))
                 else:
                     logger.debug(
                         f"Image {file_info.full_path} not worth optimizing: {original_size} -> {webp_size} bytes (savings: {savings} < 500)"
                     )
 
-        return WebPOptimizationInsightResult(optimizeable_image_files=optimizeable_image_files)
+        if not optimizable_files:
+            return None
+
+        total_savings = sum(file.total_savings for file in optimizable_files)
+        return WebPOptimizationInsightResult(files=optimizable_files, total_savings=total_savings)

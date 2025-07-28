@@ -6,7 +6,7 @@ import pytest
 from launchpad.artifacts.artifact import AndroidArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.analyzers.android import AndroidAnalyzer
-from launchpad.size.models.android import WebPOptimizationInsightResult
+from launchpad.size.models.insights import WebPOptimizationInsightResult
 
 
 class TestWebPOptimizationInsight:
@@ -25,8 +25,9 @@ class TestWebPOptimizationInsight:
         webp_result = results.insights.webp_optimization
 
         assert isinstance(webp_result, WebPOptimizationInsightResult)
-        assert isinstance(webp_result.optimizeable_image_files, list)
+        assert isinstance(webp_result.files, list)
+        assert webp_result.total_savings > 0
 
-        print(webp_result.optimizeable_image_files)
-        assert webp_result.optimizeable_image_files[0].file_info.path == "res/07.png"
-        assert webp_result.optimizeable_image_files[0].potential_savings == 11536
+        print(webp_result.files)
+        assert webp_result.files[0].file_path == "res/07.png"
+        assert webp_result.files[0].total_savings == 11536
