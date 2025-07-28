@@ -7,8 +7,9 @@ from typing import Dict, List, Set
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.insights import (
-    DuplicateFileGroup,
     DuplicateFilesInsightResult,
+    FileSavingsResult,
+    FileSavingsResultGroup,
 )
 
 
@@ -21,7 +22,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         files = input.file_analysis.files
         directories = input.file_analysis.directories
 
-        groups: List[DuplicateFileGroup] = []
+        groups: List[FileSavingsResultGroup] = []
         total_savings = 0
         covered_dirs: Set[str] = set()
 
@@ -48,10 +49,11 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
             if savings <= 0:
                 continue
 
+            files_with_savings = [FileSavingsResult(file_path=d.path, total_savings=d.size) for d in dirs]
             groups.append(
-                DuplicateFileGroup(
-                    filename=os.path.basename(dirs[0].path) or "/",
-                    files=dirs,
+                FileSavingsResultGroup(
+                    name=os.path.basename(dirs[0].path) or "/",
+                    files=files_with_savings,
                     total_savings=savings,
                 )
             )
@@ -77,16 +79,17 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
             if savings <= 0:
                 continue
 
+            files_with_savings = [FileSavingsResult(file_path=f.path, total_savings=f.size) for f in dup_files]
             groups.append(
-                DuplicateFileGroup(
-                    filename=os.path.basename(dup_files[0].path),
-                    files=dup_files,
+                FileSavingsResultGroup(
+                    name=os.path.basename(dup_files[0].path),
+                    files=files_with_savings,
                     total_savings=savings,
                 )
             )
             total_savings += savings
 
-        groups.sort(key=lambda g: (-g.total_savings, g.filename))
+        groups.sort(key=lambda g: (-g.total_savings, g.name))
 
         if groups:
             return DuplicateFilesInsightResult(groups=groups, total_savings=total_savings)

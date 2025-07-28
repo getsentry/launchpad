@@ -13,11 +13,11 @@ import pillow_heif  # type: ignore
 from PIL import Image
 
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.apple import (
+from launchpad.size.models.common import FileInfo
+from launchpad.size.models.insights import (
     ImageOptimizationInsightResult,
     OptimizableImageFile,
 )
-from launchpad.size.models.common import FileInfo
 from launchpad.utils.logging import get_logger
 
 pillow_heif.register_heif_opener()  # type: ignore
@@ -51,7 +51,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
 
         results: List[OptimizableImageFile] = []
         with ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(files))) as executor:
-            future_to_file = {executor.submit(self._analyze_file_info, f): f for f in files}
+            future_to_file = {executor.submit(self._analyze_image_optimization, f): f for f in files}
             for future in as_completed(future_to_file):
                 try:
                     result = future.result()
@@ -72,28 +72,23 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
             total_savings=total_savings,
         )
 
-    def _analyze_file_info(self, file_info: FileInfo) -> OptimizableImageFile | None:
-        return self._analyze_image_optimization(
-            full_path=file_info.full_path,
-            file_size=file_info.size,
-            file_type=file_info.file_type,
-            display_path=file_info.path,
-            source_object=file_info,
-        )
-
     def _analyze_image_optimization(
         self,
-        *,
-        full_path: Path,
-        file_size: int,
-        file_type: str,
-        display_path: str,
-        source_object: FileInfo,
+        file_info: FileInfo,
     ) -> OptimizableImageFile | None:
         minify_savings = 0
         conversion_savings = 0
         minified_size: int | None = None
         heic_size: int | None = None
+
+        full_path = file_info.full_path
+        file_size = file_info.size
+        file_type = file_info.file_type
+        display_path = file_info.path
+
+        if full_path is None:
+            logger.info("Skipping %s because it has no full path", display_path)
+            return None
 
         try:
             with Image.open(full_path) as img:
@@ -116,7 +111,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
             return None
 
         return OptimizableImageFile(
-            file_info=source_object,
+            file_path=display_path,
             current_size=file_size,
             minify_savings=minify_savings,
             minified_size=minified_size,

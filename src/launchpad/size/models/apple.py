@@ -8,22 +8,27 @@ from typing import List
 
 import lief
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 from launchpad.size.models.binary_component import BinaryAnalysis
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis, FileInfo
+from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .insights import (
-    BaseInsightResult,
     DuplicateFilesInsightResult,
-    FileSavingsResult,
     HermesDebugInfoInsightResult,
+    ImageOptimizationInsightResult,
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
+    LocalizedStringCommentsInsightResult,
+    LocalizedStringInsightResult,
+    LooseImagesInsightResult,
+    MainBinaryExportMetadataResult,
+    SmallFilesInsightResult,
+    StripBinaryInsightResult,
     UnnecessaryFilesInsightResult,
 )
 
@@ -41,107 +46,6 @@ class AppleAnalysisResults(BaseAnalysisResults):
     )
     insights: AppleInsightResults | None = Field(
         description="Generated insights from the analysis",
-    )
-
-
-class LocalizedStringInsightResult(BaseInsightResult):
-    """Results from localized string analysis."""
-
-    files: List[FileSavingsResult] = Field(
-        ..., description="Localized strings files exceeding 100KB threshold with their sizes"
-    )
-
-
-class LocalizedStringCommentsInsightResult(BaseInsightResult):
-    """Results from localized string comments analysis."""
-
-    files: List[FileSavingsResult] = Field(
-        ..., description="Localized strings files with comment stripping opportunities"
-    )
-
-
-class SmallFilesInsightResult(BaseInsightResult):
-    """Results from small files analysis."""
-
-    files: List[FileSavingsResult] = Field(..., description="Files smaller than filesystem block size with their sizes")
-    file_count: int = Field(..., description="Number of small files found")
-
-
-class LooseImageGroup(BaseModel):
-    """Group of loose image files with the same canonical name."""
-
-    canonical_name: str
-    images: List[FileInfo]
-
-    @property
-    def total_size(self) -> int:
-        """Total size of all images in this group."""
-        return sum(img.size for img in self.images)
-
-    @computed_field
-    @property
-    def total_savings(self) -> int:
-        """Size savings by moving to asset catalog (excluding largest image that would be kept)."""
-        if len(self.images) <= 1:
-            return 0
-
-        # TODO: this doesn't handle some edge cases yet like when there are iphone/ipad variants
-        max_size = max(img.size for img in self.images)
-        return sum(img.size for img in self.images) - max_size
-
-
-class LooseImagesInsightResult(BaseInsightResult):
-    """Results from loose images analysis."""
-
-    image_groups: List[LooseImageGroup] = Field(
-        ..., description="Groups of loose images that could be moved to asset catalogs"
-    )
-    total_file_count: int = Field(..., description="Total number of loose image files found")
-
-
-class MainBinaryExportMetadataResult(BaseInsightResult):
-    """Results from main binary exported symbols metadata analysis."""
-
-    files: List[FileSavingsResult] = Field(..., description="Main binaries with export metadata that could be reduced")
-
-
-class OptimizableImageFile(BaseModel):
-    """Information about an image file that can be optimized."""
-
-    model_config = ConfigDict(frozen=True)
-
-    file_info: FileInfo = Field(..., description="File information")
-    current_size: int = Field(..., description="Current file size in bytes")
-
-    # Minification savings (optimizing current format)
-    minify_savings: int = Field(default=0, ge=0, description="Potential savings from minification")
-    minified_size: int | None = Field(default=None, description="Size after minification")
-
-    # HEIC conversion savings (converting to HEIC format)
-    conversion_savings: int = Field(default=0, ge=0, description="Potential savings from HEIC conversion")
-    heic_size: int | None = Field(default=None, description="Size after HEIC conversion")
-
-    @property
-    def potential_savings(self) -> int:
-        """Calculate total potential savings from the best optimization."""
-        return max(self.minify_savings, self.conversion_savings)
-
-    @property
-    def best_optimization_type(self) -> str:
-        """Return the optimization type that provides the most savings."""
-        if self.conversion_savings > self.minify_savings:
-            return "convert_to_heic"
-        elif self.minify_savings > 0:
-            return "minify"
-        else:
-            return "none"
-
-
-class ImageOptimizationInsightResult(BaseInsightResult):
-    """Results from image optimization analysis."""
-
-    optimizable_files: List[OptimizableImageFile] = Field(
-        ..., description="Files that can be optimized with potential savings"
     )
 
 
@@ -186,23 +90,6 @@ class MachOBinaryAnalysis(BaseBinaryAnalysis):
     symbol_info: SymbolInfo | None = Field(None, description="Symbol information", exclude=True)
     objc_method_names: List[str] = Field(default_factory=list, description="Objective-C method names", exclude=True)
     is_main_binary: bool = Field(False, description="Whether this is the main binary")
-
-
-class StripBinaryFileInfo(BaseModel):
-    """Savings information from stripping a Mach-O binary."""
-
-    file_path: str = Field(..., description="Path to the binary file within the app bundle")
-    debug_sections_savings: int = Field(..., ge=0, description="Savings from removing debug sections")
-    symbol_table_savings: int = Field(..., ge=0, description="Savings from removing symbol table")
-    total_savings: int = Field(..., ge=0, description="Total potential savings in bytes from stripping debug content")
-
-
-class StripBinaryInsightResult(BaseInsightResult):
-    """Results from strip binary analysis."""
-
-    files: List[StripBinaryFileInfo] = Field(..., description="Files that could save size by stripping the binary")
-    total_debug_sections_savings: int = Field(..., ge=0, description="Total potential savings from debug sections")
-    total_symbol_table_savings: int = Field(..., ge=0, description="Total potential savings from symbol tables")
 
 
 class SwiftMetadata(BaseModel):

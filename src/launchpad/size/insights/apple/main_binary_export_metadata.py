@@ -1,6 +1,6 @@
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.apple import MachOBinaryAnalysis, MainBinaryExportMetadataResult
-from launchpad.size.models.insights import FileSavingsResult
+from launchpad.size.models.apple import MachOBinaryAnalysis
+from launchpad.size.models.insights import FileSavingsResult, MainBinaryExportMetadataResult
 
 
 class MainBinaryExportMetadataInsight(Insight[MainBinaryExportMetadataResult]):

@@ -1,25 +1,14 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import BaseAnalysisResults, BaseAppInfo, FileInfo
+from .common import BaseAnalysisResults, BaseAppInfo
 from .insights import (
     DuplicateFilesInsightResult,
     HermesDebugInfoInsightResult,
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
+    WebPOptimizationInsightResult,
 )
-
-
-class OptimizeableImageFile(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    file_info: FileInfo = Field(..., description="File info")
-    potential_savings: int = Field(..., description="Potential savings")
-
-
-class WebPOptimizationInsightResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    # list of file paths and their potential savings
-    optimizeable_image_files: list[OptimizeableImageFile] = Field(..., description="Optimizeable image files")
 
 
 class AndroidInsightResults(BaseModel):

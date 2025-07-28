@@ -55,28 +55,25 @@ export interface StripBinaryInsightResult {
   total_symbol_table_savings: number;
 }
 
-export interface DuplicateFileGroup {
-  filename: string;
+export interface FileSavingsResultGroup {
+  name: string;
   files: {
-    path: string;
-    size: number;
-    file_type: string;
+    file_path: string;
+    total_savings: number;
   }[];
   total_savings: number;
 }
 
 export interface DuplicateFilesInsightResult {
   total_savings: number;
-  groups: DuplicateFileGroup[];
+  groups: FileSavingsResultGroup[];
 }
 
 export interface LooseImageGroup {
   canonical_name: string;
   images: {
-    path: string;
-    size: number;
-    file_type: string;
-    hash: string;
+    file_path: string;
+    total_savings: number;
   }[];
   total_savings: number;
 }

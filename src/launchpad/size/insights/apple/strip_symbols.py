@@ -1,7 +1,8 @@
 from typing import List
 
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.apple import MachOBinaryAnalysis, StripBinaryFileInfo, StripBinaryInsightResult
+from launchpad.size.models.apple import MachOBinaryAnalysis
+from launchpad.size.models.insights import StripBinaryFileInfo, StripBinaryInsightResult
 
 
 class StripSymbolsInsight(Insight[StripBinaryInsightResult]):

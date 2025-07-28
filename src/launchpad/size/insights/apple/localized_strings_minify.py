@@ -5,9 +5,8 @@ from pathlib import Path
 
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.apple import LocalizedStringCommentsInsightResult
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.insights import FileSavingsResult
+from launchpad.size.models.insights import FileSavingsResult, LocalizedStringCommentsInsightResult
 from launchpad.utils.file_utils import to_nearest_block_size
 
 logger = logging.getLogger(__name__)

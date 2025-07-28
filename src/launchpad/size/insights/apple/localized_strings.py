@@ -1,7 +1,6 @@
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.apple import LocalizedStringInsightResult
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.insights import FileSavingsResult
+from launchpad.size.models.insights import FileSavingsResult, LocalizedStringInsightResult
 
 
 class LocalizedStringsInsight(Insight[LocalizedStringInsightResult]):

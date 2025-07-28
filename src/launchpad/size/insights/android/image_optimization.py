@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.android import OptimizeableImageFile, WebPOptimizationInsightResult
+from launchpad.size.models.insights import OptimizeableImageFile, WebPOptimizationInsightResult
 from launchpad.utils.file_utils import get_file_size
 from launchpad.utils.logging import get_logger
 

@@ -1,8 +1,7 @@
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.apple import SmallFilesInsightResult
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.insights import FileSavingsResult
+from launchpad.size.models.insights import FileSavingsResult, SmallFilesInsightResult
 
 
 class SmallFilesInsight(Insight[SmallFilesInsightResult]):
@@ -40,7 +39,6 @@ class SmallFilesInsight(Insight[SmallFilesInsightResult]):
 
             return SmallFilesInsightResult(
                 files=file_savings,
-                file_count=len(small_files),
                 total_savings=total_savings,
             )
 
