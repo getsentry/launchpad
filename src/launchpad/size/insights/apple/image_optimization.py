@@ -8,10 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Sequence
 
-import fitz  # type: ignore
 import pillow_heif  # type: ignore
 
 from PIL import Image
+from pypdf import PdfReader, PdfWriter
 
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
@@ -165,10 +165,19 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
 
     def _check_pdf_optimization(self, file_path: Path, file_size: int) -> _OptimizationResult | None:
         try:
-            doc = fitz.open(file_path)
-            optimized_bytes = doc.tobytes(garbage=4, deflate=True)
-            doc.close()
-            new_size = len(optimized_bytes)
+            reader = PdfReader(file_path)
+            writer = PdfWriter()
+
+            for page in reader.pages:
+                page.compress_content_streams(level=9)
+                writer.add_page(page)
+
+            writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+
+            with io.BytesIO() as buf:
+                writer.write(buf)
+                new_size = buf.tell()
+
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
         except Exception as exc:
             logger.error("PDF optimization check failed: %s", exc)

@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, NamedTuple
 
 import pillow_heif  # type: ignore
-import fitz  # type: ignore
+from pypdf import PdfReader, PdfWriter
 from PIL import Image
 
 # Register HEIF support
@@ -89,10 +89,19 @@ def test_heic_conversion(img: Image.Image, file_size: int) -> OptimizationResult
 def test_pdf_optimization(pdf_path: Path, file_size: int) -> OptimizationResult | None:
     """Test PDF optimization."""
     try:
-        doc = fitz.open(pdf_path)
-        optimized_bytes = doc.tobytes(garbage=4, deflate=True)
-        doc.close()
-        new_size = len(optimized_bytes)
+        reader = PdfReader(pdf_path)
+        writer = PdfWriter()
+
+        for page in reader.pages:
+            page.compress_content_streams(level=9)
+            writer.add_page(page)
+
+        writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+
+        with io.BytesIO() as buf:
+            writer.write(buf)
+            new_size = buf.tell()
+
         if new_size < file_size:
             savings = file_size - new_size
             return OptimizationResult(
@@ -124,11 +133,17 @@ def save_optimized_image(img: Image.Image, output_path: Path, method: str) -> No
 def save_optimized_pdf(pdf_path: Path, output_path: Path) -> None:
     """Save the optimized PDF to disk."""
     try:
-        doc = fitz.open(pdf_path)
-        optimized_bytes = doc.tobytes(garbage=4, deflate=True)
-        doc.close()
+        reader = PdfReader(pdf_path)
+        writer = PdfWriter()
+
+        for page in reader.pages:
+            page.compress_content_streams(level=9)
+            writer.add_page(page)
+
+        writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+
         with open(output_path, 'wb') as f:
-            f.write(optimized_bytes)
+            writer.write(f)
     except Exception as e:
         print(f"  ❌ Failed to save optimized PDF: {e}")
 

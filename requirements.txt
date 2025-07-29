@@ -28,4 +28,4 @@ asn1crypto>=1.5.0
 cryptography>=41.0.0
 datadog==0.51.*
 lzfse>=0.4.2
-PyMuPDF>=1.23.0
+pypdf>=5.0.0
