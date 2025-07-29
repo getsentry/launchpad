@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import List, NamedTuple
 
 import pillow_heif  # type: ignore
+import fitz  # type: ignore
 from PIL import Image
 
 # Register HEIF support
@@ -85,6 +86,27 @@ def test_heic_conversion(img: Image.Image, file_size: int) -> OptimizationResult
     return None
 
 
+def test_pdf_optimization(pdf_path: Path, file_size: int) -> OptimizationResult | None:
+    """Test PDF optimization."""
+    try:
+        doc = fitz.open(pdf_path)
+        optimized_bytes = doc.tobytes(garbage=4, deflate=True)
+        doc.close()
+        new_size = len(optimized_bytes)
+        if new_size < file_size:
+            savings = file_size - new_size
+            return OptimizationResult(
+                original_size=file_size,
+                optimized_size=new_size,
+                savings=savings,
+                savings_percent=(savings / file_size) * 100,
+                method="optimized_PDF"
+            )
+    except Exception as e:
+        print(f"  ❌ PDF optimization failed: {e}")
+    return None
+
+
 def save_optimized_image(img: Image.Image, output_path: Path, method: str) -> None:
     """Save the optimized image to disk."""
     try:
@@ -99,17 +121,65 @@ def save_optimized_image(img: Image.Image, output_path: Path, method: str) -> No
         print(f"  ❌ Failed to save optimized image: {e}")
 
 
-def process_image(image_path: Path, output_dir: Path) -> None:
-    """Process a single image and save optimized versions."""
-    print(f"\n📸 Processing: {image_path.name}")
+def save_optimized_pdf(pdf_path: Path, output_path: Path) -> None:
+    """Save the optimized PDF to disk."""
+    try:
+        doc = fitz.open(pdf_path)
+        optimized_bytes = doc.tobytes(garbage=4, deflate=True)
+        doc.close()
+        with open(output_path, 'wb') as f:
+            f.write(optimized_bytes)
+    except Exception as e:
+        print(f"  ❌ Failed to save optimized PDF: {e}")
+
+
+def process_file(file_path: Path, output_dir: Path) -> None:
+    """Process a single file (image or PDF) and save optimized versions."""
+    print(f"\n📄 Processing: {file_path.name}")
 
     try:
-        file_size = image_path.stat().st_size
+        file_size = file_path.stat().st_size
         print(f"  📊 Original size: {format_size(file_size)}")
 
-        with Image.open(image_path) as img:
+        file_ext = file_path.suffix.lower()
+
+        # Handle PDF files
+        if file_ext == '.pdf':
+            print(f"  🏷️  Format: PDF")
+            results: List[OptimizationResult] = []
+
+            if result := test_pdf_optimization(file_path, file_size):
+                results.append(result)
+
+            if not results:
+                print("  ℹ️  No optimization opportunities found")
+                return
+
+            # Show results
+            print("  💡 Optimization opportunities:")
+            for i, result in enumerate(results, 1):
+                print(f"    {i}. {result.method}: "
+                     f"{format_size(result.savings)} saved "
+                     f"({result.savings_percent:.1f}%) "
+                     f"→ {format_size(result.optimized_size)}")
+
+            # Save optimized PDF
+            best_result = results[0]
+            if best_result.savings >= 4096:  # 4KB threshold
+                output_path = output_dir / f"{file_path.stem}_optimized.pdf"
+                save_optimized_pdf(file_path, output_path)
+                print(f"  ✅ Saved optimized version: {output_path.name}")
+                print(f"  🎯 Savings: {format_size(best_result.savings)} "
+                     f"({best_result.savings_percent:.1f}%)")
+            else:
+                print(f"  ⚠️  Savings ({format_size(best_result.savings)}) "
+                      f"below 4KB threshold")
+            return
+
+        # Handle image files
+        with Image.open(file_path) as img:
             img.load()  # type: ignore
-            fmt = (img.format or image_path.suffix[1:]).lower()
+            fmt = (img.format or file_path.suffix[1:]).lower()
             print(f"  🏷️  Format: {fmt.upper()}, Mode: {img.mode}, Size: {img.size}")
 
             results: List[OptimizationResult] = []
@@ -145,13 +215,13 @@ def process_image(image_path: Path, output_dir: Path) -> None:
             # Save the best optimization
             best_result = max(results, key=lambda r: r.savings)
             if best_result.savings >= 4096:  # 4KB threshold
-                stem = image_path.stem
+                stem = file_path.stem
                 if best_result.method == "HEIC":
                     output_path = output_dir / f"{stem}_optimized.heic"
                 elif best_result.method.startswith("minified_"):
-                    output_path = output_dir / f"{stem}_optimized{image_path.suffix}"
+                    output_path = output_dir / f"{stem}_optimized{file_path.suffix}"
                 else:
-                    output_path = output_dir / f"{stem}_optimized{image_path.suffix}"
+                    output_path = output_dir / f"{stem}_optimized{file_path.suffix}"
 
                 save_optimized_image(img, output_path, best_result.method)
                 print(f"  ✅ Saved optimized version: {output_path.name}")
@@ -162,18 +232,18 @@ def process_image(image_path: Path, output_dir: Path) -> None:
                       f"below 4KB threshold")
 
     except Exception as e:
-        print(f"  ❌ Failed to process image: {e}")
+        print(f"  ❌ Failed to process file: {e}")
 
 
 def main():
     """Main function."""
     if len(sys.argv) != 2:
-        print("Usage: python test_image_optimization.py <directory_or_image_path>")
+        print("Usage: python test_image_optimization.py <directory_or_file_path>")
         print("\nThis script will:")
-        print("- Analyze images for optimization opportunities")
+        print("- Analyze images and PDFs for optimization opportunities")
         print("- Save optimized versions with '_optimized' suffix")
         print("- Show before/after file sizes and savings")
-        print("- Allow you to visually compare original vs optimized")
+        print("- Allow you to compare original vs optimized files")
         sys.exit(1)
 
     input_path = Path(sys.argv[1])
@@ -183,35 +253,35 @@ def main():
         sys.exit(1)
 
     # Collect image files
-    image_extensions = {'.png', '.jpg', '.jpeg', '.heif', '.heic'}
+    image_extensions = {'.png', '.jpg', '.jpeg', '.heif', '.heic', '.pdf'}
 
     if input_path.is_file():
         if input_path.suffix.lower() not in image_extensions:
-            print(f"❌ Not a supported image file: {input_path}")
+            print(f"❌ Not a supported file: {input_path}")
             sys.exit(1)
-        image_files = [input_path]
+        files = [input_path]
         output_dir = input_path.parent
     else:
-        image_files: List[Path] = []
+        files: List[Path] = []
         for ext in image_extensions:
-            image_files.extend(input_path.glob(f"*{ext}"))
-            image_files.extend(input_path.glob(f"*{ext.upper()}"))
+            files.extend(input_path.glob(f"*{ext}"))
+            files.extend(input_path.glob(f"*{ext.upper()}"))
 
-        if not image_files:
-            print(f"❌ No supported image files found in: {input_path}")
+        if not files:
+            print(f"❌ No supported files found in: {input_path}")
             sys.exit(1)
         output_dir = input_path
 
-    print(f"🔍 Found {len(image_files)} image(s) to process")
+    print(f"🔍 Found {len(files)} file(s) to process")
     print(f"📁 Output directory: {output_dir}")
 
-    # Process each image
-    for image_file in sorted(image_files):
-        process_image(image_file, output_dir)
+    # Process each file
+    for file in sorted(files):
+        process_file(file, output_dir)
 
     print(f"\n✨ Processing complete!")
-    print(f"📂 Check {output_dir} for optimized images with '_optimized' suffix")
-    print("👀 Open original and optimized images side-by-side to compare quality")
+    print(f"📂 Check {output_dir} for optimized files with '_optimized' suffix")
+    print("👀 Open original and optimized files side-by-side to compare quality")
 
 
 if __name__ == "__main__":

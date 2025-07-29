@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Sequence
 
+import fitz  # type: ignore
 import pillow_heif  # type: ignore
 
 from PIL import Image
@@ -38,7 +39,7 @@ class _OptimizationResult:
 class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     """Analyse image optimisation opportunities in iOS apps."""
 
-    OPTIMIZABLE_FORMATS = {"png", "jpg", "jpeg", "heif", "heic"}
+    OPTIMIZABLE_FORMATS = {"png", "jpg", "jpeg", "heif", "heic", "pdf"}
     MIN_SAVINGS_THRESHOLD = 4096
     TARGET_JPEG_QUALITY = 85
     TARGET_HEIC_QUALITY = 85
@@ -104,8 +105,16 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                     if res := self._check_heic_minification(img, file_size):
                         minify_savings, minified_size = res.savings, res.optimized_size
         except Exception as exc:
-            logger.error("Failed to process %s: %s", display_path, exc)
-            return None
+            if file_type.lower() == "pdf":
+                try:
+                    if res := self._check_pdf_optimization(full_path, file_size):
+                        minify_savings, minified_size = res.savings, res.optimized_size
+                except Exception as pdf_exc:
+                    logger.error("Failed to process PDF %s: %s", display_path, pdf_exc)
+                    return None
+            else:
+                logger.error("Failed to process %s: %s", display_path, exc)
+                return None
 
         if max(minify_savings, conversion_savings) < self.MIN_SAVINGS_THRESHOLD:
             return None
@@ -152,6 +161,17 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
         except Exception as exc:
             logger.error("HEIC minification check failed: %s", exc)
+            return None
+
+    def _check_pdf_optimization(self, file_path: Path, file_size: int) -> _OptimizationResult | None:
+        try:
+            doc = fitz.open(file_path)
+            optimized_bytes = doc.tobytes(garbage=4, deflate=True)
+            doc.close()
+            new_size = len(optimized_bytes)
+            return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
+        except Exception as exc:
+            logger.error("PDF optimization check failed: %s", exc)
             return None
 
     def _iter_optimizable_files(self, files: Sequence[FileInfo]) -> Iterable[FileInfo]:
