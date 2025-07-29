@@ -279,12 +279,11 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         # Bundle DYLD subsections under a synthetic parent
         if dyld_children:
-            dyld_total = sum(c.install_size for c in dyld_children)
+            dyld_total = sum(c.size for c in dyld_children)
             section_children.append(
                 TreemapElement(
                     name="DYLD",
-                    install_size=dyld_total,
-                    download_size=dyld_total,
+                    size=dyld_total,
                     element_type=TreemapType.DYLD,
                     path=None,
                     is_directory=True,
@@ -298,8 +297,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             section_children.append(
                 TreemapElement(
                     name="Unanalyzed",
-                    install_size=int(binary_component_analysis.unanalyzed_size),
-                    download_size=int(binary_component_analysis.unanalyzed_size),
+                    size=int(binary_component_analysis.unanalyzed_size),
                     element_type=TreemapType.UNMAPPED,
                     path=None,
                     is_directory=False,
