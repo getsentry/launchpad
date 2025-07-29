@@ -205,3 +205,47 @@ class StripBinaryInsightResult(BaseInsightResult):
     files: List[StripBinaryFileInfo] = Field(..., description="Files that could save size by stripping the binary")
     total_debug_sections_savings: int = Field(..., ge=0, description="Total potential savings from debug sections")
     total_symbol_table_savings: int = Field(..., ge=0, description="Total potential savings from symbol tables")
+
+
+class OptimizableAudioFile(BaseModel):
+    """Information about an audio file that can be compressed."""
+
+    model_config = ConfigDict(frozen=True)
+
+    file_path: str = Field(..., description="File path")
+    current_size: int = Field(..., description="Current file size in bytes")
+    current_format: str = Field(..., description="Current audio format")
+    compressed_size: int = Field(..., description="Size after AAC compression")
+    potential_savings: int = Field(..., ge=0, description="Potential savings in bytes")
+    target_format: str = Field(default="aac", description="Target compression format")
+    target_bitrate: int = Field(default=128000, description="Target bitrate in bps")
+
+
+class AudioCompressionInsightResult(BaseInsightResult):
+    """Results from audio compression analysis."""
+
+    optimizable_files: List[OptimizableAudioFile] = Field(
+        ..., description="Audio files that can be compressed with potential savings"
+    )
+
+
+class OptimizableVideoFile(BaseModel):
+    """Information about a video file that can be compressed."""
+
+    model_config = ConfigDict(frozen=True)
+
+    file_path: str = Field(..., description="File path")
+    current_size: int = Field(..., description="Current file size in bytes")
+    current_format: str = Field(..., description="Current video format")
+    compressed_size: int = Field(..., description="Size after compression")
+    potential_savings: int = Field(..., ge=0, description="Potential savings in bytes")
+    target_encoding: str = Field(..., description="Target video encoding (h264/hevc)")
+    target_bitrate: int = Field(..., description="Target bitrate in bps")
+
+
+class VideoCompressionInsightResult(BaseInsightResult):
+    """Results from video compression analysis."""
+
+    optimizable_files: List[OptimizableVideoFile] = Field(
+        ..., description="Video files that can be compressed with potential savings"
+    )

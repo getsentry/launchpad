@@ -17,6 +17,7 @@ from launchpad.size.models.binary_component import BinaryAnalysis
 
 from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
 from .insights import (
+    AudioCompressionInsightResult,
     DuplicateFilesInsightResult,
     HermesDebugInfoInsightResult,
     ImageOptimizationInsightResult,
@@ -30,6 +31,7 @@ from .insights import (
     SmallFilesInsightResult,
     StripBinaryInsightResult,
     UnnecessaryFilesInsightResult,
+    VideoCompressionInsightResult,
 )
 
 
@@ -124,6 +126,8 @@ class AppleInsightResults(BaseModel):
         None, description="Main binary exported symbols analysis"
     )
     unnecessary_files: UnnecessaryFilesInsightResult | None = Field(None, description="Unnecessary files analysis")
+    audio_compression: AudioCompressionInsightResult | None = Field(None, description="Audio compression analysis")
+    video_compression: VideoCompressionInsightResult | None = Field(None, description="Video compression analysis")
 
 
 @dataclass

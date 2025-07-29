@@ -51,6 +51,7 @@
 - **Click**: CLI framework
 - **Pydantic**: Data validation and serialization
 - **Rich**: Terminal output formatting
+- **FFmpeg**: Audio processing for compression analysis (system dependency)
 
 #### Frontend (React/TypeScript)
 - **React 19**: UI framework
@@ -74,8 +75,16 @@ cd launchpad
 devenv sync  # or manual setup below
 
 # Manual setup
-make dev-setup
+make install-dev
 source .venv/bin/activate
+```
+
+### Git Workflow
+**IMPORTANT**: Always start new feature work from the latest main branch:
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/your-feature-name
 ```
 
 ### Development Commands
@@ -156,15 +165,25 @@ launchpad size app.xcarchive.zip -o report.json --format json
 
 ### Code Style
 - **Python**: Ruff for linting and formatting (120 char line length)
+- **Modern Python**: Always use the latest Python features when possible (project uses Python 3.13+)
 - **Type Checking**: Uses 'ty' instead of mypy
 - **Import Organization**: isort via ruff
 - **Empty `__init__.py`**: Preferred pattern (see PR #56)
+- **Comments**: Only add useful comments that explain complex logic or important business decisions. Avoid noise like "// Set variable" or references to legacy implementations
 
 ### Testing Strategy
 - **Unit Tests**: Fast, isolated component testing
 - **Integration Tests**: End-to-end analysis workflows
 - **Fixtures**: Real app artifacts for comprehensive testing
 - **Service Tests**: Full Kafka integration testing
+
+### Feature Completion Requirements
+**CRITICAL**: A feature is not considered complete until:
+1. **All tests pass**: Run `make test-unit` (or `make test` for full suite) with zero failures
+2. **Code quality checks pass**: Run `make check` to ensure all linting, formatting, and type checking passes
+3. **No formatting issues**: Code must be properly formatted with `make fix` if needed
+
+Features with failing tests or code quality issues should not be considered ready for review or production.
 
 ### Error Handling
 - **Sentry Integration**: Automatic error tracking

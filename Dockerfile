@@ -42,7 +42,7 @@ ENV PYTHONUNBUFFERED=1 \
 RUN groupadd --gid 1000 app && \
     useradd --uid 1000 --gid app --shell /bin/bash --create-home app
 
-# Install system dependencies including JDK 17
+# Install system dependencies including JDK 17 and FFmpeg
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
@@ -56,6 +56,7 @@ RUN apt-get update && \
     liblzma5 \
     zlib1g \
     libblocksruntime0 \
+    ffmpeg \
     && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

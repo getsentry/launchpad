@@ -145,3 +145,5 @@ make ci
 See [License](./LICENSE) for information about Sentry's licensing.
 
 This project also uses compiled binaries for `strip` and `ld`. The source code of these is available at [https://github.com/tpoechtrager/cctools-port](https://github.com/tpoechtrager/cctools-port) and falls under the Apple Public Source License Version 2.0.
+
+This project uses FFmpeg for audio and video processing. FFmpeg is licensed under the LGPL v2.1+ license. We do not distribute or modify FFmpeg; it is installed as a system dependency via package managers. For more information about FFmpeg licensing, see [https://ffmpeg.org/legal.html](https://ffmpeg.org/legal.html).
