@@ -83,7 +83,7 @@ function convertToEChartsData(
   element: TreemapElement,
   sizeMode: 'install' | 'download'
 ): EChartsTreemapData {
-  const size = sizeMode === 'install' ? element.install_size : element.download_size;
+  const size = element.size;
   const color = element.element_type ? TYPE_COLORS[element.element_type] : TYPE_COLORS[TreemapType.OTHER];
 
   const data: EChartsTreemapData = {

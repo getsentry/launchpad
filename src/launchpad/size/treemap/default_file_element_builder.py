@@ -8,8 +8,7 @@ from launchpad.utils.file_utils import to_nearest_block_size
 
 class DefaultFileElementBuilder(TreemapElementBuilder):
     def build_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
-        install_size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
-        download_size = int(file_info.size * self.download_compression_ratio)
+        size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
 
         details: dict[str, object] = {
             "hash": file_info.hash,  # File hash for deduplication
@@ -21,8 +20,7 @@ class DefaultFileElementBuilder(TreemapElementBuilder):
 
         return TreemapElement(
             name=display_name,
-            install_size=install_size,
-            download_size=download_size,
+            size=size,
             element_type=file_info.treemap_type,
             path=file_info.path,
             is_directory=False,

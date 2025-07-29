@@ -44,10 +44,8 @@ export enum TreemapType {
 export interface TreemapElement {
   /** Display name of the element */
   name: string;
-  /** Install size in bytes */
-  install_size: number;
-  /** Download size in bytes (compressed) */
-  download_size: number;
+  /** Size in bytes (install size) */
+  size: number;
   /** Type of element for visualization */
   element_type?: TreemapType;
   /** File or directory path */
