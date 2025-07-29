@@ -144,12 +144,9 @@ class AppleAppAnalyzer:
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
-            compression_ratio = download_size / install_size if install_size > 0 else 1
-
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
-                download_compression_ratio=compression_ratio,
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )

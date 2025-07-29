@@ -60,11 +60,8 @@ class TestTreemapGeneration:
         assert children_count == 14
 
         # Verify size calculations work
-        root_install_size = root.install_size
-        assert root_install_size == 9171936
-        root_download_size = root.download_size
-        # assert root_download_size == 8552372  # TODO: fix this flake
-        assert root_download_size <= root_install_size  # Download should be <= install
+        root_size = root.size
+        assert root_size == 9171936
 
         # Verify platform
         platform_val = treemap.platform
@@ -92,24 +89,24 @@ class TestTreemapGeneration:
         # Verify AndroidManifest.xml exists
         manifest = find_node_by_path(treemap.root, "AndroidManifest.xml")
         assert manifest is not None
-        manifest_install_size = manifest.install_size
-        assert manifest_install_size == 20480
+        manifest_size = manifest.size
+        assert manifest_size == 20480
         manifest_element_type = manifest.element_type
         assert manifest_element_type == "manifests"
 
         # Verify classes.dex exists
         dex = find_node_by_path(treemap.root, "Dex")
         assert dex is not None
-        dex_install_size = dex.install_size
-        assert dex_install_size == 4363232
+        dex_size = dex.size
+        assert dex_size == 4363232
         dex_element_type = dex.element_type
         assert dex_element_type == "dex"
 
         # Verify resources.arsc exists
         resources = find_node_by_path(treemap.root, "resources.arsc")
         assert resources is not None
-        resources_install_size = resources.install_size
-        assert resources_install_size == 94208
+        resources_size = resources.size
+        assert resources_size == 94208
         resources_element_type = resources.element_type
         assert resources_element_type == "resources"
 
@@ -150,11 +147,8 @@ class TestTreemapGeneration:
         assert children_count == 14
 
         # Verify size calculations work
-        root_install_size = root.install_size
-        assert root_install_size == 7218144
-        root_download_size = root.download_size
-        # assert root_download_size == 6606156 # TODO: fix this flake
-        assert root_download_size <= root_install_size  # Download should be <= install
+        root_size = root.size
+        assert root_size == 7218144
 
         # Verify platform
         platform_val = treemap.platform
@@ -182,24 +176,24 @@ class TestTreemapGeneration:
         # Verify AndroidManifest.xml exists
         manifest = find_node_by_path(treemap.root, "AndroidManifest.xml")
         assert manifest is not None
-        manifest_install_size = manifest.install_size
-        assert manifest_install_size == 24576
+        manifest_size = manifest.size
+        assert manifest_size == 24576
         manifest_element_type = manifest.element_type
         assert manifest_element_type == "manifests"
 
         # Verify classes.dex exists
         dex = find_node_by_path(treemap.root, "Dex")
         assert dex is not None
-        dex_install_size = dex.install_size
-        assert dex_install_size == 4363232
+        dex_size = dex.size
+        assert dex_size == 4363232
         dex_element_type = dex.element_type
         assert dex_element_type == "dex"
 
         # Verify resources.arsc exists
         resources = find_node_by_path(treemap.root, "resources.arsc")
         assert resources is not None
-        resources_install_size = resources.install_size
-        assert resources_install_size == 24576
+        resources_size = resources.size
+        assert resources_size == 24576
         resources_element_type = resources.element_type
         assert resources_element_type == "resources"
 
@@ -233,8 +227,7 @@ class TestTreemapGeneration:
         # Verify root structure
         root_data = treemap_dict["root"]
         assert "name" in root_data
-        assert "install_size" in root_data
-        assert "download_size" in root_data
+        assert "size" in root_data
         assert "is_directory" in root_data
         assert "children" in root_data
 
@@ -245,8 +238,7 @@ class TestTreemapGeneration:
 
         for child in children:
             assert "name" in child
-            assert "install_size" in child
-            assert "download_size" in child
+            assert "size" in child
             assert "is_directory" in child
 
         # Test that it's actually serializable to JSON
@@ -284,8 +276,7 @@ class TestTreemapGeneration:
         # Verify root structure
         root_data = treemap_dict["root"]
         assert "name" in root_data
-        assert "install_size" in root_data
-        assert "download_size" in root_data
+        assert "size" in root_data
         assert "is_directory" in root_data
         assert "children" in root_data
 
@@ -296,8 +287,7 @@ class TestTreemapGeneration:
 
         for child in children:
             assert "name" in child
-            assert "install_size" in child
-            assert "download_size" in child
+            assert "size" in child
             assert "is_directory" in child
 
         # Test that it's actually serializable to JSON
@@ -332,11 +322,8 @@ class TestTreemapGeneration:
         assert children_count > 0
 
         # Verify size calculations work
-        root_install_size = root.install_size
-        assert root_install_size > 0
-        root_download_size = root.download_size
-        assert root_download_size > 0
-        assert root_download_size <= root_install_size
+        root_size = root.size
+        assert root_size > 0
 
     def test_apple_treemap_matches_reference(self, sample_ios_app_path: Path) -> None:
         """Test that treemap structure matches reference report."""
@@ -370,10 +357,8 @@ class TestTreemapGeneration:
         # Verify main executable
         main_exe = find_node_by_path(treemap.root, "HackerNews")
         assert main_exe is not None
-        # main_exe_install_size = main_exe.install_size
-        # assert main_exe_install_size == 3190648 TODO: fix these values
-        # main_exe_download_size = main_exe.download_size
-        # assert main_exe_download_size == 3190648
+        # main_exe_size = main_exe.size
+        # assert main_exe_size == 3190648
         main_exe_element_type = main_exe.element_type
         assert main_exe_element_type == "executables"
         main_exe_is_directory = main_exe.is_directory
@@ -383,16 +368,16 @@ class TestTreemapGeneration:
         main_exe_sections = {child.name: child for child in main_exe.children}
         has_text = "__text" in main_exe_sections
         assert has_text
-        text_install_size = main_exe_sections["__text"].install_size
-        assert text_install_size == 154660
+        text_size = main_exe_sections["__text"].size
+        assert text_size == 154660
         has_objc_classlist = "__objc_classlist" in main_exe_sections
         assert has_objc_classlist
-        objc_classlist_install_size = main_exe_sections["__objc_classlist"].install_size
-        assert objc_classlist_install_size == 3096
+        objc_classlist_size = main_exe_sections["__objc_classlist"].size
+        assert objc_classlist_size == 3096
         has_data = "__data" in main_exe_sections
         assert has_data
-        data_install_size = main_exe_sections["__data"].install_size
-        assert data_install_size == 4541
+        data_size = main_exe_sections["__data"].size
+        assert data_size == 4541
 
         # Verify Frameworks directory
         frameworks = find_node_by_path(treemap.root, "Frameworks")
@@ -413,10 +398,8 @@ class TestTreemapGeneration:
         # Verify Sentry binary
         sentry_binary = find_node_by_path(treemap.root, "Frameworks/Sentry.framework/Sentry")
         assert sentry_binary is not None
-        sentry_binary_install_size = sentry_binary.install_size
-        assert sentry_binary_install_size == 53248
-        sentry_binary_download_size = sentry_binary.download_size
-        assert sentry_binary_download_size == 53248
+        sentry_binary_size = sentry_binary.size
+        assert sentry_binary_size == 53248
         sentry_binary_element_type = sentry_binary.element_type
         assert sentry_binary_element_type == "executables"
 
@@ -431,10 +414,8 @@ class TestTreemapGeneration:
         # Verify Common binary
         common_binary = find_node_by_path(treemap.root, "Frameworks/Common.framework/Common")
         assert common_binary is not None
-        # common_binary_install_size = common_binary.install_size
-        # assert common_binary_install_size == 199376
-        # common_binary_download_size = common_binary.download_size
-        # assert common_binary_download_size == 199376
+        # common_binary_size = common_binary.size
+        # assert common_binary_size == 199376
         common_binary_element_type = common_binary.element_type
         assert common_binary_element_type == "executables"
 
@@ -449,10 +430,8 @@ class TestTreemapGeneration:
         # Verify Reaper binary
         reaper_binary = find_node_by_path(treemap.root, "Frameworks/Reaper.framework/Reaper")
         assert reaper_binary is not None
-        # reaper_binary_install_size = reaper_binary.install_size
-        # assert reaper_binary_install_size == 51440
-        # reaper_binary_download_size = reaper_binary.download_size
-        # assert reaper_binary_download_size == 51440
+        # reaper_binary_size = reaper_binary.size
+        # assert reaper_binary_size == 51440
         reaper_binary_element_type = reaper_binary.element_type
         assert reaper_binary_element_type == "executables"
 
@@ -478,20 +457,16 @@ class TestTreemapGeneration:
             "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension",
         )
         assert widget_binary is not None
-        # widget_binary_install_size = widget_binary.install_size
-        # assert widget_binary_install_size == 153016
-        # widget_binary_download_size = widget_binary.download_size
-        # assert widget_binary_download_size == 153016
+        # widget_binary_size = widget_binary.size
+        # assert widget_binary_size == 153016
         widget_binary_element_type = widget_binary.element_type
         assert widget_binary_element_type == "executables"
 
         # Verify Assets.car
         assets = find_node_by_path(treemap.root, "Assets.car")
         assert assets is not None
-        # assets_install_size = assets.install_size
-        # assert assets_install_size == 4788000
-        # assets_download_size = assets.download_size
-        # assert assets_download_size == 3830400
+        # assets_size = assets.size
+        # assert assets_size == 4788000
         assets_element_type = assets.element_type
         assert assets_element_type == "assets"
         assets_children_len = len(assets.children)
@@ -525,10 +500,6 @@ class TestTreemapGeneration:
         # }
 
         # Verify totals
-        # total_install_size = treemap.total_install_size
-        # assert total_install_size == 13278496
-        # total_download_size = treemap.total_download_size
-        # assert total_download_size == 12061966
         file_count = treemap.file_count
         assert file_count == 31
         platform_val = treemap.platform
@@ -558,18 +529,14 @@ class TestTreemapGeneration:
 
         app_view_model = find_node_by_name(treemap.root, "AppViewModel")
         assert app_view_model is not None
-        app_view_model_install_size = app_view_model.install_size
-        assert app_view_model_install_size == 25648
-        app_view_model_download_size = app_view_model.download_size
-        assert app_view_model_download_size == 25648
+        app_view_model_size = app_view_model.size
+        assert app_view_model_size == 25648
         app_view_model_element_type = app_view_model.element_type
         assert app_view_model_element_type == "modules"
 
         app_view_model = find_node_by_name(treemap.root, "SentryUserFeedbackFormViewModel")
         assert app_view_model is not None
-        app_view_model_install_size = app_view_model.install_size
-        assert app_view_model_install_size == 27620
-        app_view_model_download_size = app_view_model.download_size
-        assert app_view_model_download_size == 27620
+        app_view_model_size = app_view_model.size
+        assert app_view_model_size == 27620
         app_view_model_element_type = app_view_model.element_type
         assert app_view_model_element_type == "modules"

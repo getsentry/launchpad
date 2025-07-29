@@ -30,7 +30,6 @@ class TreemapBuilder:
         self,
         app_name: str,
         platform: Literal["ios", "android"],
-        download_compression_ratio: float,
         filesystem_block_size: int | None = None,
         # TODO: We should try to move iOS-specific logic out of this class's constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
@@ -39,7 +38,6 @@ class TreemapBuilder:
     ) -> None:
         self.app_name = app_name
         self.platform = platform
-        self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
         self.binary_analysis_map = binary_analysis_map or {}
         self.class_definitions = class_definitions or []
         self.hermes_reports = hermes_reports or {}
@@ -50,7 +48,6 @@ class TreemapBuilder:
             self.filesystem_block_size = FILESYSTEM_BLOCK_SIZES.get(platform, 4 * 1024)
 
         logger.debug(f"Using filesystem block size: {self.filesystem_block_size} bytes")
-        logger.debug(f"Download compression ratio: {self.download_compression_ratio:.1%}")
 
     def build_file_treemap(self, file_analysis: FileAnalysis) -> TreemapResults:
         logger.info(f"Building file-based treemap for {self.platform} platform")
@@ -58,13 +55,11 @@ class TreemapBuilder:
         children = self._build_file_hierarchy(file_analysis)
 
         # Calculate total sizes from children
-        total_install_size = sum(child.install_size for child in children)
-        total_download_size = sum(child.download_size for child in children)
+        total_size = sum(child.size for child in children)
 
         root = TreemapElement(
             name=self.app_name,
-            install_size=total_install_size,
-            download_size=total_download_size,
+            size=total_size,
             element_type=None,
             path=None,
             is_directory=True,  # Root app element is treated as a directory
@@ -82,7 +77,6 @@ class TreemapBuilder:
 
     def _create_file_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
         default_element_builder = DefaultFileElementBuilder(
-            download_compression_ratio=self.download_compression_ratio,
             filesystem_block_size=self.filesystem_block_size,
         )
 
@@ -91,18 +85,15 @@ class TreemapBuilder:
             case "macho":
                 element_builder = MachOElementBuilder(
                     binary_analysis_map=self.binary_analysis_map,
-                    download_compression_ratio=self.download_compression_ratio,
                     filesystem_block_size=self.filesystem_block_size,
                 )
             case "dex":
                 element_builder = DexElementBuilder(
                     class_definitions=self.class_definitions,
-                    download_compression_ratio=self.download_compression_ratio,
                     filesystem_block_size=self.filesystem_block_size,
                 )
             case _ if file_info.file_type.lower() in HERMES_EXTENSIONS:
                 element_builder = HermesElementBuilder(
-                    download_compression_ratio=self.download_compression_ratio,
                     filesystem_block_size=self.filesystem_block_size,
                     hermes_reports=self.hermes_reports,
                 )
@@ -208,14 +199,11 @@ class TreemapBuilder:
                 subdir_element = build_directory(subdir_path)
                 children.append(subdir_element)
 
-            # TODO: should this use stat size?
-            total_install_size = sum(child.install_size for child in children)
-            total_download_size = sum(child.download_size for child in children)
+            total_size = sum(child.size for child in children)
 
             return TreemapElement(
                 name=dir_name,
-                install_size=total_install_size,
-                download_size=total_download_size,
+                size=total_size,
                 element_type=self._get_directory_type(dir_name),
                 path=dir_path,
                 is_directory=True,
@@ -253,16 +241,14 @@ class TreemapBuilder:
 
     def _calculate_category_breakdown(self, file_analysis: FileAnalysis) -> Dict[str, Dict[str, int]]:
         """Calculate size breakdown by category."""
-        breakdown: Dict[str, Dict[str, int]] = defaultdict(lambda: {"install": 0, "download": 0})
+        breakdown: Dict[str, Dict[str, int]] = defaultdict(lambda: {"size": 0})
 
         for file_info in file_analysis.files:
             treemap_type = file_info.treemap_type.value
             # Use filesystem block-aligned size for install calculations
-            install_size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
-            download_size = int(file_info.size * self.download_compression_ratio)
+            size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
 
-            breakdown[treemap_type]["install"] += install_size
-            breakdown[treemap_type]["download"] += download_size
+            breakdown[treemap_type]["size"] += size
 
         return dict(breakdown)
 

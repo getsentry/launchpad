@@ -86,8 +86,7 @@ class TreemapElement(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str = Field(..., description="Display name of the element")
-    install_size: int = Field(..., ge=0, description="Install size in bytes")
-    download_size: int = Field(..., ge=0, description="Download size in bytes (compressed)")
+    size: int = Field(..., ge=0, description="Install size in bytes")
     element_type: TreemapType | None = Field(None, description="Type of element for visualization")
     path: str | None = Field(None, description="Relative file or directory path")
     is_directory: bool = Field(False, description="Whether this element represents a directory")

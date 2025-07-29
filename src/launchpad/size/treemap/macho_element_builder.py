@@ -24,12 +24,10 @@ class _SwiftTypeNode(TypedDict):
 class MachOElementBuilder(TreemapElementBuilder):
     def __init__(
         self,
-        download_compression_ratio: float,
         filesystem_block_size: int,
         binary_analysis_map: Dict[str, MachOBinaryAnalysis],
     ) -> None:
         super().__init__(
-            download_compression_ratio=download_compression_ratio,
             filesystem_block_size=filesystem_block_size,
         )
         self.binary_analysis_map = binary_analysis_map
@@ -50,8 +48,7 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         return TreemapElement(
             name=display_name,
-            install_size=file_info.size,
-            download_size=file_info.size,
+            size=file_info.size,
             element_type=TreemapType.EXECUTABLES,
             path=file_info.path,
             is_directory=False,
@@ -163,8 +160,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                         if node["self_size"] > 0 and child_elems:
                             self_elem = TreemapElement(
                                 name=node["type_name"],
-                                install_size=node["self_size"],
-                                download_size=node["self_size"],
+                                size=node["self_size"],
                                 element_type=TreemapType.MODULES,
                                 path=None,
                                 is_directory=False,
@@ -173,16 +169,15 @@ class MachOElementBuilder(TreemapElementBuilder):
                             child_elems.append(self_elem)
                             # after adding the pseudo-child, the parent’s size is just
                             # the sum of *all* children
-                            total_size = sum(c.install_size for c in child_elems)
+                            total_size = sum(c.size for c in child_elems)
                         else:
                             # leaf, or container with no own bytes
-                            total_size = node["self_size"] + sum(c.install_size for c in child_elems)
+                            total_size = node["self_size"] + sum(c.size for c in child_elems)
 
                         elems.append(
                             TreemapElement(
                                 name=node["type_name"],
-                                install_size=total_size,
-                                download_size=total_size,
+                                size=total_size,
                                 element_type=TreemapType.MODULES,
                                 path=None,
                                 is_directory=False,
@@ -193,13 +188,12 @@ class MachOElementBuilder(TreemapElementBuilder):
                     return elems
 
                 module_children = _tree_to_treemap(type_tree)
-                module_total_size = sum(c.install_size for c in module_children)
+                module_total_size = sum(c.size for c in module_children)
 
                 symbol_children.append(
                     TreemapElement(
                         name=module_name,
-                        install_size=module_total_size,
-                        download_size=module_total_size,
+                        size=module_total_size,
                         element_type=TreemapType.MODULES,
                         path=None,
                         is_directory=False,
@@ -223,8 +217,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 meth_elems: List[TreemapElement] = [
                     TreemapElement(
                         name=meth_name,
-                        install_size=size,
-                        download_size=size,
+                        size=size,
                         element_type=TreemapType.MODULES,
                         path=None,
                         is_directory=False,
@@ -235,8 +228,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 symbol_children.append(
                     TreemapElement(
                         name=cls_name,
-                        install_size=sum(m.install_size for m in meth_elems),
-                        download_size=sum(m.install_size for m in meth_elems),
+                        size=sum(m.size for m in meth_elems),
                         element_type=TreemapType.MODULES,
                         path=None,
                         is_directory=True,
@@ -268,8 +260,7 @@ class MachOElementBuilder(TreemapElementBuilder):
 
             elem = TreemapElement(
                 name=section_name,
-                install_size=adjusted,
-                download_size=adjusted,
+                size=adjusted,
                 element_type=element_type,
                 path=None,
                 is_directory=False,
@@ -288,12 +279,11 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         # Bundle DYLD subsections under a synthetic parent
         if dyld_children:
-            dyld_total = sum(c.install_size for c in dyld_children)
+            dyld_total = sum(c.size for c in dyld_children)
             section_children.append(
                 TreemapElement(
                     name="DYLD",
-                    install_size=dyld_total,
-                    download_size=dyld_total,
+                    size=dyld_total,
                     element_type=TreemapType.DYLD,
                     path=None,
                     is_directory=True,
@@ -307,8 +297,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             section_children.append(
                 TreemapElement(
                     name="Unanalyzed",
-                    install_size=int(binary_component_analysis.unanalyzed_size),
-                    download_size=int(binary_component_analysis.unanalyzed_size),
+                    size=int(binary_component_analysis.unanalyzed_size),
                     element_type=TreemapType.UNMAPPED,
                     path=None,
                     is_directory=False,

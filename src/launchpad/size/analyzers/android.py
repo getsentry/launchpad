@@ -95,8 +95,6 @@ class AndroidAnalyzer:
         treemap_builder = TreemapBuilder(
             app_name=app_info.name,
             platform="android",
-            # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
-            download_compression_ratio=1.0,
             class_definitions=class_definitions,
             hermes_reports=hermes_reports,
         )

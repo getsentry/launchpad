@@ -12,12 +12,10 @@ logger = get_logger(__name__)
 class DexElementBuilder(TreemapElementBuilder):
     def __init__(
         self,
-        download_compression_ratio: float,
         filesystem_block_size: int | None = None,
         class_definitions: list[ClassDefinition] | None = None,
     ) -> None:
         super().__init__(
-            download_compression_ratio=download_compression_ratio,
             filesystem_block_size=filesystem_block_size,
         )
         self.class_definitions = class_definitions or []
@@ -27,8 +25,7 @@ class DexElementBuilder(TreemapElementBuilder):
         # to build the treemap. This is because there could be multiple
         # DEX files in APK and we want to group them by package vs file.
 
-        install_size = file_info.size
-        download_size = int(install_size * self.download_compression_ratio)
+        size = file_info.size
 
         root_packages = self._build_package_tree()
 
@@ -39,8 +36,7 @@ class DexElementBuilder(TreemapElementBuilder):
 
         return TreemapElement(
             name=display_name,
-            install_size=install_size,
-            download_size=download_size,
+            size=size,
             element_type=TreemapType.DEX,
             path=file_info.path,
             is_directory=True,
@@ -91,8 +87,7 @@ class DexElementBuilder(TreemapElementBuilder):
                 # Process children (sub-packages and classes)
                 children = self._convert_tree_to_elements(node["packages"], package_path)
 
-                total_size = sum(child.install_size for child in children)
-                download_size = int(total_size * self.download_compression_ratio)
+                total_size = sum(child.size for child in children)
 
                 details = {
                     "class_count": len([child for child in children if not child.is_directory]),
@@ -101,8 +96,7 @@ class DexElementBuilder(TreemapElementBuilder):
                 elements.append(
                     TreemapElement(
                         name=name,
-                        install_size=total_size,
-                        download_size=download_size,
+                        size=total_size,
                         element_type=TreemapType.DEX,
                         path=package_path,
                         is_directory=True,
@@ -115,7 +109,6 @@ class DexElementBuilder(TreemapElementBuilder):
 
     def _create_class_element(self, class_def: ClassDefinition) -> TreemapElement:
         class_size = class_def.size
-        download_size = int(class_size * self.download_compression_ratio)
 
         details = {
             "fqn": class_def.fqn(),
@@ -124,8 +117,7 @@ class DexElementBuilder(TreemapElementBuilder):
 
         return TreemapElement(
             name=class_def.get_name(),
-            install_size=class_size,
-            download_size=download_size,
+            size=class_size,
             element_type=TreemapType.DEX,
             path=class_def.fqn(),
             is_directory=False,

@@ -12,10 +12,8 @@ logger = get_logger(__name__)
 class TreemapElementBuilder(ABC):
     def __init__(
         self,
-        download_compression_ratio: float,
         filesystem_block_size: int,
     ) -> None:
-        self.download_compression_ratio = max(0.0, min(1.0, download_compression_ratio))
         self.filesystem_block_size = filesystem_block_size
 
     @abstractmethod
