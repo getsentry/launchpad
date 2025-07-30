@@ -12,8 +12,6 @@ import time
 from pathlib import Path
 from typing import Any, Dict, cast
 
-from arroyo.backends.kafka import KafkaPayload
-from arroyo.processing.processor import StreamProcessor
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
@@ -44,7 +42,6 @@ from launchpad.utils.file_utils import cleanup_directory
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import DogStatsd, get_statsd
 
-from .kafka import create_kafka_consumer
 from .sentry_sdk_init import initialize_sentry_sdk
 from .server import HealthCheckResponse, LaunchpadServer, get_server_config
 
@@ -56,9 +53,9 @@ class LaunchpadService:
 
     def __init__(self) -> None:
         self.server: LaunchpadServer | None = None
-        self.kafka_processor: StreamProcessor[KafkaPayload] | None = None
+        # self.kafka_processor: StreamProcessor[KafkaPayload] | None = None
         self._shutdown_event = asyncio.Event()
-        self._kafka_task: asyncio.Future[Any] | None = None
+        # self._kafka_task: asyncio.Future[Any] | None = None
         self._statsd: DogStatsd | None = None
         self._healthcheck_file: str | None = None
         self._service_config: Dict[str, Any] | None = None
@@ -89,13 +86,16 @@ class LaunchpadService:
             logger.info(f"Using healthcheck file: {self._healthcheck_file}")
 
         # Create Kafka consumer with message handler
-        self.kafka_processor = create_kafka_consumer(message_handler=self.handle_kafka_message)
+
+        logger.info("MOCK starting kafka consumer..!!!")
+
+        # self.kafka_processor = create_kafka_consumer(message_handler=self.handle_kafka_message)
 
         logger.info("Service components initialized")
 
     async def start(self) -> None:
         """Start all service components."""
-        if not self.server or not self.kafka_processor:
+        if not self.server:  # or not self.kafka_processor:
             raise RuntimeError("Service not properly initialized. Call setup() first.")
 
         logger.info("Starting Launchpad service...")
@@ -104,8 +104,8 @@ class LaunchpadService:
         self._setup_signal_handlers()
 
         # Start Kafka processor in a background thread
-        loop = asyncio.get_event_loop()
-        self._kafka_task = loop.run_in_executor(None, self.kafka_processor.run)
+        # loop = asyncio.get_event_loop()
+        # self._kafka_task = loop.run_in_executor(None, self.kafka_processor.run)
 
         # Start HTTP server as a background task
         server_task = asyncio.create_task(self.server.start())
@@ -547,11 +547,11 @@ class LaunchpadService:
             logger.info(f"Received signal {signum}, initiating shutdown...")
 
             # Signal Kafka processor shutdown
-            if self.kafka_processor:
-                try:
-                    self.kafka_processor.signal_shutdown()
-                except Exception as e:
-                    logger.warning(f"Error stopping Kafka processor: {e}")
+            # if self.kafka_processor:
+            #     try:
+            #         self.kafka_processor.signal_shutdown()
+            #     except Exception as e:
+            #         logger.warning(f"Error stopping Kafka processor: {e}")
 
             # Set the shutdown event
             self._shutdown_event.set()
@@ -580,16 +580,16 @@ class LaunchpadService:
                 logger.warning(f"Error shutting down server: {e}")
 
         # Wait for Kafka processor to stop
-        if self._kafka_task:
-            try:
-                logger.info("Waiting for Kafka processor to stop...")
-                await asyncio.wait_for(self._kafka_task, timeout=10.0)
-                logger.info("Kafka processor stopped")
-            except asyncio.TimeoutError:
-                logger.warning("Kafka processor did not stop within timeout")
-                self._kafka_task.cancel()
-            except Exception as e:
-                logger.warning(f"Error waiting for Kafka processor: {e}")
+        # if self._kafka_task:
+        #     try:
+        #         logger.info("Waiting for Kafka processor to stop...")
+        #         await asyncio.wait_for(self._kafka_task, timeout=10.0)
+        #         logger.info("Kafka processor stopped")
+        #     except asyncio.TimeoutError:
+        #         logger.warning("Kafka processor did not stop within timeout")
+        #         self._kafka_task.cancel()
+        #     except Exception as e:
+        #         logger.warning(f"Error waiting for Kafka processor: {e}")
 
         # Clean up healthcheck file
         if self._healthcheck_file and os.path.exists(self._healthcheck_file):
