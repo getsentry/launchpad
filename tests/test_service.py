@@ -38,24 +38,24 @@ class TestLaunchpadServer(AioHTTPTestCase):
         server = LaunchpadServer(health_check_callback=mock_health_check)
         return await server.create_app()
 
-    # async def test_health_check(self):
-    #     """Test the health check endpoint."""
-    #     resp = await self.client.request("GET", "/health")
-    #     assert resp.status == 200
+    async def test_health_check(self):
+        """Test the health check endpoint."""
+        resp = await self.client.request("GET", "/health")
+        assert resp.status == 200
 
-    #     data = await resp.json()
-    #     assert data["status"] == "ok"
-    #     assert data["service"] == "launchpad"
-    #     assert "components" in data
+        data = await resp.json()
+        assert data["status"] == "ok"
+        assert data["service"] == "launchpad"
+        assert "components" in data
 
-    # async def test_ready_check(self):
-    #     """Test the readiness check endpoint."""
-    #     resp = await self.client.request("GET", "/ready")
-    #     assert resp.status == 200
+    async def test_ready_check(self):
+        """Test the readiness check endpoint."""
+        resp = await self.client.request("GET", "/ready")
+        assert resp.status == 200
 
-    #     data = await resp.json()
-    #     assert data["status"] == "ready"
-    #     assert data["service"] == "launchpad"
+        data = await resp.json()
+        assert data["status"] == "ready"
+        assert data["service"] == "launchpad"
 
 
 class TestLaunchpadService:
