@@ -142,4 +142,8 @@ def get_kafka_config() -> Dict[str, Any]:
         "healthcheck_file": os.getenv("KAFKA_HEALTHCHECK_FILE"),
         "auto_offset_reset": os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
         "arroyo_strict_offset_reset": arroyo_strict_offset_reset,
+        "security.protocol": os.environ.get("KAFKA_SECURITY_PROTOCOL", "plaintext"),
+        "sasl.mechanism": os.environ.get("KAFKA_SASL_MECHANISM", None),
+        "sasl.username": os.environ.get("KAFKA_SASL_USERNAME", None),
+        "sasl.password": os.environ.get("KAFKA_SASL_PASSWORD", None),
     }
