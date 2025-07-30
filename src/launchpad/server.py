@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 
 from typing import Any, Awaitable, Callable, Dict, TypedDict
 
@@ -96,6 +97,7 @@ class LaunchpadServer:
                 level=log_level,
                 format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S",
+                stream=sys.stdout,
             )
 
         # Adjust aiohttp access log level
