@@ -38,9 +38,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Create app user and group
-RUN groupadd --gid 1000 app && \
-    useradd --uid 1000 --gid app --shell /bin/bash --create-home app
+# Create app user and group with system user flags for security
+RUN groupadd -r appuser --gid 1000 && useradd -r -m -g appuser --uid 1000 appuser
 
 # Install system dependencies including JDK 17
 RUN apt-get update && \
@@ -100,10 +99,10 @@ RUN pip install -e .
 RUN python scripts/deps --install --local-architecture=x86_64 --local-system=linux
 
 # Change ownership to app user
-RUN chown -R app:app /app
+RUN chown -R appuser:appuser /app
 
 # Switch to app user
-USER app
+USER appuser
 
 # Expose ports
 EXPOSE 2218
