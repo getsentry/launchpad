@@ -117,7 +117,7 @@ class LaunchpadServer:
         app[APP_KEY_ENVIRONMENT] = self.config["environment"]
 
         # Health check routes
-        app.router.add_get("/health", self.health_check)
+        app.router.add_get("/health", self.ready_check)  # temporarily just use ready check
 
         # Ready check route
         app.router.add_get("/ready", self.ready_check)
