@@ -36,6 +36,10 @@ def create_kafka_consumer(
     # Get configuration from environment
     config = get_kafka_config()
 
+    environment = os.getenv("LAUNCHPAD_ENV")
+    if not environment:
+        raise ValueError("LAUNCHPAD_ENV environment variable is required")
+
     # Create Arroyo consumer
     # TODO: When we're closer to production, we'll need a way to disable this logic as
     # topics, partitions and kafka clusters are configured through getsentry/ops.
@@ -47,11 +51,18 @@ def create_kafka_consumer(
         "arroyo.strict.offset.reset": config["arroyo_strict_offset_reset"],
         "enable.auto.commit": False,
         "enable.auto.offset.store": False,
-        "security.protocol": config["security.protocol"],
-        "sasl.mechanism": config["sasl.mechanism"],
-        "sasl.username": config["sasl.username"],
-        "sasl.password": config["sasl.password"],
     }
+
+    # Only include security fields in non-development environments
+    if environment != "development":
+        consumer_config.update(
+            {
+                "security.protocol": config["security.protocol"],
+                "sasl.mechanism": config["sasl.mechanism"],
+                "sasl.username": config["sasl.username"],
+                "sasl.password": config["sasl.password"],
+            }
+        )
 
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
 
