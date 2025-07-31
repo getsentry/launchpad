@@ -94,14 +94,30 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         partitions: Mapping[Partition, int],
     ) -> ProcessingStrategy[KafkaPayload]:
         """Create the processing strategy chain."""
+        logger.info("KAFKASETUP: Creating processing strategy chain")
+        logger.info(f"KAFKASETUP: Partitions: {dict(partitions)}")
+        logger.info(f"KAFKASETUP: Commit strategy: {type(commit)}")
+
         # Start with the commit strategy (always last in chain)
         next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
+        logger.info("KAFKASETUP: Base strategy: CommitOffsets")
 
         # Add healthcheck if configured
+        logger.info("KAFKASETUP: Checking healthcheck configuration...")
         if self.healthcheck_file:
+            logger.info(f"KAFKASETUP: Healthcheck file configured: {self.healthcheck_file}")
+            logger.info("KAFKASETUP: Adding Healthcheck strategy to processing chain")
             next_step = Healthcheck(self.healthcheck_file, next_step)
+            logger.info("KAFKASETUP: Healthcheck strategy added successfully")
+        else:
+            logger.warning("KAFKASETUP: No healthcheck file configured - skipping healthcheck strategy")
+            logger.info("KAFKASETUP: Processing will continue without healthcheck monitoring")
 
         # Use RunTaskInThreads for concurrent processing
+        logger.info("KAFKASETUP: Setting up concurrent message processing")
+        logger.info(f"KAFKASETUP: Concurrency level: {self.concurrency}")
+        logger.info(f"KAFKASETUP: Max pending futures: {self.max_pending_futures}")
+
         def process_message(msg: Message[KafkaPayload]) -> Any:
             try:
                 decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
@@ -110,12 +126,16 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
                 logger.error(f"Failed to decode message: {e}")
                 raise  # Re-raise the exception to prevent processing invalid messages
 
-        return RunTaskInThreads(
+        strategy = RunTaskInThreads(
             processing_function=process_message,
             concurrency=self.concurrency,
             max_pending_futures=self.max_pending_futures,
             next_step=next_step,
         )
+
+        logger.info("KAFKASETUP: Processing strategy chain creation complete")
+        logger.info(f"KAFKASETUP: Final strategy type: {type(strategy)}")
+        return strategy
 
 
 def get_kafka_config() -> Dict[str, Any]:
