@@ -47,6 +47,10 @@ def create_kafka_consumer(
         "arroyo.strict.offset.reset": config["arroyo_strict_offset_reset"],
         "enable.auto.commit": False,
         "enable.auto.offset.store": False,
+        "security.protocol": config["security.protocol"],
+        "sasl.mechanism": config["sasl.mechanism"],
+        "sasl.username": config["sasl.username"],
+        "sasl.password": config["sasl.password"],
     }
 
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
