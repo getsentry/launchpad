@@ -17,6 +17,7 @@ local pipedream_config = {
     launchpad_repo: {
       git: 'git@github.com:getsentry/launchpad.git',
       shallow_clone: true,
+      auto_update: true,
       branch: 'main',
       destination: 'launchpad',
     },
