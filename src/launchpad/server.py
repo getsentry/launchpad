@@ -124,6 +124,96 @@ class LaunchpadServer:
 
         return app
 
+    async def _log_health_check_details(self) -> None:
+        """Perform health check logic purely for detailed logging purposes."""
+        logger.info("HEALTHCHECKDEBUG: === HEALTH CHECK LOGGING START ===")
+        logger.info(f"HEALTHCHECKDEBUG: Environment: {self.config['environment']}")
+        logger.info(f"HEALTHCHECKDEBUG: Debug mode: {self.config['debug']}")
+        logger.info(f"HEALTHCHECKDEBUG: Host: {self.host}:{self.port}")
+
+        try:
+            # Check if health check callback is configured
+            if self.health_check_callback:
+                logger.info("HEALTHCHECKDEBUG: Health check callback is configured - calling service health check")
+                logger.debug(f"HEALTHCHECKDEBUG: Health check callback type: {type(self.health_check_callback)}")
+
+                logger.info("HEALTHCHECKDEBUG: Executing health check callback...")
+                health_data = await self.health_check_callback()
+                logger.info("HEALTHCHECKDEBUG: Health check callback completed successfully")
+                logger.debug(f"HEALTHCHECKDEBUG: Raw health data: {health_data}")
+
+                # Validate response structure
+                logger.info("HEALTHCHECKDEBUG: Validating health check response structure...")
+                if not isinstance(health_data, dict):
+                    logger.error(f"HEALTHCHECKDEBUG: Health check response is not a dict, got: {type(health_data)}")
+                    raise ValueError("Invalid health check response: not a dictionary")
+
+                if "status" not in health_data:
+                    logger.error("HEALTHCHECKDEBUG: Health check response missing required 'status' field")
+                    logger.debug(f"HEALTHCHECKDEBUG: Available fields: {list(health_data.keys())}")
+                    raise ValueError("Invalid health check response: missing status field")
+
+                status = health_data["status"]
+                logger.info(f"HEALTHCHECKDEBUG: Health check status: {status}")
+
+                # Log all components if present
+                if "components" in health_data:
+                    logger.info("HEALTHCHECKDEBUG: Health check components found:")
+                    for component_name, component_data in health_data["components"].items():
+                        component_status = component_data.get("status", "unknown")
+                        logger.info(f"HEALTHCHECKDEBUG:   - {component_name}: {component_status}")
+                        if component_data.get("error"):
+                            logger.warning(f"HEALTHCHECKDEBUG:     Error: {component_data['error']}")
+                        if component_data.get("latency_ms"):
+                            logger.info(f"HEALTHCHECKDEBUG:     Latency: {component_data['latency_ms']}ms")
+                else:
+                    logger.info("HEALTHCHECKDEBUG: No components data in health check response")
+
+                # Map status to HTTP code and log decision
+                status_mapping = {"ok": 200, "degraded": 503}
+                status_code = status_mapping.get(status, 500)
+                logger.info(f"HEALTHCHECKDEBUG: Mapping status '{status}' to HTTP code {status_code}")
+
+                if status_code == 500:
+                    logger.warning(f"HEALTHCHECKDEBUG: Unknown status '{status}' - using 500 as fallback")
+
+                # Report to monitoring
+                is_healthy = status_code == 200
+                logger.info(
+                    f"HEALTHCHECKDEBUG: Reporting health status to Datadog: {'healthy' if is_healthy else 'unhealthy'}"
+                )
+                self._report_health_status(is_healthy)
+
+                logger.info("HEALTHCHECKDEBUG: === HEALTH CHECK LOGGING COMPLETE (SUCCESS) ===")
+            else:
+                # No callback configured - use fallback
+                logger.warning("HEALTHCHECKDEBUG: No health check callback configured - using fallback health check")
+                logger.info("HEALTHCHECKDEBUG: This means the service cannot check internal component health")
+                logger.info("HEALTHCHECKDEBUG: Consider implementing a health check callback for production use")
+
+                # Report success for basic fallback
+                logger.info("HEALTHCHECKDEBUG: Reporting basic health status (OK) to Datadog")
+                self._report_health_status(True)
+
+                logger.info("HEALTHCHECKDEBUG: Using fallback health check response")
+                logger.info("HEALTHCHECKDEBUG: === HEALTH CHECK LOGGING COMPLETE (FALLBACK) ===")
+
+        except Exception as error:
+            # Determine error context based on whether we have a callback and what failed
+            if self.health_check_callback:
+                error_context = "Health check callback execution"
+                completion_msg = "CALLBACK ERROR"
+            else:
+                error_context = "Health check system"
+                completion_msg = "SYSTEM ERROR"
+
+            logger.error(f"HEALTHCHECKDEBUG: {error_context} failed: {error}")
+            logger.error(f"HEALTHCHECKDEBUG: Error type: {type(error)}")
+            logger.error(f"HEALTHCHECKDEBUG: {error_context} stack trace:", exc_info=True)
+            logger.info("HEALTHCHECKDEBUG: Reporting failed health status to Datadog")
+            self._report_health_status(False)
+            logger.info(f"HEALTHCHECKDEBUG: === HEALTH CHECK LOGGING COMPLETE ({completion_msg}) ===")
+
     async def health_check(self, request: Request) -> Response:
         """Health check endpoint that checks all service components."""
         try:
@@ -173,6 +263,11 @@ class LaunchpadServer:
 
     async def ready_check(self, request: Request) -> Response:
         """Readiness check endpoint."""
+        logger.info("Ready check endpoint called - performing health check for logging")
+
+        # Call health check for detailed logging but ignore the result
+        await self._log_health_check_details()
+
         # TODO: Add actual readiness checks (database connectivity, etc.)
         return web.json_response(
             {
