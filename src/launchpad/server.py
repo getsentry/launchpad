@@ -271,10 +271,10 @@ class LaunchpadServer:
         # TODO: Add actual readiness checks (database connectivity, etc.)
         return web.json_response(
             {
-                "status": "ready",
+                "status": "ok",
                 "service": "launchpad",
-                "environment": self.config["environment"],
             }
+            # "environment": self.config["environment"],
         )
 
     def _report_health_status(self, is_healthy: bool) -> None:
