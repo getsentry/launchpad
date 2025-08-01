@@ -97,6 +97,19 @@ class LoadCommandInfo:
 
 
 @dataclass
+class DyldInfo:
+    """DYLD-specific information extracted from LC_DYLD_INFO load commands."""
+
+    rebase_size: int = 0
+    bind_size: int = 0
+    weak_bind_size: int = 0
+    lazy_bind_size: int = 0
+    export_size: int = 0
+    chained_fixups_size: int = 0
+    export_trie_size: int = 0
+
+
+@dataclass
 class MachOBinaryAnalysis:
     """Mach-O binary analysis results."""
 
@@ -116,6 +129,7 @@ class MachOBinaryAnalysis:
     # it's only working by coincidence right now
     symbol_info: SymbolInfo | None = None
     header_size: int = 0
+    dyld_info: DyldInfo | None = None
 
 
 @dataclass

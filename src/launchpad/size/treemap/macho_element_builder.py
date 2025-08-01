@@ -110,7 +110,6 @@ class MachOElementBuilder(TreemapElementBuilder):
         # These lists will accumulate children for the top-level element
         #
         section_children: List[TreemapElement] = []
-        dyld_children: List[TreemapElement] = []
         symbol_children: List[TreemapElement] = []
 
         # Track how much of each section's bytes we "burn" while assigning
@@ -282,6 +281,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         # ------------------------------------------------------------------ #
         for segment_name, seg_sections in sections_by_segment.items():
             segment_children: List[TreemapElement] = []
+            linkedit_dyld_children: List[TreemapElement] = []
 
             for seg_sec in seg_sections:
                 original = seg_sec.size
@@ -306,48 +306,60 @@ class MachOElementBuilder(TreemapElementBuilder):
 
                 is_dyld = self._is_dyld_related(seg_sec.tag, seg_sec.section_name)
                 logger.debug(f"Section {seg_sec.section_name} is_dyld={is_dyld}, tag={seg_sec.tag.value}")
-                (dyld_children if is_dyld else segment_children).append(elem)
+                segment_children.append(elem)
 
-            # Add segment as parent if it has non-DYLD children
-            if segment_children:
-                segment_total = sum(c.size for c in segment_children)
-                logger.debug(
-                    f"Adding segment '{segment_name}' with {len(segment_children)} children, total size={segment_total}"
-                )
-                section_children.append(
-                    TreemapElement(
-                        name=segment_name,
-                        size=segment_total,
-                        type=TreemapType.EXECUTABLES,
-                        path=None,
-                        is_dir=False,
-                        children=segment_children,
+            # Special handling for LINKEDIT segment to include DYLD children
+            if segment_name == "__LINKEDIT":
+                # Add DYLD load command data as additional children of LINKEDIT
+                linkedit_dyld_children.extend(self._build_dyld_load_command_children(binary_analysis))
+
+                # Combine regular sections with DYLD children
+                all_linkedit_children = segment_children + linkedit_dyld_children
+
+                if all_linkedit_children:
+                    segment_total = sum(c.size for c in all_linkedit_children)
+                    logger.debug(
+                        f"Adding LINKEDIT segment with {len(segment_children)} regular sections and {len(linkedit_dyld_children)} DYLD children, total size={segment_total}"
                     )
-                )
+                    section_children.append(
+                        TreemapElement(
+                            name=segment_name,
+                            size=segment_total,
+                            type=TreemapType.EXECUTABLES,
+                            path=None,
+                            is_dir=False,
+                            children=all_linkedit_children,
+                        )
+                    )
+                else:
+                    logger.debug("LINKEDIT segment has no children, skipping")
             else:
-                logger.debug(f"Segment '{segment_name}' has no non-DYLD children, skipping")
-
-        # Bundle DYLD subsections under a synthetic parent
-        if dyld_children:
-            dyld_total = sum(c.size for c in dyld_children)
-            section_children.append(
-                TreemapElement(
-                    name="DYLD",
-                    size=dyld_total,
-                    type=TreemapType.DYLD,
-                    path=None,
-                    is_dir=False,
-                    children=dyld_children,
-                )
-            )
+                # Add segment as parent if it has non-DYLD children
+                if segment_children:
+                    segment_total = sum(c.size for c in segment_children)
+                    logger.debug(
+                        f"Adding segment '{segment_name}' with {len(segment_children)} children, total size={segment_total}"
+                    )
+                    section_children.append(
+                        TreemapElement(
+                            name=segment_name,
+                            size=segment_total,
+                            type=TreemapType.EXECUTABLES,
+                            path=None,
+                            is_dir=False,
+                            children=segment_children,
+                        )
+                    )
+                else:
+                    logger.debug(f"Segment '{segment_name}' has no non-DYLD children, skipping")
 
         # Add an explicit "Unmapped" region if present (simplified - just check if we have unaccounted bytes)
-        total_accounted = sum(c.size for c in section_children + symbol_children + dyld_children)
+        total_accounted = sum(c.size for c in section_children + symbol_children)
         if binary_analysis.executable_size > total_accounted:
             unaccounted = binary_analysis.executable_size - total_accounted
             section_children.append(
                 TreemapElement(
-                    name="Unanalyzed",
+                    name="Unmapped",
                     size=unaccounted,
                     type=TreemapType.UNMAPPED,
                     path=None,
@@ -441,6 +453,107 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         logger.debug(f"Added {len(metadata_children)} metadata components")
         return metadata_children
+
+    def _build_dyld_load_command_children(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement]:
+        """Build treemap elements for DYLD load command data (rebase, bind, export info, etc.)."""
+        dyld_children: List[TreemapElement] = []
+
+        logger.debug(f"Building DYLD children, dyld_info is None: {binary_analysis.dyld_info is None}")
+        if binary_analysis.dyld_info is None:
+            logger.debug("No DYLD info available in binary analysis")
+            return dyld_children
+
+        dyld_info = binary_analysis.dyld_info
+        logger.debug(
+            f"DYLD info sizes: rebase={dyld_info.rebase_size}, bind={dyld_info.bind_size}, weak_bind={dyld_info.weak_bind_size}, lazy_bind={dyld_info.lazy_bind_size}, export={dyld_info.export_size}"
+        )
+
+        if dyld_info.rebase_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Rebase Info",
+                    size=dyld_info.rebase_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if dyld_info.bind_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Bind Info",
+                    size=dyld_info.bind_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if dyld_info.weak_bind_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Weak Bind Info",
+                    size=dyld_info.weak_bind_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if dyld_info.lazy_bind_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Lazy Bind Info",
+                    size=dyld_info.lazy_bind_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if dyld_info.export_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Exports Trie",
+                    size=dyld_info.export_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if dyld_info.chained_fixups_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Chained Fixups",
+                    size=dyld_info.chained_fixups_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if dyld_info.export_trie_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Export Trie",
+                    size=dyld_info.export_trie_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        logger.debug(f"Built {len(dyld_children)} DYLD load command children")
+        return dyld_children
 
     def _get_element_type_from_tag(self, tag: BinaryTag) -> TreemapType:
         """Convert BinaryTag to TreemapType."""

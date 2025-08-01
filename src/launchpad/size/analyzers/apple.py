@@ -371,6 +371,9 @@ class AppleAppAnalyzer:
         swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
         static_inits = parser.static_inits()
+        segments = self._extract_segments_info(parser.binary)
+        load_commands = self._extract_load_commands_info(parser.binary)
+        dyld_info = parser.extract_dyld_info()
 
         symbol_info = None
 
@@ -409,10 +412,6 @@ class AppleAppAnalyzer:
                 protocol_conformances=swift_protocol_conformances,
             )
 
-        # Extract segment/section data from LIEF objects into stable dataclasses
-        segments = self._extract_segments_info(parser.binary)
-        load_commands = self._extract_load_commands_info(parser.binary)
-
         return MachOBinaryAnalysis(
             binary_absolute_path=binary_path,
             binary_relative_path=binary_path.relative_to(app_bundle_path),
@@ -426,6 +425,7 @@ class AppleAppAnalyzer:
             segments=segments,
             load_commands=load_commands,
             header_size=parser.get_header_size(),
+            dyld_info=dyld_info,
         )
 
     @trace("apple.test_strip_symbols_removal")
