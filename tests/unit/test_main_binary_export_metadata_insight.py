@@ -14,7 +14,9 @@ class TestMainBinaryExportMetadataInsight:
     def test_generate_with_main_binary_and_dyld_exports_trie(self):
         """Test that insight is generated when main binary has dyld_exports_trie section."""
         # Create a segment with the dyld_exports_trie section
-        linkedit_segment = SegmentInfo(name="__LINKEDIT", sections=[SectionInfo(name="dyld_exports_trie", size=5000)])
+        linkedit_segment = SegmentInfo(
+            name="__LINKEDIT", sections=[SectionInfo(name="dyld_exports_trie", size=5000)], size=5000
+        )
 
         main_binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
@@ -24,6 +26,7 @@ class TestMainBinaryExportMetadataInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[linkedit_segment],
+            load_commands=[],
             symbol_info=None,
             swift_metadata=None,
             is_main_binary=True,
@@ -45,8 +48,8 @@ class TestMainBinaryExportMetadataInsight:
     def test_generate_with_main_binary_without_dyld_exports_trie(self):
         """Test that no insight is generated when main binary lacks dyld_exports_trie section."""
         # Create segments without dyld_exports_trie
-        text_segment = SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)])
-        data_segment = SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=10000)])
+        text_segment = SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000)
+        data_segment = SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=10000)], size=10000)
 
         main_binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
@@ -56,6 +59,7 @@ class TestMainBinaryExportMetadataInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[text_segment, data_segment],  # No dyld_exports_trie
+            load_commands=[],
             symbol_info=None,
             swift_metadata=None,
             is_main_binary=True,
@@ -83,6 +87,7 @@ class TestMainBinaryExportMetadataInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[],  # Empty for this test
+            load_commands=[],
             symbol_info=None,
             swift_metadata=None,
             is_main_binary=False,  # Not a main binary
@@ -110,6 +115,7 @@ class TestMainBinaryExportMetadataInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[],  # Empty for this test
+            load_commands=[],
             symbol_info=None,
             swift_metadata=None,
             is_main_binary=True,
@@ -149,7 +155,10 @@ class TestMainBinaryExportMetadataInsight:
             architectures=["arm64"],
             linked_libraries=[],
             objc_method_names=[],
-            segments=[SegmentInfo(name="__LINKEDIT", sections=[SectionInfo(name="dyld_exports_trie", size=8000)])],
+            segments=[
+                SegmentInfo(name="__LINKEDIT", sections=[SectionInfo(name="dyld_exports_trie", size=8000)], size=8000)
+            ],
+            load_commands=[],
             symbol_info=None,
             swift_metadata=None,
             is_main_binary=True,
@@ -165,6 +174,7 @@ class TestMainBinaryExportMetadataInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[],  # Empty for this test
+            load_commands=[],
             symbol_info=None,
             swift_metadata=None,
             is_main_binary=False,
@@ -198,8 +208,10 @@ class TestMainBinaryExportMetadataInsight:
                     sections=[
                         SectionInfo(name="dyld_exports_trie", size=0)  # Zero size
                     ],
+                    size=0,
                 )
             ],
+            load_commands=[],
             symbol_info=None,
             swift_metadata=None,
             is_main_binary=True,

@@ -64,7 +64,14 @@ class MachOElementBuilder(TreemapElementBuilder):
             return None
 
         # Verify that child sizes sum up to the total file size
-        total_child_size = self._calculate_total_size(children)
+        def _calculate_total_size(elements: List[TreemapElement]) -> int:
+            """Recursively calculate the total size of treemap elements."""
+            total = 0
+            for element in elements:
+                total += element.size
+            return total
+
+        total_child_size = _calculate_total_size(children)
         size_diff = abs(file_info.size - total_child_size)
         size_diff_percent = (size_diff / file_info.size) * 100 if file_info.size > 0 else 0
 
@@ -259,7 +266,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                         size=sum(m.size for m in meth_elems),
                         type=TreemapType.MODULES,
                         path=None,
-                        is_dir=True,
+                        is_dir=False,
                         children=meth_elems,
                     )
                 )
@@ -313,7 +320,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                         size=segment_total,
                         type=TreemapType.EXECUTABLES,
                         path=None,
-                        is_dir=True,
+                        is_dir=False,
                         children=segment_children,
                     )
                 )
@@ -329,7 +336,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                     size=dyld_total,
                     type=TreemapType.DYLD,
                     path=None,
-                    is_dir=True,
+                    is_dir=False,
                     children=dyld_children,
                 )
             )
@@ -358,50 +365,33 @@ class MachOElementBuilder(TreemapElementBuilder):
         """Extract segments and sections from MachOBinaryAnalysis data."""
         segment_sections: List[SegmentSection] = []
 
-        # Get segment information from stable extracted data
         segments = binary_analysis.segments
         logger.debug(f"Found {len(segments)} segments in stable data")
 
-        segment_map: Dict[str, str] = {}  # section_name -> segment_name mapping
-
-        # Build mapping of sections to their segments
         for segment in segments:
             segment_name = segment.name
             logger.debug(f"Processing segment: '{segment_name}' with {len(segment.sections)} sections")
 
-            for section in segment.sections:
-                section_name = section.name
-                segment_map[section_name] = segment_name
-                logger.debug(f"  Mapped section '{section_name}' to segment '{segment_name}'")
-
-        logger.debug(f"Built segment mapping with {len(segment_map)} entries")
-        logger.debug(f"Available sections in binary_analysis.sections: {list(binary_analysis.sections.keys())}")
-
-        # Process each section from the analysis data
-        logger.debug(f"Processing {len(binary_analysis.sections)} sections from binary_analysis.sections")
-        for section_name, section_size in binary_analysis.sections.items():
-            logger.debug(f"Processing section '{section_name}' with size {section_size}")
-            if section_size == 0:
-                logger.debug(f"Skipping section {section_name} with zero size")
-                continue
-
-            # Get segment name from mapping, skip if unknown
-            segment_name = segment_map.get(section_name)
-            if not segment_name:
-                logger.warning(
-                    f"Skipping section '{section_name}' - no segment mapping found (available mappings: {list(segment_map.keys())})"
+            if len(segment.sections) == 0:
+                tag = self._categorize_section("", segment_name) or BinaryTag.OTHER
+                segment_sections.append(
+                    SegmentSection(segment_name=segment_name, section_name="", size=segment.size, tag=tag)
                 )
                 continue
 
-            tag = self._categorize_section(section_name, segment_name)
-            if tag is not None:
+            for section in segment.sections:
+                section_name = section.name
+                section_size = section.size
+
+                logger.debug(f"Processing section '{section_name}' with size {section_size}")
+                if section_size == 0:
+                    logger.debug(f"Skipping section {section_name} with zero size")
+                    continue
+
+                tag = self._categorize_section(section_name, segment_name) or BinaryTag.OTHER
                 logger.debug(f"Section '{section_name}' in '{segment_name}' (size: {section_size}) -> {tag.value}")
                 segment_sections.append(
                     SegmentSection(segment_name=segment_name, section_name=section_name, size=section_size, tag=tag)
-                )
-            else:
-                logger.warning(
-                    f"Skipping unknown section '{section_name}' in '{segment_name}' (size: {section_size}) - no tag assigned"
                 )
 
         logger.debug(f"Returning {len(segment_sections)} segment sections")
@@ -411,7 +401,6 @@ class MachOElementBuilder(TreemapElementBuilder):
         """Build treemap elements for binary metadata (headers, load commands, etc.)."""
         metadata_children: List[TreemapElement] = []
 
-        # Add Mach-O header
         if binary_analysis.header_size > 0:
             metadata_children.append(
                 TreemapElement(
@@ -424,103 +413,34 @@ class MachOElementBuilder(TreemapElementBuilder):
                 )
             )
 
-        # Add LINKEDIT segment data if it exists but has no sections
-        # LINKEDIT contains symbol tables, string tables, code signatures, etc.
-        linkedit_segment = None
-        for segment in binary_analysis.segments:
-            if segment.name == "__LINKEDIT":
-                linkedit_segment = segment
-                break
-
-        if linkedit_segment and len(linkedit_segment.sections) == 0:
-            # LINKEDIT segment exists but has no sections - estimate its content
-            # This typically contains symbol tables, string tables, code signature, etc.
-            # We can estimate based on total file size minus accounted sections
-            total_section_size = sum(binary_analysis.sections.values())
-            remaining_size = binary_analysis.executable_size - total_section_size - binary_analysis.header_size
-
-            if remaining_size > 1000:  # Only if significant size
-                # Split LINKEDIT into typical components
-                linkedit_children: List[TreemapElement] = []
-
-                # Rough estimates based on typical LINKEDIT content distribution
-                symbol_table_size = max(1000, int(remaining_size * 0.15))  # ~15%
-                string_table_size = max(1000, int(remaining_size * 0.25))  # ~25%
-                code_signature_size = max(1000, int(remaining_size * 0.30))  # ~30%
-                dyld_info_size = remaining_size - symbol_table_size - string_table_size - code_signature_size
-
-                if dyld_info_size > 0:
-                    linkedit_children.extend(
-                        [
-                            TreemapElement(
-                                name="Symbol Table",
-                                size=symbol_table_size,
-                                type=TreemapType.EXECUTABLES,
-                                path=None,
-                                is_dir=False,
-                                children=[],
-                            ),
-                            TreemapElement(
-                                name="String Table",
-                                size=string_table_size,
-                                type=TreemapType.EXECUTABLES,
-                                path=None,
-                                is_dir=False,
-                                children=[],
-                            ),
-                            TreemapElement(
-                                name="Code Signature",
-                                size=code_signature_size,
-                                type=TreemapType.CODE_SIGNATURE,
-                                path=None,
-                                is_dir=False,
-                                children=[],
-                            ),
-                            TreemapElement(
-                                name="DYLD Info",
-                                size=dyld_info_size,
-                                type=TreemapType.DYLD,
-                                path=None,
-                                is_dir=False,
-                                children=[],
-                            ),
-                        ]
-                    )
-
-                metadata_children.append(
+        if binary_analysis.load_commands:
+            load_command_children: List[TreemapElement] = []
+            for lc in binary_analysis.load_commands:
+                load_command_children.append(
                     TreemapElement(
-                        name="__LINKEDIT",
-                        size=remaining_size,
+                        name=lc.name,
+                        size=lc.size,
                         type=TreemapType.EXECUTABLES,
                         path=None,
-                        is_dir=True,
-                        children=linkedit_children,
+                        is_dir=False,
+                        children=[],
                     )
                 )
 
-        # Estimate load commands size (smaller, more accurate estimate)
-        estimated_lc_size = len(binary_analysis.segments) * 72 + 400  # More conservative estimate
-        if estimated_lc_size > 0:
+            total_lc_size = sum(lc.size for lc in binary_analysis.load_commands)
             metadata_children.append(
                 TreemapElement(
                     name="Load Commands",
-                    size=estimated_lc_size,
+                    size=total_lc_size,
                     type=TreemapType.EXECUTABLES,
                     path=None,
                     is_dir=False,
-                    children=[],
+                    children=load_command_children,
                 )
             )
 
         logger.debug(f"Added {len(metadata_children)} metadata components")
         return metadata_children
-
-    def _calculate_total_size(self, elements: List[TreemapElement]) -> int:
-        """Recursively calculate the total size of treemap elements."""
-        total = 0
-        for element in elements:
-            total += element.size
-        return total
 
     def _get_element_type_from_tag(self, tag: BinaryTag) -> TreemapType:
         """Convert BinaryTag to TreemapType."""

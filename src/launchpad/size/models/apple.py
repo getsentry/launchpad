@@ -77,11 +77,20 @@ class SegmentInfo:
 
     name: str
     sections: List[SectionInfo]
+    size: int
 
 
 @dataclass
 class SectionInfo:
     """Extracted section information from LIEF data."""
+
+    name: str
+    size: int
+
+
+@dataclass
+class LoadCommandInfo:
+    """Extracted load command information from LIEF data."""
 
     name: str
     size: int
@@ -101,6 +110,7 @@ class MachOBinaryAnalysis:
     # Lief types cannot be used after the binary is closed
     # so we need to extract the segment/section data into dataclasses
     segments: List[SegmentInfo]
+    load_commands: List[LoadCommandInfo]
     swift_metadata: SwiftMetadata | None = None
     # TODO(telkins): try to remove the lief types from this model
     # it's only working by coincidence right now

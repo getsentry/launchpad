@@ -48,6 +48,7 @@ from ..models.apple import (
     AppleAnalysisResults,
     AppleAppInfo,
     AppleInsightResults,
+    LoadCommandInfo,
     MachOBinaryAnalysis,
     SectionInfo,
     SegmentInfo,
@@ -410,6 +411,7 @@ class AppleAppAnalyzer:
 
         # Extract segment/section data from LIEF objects into stable dataclasses
         segments = self._extract_segments_info(parser.binary)
+        load_commands = self._extract_load_commands_info(parser.binary)
 
         return MachOBinaryAnalysis(
             binary_absolute_path=binary_path,
@@ -422,6 +424,7 @@ class AppleAppAnalyzer:
             objc_method_names=objc_method_names,
             is_main_binary=is_main_binary,
             segments=segments,
+            load_commands=load_commands,
             header_size=parser.get_header_size(),
         )
 
@@ -509,9 +512,35 @@ class AppleAppAnalyzer:
                             except Exception as e:
                                 logger.warning(f"Error extracting section info: {e}")
 
-                    segments.append(SegmentInfo(name=segment_name, sections=section_infos))
+                    segments.append(SegmentInfo(name=segment_name, sections=section_infos, size=command.file_size))
         except Exception as e:
             logger.warning(f"Error extracting segments info: {e}")
 
         logger.debug(f"Extracted {len(segments)} segments with stable data")
         return segments
+
+    def _extract_load_commands_info(self, binary: lief.MachO.Binary) -> List[LoadCommandInfo]:
+        """Extract load command information from LIEF binary into stable dataclasses."""
+        load_commands: List[LoadCommandInfo] = []
+
+        try:
+            for command in binary.commands:
+                # Get command name and size
+                command_name = str(command.__class__.__name__)
+                if hasattr(command, "command"):
+                    command_name = str(command.command).replace("LOAD_COMMAND.", "")
+
+                command_size = 0
+                if hasattr(command, "size"):
+                    command_size = command.size
+                elif hasattr(command, "command_size"):
+                    command_size = command.command_size
+
+                if command_size > 0:
+                    load_commands.append(LoadCommandInfo(name=command_name, size=command_size))
+
+        except Exception as e:
+            logger.warning(f"Error extracting load commands info: {e}")
+
+        logger.debug(f"Extracted {len(load_commands)} load commands")
+        return load_commands

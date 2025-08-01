@@ -49,5 +49,7 @@ class BinaryTag(Enum):
     UNWIND_INFO = "unwind_info"
     DEBUG_INFO = "debug_info"
 
+    OTHER = "other"
+
     # Unmapped regions
     UNMAPPED = "unmapped"
