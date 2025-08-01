@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 import lief
 
@@ -76,7 +76,7 @@ class SegmentInfo:
     """Extracted segment information from LIEF data."""
 
     name: str
-    sections: List["SectionInfo"]
+    sections: List[SectionInfo]
 
 
 @dataclass
@@ -97,20 +97,22 @@ class MachOBinaryAnalysis:
     is_main_binary: bool
     architectures: List[str]
     linked_libraries: List[str]
-    sections: Dict[str, int]
     objc_method_names: List[str]
-    segments: List[SegmentInfo]  # Extracted segment/section data instead of live LIEF objects
+    # Lief types cannot be used after the binary is closed
+    # so we need to extract the segment/section data into dataclasses
+    segments: List[SegmentInfo]
     swift_metadata: SwiftMetadata | None = None
+    # TODO(telkins): try to remove the lief types from this model
+    # it's only working by coincidence right now
     symbol_info: SymbolInfo | None = None
     header_size: int = 0
 
 
-class SwiftMetadata(BaseModel):
+@dataclass
+class SwiftMetadata:
     """Swift-specific metadata extracted from the binary."""
 
-    model_config = ConfigDict(frozen=True)
-
-    protocol_conformances: List[str] = Field(default_factory=list, description="Swift protocol conformance names")
+    protocol_conformances: List[str]
 
 
 class AppleInsightResults(BaseModel):

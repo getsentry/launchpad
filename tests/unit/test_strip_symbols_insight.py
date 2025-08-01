@@ -4,10 +4,12 @@ from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import (
     MachOBinaryAnalysis,
-    StripBinaryInsightResult,
+    SectionInfo,
+    SegmentInfo,
     SymbolInfo,
 )
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis
+from launchpad.size.models.insights import StripBinaryInsightResult
 
 
 class TestStripSymbolsInsight:
@@ -26,21 +28,26 @@ class TestStripSymbolsInsight:
 
         binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("Frameworks/MyFramework.framework/MyFramework"),
-            binary_relative_path="Frameworks/MyFramework.framework/MyFramework",
+            binary_relative_path=Path("Frameworks/MyFramework.framework/MyFramework"),
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 50000,
-                "__debug_info": 3000,  # Debug section
-                "__debug_line": 2000,  # Debug section
-                "__data": 10000,
-                "__const": 5000,
-            },
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)]),
+                SegmentInfo(
+                    name="__DWARF",
+                    sections=[SectionInfo(name="__debug_info", size=3000), SectionInfo(name="__debug_line", size=2000)],
+                ),
+                SegmentInfo(
+                    name="__DATA",
+                    sections=[SectionInfo(name="__data", size=10000), SectionInfo(name="__const", size=5000)],
+                ),
+            ],
             symbol_info=symbol_info,
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -69,21 +76,27 @@ class TestStripSymbolsInsight:
         """Test that insight is generated when binaries have only debug sections."""
         binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
-            binary_relative_path="MyApp",
+            binary_relative_path=Path("MyApp"),
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 30000,
-                "__debug_info": 8000,  # Debug section
-                "__debug_abbrev": 2000,  # Debug section
-                "__apple_names": 1000,  # Debug section
-                "__data": 5000,
-            },
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)]),
+                SegmentInfo(
+                    name="__DWARF",
+                    sections=[
+                        SectionInfo(name="__debug_info", size=8000),
+                        SectionInfo(name="__debug_abbrev", size=2000),
+                        SectionInfo(name="__apple_names", size=1000),
+                    ],
+                ),
+                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=5000)]),
+            ],
             symbol_info=None,  # No symbol info
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -120,20 +133,23 @@ class TestStripSymbolsInsight:
 
         binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
-            binary_relative_path="MyApp",
+            binary_relative_path=Path("MyApp"),
             executable_size=80000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 50000,
-                "__data": 20000,
-                "__const": 10000,
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)]),
+                SegmentInfo(
+                    name="__DATA",
+                    sections=[SectionInfo(name="__data", size=20000), SectionInfo(name="__const", size=10000)],
+                ),
                 # No debug sections
-            },
+            ],
             symbol_info=symbol_info,
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -171,39 +187,45 @@ class TestStripSymbolsInsight:
 
         binary_analysis_1 = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
-            binary_relative_path="MyApp",
+            binary_relative_path=Path("MyApp"),
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 50000,
-                "__debug_info": 2000,
-                "__debug_line": 1000,
-                "__data": 10000,
-            },
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)]),
+                SegmentInfo(
+                    name="__DWARF",
+                    sections=[SectionInfo(name="__debug_info", size=2000), SectionInfo(name="__debug_line", size=1000)],
+                ),
+                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=10000)]),
+            ],
             symbol_info=symbol_info_1,
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         # Binary 2: Only debug sections
         binary_analysis_2 = MachOBinaryAnalysis(
             binary_absolute_path=Path("Frameworks/TestFramework.framework/TestFramework"),
-            binary_relative_path="Frameworks/TestFramework.framework/TestFramework",
+            binary_relative_path=Path("Frameworks/TestFramework.framework/TestFramework"),
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 30000,
-                "__debug_str": 4000,
-                "__apple_types": 1500,
-                "__data": 5000,
-            },
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)]),
+                SegmentInfo(
+                    name="__DWARF",
+                    sections=[SectionInfo(name="__debug_str", size=4000), SectionInfo(name="__apple_types", size=1500)],
+                ),
+                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=5000)]),
+            ],
             symbol_info=None,
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         # Binary 3: Only symbols
@@ -217,19 +239,20 @@ class TestStripSymbolsInsight:
 
         binary_analysis_3 = MachOBinaryAnalysis(
             binary_absolute_path=Path("Frameworks/AnotherFramework.framework/AnotherFramework"),
-            binary_relative_path="Frameworks/AnotherFramework.framework/AnotherFramework",
+            binary_relative_path=Path("Frameworks/AnotherFramework.framework/AnotherFramework"),
             executable_size=60000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 40000,
-                "__data": 15000,
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=40000)]),
+                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=15000)]),
                 # No debug sections
-            },
+            ],
             symbol_info=symbol_info_3,
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -274,20 +297,23 @@ class TestStripSymbolsInsight:
         """Test that no insight is generated when binaries have no strippable content."""
         binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
-            binary_relative_path="MyApp",
+            binary_relative_path=Path("MyApp"),
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 30000,
-                "__data": 15000,
-                "__const": 5000,
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)]),
+                SegmentInfo(
+                    name="__DATA",
+                    sections=[SectionInfo(name="__data", size=15000), SectionInfo(name="__const", size=5000)],
+                ),
                 # No debug sections
-            },
+            ],
             symbol_info=None,  # No symbol info
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -313,20 +339,23 @@ class TestStripSymbolsInsight:
 
         binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
-            binary_relative_path="MyApp",
+            binary_relative_path=Path("MyApp"),
             executable_size=50000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 30000,
-                "__data": 15000,
-                "__const": 5000,
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)]),
+                SegmentInfo(
+                    name="__DATA",
+                    sections=[SectionInfo(name="__data", size=15000), SectionInfo(name="__const", size=5000)],
+                ),
                 # No debug sections
-            },
+            ],
             symbol_info=symbol_info,
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -344,31 +373,42 @@ class TestStripSymbolsInsight:
         """Test that all debug sections are correctly detected."""
         binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
-            binary_relative_path="MyApp",
+            binary_relative_path=Path("MyApp"),
             executable_size=100000,
             architectures=["arm64"],
             linked_libraries=[],
-            sections={
-                "__text": 50000,
-                "__debug_info": 1000,
-                "__debug_abbrev": 500,
-                "__debug_aranges": 300,
-                "__debug_line": 800,
-                "__debug_str": 1200,
-                "__debug_loc": 400,
-                "__debug_ranges": 350,
-                "__debug_frame": 600,
-                "__apple_names": 700,
-                "__apple_types": 450,
-                "__apple_namespac": 250,
-                "__apple_objc": 150,
-                "__data": 10000,  # Non-debug section
-                "__const": 5000,  # Non-debug section
-            },
+            objc_method_names=[],
+            segments=[
+                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)]),
+                SegmentInfo(
+                    name="__DWARF",
+                    sections=[
+                        SectionInfo(name="__debug_info", size=1000),
+                        SectionInfo(name="__debug_abbrev", size=500),
+                        SectionInfo(name="__debug_aranges", size=300),
+                        SectionInfo(name="__debug_line", size=800),
+                        SectionInfo(name="__debug_str", size=1200),
+                        SectionInfo(name="__debug_loc", size=400),
+                        SectionInfo(name="__debug_ranges", size=350),
+                        SectionInfo(name="__debug_frame", size=600),
+                        SectionInfo(name="__apple_names", size=700),
+                        SectionInfo(name="__apple_types", size=450),
+                        SectionInfo(name="__apple_namespac", size=250),
+                        SectionInfo(name="__apple_objc", size=150),
+                    ],
+                ),
+                SegmentInfo(
+                    name="__DATA",
+                    sections=[
+                        SectionInfo(name="__data", size=10000),  # Non-debug section
+                        SectionInfo(name="__const", size=5000),  # Non-debug section
+                    ],
+                ),
+            ],
             symbol_info=None,
             swift_metadata=None,
-            binary_analysis=None,
             is_main_binary=False,
+            header_size=32,
         )
 
         insights_input = InsightsInput(

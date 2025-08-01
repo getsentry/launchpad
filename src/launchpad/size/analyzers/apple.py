@@ -367,7 +367,6 @@ class AppleAppAnalyzer:
         # Extract basic information using the parser
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
-        sections = parser.extract_sections()
         swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
         static_inits = parser.static_inits()
@@ -418,7 +417,6 @@ class AppleAppAnalyzer:
             executable_size=executable_size,
             architectures=architectures,
             linked_libraries=linked_libraries,
-            sections=sections,
             swift_metadata=swift_metadata,
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
