@@ -29,19 +29,13 @@ class DexElementBuilder(TreemapElementBuilder):
 
         root_packages = self._build_package_tree()
 
-        details = {
-            "fileExtension": file_info.file_type,
-            "class_count": len(self.class_definitions),
-        }
-
         return TreemapElement(
             name=display_name,
             size=size,
-            element_type=TreemapType.DEX,
+            type=TreemapType.DEX,
             path=file_info.path,
-            is_directory=True,
+            is_dir=True,
             children=root_packages,
-            details=details,
         )
 
     def _build_package_tree(self) -> list[TreemapElement]:
@@ -89,19 +83,14 @@ class DexElementBuilder(TreemapElementBuilder):
 
                 total_size = sum(child.size for child in children)
 
-                details = {
-                    "class_count": len([child for child in children if not child.is_directory]),
-                }
-
                 elements.append(
                     TreemapElement(
                         name=name,
                         size=total_size,
-                        element_type=TreemapType.DEX,
+                        type=TreemapType.DEX,
                         path=package_path,
-                        is_directory=True,
+                        is_dir=True,
                         children=children,
-                        details=details,
                     )
                 )
 
@@ -110,17 +99,11 @@ class DexElementBuilder(TreemapElementBuilder):
     def _create_class_element(self, class_def: ClassDefinition) -> TreemapElement:
         class_size = class_def.size
 
-        details = {
-            "fqn": class_def.fqn(),
-            "source_file": class_def.source_file_name,
-        }
-
         return TreemapElement(
             name=class_def.get_name(),
             size=class_size,
-            element_type=TreemapType.DEX,
+            type=TreemapType.DEX,
             path=class_def.fqn(),
-            is_directory=False,
+            is_dir=False,
             children=[],
-            details=details,
         )

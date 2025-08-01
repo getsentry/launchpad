@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -87,16 +87,11 @@ class TreemapElement(BaseModel):
 
     name: str = Field(..., description="Display name of the element")
     size: int = Field(..., ge=0, description="Install size in bytes")
-    element_type: TreemapType | None = Field(None, description="Type of element for visualization")
+    type: TreemapType | None = Field(None, description="Type of element for visualization")
     path: str | None = Field(None, description="Relative file or directory path")
-    is_directory: bool = Field(False, description="Whether this element represents a directory")
+    is_dir: bool = Field(False, description="Whether this element represents a directory")
+    """ Some files (like zip files) are not directories but have children. """
     children: List[TreemapElement] = Field(default_factory=list, description="Child elements")
-    details: Dict[str, Any] = Field(default_factory=dict, description="Platform and context-specific metadata")
-
-    @property
-    def is_leaf(self) -> bool:
-        """Check if this is a leaf node (no children)."""
-        return len(self.children) == 0
 
 
 class TreemapResults(BaseModel):

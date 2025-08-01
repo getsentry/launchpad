@@ -9,21 +9,11 @@ from launchpad.utils.file_utils import to_nearest_block_size
 class DefaultFileElementBuilder(TreemapElementBuilder):
     def build_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
         size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
-
-        details: dict[str, object] = {
-            "hash": file_info.hash,  # File hash for deduplication
-        }
-
-        # Add file extension only for actual files (not binary subsections)
-        if file_info.file_type and file_info.file_type != "unknown":
-            details["fileExtension"] = file_info.file_type
-
         return TreemapElement(
             name=display_name,
             size=size,
-            element_type=file_info.treemap_type,
+            type=file_info.treemap_type,
             path=file_info.path,
-            is_directory=False,
-            details=details,
+            is_dir=False,
             children=[self.build_element(child, os.path.basename(child.path)) for child in file_info.children],
         )

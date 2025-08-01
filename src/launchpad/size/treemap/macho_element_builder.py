@@ -49,9 +49,9 @@ class MachOElementBuilder(TreemapElementBuilder):
         return TreemapElement(
             name=display_name,
             size=file_info.size,
-            element_type=TreemapType.EXECUTABLES,
+            type=TreemapType.EXECUTABLES,
             path=file_info.path,
-            is_directory=False,
+            is_dir=False,
             children=children,
         )
 
@@ -161,9 +161,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                             self_elem = TreemapElement(
                                 name=node["type_name"],
                                 size=node["self_size"],
-                                element_type=TreemapType.MODULES,
+                                type=TreemapType.MODULES,
                                 path=None,
-                                is_directory=False,
+                                is_dir=False,
                                 children=[],
                             )
                             child_elems.append(self_elem)
@@ -178,9 +178,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                             TreemapElement(
                                 name=node["type_name"],
                                 size=total_size,
-                                element_type=TreemapType.MODULES,
+                                type=TreemapType.MODULES,
                                 path=None,
-                                is_directory=False,
+                                is_dir=False,
                                 children=child_elems,
                             )
                         )
@@ -194,9 +194,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                     TreemapElement(
                         name=module_name,
                         size=module_total_size,
-                        element_type=TreemapType.MODULES,
+                        type=TreemapType.MODULES,
                         path=None,
-                        is_directory=False,
+                        is_dir=False,
                         children=module_children,
                     )
                 )
@@ -218,9 +218,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                     TreemapElement(
                         name=meth_name,
                         size=size,
-                        element_type=TreemapType.MODULES,
+                        type=TreemapType.MODULES,
                         path=None,
-                        is_directory=False,
+                        is_dir=False,
                         children=[],
                     )
                     for meth_name, size in meths
@@ -229,9 +229,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                     TreemapElement(
                         name=cls_name,
                         size=sum(m.size for m in meth_elems),
-                        element_type=TreemapType.MODULES,
+                        type=TreemapType.MODULES,
                         path=None,
-                        is_directory=True,
+                        is_dir=True,
                         children=meth_elems,
                     )
                 )
@@ -261,15 +261,10 @@ class MachOElementBuilder(TreemapElementBuilder):
             elem = TreemapElement(
                 name=section_name,
                 size=adjusted,
-                element_type=element_type,
+                type=element_type,
                 path=None,
-                is_directory=False,
+                is_dir=False,
                 children=[],
-                details={
-                    "tag": first_tag,
-                    "component_name": section_name,
-                    "adjusted_size": adjusted,
-                },
             )
 
             is_dyld = (
@@ -284,11 +279,10 @@ class MachOElementBuilder(TreemapElementBuilder):
                 TreemapElement(
                     name="DYLD",
                     size=dyld_total,
-                    element_type=TreemapType.DYLD,
+                    type=TreemapType.DYLD,
                     path=None,
-                    is_directory=True,
+                    is_dir=True,
                     children=dyld_children,
-                    details={"tag": "dyld"},
                 )
             )
 
@@ -298,9 +292,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                 TreemapElement(
                     name="Unanalyzed",
                     size=int(binary_component_analysis.unanalyzed_size),
-                    element_type=TreemapType.UNMAPPED,
+                    type=TreemapType.UNMAPPED,
                     path=None,
-                    is_directory=False,
+                    is_dir=False,
                     children=[],
                 )
             )

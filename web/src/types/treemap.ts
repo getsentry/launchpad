@@ -45,19 +45,15 @@ export interface TreemapElement {
   /** Display name of the element */
   name: string;
   /** Install size in bytes */
-  install_size: number;
-  /** Download size in bytes (compressed) */
-  download_size: number;
+  size: number;
   /** Type of element for visualization */
-  element_type?: TreemapType;
+  type?: TreemapType;
   /** File or directory path */
   path?: string;
   /** Whether this element represents a directory */
-  is_directory: boolean;
+  is_dir: boolean;
   /** Child elements */
   children: TreemapElement[];
-  /** Platform and context-specific metadata */
-  details: Record<string, unknown>;
 }
 
 export interface TreemapResults {

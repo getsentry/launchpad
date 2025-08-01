@@ -66,14 +66,10 @@ class HermesElementBuilder(TreemapElementBuilder):
             element = TreemapElement(
                 name=section_name,
                 size=section_info["bytes"],
-                element_type=treemap_type,
+                type=treemap_type,
                 path=None,
-                is_directory=False,
+                is_dir=False,
                 children=[],
-                details={
-                    "percentage": section_info["percentage"],
-                    "section_type": section_name,
-                },
             )
 
             if "string" in section_name.lower() or "identifier" in section_name.lower():
@@ -90,11 +86,10 @@ class HermesElementBuilder(TreemapElementBuilder):
                 TreemapElement(
                     name="Strings & Identifiers",
                     size=string_total,
-                    element_type=TreemapType.STRINGS,
+                    type=TreemapType.STRINGS,
                     path=None,
-                    is_directory=True,
+                    is_dir=True,
                     children=string_sections,
-                    details={"category": "strings"},
                 )
             )
         else:
@@ -106,11 +101,10 @@ class HermesElementBuilder(TreemapElementBuilder):
                 TreemapElement(
                     name="Functions",
                     size=function_total,
-                    element_type=TreemapType.METHODS,
+                    type=TreemapType.METHODS,
                     path=None,
-                    is_directory=True,
+                    is_dir=True,
                     children=function_sections,
-                    details={"category": "functions"},
                 )
             )
         else:
@@ -125,14 +119,10 @@ class HermesElementBuilder(TreemapElementBuilder):
                 TreemapElement(
                     name="Unattributed",
                     size=report["unattributed"]["bytes"],
-                    element_type=TreemapType.BINARY,
+                    type=TreemapType.BINARY,
                     path=None,
-                    is_directory=False,
+                    is_dir=False,
                     children=[],
-                    details={
-                        "percentage": report["unattributed"]["percentage"],
-                        "section_type": "unattributed",
-                    },
                 )
             )
 
@@ -141,14 +131,10 @@ class HermesElementBuilder(TreemapElementBuilder):
         return TreemapElement(
             name=name,
             size=total_size,
-            element_type=TreemapType.BINARY,
+            type=TreemapType.BINARY,
             path=file_path,
-            is_directory=True,
+            is_dir=True,
             children=section_children,
-            details={
-                "file_size": report["file_size"],
-                "bytecode_type": "hermes",
-            },
         )
 
     def _get_treemap_type_for_section(self, section_name: str) -> TreemapType:

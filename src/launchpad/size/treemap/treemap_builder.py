@@ -60,9 +60,9 @@ class TreemapBuilder:
         root = TreemapElement(
             name=self.app_name,
             size=total_size,
-            element_type=None,
+            type=None,
             path=None,
-            is_directory=True,  # Root app element is treated as a directory
+            is_dir=True,  # Root app element is treated as a directory
             children=children,
         )
 
@@ -204,9 +204,9 @@ class TreemapBuilder:
             return TreemapElement(
                 name=dir_name,
                 size=total_size,
-                element_type=self._get_directory_type(dir_name),
+                type=self._get_directory_type(dir_name),
                 path=dir_path,
-                is_directory=True,
+                is_dir=True,
                 children=children,
             )
 
