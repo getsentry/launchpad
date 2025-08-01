@@ -42,6 +42,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             name=display_name,
             file_path=file_info.path,
             binary_analysis=self.binary_analysis_map[file_info.path],
+            file_size=file_info.size,
         )
         if children is None:
             return None
@@ -56,7 +57,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         )
 
     def _build_binary_treemap(
-        self, *, name: str, file_path: str, binary_analysis: MachOBinaryAnalysis
+        self, *, name: str, file_path: str, binary_analysis: MachOBinaryAnalysis, file_size: int
     ) -> List[TreemapElement] | None:
         binary_component_analysis = binary_analysis.binary_analysis
         symbol_info = binary_analysis.symbol_info
@@ -77,6 +78,12 @@ class MachOElementBuilder(TreemapElementBuilder):
         section_sizes: Dict[str, int] = {
             section_name: sum(c.size for c in components) for section_name, components in components_by_name.items()
         }
+
+        # Assert that section sizes sum to the total file size
+        total_section_size = sum(section_sizes.values())
+        assert total_section_size == file_size, (
+            f"Section sizes sum to {total_section_size} but file size is {file_size}"
+        )
 
         #
         # These lists will accumulate children for the top-level element
