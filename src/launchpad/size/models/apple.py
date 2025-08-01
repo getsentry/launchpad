@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import lief
 
@@ -13,9 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
-from launchpad.size.models.binary_component import BinaryAnalysis
 
-from .common import BaseAnalysisResults, BaseAppInfo, BaseBinaryAnalysis
+from .common import BaseAnalysisResults, BaseAppInfo
 from .insights import (
     DuplicateFilesInsightResult,
     HermesDebugInfoInsightResult,
@@ -36,7 +35,7 @@ from .insights import (
 class AppleAnalysisResults(BaseAnalysisResults):
     """Complete Apple analysis results."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     app_info: AppleAppInfo = Field(..., description="Apple app information")
     binary_analysis: List[MachOBinaryAnalysis] = Field(
@@ -72,24 +71,38 @@ class AppleAppInfo(BaseAppInfo):
     main_binary_uuid: str | None = Field(None, description="UUID of the main binary")
 
 
-class MachOBinaryAnalysis(BaseBinaryAnalysis):
+@dataclass
+class SegmentInfo:
+    """Extracted segment information from LIEF data."""
+
+    name: str
+    sections: List["SectionInfo"]
+
+
+@dataclass
+class SectionInfo:
+    """Extracted section information from LIEF data."""
+
+    name: str
+    size: int
+
+
+@dataclass
+class MachOBinaryAnalysis:
     """Mach-O binary analysis results."""
 
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
-
-    binary_absolute_path: Path = Field(
-        ..., description="Fully qualified path to the binary within the app bundle", exclude=True
-    )
-    binary_relative_path: str = Field(..., description="Path to the binary within the app bundle")
-    swift_metadata: SwiftMetadata | None = Field(None, description="Swift-specific metadata")
-    binary_analysis: BinaryAnalysis | None = Field(
-        None,
-        description="Binary component analysis for size categorization",
-        exclude=True,
-    )
-    symbol_info: SymbolInfo | None = Field(None, description="Symbol information", exclude=True)
-    objc_method_names: List[str] = Field(default_factory=list, description="Objective-C method names", exclude=True)
-    is_main_binary: bool = Field(False, description="Whether this is the main binary")
+    binary_absolute_path: Path
+    binary_relative_path: Path
+    executable_size: int
+    is_main_binary: bool
+    architectures: List[str]
+    linked_libraries: List[str]
+    sections: Dict[str, int]
+    objc_method_names: List[str]
+    segments: List[SegmentInfo]  # Extracted segment/section data instead of live LIEF objects
+    swift_metadata: SwiftMetadata | None = None
+    symbol_info: SymbolInfo | None = None
+    header_size: int = 0
 
 
 class SwiftMetadata(BaseModel):

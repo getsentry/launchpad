@@ -15,7 +15,6 @@ from cryptography import x509
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.macho_parser import MachOParser
-from launchpad.parsers.apple.macho_size_analyzer import MachOSizeAnalyzer
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
@@ -50,6 +49,8 @@ from ..models.apple import (
     AppleAppInfo,
     AppleInsightResults,
     MachOBinaryAnalysis,
+    SectionInfo,
+    SegmentInfo,
     SwiftMetadata,
     SymbolInfo,
 )
@@ -138,7 +139,7 @@ class AppleAppAnalyzer:
                 if binary_info.dsym_path:
                     logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
                 binary = self._analyze_binary(binary_info, app_bundle_path)
-                if binary and binary.binary_analysis is not None:
+                if binary is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
@@ -408,24 +409,22 @@ class AppleAppAnalyzer:
                 protocol_conformances=swift_protocol_conformances,
             )
 
-        # Analyze binary components
-        binary_analysis = None
-        if not self.skip_component_analysis:
-            analyzer = MachOSizeAnalyzer(parser, executable_size, str(binary_path))
-            binary_analysis = analyzer.analyze()
+        # Extract segment/section data from LIEF objects into stable dataclasses
+        segments = self._extract_segments_info(parser.binary)
 
         return MachOBinaryAnalysis(
             binary_absolute_path=binary_path,
-            binary_relative_path=str(binary_path.relative_to(app_bundle_path)),
+            binary_relative_path=binary_path.relative_to(app_bundle_path),
             executable_size=executable_size,
             architectures=architectures,
             linked_libraries=linked_libraries,
             sections=sections,
             swift_metadata=swift_metadata,
-            binary_analysis=binary_analysis,
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
             is_main_binary=is_main_binary,
+            segments=segments,
+            header_size=parser.get_header_size(),
         )
 
     @trace("apple.test_strip_symbols_removal")
@@ -472,3 +471,49 @@ class AppleAppAnalyzer:
         except Exception as e:
             logger.error(f"Error testing symbol removal for {binary_path}: {e}")
             return 0
+
+    def _extract_segments_info(self, binary: lief.MachO.Binary) -> List[SegmentInfo]:
+        """Extract segment and section information from LIEF binary into stable dataclasses."""
+        segments: List[SegmentInfo] = []
+
+        try:
+            for command in binary.commands:
+                if isinstance(command, lief.MachO.SegmentCommand):
+                    # Extract segment name safely
+                    segment_name = command.name
+                    if isinstance(segment_name, bytes):
+                        segment_name = segment_name.decode("utf-8", errors="replace")
+                    elif not isinstance(segment_name, str):
+                        segment_name = str(segment_name)
+
+                    # Safety check for corrupted segment names
+                    if len(segment_name) > 100 or not segment_name.isprintable():
+                        logger.warning(f"Skipping segment with corrupted name: {repr(segment_name)}")
+                        continue
+
+                    # Extract section information
+                    section_infos: List[SectionInfo] = []
+                    if hasattr(command, "sections"):
+                        for section in command.sections:
+                            try:
+                                section_name = section.name
+                                if isinstance(section_name, bytes):
+                                    section_name = section_name.decode("utf-8", errors="replace")
+                                elif not isinstance(section_name, str):
+                                    section_name = str(section_name)
+
+                                # Safety check for corrupted section names
+                                if len(section_name) > 100 or not section_name.isprintable():
+                                    logger.warning(f"Skipping section with corrupted name: {repr(section_name)}")
+                                    continue
+
+                                section_infos.append(SectionInfo(name=section_name, size=section.size))
+                            except Exception as e:
+                                logger.warning(f"Error extracting section info: {e}")
+
+                    segments.append(SegmentInfo(name=segment_name, sections=section_infos))
+        except Exception as e:
+            logger.warning(f"Error extracting segments info: {e}")
+
+        logger.debug(f"Extracted {len(segments)} segments with stable data")
+        return segments

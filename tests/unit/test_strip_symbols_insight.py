@@ -340,28 +340,6 @@ class TestStripSymbolsInsight:
 
         assert result is None
 
-    def test_generate_with_non_macho_binaries(self):
-        """Test that non-MachO binary analyses are ignored."""
-        from launchpad.size.models.common import BaseBinaryAnalysis
-
-        non_macho_binary = BaseBinaryAnalysis(
-            executable_size=50000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            sections={"__debug_info": 5000},
-        )
-
-        insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[], directories=[]),
-            treemap=None,
-            binary_analysis=[non_macho_binary],
-        )
-
-        result = self.insight.generate(insights_input)
-
-        assert result is None
-
     def test_debug_sections_detection(self):
         """Test that all debug sections are correctly detected."""
         binary_analysis = MachOBinaryAnalysis(

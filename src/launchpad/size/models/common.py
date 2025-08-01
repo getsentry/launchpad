@@ -22,17 +22,6 @@ class BaseAppInfo(BaseModel):
     app_id: str = Field(..., description="App ID (bundle id on iOS, package name on Android)")
 
 
-class BaseBinaryAnalysis(BaseModel):
-    """Base binary analysis that applies across platforms."""
-
-    model_config = ConfigDict(frozen=True)
-
-    executable_size: int = Field(..., ge=0, description="Main executable size in bytes")
-    architectures: List[str] = Field(..., description="CPU architectures")
-    linked_libraries: List[str] = Field(default_factory=list, description="Linked dynamic libraries")
-    sections: Dict[str, int] = Field(default_factory=dict, description="Binary sections and their sizes")
-
-
 class FileAnalysis(BaseModel):
     """Analysis results for files and directories in the app bundle."""
 

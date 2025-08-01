@@ -201,28 +201,6 @@ class TestMainBinaryExportMetadataInsight:
         assert isinstance(result, MainBinaryExportMetadataResult)
         assert result.total_savings == 8000
 
-    def test_generate_with_non_macho_binary_analysis(self):
-        """Test that insight ignores non-MachO binary analyses."""
-        from launchpad.size.models.common import BaseBinaryAnalysis
-
-        non_macho_binary = BaseBinaryAnalysis(
-            executable_size=50000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            sections={"__text": 30000},
-        )
-
-        insights_input = InsightsInput(
-            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
-            file_analysis=FileAnalysis(files=[], directories=[]),
-            treemap=None,
-            binary_analysis=[non_macho_binary],
-        )
-
-        result = self.insight.generate(insights_input)
-
-        assert result is None
-
     def test_generate_with_dyld_exports_trie_zero_size(self):
         """Test that insight handles dyld_exports_trie component with zero size."""
         dyld_exports_trie_component = BinaryComponent(
