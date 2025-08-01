@@ -83,7 +83,8 @@ function convertToEChartsData(
   element: TreemapElement,
   sizeMode: 'install' | 'download'
 ): EChartsTreemapData {
-  const size = sizeMode === 'install' ? element.install_size : element.download_size;
+  // TreemapElement only has a single size field - the sizeMode doesn't affect individual elements
+  const size = element.size;
   const color = element.type ? TYPE_COLORS[element.type] : TYPE_COLORS[TreemapType.OTHER];
 
   const data: EChartsTreemapData = {
@@ -136,7 +137,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
 }) => {
   const treemapData = data.treemap;
   const chartData = convertToEChartsData(treemapData.root, sizeMode);
-  const totalSize = sizeMode === 'install' ? treemapData.total_install_size : treemapData.total_download_size;
+  const totalSize = sizeMode === 'install' ? data.install_size : data.download_size;
 
   const option = {
     tooltip: {

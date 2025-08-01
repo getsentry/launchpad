@@ -59,10 +59,6 @@ export interface TreemapElement {
 export interface TreemapResults {
   /** Root element of the treemap */
   root: TreemapElement;
-  /** Total install size */
-  total_install_size: number;
-  /** Total download size */
-  total_download_size: number;
   /** Total number of files analyzed */
   file_count: number;
   /** Size breakdown by category */
