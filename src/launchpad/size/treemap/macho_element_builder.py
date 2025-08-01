@@ -63,6 +63,16 @@ class MachOElementBuilder(TreemapElementBuilder):
         if children is None:
             return None
 
+        # Verify that child sizes sum up to the total file size
+        total_child_size = self._calculate_total_size(children)
+        size_diff = abs(file_info.size - total_child_size)
+        size_diff_percent = (size_diff / file_info.size) * 100 if file_info.size > 0 else 0
+
+        logger.debug(f"Size validation for {display_name}:")
+        logger.debug(f"  File size: {file_info.size:,} bytes")
+        logger.debug(f"  Treemap total: {total_child_size:,} bytes")
+        logger.debug(f"  Difference: {size_diff:,} bytes ({size_diff_percent:.2f}%)")
+
         return TreemapElement(
             name=display_name,
             size=file_info.size,
@@ -504,6 +514,13 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         logger.debug(f"Added {len(metadata_children)} metadata components")
         return metadata_children
+
+    def _calculate_total_size(self, elements: List[TreemapElement]) -> int:
+        """Recursively calculate the total size of treemap elements."""
+        total = 0
+        for element in elements:
+            total += element.size
+        return total
 
     def _get_element_type_from_tag(self, tag: BinaryTag) -> TreemapType:
         """Convert BinaryTag to TreemapType."""
