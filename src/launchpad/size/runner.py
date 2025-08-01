@@ -70,4 +70,4 @@ def do_size(
 
 
 def write_results_as_json(results: BaseAnalysisResults, out: TextIO) -> None:
-    json.dump(results.to_dict(), out, indent=2, ensure_ascii=False)
+    json.dump(results.to_dict(), out, ensure_ascii=False, separators=(",", ":"))
