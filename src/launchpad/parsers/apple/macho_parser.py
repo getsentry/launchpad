@@ -45,22 +45,27 @@ class MachOParser:
         except Exception:
             return False
 
+    @trace(name="extract_architectures")
     def extract_architectures(self) -> List[str]:
         """Extract CPU architectures from the binary."""
         return [str(self.binary.header.cpu_type)]
 
+    @trace(name="extract_linked_libraries")
     def extract_linked_libraries(self) -> List[str]:
         """Extract linked dynamic libraries from the binary."""
         return [str(lib.name) for lib in self.binary.libraries]
 
+    @trace(name="extract_sections")
     def extract_sections(self) -> Dict[str, int]:
         """Extract binary sections and their sizes."""
         return {str(section.name): section.size for section in self.binary.sections}
 
+    @trace(name="extract_swift_sections")
     def extract_swift_sections(self) -> List[lief.Section]:
         """Get Swift sections from the binary."""
         return [section for section in self.binary.sections if "swift" in str(section.name).lower()]
 
+    @trace(name="get_header_size")
     def get_header_size(self) -> int:
         """Get the size of the Mach-O header."""
         # Mach-O header is typically at the beginning
@@ -69,6 +74,7 @@ class MachOParser:
         # TODO: implement proper header size, seems hard to do with LIEF
         return header_size
 
+    @trace(name="_cpu_type_to_string")
     def _cpu_type_to_string(self, cpu_type: int) -> str | None:
         """Convert LIEF CPU type to string representation."""
         # Common CPU types from Mach-O
@@ -80,6 +86,7 @@ class MachOParser:
         }
         return cpu_types.get(cpu_type)
 
+    @trace(name="get_section_bytes_at_offset")
     def get_section_bytes_at_offset(self, section_name: str, offset: int, size: int) -> bytes | None:
         """Get specific bytes from a section at a given offset.
 
@@ -106,6 +113,7 @@ class MachOParser:
             logger.error(f"Failed to get section bytes at offset for {section_name}: {e}")
             return None
 
+    @trace(name="get_section_bytes")
     def get_section_bytes(self, section_name: str) -> bytes | None:
         """Get raw bytes content of a specific section.
 
@@ -132,6 +140,7 @@ class MachOParser:
             logger.error(f"Failed to get section content for {section_name}: {e}")
             return None
 
+    @trace(name="is_encrypted")
     def is_encrypted(self) -> bool:
         """Check if the Mach-O binary is encrypted.
 
@@ -149,10 +158,12 @@ class MachOParser:
             logger.error(f"Failed to check encryption status: {e}")
             return False
 
+    @trace(name="parse_swift_protocol_conformances")
     def parse_swift_protocol_conformances(self) -> List[str]:
         """Parse the Swift protocol section."""
         return SwiftProtocolParser(self.binary, self).parse_swift_protocol_conformances()
 
+    @trace(name="read_indirect_pointer")
     def read_indirect_pointer(self, offset: int) -> tuple[int, int]:
         """Read an indirect pointer from the binary.
 
@@ -180,10 +191,12 @@ class MachOParser:
         else:
             return (vm_address + indirect_offset, 4)  # Consumed 4 bytes
 
+    @trace(name="parse_code_signature")
     def parse_code_signature(self) -> CodeSignInformation | None:
         """Parse the code signature information from the binary."""
         return CodeSignatureParser(self.binary, self).parse_code_signature()
 
+    @trace(name="get_imported_symbols")
     def get_imported_symbols(self) -> List[str]:
         if self._imported_symbols_cache is not None:
             return self._imported_symbols_cache
