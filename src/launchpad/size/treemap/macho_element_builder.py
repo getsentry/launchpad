@@ -72,13 +72,20 @@ class MachOElementBuilder(TreemapElementBuilder):
             return total
 
         total_child_size = _calculate_total_size(children)
-        size_diff = abs(file_info.size - total_child_size)
-        size_diff_percent = (size_diff / file_info.size) * 100 if file_info.size > 0 else 0
+        size_diff = file_info.size - total_child_size
+        size_diff_abs = abs(size_diff)
+        size_diff_percent = (size_diff_abs / file_info.size) * 100 if file_info.size > 0 else 0
 
         logger.debug(f"Size validation for {display_name}:")
         logger.debug(f"  File size: {file_info.size:,} bytes")
         logger.debug(f"  Treemap total: {total_child_size:,} bytes")
-        logger.debug(f"  Difference: {size_diff:,} bytes ({size_diff_percent:.2f}%)")
+
+        if size_diff > 0:
+            logger.debug(f"  Difference: {size_diff_abs:,} bytes MISSING from treemap ({size_diff_percent:.2f}%)")
+        elif size_diff < 0:
+            logger.debug(f"  Difference: {size_diff_abs:,} bytes OVER-COUNTED in treemap ({size_diff_percent:.2f}%)")
+        else:
+            logger.debug("  Difference: 0 bytes - perfect match!")
 
         return TreemapElement(
             name=display_name,
