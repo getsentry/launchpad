@@ -17,24 +17,25 @@ class MainBinaryExportMetadataInsight(Insight[MainBinaryExportMetadataResult]):
             if not analysis.is_main_binary:
                 continue
 
-            for segment in analysis.segments:
-                for section in segment.sections:
-                    if section.name == "dyld_exports_trie":
-                        if section.size >= self.MIN_EXPORTS_THRESHOLD:
-                            export_files.append(
-                                FileSavingsResult(
-                                    file_path=str(analysis.binary_relative_path),
-                                    total_savings=section.size,
-                                )
-                            )
-                            break
+            dyld_info = analysis.dyld_info
+            if dyld_info is None:
+                continue
+
+            export_trie_size = dyld_info.export_trie_size
+            if export_trie_size >= self.MIN_EXPORTS_THRESHOLD:
+                export_files.append(
+                    FileSavingsResult(
+                        file_path=str(analysis.binary_relative_path),
+                        total_savings=export_trie_size,
+                    )
+                )
 
         if not export_files:
             return None
 
-        total_savings = sum(file.total_savings for file in export_files)
+        export_files.sort(key=lambda x: x.total_savings, reverse=True)
 
         return MainBinaryExportMetadataResult(
-            total_savings=total_savings,
+            total_savings=sum(file.total_savings for file in export_files),
             files=export_files,
         )
