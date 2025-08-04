@@ -98,13 +98,8 @@ class LoadCommandInfo:
 
 @dataclass
 class DyldInfo:
-    """DYLD-specific information extracted from LC_DYLD_INFO load commands."""
+    """DYLD-specific information extracted from related DYLD load commands."""
 
-    rebase_size: int = 0
-    bind_size: int = 0
-    weak_bind_size: int = 0
-    lazy_bind_size: int = 0
-    export_size: int = 0
     chained_fixups_size: int = 0
     export_trie_size: int = 0
 

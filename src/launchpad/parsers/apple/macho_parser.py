@@ -294,42 +294,9 @@ class MachOParser:
     @trace(name="extract_dyld_info")
     def extract_dyld_info(self) -> DyldInfo:
         """Extract DYLD information from LC_DYLD_INFO load commands."""
-        rebase_size = 0
-        bind_size = 0
-        weak_bind_size = 0
-        lazy_bind_size = 0
-        export_size = 0
-        export_trie_size = 0
-        chained_fixups_size = 0
-
-        dyld_info = self.binary.dyld_info
         dyld_chained_fixups = self.binary.dyld_chained_fixups
         dyld_exports_trie = self.binary.dyld_exports_trie
-
-        if dyld_info:
-            rebase_size = dyld_info.rebase[1]
-            bind_size = dyld_info.bind[1]
-            weak_bind_size = dyld_info.weak_bind[1]
-            lazy_bind_size = dyld_info.lazy_bind[1]
-            export_size = dyld_info.export_info[1]
-
-        if dyld_chained_fixups:
-            chained_fixups_size = dyld_chained_fixups.size + dyld_chained_fixups.data_size
-
-        if dyld_exports_trie:
-            export_trie_size = dyld_exports_trie.size + dyld_exports_trie.data_size
-
-        dyld_info = DyldInfo(
-            rebase_size=rebase_size,
-            bind_size=bind_size,
-            weak_bind_size=weak_bind_size,
-            lazy_bind_size=lazy_bind_size,
-            export_size=export_size,
-            chained_fixups_size=chained_fixups_size,
-            export_trie_size=export_trie_size,
+        return DyldInfo(
+            chained_fixups_size=dyld_chained_fixups.data_size if dyld_chained_fixups else 0,
+            export_trie_size=dyld_exports_trie.data_size if dyld_exports_trie else 0,
         )
-
-        logger.debug(
-            f"Extracted DYLD info: rebase={rebase_size}, bind={bind_size}, weak_bind={weak_bind_size}, lazy_bind={lazy_bind_size}, export={export_size}"
-        )
-        return dyld_info

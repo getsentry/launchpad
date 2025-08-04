@@ -18,6 +18,7 @@ from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
+from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
@@ -40,7 +41,7 @@ from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
-from launchpad.utils.file_utils import get_file_size
+from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
 from launchpad.utils.performance import trace, trace_ctx
 
@@ -360,7 +361,7 @@ class AppleAppAnalyzer:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
 
         binary = fat_binary.at(0)
-        executable_size = get_file_size(binary_path)
+        executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
         # Create parser for this binary
         parser = MachOParser(binary)
