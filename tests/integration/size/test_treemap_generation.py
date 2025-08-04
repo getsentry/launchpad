@@ -366,18 +366,30 @@ class TestTreemapGeneration:
 
         # Verify main executable sections
         main_exe_sections = {child.name: child for child in main_exe.children}
-        has_text = "__text" in main_exe_sections
+        has_text = "__TEXT" in main_exe_sections
         assert has_text
-        text_size = main_exe_sections["__text"].size
-        assert text_size == 154660
-        has_objc_classlist = "__objc_classlist" in main_exe_sections
-        assert has_objc_classlist
-        objc_classlist_size = main_exe_sections["__objc_classlist"].size
-        assert objc_classlist_size == 3096
-        has_data = "__data" in main_exe_sections
+        text_size = main_exe_sections["__TEXT"].size
+        assert text_size == 732246
+
+        has_data = "__DATA" in main_exe_sections
         assert has_data
-        data_size = main_exe_sections["__data"].size
-        assert data_size == 4541
+        data_size = main_exe_sections["__DATA"].size
+        assert data_size == 129704
+
+        has_data_const = "__DATA_CONST" in main_exe_sections
+        assert has_data_const
+        data_const_size = main_exe_sections["__DATA_CONST"].size
+        assert data_const_size == 89880
+
+        has_linkedit = "__LINKEDIT" in main_exe_sections
+        assert has_linkedit
+        linkedit_size = main_exe_sections["__LINKEDIT"].size
+        assert linkedit_size == 269360
+
+        has_hackernews = "HackerNews" in main_exe_sections
+        assert has_hackernews
+        hackernews_size = main_exe_sections["HackerNews"].size
+        assert hackernews_size == 257340
 
         # Verify Frameworks directory
         frameworks = find_node_by_path(treemap.root, "Frameworks")
@@ -465,45 +477,12 @@ class TestTreemapGeneration:
         # Verify Assets.car
         assets = find_node_by_path(treemap.root, "Assets.car")
         assert assets is not None
-        # assets_size = assets.size
-        # assert assets_size == 4788000
-        assets_element_type = assets.type
-        assert assets_element_type == "assets"
-        assets_children_len = len(assets.children)
-        assert assets_children_len == 14
+        assert assets.size == 2404352
+        assert assets.type == "assets"
+        assert len(assets.children) == 8
 
-        # Verify category breakdown
-        # files_breakdown = treemap.category_breakdown["files"]
-        # assert files_breakdown == {
-        #     "install": 120000,
-        #     "download": 96000,
-        # }
-        # assets_breakdown = treemap.category_breakdown["assets"]
-        # assert assets_breakdown == {
-        #     "install": 4840000,
-        #     "download": 3872000,
-        # }
-        # plists_breakdown = treemap.category_breakdown["plists"]
-        # assert plists_breakdown == {
-        #     "install": 28000,
-        #     "download": 22400,
-        # }
-        # executables_breakdown = treemap.category_breakdown["executables"]
-        # assert executables_breakdown == {
-        #     "download": 2886400,
-        #     "install": 3608000,
-        # }
-        # fonts_breakdown = treemap.category_breakdown["fonts"]
-        # assert fonts_breakdown == {
-        #     "download": 854400,
-        #     "install": 1068000,
-        # }
-
-        # Verify totals
-        file_count = treemap.file_count
-        assert file_count == 31
-        platform_val = treemap.platform
-        assert platform_val == "ios"
+        assert treemap.file_count == 31
+        assert treemap.platform == "ios"
 
     @pytest.mark.skipif(platform.system() != "Darwin", reason="CwlDemangle tool only available on macOS")
     def test_apple_treemap_swift_symbols_darwin_only(self, sample_ios_app_path: Path) -> None:
