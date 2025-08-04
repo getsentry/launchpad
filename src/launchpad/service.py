@@ -660,7 +660,10 @@ def get_service_config() -> Dict[str, Any]:
     """Get service configuration from environment."""
     statsd_host = os.getenv("STATSD_HOST", "127.0.0.1")
     statsd_port_str = os.getenv("STATSD_PORT", "8125")
+
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
+    if sentry_base_url is None:
+        sentry_base_url = "http://frontend-internal.sentry"
 
     try:
         statsd_port = int(statsd_port_str)
