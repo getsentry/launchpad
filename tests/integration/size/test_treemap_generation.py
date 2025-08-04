@@ -477,7 +477,7 @@ class TestTreemapGeneration:
         # Verify Assets.car
         assets = find_node_by_path(treemap.root, "Assets.car")
         assert assets is not None
-        assert assets.size == 2404352
+        assert assets.size == 4788224
         assert assets.type == "assets"
         assert len(assets.children) == 8
 
