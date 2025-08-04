@@ -479,7 +479,7 @@ class TestTreemapGeneration:
         assert assets is not None
         assert assets.size == 4788224
         assert assets.type == "assets"
-        assert len(assets.children) == 8
+        assert len(assets.children) == 14
 
         assert treemap.file_count == 31
         assert treemap.platform == "ios"
