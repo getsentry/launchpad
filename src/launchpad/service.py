@@ -663,7 +663,7 @@ def get_service_config() -> Dict[str, Any]:
 
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
     if sentry_base_url is None:
-        sentry_base_url = "http://frontend-internal.sentry"
+        sentry_base_url = "http://getsentry.default"
 
     try:
         statsd_port = int(statsd_port_str)
