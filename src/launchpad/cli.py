@@ -38,13 +38,15 @@ def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
 
     Runs the HTTP server with health check endpoints and Kafka consumer
     for processing analysis requests.
-
-    By default, runs in development mode with debug logging and features enabled.
-    Use --prod for production mode with optimized settings.
     """
-    # Default to development mode if no mode specified
+
+    # If SENTRY_REGION is set we are in a production environment. This
+    # isn't the correct way to do this (what about self-hosted?) but
+    # it's better than what we had previously where we ended up
+    # assuming development mode in production.
     if mode is None:
-        mode = "development"
+        region = os.getenv("SENTRY_REGION", None)
+        mode = "development" if region is None else "production"
 
     # If verbose wasn't explicitly set and we're in development mode, enable verbose
     if not verbose and mode == "development":
