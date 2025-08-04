@@ -283,10 +283,8 @@ class MachOElementBuilder(TreemapElementBuilder):
             segment_size = segment.size
             segment_children: List[TreemapElement] = []
 
-            # Get total symbol bytes subtracted from this segment
             segment_symbol_bytes = segment_subtractions.get(segment_name, 0)
 
-            # Handle sections within this segment
             if segment.sections:
                 for section in segment.sections:
                     section_name = section.name
@@ -300,7 +298,9 @@ class MachOElementBuilder(TreemapElementBuilder):
                     unique_sec = f"{segment_name}.{section_name}"
                     adjusted = section_size - section_subtractions.get(unique_sec, 0)
                     if adjusted <= 0:
-                        logger.debug(f"Skipping section {unique_sec} - no remaining size after symbol subtraction")
+                        logger.debug(
+                            f"Skipping section {unique_sec} - no remaining size {adjusted} after symbol subtraction"
+                        )
                         continue
 
                     # Categorize the section and create treemap element
@@ -316,22 +316,12 @@ class MachOElementBuilder(TreemapElementBuilder):
                         )
                     )
 
-            # Special handling for LINKEDIT segment to include DYLD children
             if segment_name == "__LINKEDIT":
                 dyld_children = self._build_dyld_load_command_children(binary_analysis)
-                logger.debug(f"Adding {len(dyld_children)} DYLD children to LINKEDIT segment")
-                for dyld_child in dyld_children:
-                    logger.debug(f"  DYLD child: {dyld_child.name} (size: {dyld_child.size})")
                 segment_children.extend(dyld_children)
 
-            # Use the raw segment size minus the symbol bytes that were already accounted for
             actual_segment_size = segment_size - segment_symbol_bytes
-            logger.debug(
-                f"Segment {segment_name}: size={segment_size}, symbol_bytes={segment_symbol_bytes}, final_size={actual_segment_size}"
-            )
-            logger.debug(f"  Children count: {len(segment_children)}")
 
-            # Only add the segment if it has a meaningful size
             if actual_segment_size > 0:
                 section_children.append(
                     TreemapElement(
@@ -444,7 +434,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                 )
             )
 
-        logger.debug(f"Added {len(metadata_children)} metadata components")
         return metadata_children
 
     def _build_dyld_load_command_children(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement]:
@@ -453,7 +442,6 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         dyld_info = binary_analysis.dyld_info
         if dyld_info is None:
-            logger.debug("No DYLD info available in binary analysis")
             return dyld_children
 
         if dyld_info.chained_fixups_size > 0:

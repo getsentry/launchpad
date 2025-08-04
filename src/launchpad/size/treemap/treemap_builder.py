@@ -101,14 +101,8 @@ class TreemapBuilder:
                 # Use default element builder for any other file types
                 pass
 
-        logger.debug(f"Using {element_builder.__class__.__name__} for {file_info.file_type}")
-
         element = element_builder.build_element(file_info, display_name)
         if element is None:
-            logger.debug(
-                f"None returned from {element_builder.__class__.__name__} for {file_info.file_type}, "
-                f"using DefaultFileElementBuilder"
-            )
             element = default_element_builder.build_element(file_info, display_name)
 
         return element
@@ -165,8 +159,6 @@ class TreemapBuilder:
                 all_dirs.add(str(current))
                 current = current.parent
 
-        logger.debug(f"Found directories: {sorted(all_dirs)}")
-
         # Second pass: build the directory hierarchy
         def build_directory(dir_path: str) -> TreemapElement:
             dir_name = os.path.basename(dir_path)
@@ -210,10 +202,7 @@ class TreemapBuilder:
                 children=children,
             )
 
-        # Build top-level directories
         top_level_dirs: set[str] = {d for d in all_dirs if len(Path(d).parts) == 1}
-        logger.debug(f"Top level directories: {sorted(top_level_dirs)}")
-
         for dir_path in sorted(top_level_dirs):
             dir_element = build_directory(dir_path)
             elements.append(dir_element)
