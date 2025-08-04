@@ -17,7 +17,7 @@ function(region) {
   lock_behavior: 'unlockWhenFinished',
   stages: [
     {
-      checks: {
+      pending_cloudbuild_upload: {
         fetch_materials: true,
         jobs: {
           deploy: {
