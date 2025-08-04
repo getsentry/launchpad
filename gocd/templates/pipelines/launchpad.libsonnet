@@ -17,6 +17,20 @@ function(region) {
   lock_behavior: 'unlockWhenFinished',
   stages: [
     {
+      checks: {
+        fetch_materials: true,
+        jobs: {
+          deploy: {
+            timeout: 1200,
+            elastic_profile_id: 'launchpad',
+            tasks: [
+              gocdtasks.script(importstr '../bash/check-cloudbuild.sh'),
+            ],
+          },
+        },
+      },
+    },
+    {
       deploy_primary: {
         approval: {
           type: 'success',
