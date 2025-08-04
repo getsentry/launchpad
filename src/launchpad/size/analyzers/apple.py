@@ -481,67 +481,38 @@ class AppleAppAnalyzer:
         try:
             for command in binary.commands:
                 if isinstance(command, lief.MachO.SegmentCommand):
-                    # Extract segment name safely
                     segment_name = command.name
                     if isinstance(segment_name, bytes):
                         segment_name = segment_name.decode("utf-8", errors="replace")
-                    elif not isinstance(segment_name, str):
+                    else:
                         segment_name = str(segment_name)
 
-                    # Safety check for corrupted segment names
-                    if len(segment_name) > 100 or not segment_name.isprintable():
-                        logger.warning(f"Skipping segment with corrupted name: {repr(segment_name)}")
-                        continue
-
-                    # Extract section information
                     section_infos: List[SectionInfo] = []
-                    if hasattr(command, "sections"):
-                        for section in command.sections:
-                            try:
-                                section_name = section.name
-                                if isinstance(section_name, bytes):
-                                    section_name = section_name.decode("utf-8", errors="replace")
-                                elif not isinstance(section_name, str):
-                                    section_name = str(section_name)
+                    for section in command.sections:
+                        section_name = section.name
+                        if isinstance(section_name, bytes):
+                            section_name = section_name.decode("utf-8", errors="replace")
+                        else:
+                            section_name = str(section_name)
 
-                                # Safety check for corrupted section names
-                                if len(section_name) > 100 or not section_name.isprintable():
-                                    logger.warning(f"Skipping section with corrupted name: {repr(section_name)}")
-                                    continue
-
-                                section_infos.append(SectionInfo(name=section_name, size=section.size))
-                            except Exception as e:
-                                logger.warning(f"Error extracting section info: {e}")
+                        section_infos.append(SectionInfo(name=section_name, size=section.size))
 
                     segments.append(SegmentInfo(name=segment_name, sections=section_infos, size=command.file_size))
         except Exception as e:
             logger.warning(f"Error extracting segments info: {e}")
 
-        logger.debug(f"Extracted {len(segments)} segments with stable data")
         return segments
 
     def _extract_load_commands_info(self, binary: lief.MachO.Binary) -> List[LoadCommandInfo]:
         """Extract load command information from LIEF binary into stable dataclasses."""
         load_commands: List[LoadCommandInfo] = []
+        for command in binary.commands:
+            command_name = str(command.command.name)
+            command_size = command.size
 
-        try:
-            for command in binary.commands:
-                # Get command name and size
-                command_name = str(command.__class__.__name__)
-                if hasattr(command, "command"):
-                    command_name = str(command.command).replace("LOAD_COMMAND.", "")
+            if command_size > 0:
+                load_commands.append(LoadCommandInfo(name=command_name, size=command_size))
+            else:
+                logger.warning(f"Skipping load command {command_name} with size 0")
 
-                command_size = 0
-                if hasattr(command, "size"):
-                    command_size = command.size
-                elif hasattr(command, "command_size"):
-                    command_size = command.command_size
-
-                if command_size > 0:
-                    load_commands.append(LoadCommandInfo(name=command_name, size=command_size))
-
-        except Exception as e:
-            logger.warning(f"Error extracting load commands info: {e}")
-
-        logger.debug(f"Extracted {len(load_commands)} load commands")
         return load_commands
