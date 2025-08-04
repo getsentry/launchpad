@@ -26,6 +26,7 @@ from launchpad.size.models.android import (
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
+from launchpad.size.utils.android_bundle_size import calculate_apk_download_size
 from launchpad.utils.file_utils import calculate_file_hash
 from launchpad.utils.logging import get_logger
 
@@ -102,6 +103,10 @@ class AndroidAnalyzer:
         logger.debug("Building file treemap")
         treemap = treemap_builder.build_file_treemap(file_analysis)
 
+        # Calculate download and install sizes
+        logger.debug("Calculating APK download and install sizes")
+        download_size, install_size = self._calculate_apk_sizes(apks)
+
         insights: AndroidInsightResults | None = None
         if not self.skip_insights:
             logger.info("Generating insights from analysis results")
@@ -127,9 +132,8 @@ class AndroidAnalyzer:
             treemap=treemap,
             file_analysis=file_analysis,
             insights=insights,
-            # TODO: (Ryan) This is a placeholder, we need to get the actual download compression ratio
-            download_size=file_analysis.total_size,
-            install_size=file_analysis.total_size,
+            download_size=download_size,
+            install_size=install_size,
             analysis_duration=None,
             use_si_units=False,
         )
@@ -274,3 +278,47 @@ class AndroidAnalyzer:
                     logger.warning(f"Duplicate Hermes report key found: {relative_path}, overwriting")
                 all_reports[relative_path] = report
         return all_reports
+
+    def _calculate_apk_sizes(self, apks: list[APK]) -> tuple[int, int]:
+        logger.debug("Calculating sizes for %d APKs", len(apks))
+
+        total_download_size = 0
+        total_install_size = 0
+
+        for apk in apks:
+            # Get the original APK file path
+            apk_path = apk._path
+            logger.debug("Calculating sizes for APK: %s", apk_path)
+
+            try:
+                install_size = apk_path.stat().st_size
+                download_size = calculate_apk_download_size(apk_path)
+                total_download_size += download_size
+                total_install_size += install_size
+
+                logger.debug(
+                    "APK sizes - Download: %d bytes, Install: %d bytes",
+                    download_size,
+                    install_size,
+                )
+
+            except Exception as e:
+                logger.error("Failed to calculate sizes for APK %s: %s", apk_path, e)
+                # Fallback to using the extracted file sizes
+                extract_path = apk.get_extract_path()
+                fallback_size = sum(f.stat().st_size for f in extract_path.rglob("*") if f.is_file())
+                total_download_size += fallback_size
+                total_install_size += fallback_size
+                logger.warning(
+                    "Using fallback size calculation for APK %s: %d bytes",
+                    apk_path,
+                    fallback_size,
+                )
+
+        logger.info(
+            "Total APK sizes - Download: %d bytes, Install: %d bytes",
+            total_download_size,
+            total_install_size,
+        )
+
+        return total_download_size, total_install_size
