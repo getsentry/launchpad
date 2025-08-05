@@ -59,14 +59,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         )
 
     def _assert_element_size(self, file_info: FileInfo, display_name: str, children: List[TreemapElement]) -> None:
-        def _calculate_total_size(elements: List[TreemapElement]) -> int:
-            """Recursively calculate the total size of treemap elements."""
-            total = 0
-            for element in elements:
-                total += element.size
-            return total
-
-        total_child_size = _calculate_total_size(children)
+        total_child_size = sum(element.size for element in children)
         size_diff = file_info.size - total_child_size
         size_diff_abs = abs(size_diff)
         size_diff_percent = (size_diff_abs / file_info.size) * 100 if file_info.size > 0 else 0

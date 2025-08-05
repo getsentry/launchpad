@@ -481,20 +481,11 @@ class AppleAppAnalyzer:
         try:
             for command in binary.commands:
                 if isinstance(command, lief.MachO.SegmentCommand):
-                    segment_name = command.name
-                    if isinstance(segment_name, bytes):
-                        segment_name = segment_name.decode("utf-8", errors="replace")
-                    else:
-                        segment_name = str(segment_name)
+                    segment_name = self._parse_lief_name(command.name)
 
                     section_infos: List[SectionInfo] = []
                     for section in command.sections:
-                        section_name = section.name
-                        if isinstance(section_name, bytes):
-                            section_name = section_name.decode("utf-8", errors="replace")
-                        else:
-                            section_name = str(section_name)
-
+                        section_name = self._parse_lief_name(section.name)
                         section_infos.append(SectionInfo(name=section_name, size=section.size))
 
                     segments.append(SegmentInfo(name=segment_name, sections=section_infos, size=command.file_size))
@@ -502,6 +493,11 @@ class AppleAppAnalyzer:
             logger.warning(f"Error extracting segments info: {e}")
 
         return segments
+
+    def _parse_lief_name(self, name: str | bytes) -> str:
+        if isinstance(name, bytes):
+            return name.decode("utf-8", errors="replace")
+        return str(name)
 
     def _extract_load_commands_info(self, binary: lief.MachO.Binary) -> List[LoadCommandInfo]:
         """Extract load command information from LIEF binary into stable dataclasses."""
