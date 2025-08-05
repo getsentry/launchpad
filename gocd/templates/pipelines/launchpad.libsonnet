@@ -16,23 +16,20 @@ function(region) {
   },
   lock_behavior: 'unlockWhenFinished',
   stages: [
-    {
-      pending_cloudbuild_upload: {
-        fetch_materials: true,
-        jobs: {
-          deploy: {
-            timeout: 1200,
-            elastic_profile_id: 'launchpad',
-            environment_variables: {
-              LABEL_SELECTOR: 'service=launchpad',
-            },
-            tasks: [
-              gocdtasks.script(importstr '../bash/check-cloudbuild.sh'),
-            ],
-          },
-        },
-      },
-    },
+    // {
+    //   pending_cloudbuild_upload: {
+    //     fetch_materials: true,
+    //     jobs: {
+    //       deploy: {
+    //         timeout: 1200,
+    //         elastic_profile_id: 'launchpad',
+    //         tasks: [
+    //           gocdtasks.script(importstr '../bash/check-cloudbuild.sh'),
+    //         ],
+    //       },
+    //     },
+    //   },
+    // },
     {
       deploy_primary: {
         approval: {
