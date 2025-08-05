@@ -23,6 +23,9 @@ function(region) {
           deploy: {
             timeout: 1200,
             elastic_profile_id: 'launchpad',
+            environment_variables: {
+              LABEL_SELECTOR: 'service=launchpad',
+            },
             tasks: [
               gocdtasks.script(importstr '../bash/check-cloudbuild.sh'),
             ],
