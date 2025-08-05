@@ -263,10 +263,9 @@ class LaunchpadServer:
 
     async def ready_check(self, request: Request) -> Response:
         """Readiness check endpoint."""
-        logger.info("Ready check endpoint called - performing health check for logging")
 
         # Call health check for detailed logging but ignore the result
-        await self._log_health_check_details()
+        # await self._log_health_check_details()
 
         # TODO: Add actual readiness checks (database connectivity, etc.)
         return web.json_response(
