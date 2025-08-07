@@ -5,7 +5,6 @@ local pipedream_config = {
   name: 'launchpad',
   auto_deploy: true,
   exclude_regions: [
-    'de',
     'us',
     'customer-1',
     'customer-2',
