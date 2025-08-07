@@ -36,6 +36,10 @@ def create_kafka_consumer(
     # Get configuration from environment
     config = get_kafka_config()
 
+    environment = os.getenv("LAUNCHPAD_ENV")
+    if not environment:
+        raise ValueError("LAUNCHPAD_ENV environment variable is required")
+
     # Create Arroyo consumer
     # TODO: When we're closer to production, we'll need a way to disable this logic as
     # topics, partitions and kafka clusters are configured through getsentry/ops.
@@ -47,7 +51,18 @@ def create_kafka_consumer(
         "arroyo.strict.offset.reset": config["arroyo_strict_offset_reset"],
         "enable.auto.commit": False,
         "enable.auto.offset.store": False,
+        "security.protocol": config["security.protocol"],
     }
+
+    # SASL is used in some prod environments.
+    if config["sasl.mechanism"]:
+        consumer_config.update(
+            {
+                "sasl.mechanism": config["sasl.mechanism"],
+                "sasl.username": config["sasl.username"],
+                "sasl.password": config["sasl.password"],
+            }
+        )
 
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
 
@@ -90,14 +105,30 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         partitions: Mapping[Partition, int],
     ) -> ProcessingStrategy[KafkaPayload]:
         """Create the processing strategy chain."""
+        logger.info("KAFKASETUP: Creating processing strategy chain")
+        logger.info(f"KAFKASETUP: Partitions: {dict(partitions)}")
+        logger.info(f"KAFKASETUP: Commit strategy: {type(commit)}")
+
         # Start with the commit strategy (always last in chain)
         next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
+        logger.info("KAFKASETUP: Base strategy: CommitOffsets")
 
         # Add healthcheck if configured
+        logger.info("KAFKASETUP: Checking healthcheck configuration...")
         if self.healthcheck_file:
+            logger.info(f"KAFKASETUP: Healthcheck file configured: {self.healthcheck_file}")
+            logger.info("KAFKASETUP: Adding Healthcheck strategy to processing chain")
             next_step = Healthcheck(self.healthcheck_file, next_step)
+            logger.info("KAFKASETUP: Healthcheck strategy added successfully")
+        else:
+            logger.warning("KAFKASETUP: No healthcheck file configured - skipping healthcheck strategy")
+            logger.info("KAFKASETUP: Processing will continue without healthcheck monitoring")
 
         # Use RunTaskInThreads for concurrent processing
+        logger.info("KAFKASETUP: Setting up concurrent message processing")
+        logger.info(f"KAFKASETUP: Concurrency level: {self.concurrency}")
+        logger.info(f"KAFKASETUP: Max pending futures: {self.max_pending_futures}")
+
         def process_message(msg: Message[KafkaPayload]) -> Any:
             try:
                 decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
@@ -106,12 +137,16 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
                 logger.error(f"Failed to decode message: {e}")
                 raise  # Re-raise the exception to prevent processing invalid messages
 
-        return RunTaskInThreads(
+        strategy = RunTaskInThreads(
             processing_function=process_message,
             concurrency=self.concurrency,
             max_pending_futures=self.max_pending_futures,
             next_step=next_step,
         )
+
+        logger.info("KAFKASETUP: Processing strategy chain creation complete")
+        logger.info(f"KAFKASETUP: Final strategy type: {type(strategy)}")
+        return strategy
 
 
 def get_kafka_config() -> Dict[str, Any]:
@@ -142,4 +177,8 @@ def get_kafka_config() -> Dict[str, Any]:
         "healthcheck_file": os.getenv("KAFKA_HEALTHCHECK_FILE"),
         "auto_offset_reset": os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
         "arroyo_strict_offset_reset": arroyo_strict_offset_reset,
+        "security.protocol": os.environ.get("KAFKA_SECURITY_PROTOCOL", "plaintext"),
+        "sasl.mechanism": os.environ.get("KAFKA_SASL_MECHANISM", None),
+        "sasl.username": os.environ.get("KAFKA_SASL_USERNAME", None),
+        "sasl.password": os.environ.get("KAFKA_SASL_PASSWORD", None),
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { DuplicateFilesInsightResult, FileAnalysisReport, InsightResult, LooseImagesInsightResult, StripBinaryInsightResult } from '../utils/dataConverter';
+import type { DuplicateFilesInsightResult, FileAnalysisReport, ImageOptimizationInsightResult, InsightResult, LooseImagesInsightResult, StripBinaryInsightResult } from '../utils/dataConverter';
 
 // Add type for main binary export metadata
 interface FileSavingsResult {
@@ -98,6 +98,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       large_audio: 'Large Audio Files',
       hermes_debug_info: 'Hermes Debug Info',
       webp_optimization: 'WebP Optimization',
+      image_optimization: 'Image Optimization',
       strip_binary: 'Binary Stripping',
       localized_strings: 'Localized Strings',
       localized_strings_comments: 'Localized Strings Comments',
@@ -117,6 +118,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       large_audio: 'Audio files with potential optimization savings',
       hermes_debug_info: 'Debug information that can be removed from production builds',
       webp_optimization: 'Images that could be converted to WebP format for better compression',
+      image_optimization: 'Image files that can be optimized through minification or HEIC conversion',
       strip_binary: 'Debug symbols and metadata that can be removed from binaries',
       localized_strings: 'Localization strings with potential optimization savings',
       localized_strings_comments: 'Comments in localized strings files that can be stripped to save space',
@@ -136,6 +138,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       large_audio: '🎵',
       hermes_debug_info: '🐛',
       webp_optimization: '🗜️',
+      image_optimization: '📸',
       strip_binary: '⚡',
       localized_strings: '🌐',
       localized_strings_comments: '💬',
@@ -170,11 +173,18 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       return hasValidSavings || hasFiles;
     }
 
-    // Handle loose images differently (has image_groups instead of files)
+    // Handle loose images differently (has groups instead of image_groups)
     if (key === 'loose_images') {
-      const looseImagesInsight = value as LooseImagesInsightResult;
-      const hasImageGroups = looseImagesInsight.image_groups && Array.isArray(looseImagesInsight.image_groups) && looseImagesInsight.image_groups.length > 0;
-      return hasValidSavings || hasImageGroups;
+      const looseImagesInsight = value as any; // Use any since actual structure doesn't match interface
+      const hasGroups = looseImagesInsight.groups && Array.isArray(looseImagesInsight.groups) && looseImagesInsight.groups.length > 0;
+      return hasValidSavings || hasGroups;
+    }
+
+    // Handle image optimization differently (has optimizable_files instead of files)
+    if (key === 'image_optimization') {
+      const imageOptInsight = value as ImageOptimizationInsightResult;
+      const hasOptimizableFiles = imageOptInsight.optimizable_files && Array.isArray(imageOptInsight.optimizable_files) && imageOptInsight.optimizable_files.length > 0;
+      return hasValidSavings || hasOptimizableFiles;
     }
 
     // Handle main binary export metadata differently (has FileSavingsResult files)
@@ -196,7 +206,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
 
     // Include insights that either have savings or have files to show
     return hasValidSavings || hasFiles;
-  }) as [string, InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | LooseImagesInsightResult | MainBinaryExportMetadataResult | FileSavingsInsightResult][];
+  }) as [string, InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | LooseImagesInsightResult | ImageOptimizationInsightResult | MainBinaryExportMetadataResult | FileSavingsInsightResult][];
 
   if (insightEntries.length === 0) {
     return null;
@@ -352,7 +362,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                               fontWeight: '600',
                               fontSize: '0.9rem'
                             }}>
-                              📄 {group.filename} ({group.files.length} files)
+                              📄 {group.name} ({group.files.length} files)
                             </div>
                             <div style={{
                               color: '#28a745',
@@ -384,7 +394,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                                 whiteSpace: 'nowrap',
                                 marginRight: '1rem'
                               }}>
-                                {file.path}
+                                {file.file_path}
                               </div>
                               <div style={{
                                 color: '#6c757d',
@@ -392,7 +402,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                                 fontWeight: '500',
                                 flexShrink: 0
                               }}>
-                                {formatSize(file.size)}
+                                {formatSize(file.total_savings)}
                               </div>
                             </div>
                           ))}
@@ -533,10 +543,15 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                 );
               })()
             ) : key === 'loose_images' ? (
-              // Handle loose images with image groups
+              // Handle loose images - the actual data structure is similar to duplicate_files
               (() => {
-                const looseImagesInsight = insight as LooseImagesInsightResult;
-                return looseImagesInsight.image_groups && looseImagesInsight.image_groups.length > 0 && (
+                const looseImagesInsight = insight as any; // Use any since the actual structure doesn't match the interface
+
+                // The actual data has 'groups' not 'image_groups'
+                const groups = looseImagesInsight.groups;
+                const totalFiles = groups?.reduce((sum: number, group: any) => sum + (group.files?.length || 0), 0) || 0;
+
+                return groups && groups.length > 0 && (
                   <div>
                     <h4 style={{
                       margin: '0 0 0.75rem 0',
@@ -544,7 +559,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                       fontSize: '1rem',
                       fontWeight: '600'
                     }}>
-                      Loose Image Groups ({looseImagesInsight.image_groups.length} groups, {looseImagesInsight.total_file_count} files)
+                      Loose Image Groups ({groups.length} groups, {totalFiles} files)
                     </h4>
                     <div style={{
                       backgroundColor: '#f8f9fa',
@@ -553,11 +568,11 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                       maxHeight: '400px',
                       overflowY: 'auto'
                     }}>
-                      {looseImagesInsight.image_groups.map((group, groupIndex) => (
+                      {groups.map((group: any, groupIndex: number) => (
                         <div
                           key={groupIndex}
                           style={{
-                            marginBottom: groupIndex < looseImagesInsight.image_groups.length - 1 ? '1rem' : '0',
+                            marginBottom: groupIndex < groups.length - 1 ? '1rem' : '0',
                             padding: '0.75rem',
                             backgroundColor: '#ffffff',
                             borderRadius: '4px',
@@ -577,7 +592,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                               fontWeight: '600',
                               fontSize: '0.9rem'
                             }}>
-                              🖼️ {group.canonical_name}
+                              🖼️ {group.name} ({group.files?.length || 0} files)
                             </div>
                             <div style={{
                               color: '#28a745',
@@ -587,9 +602,113 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                               {formatSize(group.total_savings)}
                             </div>
                           </div>
-                          {renderFileSavingsResults(group.images, '')}
+                          {group.files && group.files.length > 0 ? renderFileSavingsResults(group.files, 'savings') : (
+                            <div style={{ color: '#6c757d', fontSize: '0.8rem', fontStyle: 'italic', padding: '0.5rem' }}>
+                              No files in this group
+                            </div>
+                          )}
                         </div>
                       ))}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : key === 'image_optimization' ? (
+              // Handle image optimization with optimizable files
+              (() => {
+                const imageOptInsight = insight as ImageOptimizationInsightResult;
+                return imageOptInsight.optimizable_files && imageOptInsight.optimizable_files.length > 0 && (
+                  <div>
+                    <h4 style={{
+                      margin: '0 0 0.75rem 0',
+                      color: '#495057',
+                      fontSize: '1rem',
+                      fontWeight: '600'
+                    }}>
+                      Optimizable Images ({imageOptInsight.optimizable_files.length})
+                    </h4>
+                    <div style={{
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      padding: '0.75rem',
+                      maxHeight: '400px',
+                      overflowY: 'auto'
+                    }}>
+                      {imageOptInsight.optimizable_files.map((file, index) => {
+                        const potentialSavings = Math.max(file.minify_savings || 0, file.conversion_savings || 0);
+                        const bestOptimizationType = (file.conversion_savings || 0) > (file.minify_savings || 0)
+                          ? 'convert_to_heic'
+                          : (file.minify_savings || 0) > 0
+                            ? 'minify'
+                            : 'none';
+
+                        return (
+                          <div
+                            key={index}
+                            style={{
+                              padding: '0.75rem',
+                              marginBottom: index < imageOptInsight.optimizable_files.length - 1 ? '0.5rem' : '0',
+                              backgroundColor: '#ffffff',
+                              borderRadius: '4px',
+                              border: '1px solid #e9ecef'
+                            }}
+                          >
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '0.5rem'
+                            }}>
+                              <div style={{
+                                flex: 1,
+                                color: '#495057',
+                                fontFamily: 'monospace',
+                                fontSize: '0.8rem',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                marginRight: '1rem'
+                              }}>
+                                {file.file_path}
+                              </div>
+                              <div style={{
+                                color: '#28a745',
+                                fontSize: '0.8rem',
+                                fontWeight: '600',
+                                flexShrink: 0
+                              }}>
+                                {formatSize(potentialSavings)} savings
+                              </div>
+                            </div>
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 1fr 1fr',
+                              gap: '0.5rem',
+                              fontSize: '0.75rem',
+                              color: '#6c757d'
+                            }}>
+                              <div>
+                                Current: {formatSize(file.current_size)}
+                              </div>
+                              <div>
+                                Minify: {formatSize(file.minify_savings || 0)} savings
+                              </div>
+                              <div>
+                                HEIC: {formatSize(file.conversion_savings || 0)} savings
+                              </div>
+                            </div>
+                            <div style={{
+                              marginTop: '0.5rem',
+                              fontSize: '0.7rem',
+                              color: '#007bff',
+                              fontWeight: '500'
+                            }}>
+                              Best option: {bestOptimizationType === 'convert_to_heic' ? 'Convert to HEIC' :
+                                           bestOptimizationType === 'minify' ? 'Minify current format' : 'No optimization needed'}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );

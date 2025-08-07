@@ -4,7 +4,7 @@ from typing import Dict, List, TypedDict
 
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 from launchpad.size.models.apple import MachOBinaryAnalysis
-from launchpad.size.models.binary_component import BinaryComponent
+from launchpad.size.models.binary_component import BinaryTag
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
@@ -24,12 +24,10 @@ class _SwiftTypeNode(TypedDict):
 class MachOElementBuilder(TreemapElementBuilder):
     def __init__(
         self,
-        download_compression_ratio: float,
         filesystem_block_size: int,
         binary_analysis_map: Dict[str, MachOBinaryAnalysis],
     ) -> None:
         super().__init__(
-            download_compression_ratio=download_compression_ratio,
             filesystem_block_size=filesystem_block_size,
         )
         self.binary_analysis_map = binary_analysis_map
@@ -40,60 +38,56 @@ class MachOElementBuilder(TreemapElementBuilder):
             logger.warning("Binary %s found but not in binary analysis map", file_info.path)
             return None
 
+        logger.debug(f"Building treemap for {display_name}")
+
         children = self._build_binary_treemap(
-            name=display_name,
-            file_path=file_info.path,
             binary_analysis=self.binary_analysis_map[file_info.path],
         )
         if children is None:
+            logger.warning("No children found for %s", display_name)
             return None
+
+        self._assert_element_size(file_info, display_name, children)
 
         return TreemapElement(
             name=display_name,
-            install_size=file_info.size,
-            download_size=file_info.size,
-            element_type=TreemapType.EXECUTABLES,
+            size=file_info.size,
+            type=TreemapType.EXECUTABLES,
             path=file_info.path,
-            is_directory=False,
+            is_dir=False,
             children=children,
         )
 
-    def _build_binary_treemap(
-        self, *, name: str, file_path: str, binary_analysis: MachOBinaryAnalysis
-    ) -> List[TreemapElement] | None:
-        binary_component_analysis = binary_analysis.binary_analysis
+    def _assert_element_size(self, file_info: FileInfo, display_name: str, children: List[TreemapElement]) -> None:
+        total_child_size = sum(element.size for element in children)
+        size_diff = file_info.size - total_child_size
+        size_diff_abs = abs(size_diff)
+        size_diff_percent = (size_diff_abs / file_info.size) * 100 if file_info.size > 0 else 0
+
+        logger.debug(f"Size validation for {display_name}:")
+        logger.debug(f"  File size: {file_info.size:,} bytes")
+        logger.debug(f"  Treemap total: {total_child_size:,} bytes")
+
+        if size_diff > 0:
+            logger.debug(f"  Difference: {size_diff_abs:,} bytes MISSING from treemap ({size_diff_percent:.2f}%)")
+        elif size_diff < 0:
+            logger.debug(f"  Difference: {size_diff_abs:,} bytes OVER-COUNTED in treemap ({size_diff_percent:.2f}%)")
+        else:
+            logger.debug("  Difference: 0 bytes - perfect match!")
+
+    def _build_binary_treemap(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement] | None:
         symbol_info = binary_analysis.symbol_info
+        segments = binary_analysis.segments
 
-        if binary_component_analysis is None:
-            logger.warning("Binary %s has no component analysis", name)
-            return None
+        binary_children: List[TreemapElement] = []
 
-        # ------------------------------------------------------------------ #
-        # 1.  Group components by their descriptive name                     #
-        # ------------------------------------------------------------------ #
-        components_by_name: Dict[str, List[BinaryComponent]] = {}
-        for component in binary_component_analysis.components:
-            key = component.description or component.name
-            components_by_name.setdefault(key, []).append(component)
-
-        # Pre-compute component sizes grouped by name
-        section_sizes: Dict[str, int] = {
-            section_name: sum(c.size for c in components) for section_name, components in components_by_name.items()
-        }
-
-        #
-        # These lists will accumulate children for the top-level element
-        #
-        section_children: List[TreemapElement] = []
-        dyld_children: List[TreemapElement] = []
-        symbol_children: List[TreemapElement] = []
-
-        # Track how much of each section’s bytes we “burn” while assigning
-        # bytes to symbols, so that we don’t double-count them later.
+        # Track how much of each section's bytes we "burn" while assigning
+        # bytes to symbols, so that we don't double-count them later.
         section_subtractions: Dict[str, int] = {}
+        segment_subtractions: Dict[str, int] = {}
 
         # ------------------------------------------------------------------ #
-        # 2.  Swift symbols -> nested module / type hierarchy                #
+        # 1.  Swift symbols -> nested module / type hierarchy                #
         # ------------------------------------------------------------------ #
         if symbol_info:
             # ---- 2a.  Bucket groups by Swift module ---------------------- #
@@ -104,15 +98,18 @@ class MachOElementBuilder(TreemapElementBuilder):
                 # While we have the symbol handy, start tracking section usage
                 for sym in grp.symbols:
                     if sym.section:
-                        sec = str(sym.section.name)
-                        section_subtractions[sec] = section_subtractions.get(sec, 0) + sym.size
+                        # Use unique section name to avoid conflicts since the same section name can be used in multiple segments
+                        segment_name = str(sym.section.segment.name) if sym.section.segment else "unknown"
+                        section_name = str(sym.section.name)
+                        unique_sec = f"{segment_name}.{section_name}"
+                        section_subtractions[unique_sec] = section_subtractions.get(unique_sec, 0) + sym.size
+                        segment_subtractions[segment_name] = segment_subtractions.get(segment_name, 0) + sym.size
 
-            # ---- 2b.  For every module build a nested tree --------------- #
+            # ---- 1b.  For every module build a nested tree --------------- #
             for module_name, type_groups in swift_modules.items():
                 #
                 # Build a forward tree where each node owns *only* the bytes
-                # that belong to that concrete type (self_size).  Children are
-                # stored in a dict for fast look-ups as we stream the groups.
+                # that belong to that concrete type (self_size).
                 #
                 type_tree: Dict[str, _SwiftTypeNode] = {}
 
@@ -132,7 +129,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                     if comps and comps[0] == module_name:
                         comps = comps[1:]
 
-                    # Drop segments that don’t look like type identifiers
+                    # Drop segments that don't look like type identifiers
                     comps = [c for c in comps if c and c[0].isupper()]
                     if not comps:
                         continue
@@ -163,29 +160,27 @@ class MachOElementBuilder(TreemapElementBuilder):
                         if node["self_size"] > 0 and child_elems:
                             self_elem = TreemapElement(
                                 name=node["type_name"],
-                                install_size=node["self_size"],
-                                download_size=node["self_size"],
-                                element_type=TreemapType.MODULES,
+                                size=node["self_size"],
+                                type=TreemapType.MODULES,
                                 path=None,
-                                is_directory=False,
+                                is_dir=False,
                                 children=[],
                             )
                             child_elems.append(self_elem)
-                            # after adding the pseudo-child, the parent’s size is just
+                            # after adding the pseudo-child, the parent's size is just
                             # the sum of *all* children
-                            total_size = sum(c.install_size for c in child_elems)
+                            total_size = sum(c.size for c in child_elems)
                         else:
                             # leaf, or container with no own bytes
-                            total_size = node["self_size"] + sum(c.install_size for c in child_elems)
+                            total_size = node["self_size"] + sum(c.size for c in child_elems)
 
                         elems.append(
                             TreemapElement(
                                 name=node["type_name"],
-                                install_size=total_size,
-                                download_size=total_size,
-                                element_type=TreemapType.MODULES,
+                                size=total_size,
+                                type=TreemapType.MODULES,
                                 path=None,
-                                is_directory=False,
+                                is_dir=False,
                                 children=child_elems,
                             )
                         )
@@ -193,22 +188,21 @@ class MachOElementBuilder(TreemapElementBuilder):
                     return elems
 
                 module_children = _tree_to_treemap(type_tree)
-                module_total_size = sum(c.install_size for c in module_children)
+                module_total_size = sum(c.size for c in module_children)
 
-                symbol_children.append(
+                binary_children.append(
                     TreemapElement(
                         name=module_name,
-                        install_size=module_total_size,
-                        download_size=module_total_size,
-                        element_type=TreemapType.MODULES,
+                        size=module_total_size,
+                        type=TreemapType.MODULES,
                         path=None,
-                        is_directory=False,
+                        is_dir=False,
                         children=module_children,
                     )
                 )
 
         # ------------------------------------------------------------------ #
-        # 3.  Objective-C symbols -> simple class / method hierarchy         #
+        # 2.  Objective-C symbols -> simple class / method hierarchy         #
         # ------------------------------------------------------------------ #
         if symbol_info:
             objc_classes: Dict[str, List[tuple[str, int]]] = {}
@@ -216,107 +210,258 @@ class MachOElementBuilder(TreemapElementBuilder):
                 objc_classes.setdefault(grp.class_name, []).append((grp.method_name or "class", grp.total_size))
                 for sym in grp.symbols:
                     if sym.section:
-                        sec = str(sym.section.name)
-                        section_subtractions[sec] = section_subtractions.get(sec, 0) + sym.size
+                        # Use unique section name to avoid conflicts
+                        segment_name = str(sym.section.segment.name) if sym.section.segment else "unknown"
+                        section_name = str(sym.section.name)
+                        unique_sec = f"{segment_name}.{section_name}"
+                        section_subtractions[unique_sec] = section_subtractions.get(unique_sec, 0) + sym.size
+                        segment_subtractions[segment_name] = segment_subtractions.get(segment_name, 0) + sym.size
 
             for cls_name, meths in objc_classes.items():
                 meth_elems: List[TreemapElement] = [
                     TreemapElement(
                         name=meth_name,
-                        install_size=size,
-                        download_size=size,
-                        element_type=TreemapType.MODULES,
+                        size=size,
+                        type=TreemapType.MODULES,
                         path=None,
-                        is_directory=False,
+                        is_dir=False,
                         children=[],
                     )
                     for meth_name, size in meths
                 ]
-                symbol_children.append(
+                binary_children.append(
                     TreemapElement(
                         name=cls_name,
-                        install_size=sum(m.install_size for m in meth_elems),
-                        download_size=sum(m.install_size for m in meth_elems),
-                        element_type=TreemapType.MODULES,
+                        size=sum(m.size for m in meth_elems),
+                        type=TreemapType.MODULES,
                         path=None,
-                        is_directory=True,
+                        is_dir=False,
                         children=meth_elems,
                     )
                 )
 
         # ------------------------------------------------------------------ #
-        # 4.  Raw Mach-O components (minus whatever the symbols already took) #
+        # 3.  Binary metadata components (headers, load commands, etc.)       #
         # ------------------------------------------------------------------ #
-        for section_name, components in components_by_name.items():
-            original = section_sizes.get(section_name, 0)
-            adjusted = original - section_subtractions.get(section_name, 0)
-            if adjusted <= 0:
-                continue
+        metadata_children = self._build_metadata_components(binary_analysis)
+        binary_children.extend(metadata_children)
 
-            first_tag = components[0].tag.value
-            element_type = TreemapType.EXECUTABLES
-            if first_tag.startswith("dyld_"):
-                element_type = TreemapType.DYLD
-            elif first_tag == "unmapped":
-                element_type = TreemapType.UNMAPPED
-            elif first_tag == "code_signature":
-                element_type = TreemapType.CODE_SIGNATURE
-            elif first_tag == "function_starts":
-                element_type = TreemapType.FUNCTION_STARTS
-            elif first_tag == "external_methods":
-                element_type = TreemapType.EXTERNAL_METHODS
+        # ------------------------------------------------------------------ #
+        # 4.  Raw segments/sections (minus whatever the symbols already took) #
+        # ------------------------------------------------------------------ #
+        for segment in segments:
+            segment_name = segment.name
+            segment_size = segment.size
+            segment_children: List[TreemapElement] = []
 
-            elem = TreemapElement(
-                name=section_name,
-                install_size=adjusted,
-                download_size=adjusted,
-                element_type=element_type,
-                path=None,
-                is_directory=False,
-                children=[],
-                details={
-                    "tag": first_tag,
-                    "component_name": section_name,
-                    "adjusted_size": adjusted,
-                },
-            )
+            segment_symbol_bytes = segment_subtractions.get(segment_name, 0)
 
-            is_dyld = (
-                first_tag.startswith("dyld_") or section_name.startswith("LC_DYLD_") or "DYLD" in section_name.upper()
-            )
-            (dyld_children if is_dyld else section_children).append(elem)
+            if segment.sections:
+                for section in segment.sections:
+                    section_name = section.name
+                    section_size = section.size
 
-        # Bundle DYLD subsections under a synthetic parent
-        if dyld_children:
-            dyld_total = sum(c.install_size for c in dyld_children)
-            section_children.append(
-                TreemapElement(
-                    name="DYLD",
-                    install_size=dyld_total,
-                    download_size=dyld_total,
-                    element_type=TreemapType.DYLD,
-                    path=None,
-                    is_directory=True,
-                    children=dyld_children,
-                    details={"tag": "dyld"},
+                    if section_size == 0:
+                        logger.debug(f"Skipping section {section_name} with zero size")
+                        continue
+
+                    # Calculate adjusted section size after symbol subtraction
+                    unique_sec = f"{segment_name}.{section_name}"
+                    adjusted = section_size - section_subtractions.get(unique_sec, 0)
+                    if adjusted <= 0:
+                        logger.debug(
+                            f"Skipping section {unique_sec} - no remaining size {adjusted} after symbol subtraction"
+                        )
+                        continue
+
+                    # Categorize the section and create treemap element
+                    tag = self._categorize_section(section_name, segment_name) or BinaryTag.OTHER
+                    segment_children.append(
+                        TreemapElement(
+                            name=section_name,
+                            size=adjusted,
+                            type=self._get_element_type_from_tag(tag),
+                            path=None,
+                            is_dir=False,
+                            children=[],
+                        )
+                    )
+
+            if segment_name == "__LINKEDIT":
+                dyld_children = self._build_dyld_load_command_children(binary_analysis)
+                segment_children.extend(dyld_children)
+
+            actual_segment_size = segment_size - segment_symbol_bytes
+
+            if actual_segment_size > 0:
+                binary_children.append(
+                    TreemapElement(
+                        name=segment_name,
+                        size=actual_segment_size,
+                        type=TreemapType.EXECUTABLES,
+                        path=None,
+                        is_dir=False,
+                        children=segment_children,
+                    )
                 )
-            )
 
-        # Add an explicit “Unmapped” region if present
-        if binary_component_analysis.unanalyzed_size > 0:
-            section_children.append(
+        # Add an explicit "Unmapped" region if present (simplified - just check if we have unaccounted bytes)
+        total_accounted = sum(c.size for c in binary_children)
+        if binary_analysis.executable_size > total_accounted:
+            unaccounted = binary_analysis.executable_size - total_accounted
+            binary_children.append(
                 TreemapElement(
-                    name="Unanalyzed",
-                    install_size=int(binary_component_analysis.unanalyzed_size),
-                    download_size=int(binary_component_analysis.unanalyzed_size),
-                    element_type=TreemapType.UNMAPPED,
+                    name="Unmapped",
+                    size=unaccounted,
+                    type=TreemapType.UNMAPPED,
                     path=None,
-                    is_directory=False,
+                    is_dir=False,
                     children=[],
                 )
             )
 
-        # ------------------------------------------------------------------ #
-        # 5.  Top-level element                                              #
-        # ------------------------------------------------------------------ #
-        return section_children + symbol_children
+        return binary_children
+
+    def _build_metadata_components(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement]:
+        """Build treemap elements for binary metadata (headers, load commands, etc.)."""
+        metadata_children: List[TreemapElement] = []
+
+        if binary_analysis.header_size > 0:
+            metadata_children.append(
+                TreemapElement(
+                    name="Mach-O Header",
+                    size=binary_analysis.header_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if binary_analysis.load_commands:
+            load_command_children: List[TreemapElement] = []
+            for lc in binary_analysis.load_commands:
+                load_command_children.append(
+                    TreemapElement(
+                        name=lc.name,
+                        size=lc.size,
+                        type=TreemapType.EXECUTABLES,
+                        path=None,
+                        is_dir=False,
+                        children=[],
+                    )
+                )
+
+            total_lc_size = sum(lc.size for lc in binary_analysis.load_commands)
+            metadata_children.append(
+                TreemapElement(
+                    name="Load Commands",
+                    size=total_lc_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=load_command_children,
+                )
+            )
+
+        return metadata_children
+
+    def _build_dyld_load_command_children(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement]:
+        """Build treemap elements for DYLD load command data (rebase, bind, export info, etc.)."""
+        dyld_children: List[TreemapElement] = []
+
+        dyld_info = binary_analysis.dyld_info
+        if dyld_info is None:
+            return dyld_children
+
+        if dyld_info.chained_fixups_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Chained Fixups",
+                    size=dyld_info.chained_fixups_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if dyld_info.export_trie_size > 0:
+            dyld_children.append(
+                TreemapElement(
+                    name="Export Trie",
+                    size=dyld_info.export_trie_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        return dyld_children
+
+    def _get_element_type_from_tag(self, tag: BinaryTag) -> TreemapType:
+        """Convert BinaryTag to TreemapType."""
+        tag_value = tag.value
+        if tag_value.startswith("dyld_"):
+            return TreemapType.DYLD
+        elif tag_value == "unmapped":
+            return TreemapType.UNMAPPED
+        elif tag_value == "code_signature":
+            return TreemapType.CODE_SIGNATURE
+        elif tag_value == "function_starts":
+            return TreemapType.FUNCTION_STARTS
+        elif tag_value == "external_methods":
+            return TreemapType.EXTERNAL_METHODS
+        else:
+            return TreemapType.EXECUTABLES
+
+    def _is_dyld_related(self, tag: BinaryTag, section_name: str) -> bool:
+        """Check if a section is DYLD-related."""
+        tag_value = tag.value
+        return tag_value.startswith("dyld_") or section_name.startswith("LC_DYLD_") or "DYLD" in section_name.upper()
+
+    def _categorize_section(self, section_name: str, segment_name: str) -> BinaryTag | None:
+        """Categorize a section based on its name."""
+        name_lower = section_name.lower()
+        segment_name_lower = segment_name.lower()
+
+        # Objective-C sections
+        if "objc" in name_lower:
+            return BinaryTag.OBJC_CLASSES
+
+        # Swift metadata sections
+        if "swift" in name_lower:
+            return BinaryTag.SWIFT_METADATA
+
+        # String sections
+        if any(str_name in name_lower for str_name in ["__cstring", "__cfstring", "__ustring"]):
+            return BinaryTag.C_STRINGS
+
+        # GOT (Global Offset Table) and similar pointer sections
+        if "__got" in name_lower or "__la_symbol_ptr" in name_lower or "__nl_symbol_ptr" in name_lower:
+            return BinaryTag.DATA_SEGMENT
+
+        # Const sections
+        if "const" in name_lower:
+            return BinaryTag.CONST_DATA
+
+        # Unwind info
+        if "unwind" in name_lower or "eh_frame" in name_lower:
+            return BinaryTag.UNWIND_INFO
+
+        # Text segment sections
+        if (
+            any(text_name in name_lower for text_name in ["__text", "__stubs", "__stub_helper"])
+            or segment_name_lower == "__text"
+        ):
+            return BinaryTag.TEXT_SEGMENT
+
+        # Data sections
+        if (
+            any(data_name in name_lower for data_name in ["__data", "__bss", "__common"])
+            or segment_name_lower == "__data"
+        ):
+            return BinaryTag.DATA_SEGMENT
+
+        return None

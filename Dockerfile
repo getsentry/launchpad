@@ -110,4 +110,4 @@ USER app
 EXPOSE 2218
 
 # Default command
-CMD ["launchpad", "serve"]
+CMD ["launchpad", "serve", "--verbose"]

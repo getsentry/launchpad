@@ -46,7 +46,7 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
         logging.basicConfig(
             level=level,
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler(sys.stderr)],
+            handlers=[logging.StreamHandler(sys.stdout)],
         )
 
     # Set levels for third-party libraries

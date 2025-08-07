@@ -14,7 +14,7 @@ from launchpad.size.models.insights import (
 
 
 class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
-    EXTENSION_ALLOWLIST = [".xcprivacy"]
+    EXTENSION_ALLOWLIST = [".xcprivacy", ".mobileprovision"]
 
     MIN_DIR_SIZE_BYTES = 0
 

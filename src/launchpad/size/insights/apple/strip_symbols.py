@@ -35,9 +35,10 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
                 continue
 
             debug_section_size = 0
-            for section_name, section_size in binary_analysis.sections.items():
-                if section_name in self.DEBUG_SECTIONS:
-                    debug_section_size += section_size
+            for segment in binary_analysis.segments:
+                for section in segment.sections:
+                    if section.name in self.DEBUG_SECTIONS:
+                        debug_section_size += section.size
 
             symbol_savings = 0
             if binary_analysis.symbol_info:
@@ -46,7 +47,7 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
             strippable_size = debug_section_size + symbol_savings
             if strippable_size > 0:
                 strip_file_info = StripBinaryFileInfo(
-                    file_path=binary_analysis.binary_relative_path,
+                    file_path=str(binary_analysis.binary_relative_path),
                     debug_sections_savings=debug_section_size,
                     symbol_table_savings=symbol_savings,
                     total_savings=strippable_size,

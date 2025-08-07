@@ -84,6 +84,20 @@ export interface LooseImagesInsightResult {
   total_file_count: number;
 }
 
+export interface OptimizableImageFile {
+  file_path: string;
+  current_size: number;
+  minify_savings: number;
+  minified_size: number | null;
+  conversion_savings: number;
+  heic_size: number | null;
+}
+
+export interface ImageOptimizationInsightResult {
+  total_savings: number;
+  optimizable_files: OptimizableImageFile[];
+}
+
 export interface FileAnalysisReport {
   file_analysis: FileAnalysisData;
   treemap: TreemapResults;
@@ -99,10 +113,11 @@ export interface FileAnalysisReport {
     large_audio?: InsightResult | null;
     hermes_debug_info?: InsightResult | null;
     webp_optimization?: InsightResult | null;
+    image_optimization?: ImageOptimizationInsightResult | null;
     strip_binary?: StripBinaryInsightResult | null;
     localized_strings?: InsightResult | null;
     loose_images?: LooseImagesInsightResult | null;
-    [key: string]: InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | LooseImagesInsightResult | null | undefined;
+    [key: string]: InsightResult | DuplicateFilesInsightResult | StripBinaryInsightResult | LooseImagesInsightResult | ImageOptimizationInsightResult | null | undefined;
   };
   generated_at: string;
   use_si_units: boolean;

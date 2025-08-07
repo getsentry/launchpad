@@ -15,10 +15,10 @@ from cryptography import x509
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.macho_parser import MachOParser
-from launchpad.parsers.apple.macho_size_analyzer import MachOSizeAnalyzer
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
+from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.audio_compression import AudioCompressionInsight
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
@@ -43,7 +43,7 @@ from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
-from launchpad.utils.file_utils import get_file_size
+from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
 from launchpad.utils.performance import trace, trace_ctx
 
@@ -51,7 +51,10 @@ from ..models.apple import (
     AppleAnalysisResults,
     AppleAppInfo,
     AppleInsightResults,
+    LoadCommandInfo,
     MachOBinaryAnalysis,
+    SectionInfo,
+    SegmentInfo,
     SwiftMetadata,
     SymbolInfo,
 )
@@ -140,18 +143,15 @@ class AppleAppAnalyzer:
                 if binary_info.dsym_path:
                     logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
                 binary = self._analyze_binary(binary_info, app_bundle_path)
-                if binary and binary.binary_analysis is not None:
+                if binary is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
-            compression_ratio = download_size / install_size if install_size > 0 else 1
-
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
                 platform="ios",
-                download_compression_ratio=compression_ratio,
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )
@@ -369,7 +369,7 @@ class AppleAppAnalyzer:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
 
         binary = fat_binary.at(0)
-        executable_size = get_file_size(binary_path)
+        executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
         # Create parser for this binary
         parser = MachOParser(binary)
@@ -377,10 +377,12 @@ class AppleAppAnalyzer:
         # Extract basic information using the parser
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
-        sections = parser.extract_sections()
         swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
         static_inits = parser.static_inits()
+        segments = self._extract_segments_info(parser.binary)
+        load_commands = self._extract_load_commands_info(parser.binary)
+        dyld_info = parser.extract_dyld_info()
 
         symbol_info = None
 
@@ -419,24 +421,20 @@ class AppleAppAnalyzer:
                 protocol_conformances=swift_protocol_conformances,
             )
 
-        # Analyze binary components
-        binary_analysis = None
-        if not self.skip_component_analysis:
-            analyzer = MachOSizeAnalyzer(parser, executable_size, str(binary_path))
-            binary_analysis = analyzer.analyze()
-
         return MachOBinaryAnalysis(
             binary_absolute_path=binary_path,
-            binary_relative_path=str(binary_path.relative_to(app_bundle_path)),
+            binary_relative_path=binary_path.relative_to(app_bundle_path),
             executable_size=executable_size,
             architectures=architectures,
             linked_libraries=linked_libraries,
-            sections=sections,
             swift_metadata=swift_metadata,
-            binary_analysis=binary_analysis,
             symbol_info=symbol_info,
             objc_method_names=objc_method_names,
             is_main_binary=is_main_binary,
+            segments=segments,
+            load_commands=load_commands,
+            header_size=parser.get_header_size(),
+            dyld_info=dyld_info,
         )
 
     @trace("apple.test_strip_symbols_removal")
@@ -483,3 +481,42 @@ class AppleAppAnalyzer:
         except Exception as e:
             logger.error(f"Error testing symbol removal for {binary_path}: {e}")
             return 0
+
+    def _extract_segments_info(self, binary: lief.MachO.Binary) -> List[SegmentInfo]:
+        """Extract segment and section information from LIEF binary into stable dataclasses."""
+        segments: List[SegmentInfo] = []
+
+        try:
+            for command in binary.commands:
+                if isinstance(command, lief.MachO.SegmentCommand):
+                    segment_name = self._parse_lief_name(command.name)
+
+                    section_infos: List[SectionInfo] = []
+                    for section in command.sections:
+                        section_name = self._parse_lief_name(section.name)
+                        section_infos.append(SectionInfo(name=section_name, size=section.size))
+
+                    segments.append(SegmentInfo(name=segment_name, sections=section_infos, size=command.file_size))
+        except Exception as e:
+            logger.warning(f"Error extracting segments info: {e}")
+
+        return segments
+
+    def _parse_lief_name(self, name: str | bytes) -> str:
+        if isinstance(name, bytes):
+            return name.decode("utf-8", errors="replace")
+        return str(name)
+
+    def _extract_load_commands_info(self, binary: lief.MachO.Binary) -> List[LoadCommandInfo]:
+        """Extract load command information from LIEF binary into stable dataclasses."""
+        load_commands: List[LoadCommandInfo] = []
+        for command in binary.commands:
+            command_name = str(command.command.name)
+            command_size = command.size
+
+            if command_size > 0:
+                load_commands.append(LoadCommandInfo(name=command_name, size=command_size))
+            else:
+                logger.warning(f"Skipping load command {command_name} with size 0")
+
+        return load_commands

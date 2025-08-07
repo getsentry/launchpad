@@ -208,7 +208,6 @@ class TestUnnecessaryFilesInsight:
     def test_pattern_matching_development_files(self):
         """Test that various development files are matched."""
         dev_files = [
-            "app.mobileprovision",
             "BUILD.bazel",
             "Config.xcconfig",
             "MyModule.swiftmodule",
@@ -312,7 +311,6 @@ class TestUnnecessaryFilesInsight:
             ("symbols.bcsymbolmap", True),
             ("header.pch", True),
             ("plan.xctestplan", True),
-            ("provision.mobileprovision", True),
             ("BUILD.bazel", True),
             # Files that should not match
             ("file.txt", False),

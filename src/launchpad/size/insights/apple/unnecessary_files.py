@@ -17,7 +17,6 @@ class UnnecessaryFilesInsight(Insight[UnnecessaryFilesInsightResult]):
         r"^AUTHORS",  # AUTHORS files
         r"^CONTRIBUTING",  # CONTRIBUTING files
         r".*\.sh$",  # Shell scripts
-        r".*\.mobileprovision$",  # Mobile provisioning files
         r".*\.bazel$",  # Bazel files
         r".*\.xcconfig$",  # Xcode configuration files
         r".*\.swiftmodule$",  # Swift module files

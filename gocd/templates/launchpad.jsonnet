@@ -5,8 +5,6 @@ local pipedream_config = {
   name: 'launchpad',
   auto_deploy: true,
   exclude_regions: [
-    'de',
-    'us',
     'customer-1',
     'customer-2',
     'customer-3',
@@ -17,13 +15,14 @@ local pipedream_config = {
     launchpad_repo: {
       git: 'git@github.com:getsentry/launchpad.git',
       shallow_clone: true,
+      auto_update: true,
       branch: 'main',
       destination: 'launchpad',
     },
   },
   rollback: {
     material_name: 'launchpad_repo',
-    stage: 'deploy_primary',
+    stage: 'deploy-primary',
     elastic_profile_id: 'launchpad',
   },
 };

@@ -18,13 +18,11 @@ class HermesElementBuilder(TreemapElementBuilder):
 
     def __init__(
         self,
-        download_compression_ratio: float,
         filesystem_block_size: int,
         hermes_reports: Dict[str, HermesReport],
     ) -> None:
         self.hermes_reports = hermes_reports
         super().__init__(
-            download_compression_ratio=download_compression_ratio,
             filesystem_block_size=filesystem_block_size,
         )
 
@@ -67,16 +65,11 @@ class HermesElementBuilder(TreemapElementBuilder):
 
             element = TreemapElement(
                 name=section_name,
-                install_size=section_info["bytes"],
-                download_size=section_info["bytes"],
-                element_type=treemap_type,
+                size=section_info["bytes"],
+                type=treemap_type,
                 path=None,
-                is_directory=False,
+                is_dir=False,
                 children=[],
-                details={
-                    "percentage": section_info["percentage"],
-                    "section_type": section_name,
-                },
             )
 
             if "string" in section_name.lower() or "identifier" in section_name.lower():
@@ -88,34 +81,30 @@ class HermesElementBuilder(TreemapElementBuilder):
 
         # Create category groups if we have multiple sections
         if len(string_sections) > 1:
-            string_total = sum(s.install_size for s in string_sections)
+            string_total = sum(s.size for s in string_sections)
             section_children.append(
                 TreemapElement(
                     name="Strings & Identifiers",
-                    install_size=string_total,
-                    download_size=string_total,
-                    element_type=TreemapType.STRINGS,
+                    size=string_total,
+                    type=TreemapType.STRINGS,
                     path=None,
-                    is_directory=True,
+                    is_dir=True,
                     children=string_sections,
-                    details={"category": "strings"},
                 )
             )
         else:
             section_children.extend(string_sections)
 
         if len(function_sections) > 1:
-            function_total = sum(f.install_size for f in function_sections)
+            function_total = sum(f.size for f in function_sections)
             section_children.append(
                 TreemapElement(
                     name="Functions",
-                    install_size=function_total,
-                    download_size=function_total,
-                    element_type=TreemapType.METHODS,
+                    size=function_total,
+                    type=TreemapType.METHODS,
                     path=None,
-                    is_directory=True,
+                    is_dir=True,
                     children=function_sections,
-                    details={"category": "functions"},
                 )
             )
         else:
@@ -129,33 +118,23 @@ class HermesElementBuilder(TreemapElementBuilder):
             section_children.append(
                 TreemapElement(
                     name="Unattributed",
-                    install_size=report["unattributed"]["bytes"],
-                    download_size=report["unattributed"]["bytes"],
-                    element_type=TreemapType.BINARY,
+                    size=report["unattributed"]["bytes"],
+                    type=TreemapType.BINARY,
                     path=None,
-                    is_directory=False,
+                    is_dir=False,
                     children=[],
-                    details={
-                        "percentage": report["unattributed"]["percentage"],
-                        "section_type": "unattributed",
-                    },
                 )
             )
 
-        total_size = sum(c.install_size for c in section_children)
+        total_size = sum(c.size for c in section_children)
 
         return TreemapElement(
             name=name,
-            install_size=total_size,
-            download_size=total_size,
-            element_type=TreemapType.BINARY,
+            size=total_size,
+            type=TreemapType.BINARY,
             path=file_path,
-            is_directory=True,
+            is_dir=True,
             children=section_children,
-            details={
-                "file_size": report["file_size"],
-                "bytecode_type": "hermes",
-            },
         )
 
     def _get_treemap_type_for_section(self, section_name: str) -> TreemapType:
