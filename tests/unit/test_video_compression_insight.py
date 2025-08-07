@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 from launchpad.size.insights.apple.video_compression import VideoCompressionInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
-from launchpad.size.models.insights import OptimizableVideoFile, VideoCompressionInsightResult
+from launchpad.size.models.insights import FileSavingsResult, VideoCompressionInsightResult
 from launchpad.size.models.treemap import TreemapType
 
 
@@ -46,36 +46,26 @@ class TestVideoCompressionInsight:
         # Mock the compression analysis
         with patch.object(self.insight, "_analyze_video_compression") as mock_analyze:
             mock_analyze.side_effect = [
-                OptimizableVideoFile(
+                FileSavingsResult(
                     file_path="assets/video.mov",
-                    current_size=10 * 1024 * 1024,
-                    current_format="mov",
-                    compressed_size=7 * 1024 * 1024,
-                    potential_savings=3 * 1024 * 1024,
-                    target_encoding="h264",
-                    target_bitrate=850000,
+                    total_savings=3 * 1024 * 1024,
                 ),
-                OptimizableVideoFile(
+                FileSavingsResult(
                     file_path="assets/video.mp4",
-                    current_size=20 * 1024 * 1024,
-                    current_format="mp4",
-                    compressed_size=15 * 1024 * 1024,
-                    potential_savings=5 * 1024 * 1024,
-                    target_encoding="hevc",
-                    target_bitrate=1700000,
+                    total_savings=5 * 1024 * 1024,
                 ),
             ]
 
             result = self.insight.generate(insights_input)
 
         assert isinstance(result, VideoCompressionInsightResult)
-        assert len(result.optimizable_files) == 2
+        assert len(result.files) == 2
 
-        # Should be sorted by potential savings (largest first)
-        assert result.optimizable_files[0].file_path == "assets/video.mp4"
-        assert result.optimizable_files[0].potential_savings == 5 * 1024 * 1024
-        assert result.optimizable_files[1].file_path == "assets/video.mov"
-        assert result.optimizable_files[1].potential_savings == 3 * 1024 * 1024
+        # Should be sorted by total savings (largest first)
+        assert result.files[0].file_path == "assets/video.mp4"
+        assert result.files[0].total_savings == 5 * 1024 * 1024
+        assert result.files[1].file_path == "assets/video.mov"
+        assert result.files[1].total_savings == 3 * 1024 * 1024
 
         # Total savings
         expected_total = (5 * 1024 * 1024) + (3 * 1024 * 1024)
@@ -152,14 +142,9 @@ class TestVideoCompressionInsight:
                 result = self.insight._analyze_video_compression(file_info)
 
                 assert result is not None
-                assert isinstance(result, OptimizableVideoFile)
+                assert isinstance(result, FileSavingsResult)
                 assert result.file_path == "assets/test.mov"
-                assert result.current_size == 10 * 1024 * 1024
-                assert result.current_format == "mov"
-                assert result.compressed_size == 7 * 1024 * 1024
-                assert result.potential_savings == 3 * 1024 * 1024
-                assert result.target_encoding == "h264"
-                assert result.target_bitrate == 850000  # 85% of 1Mbps
+                assert result.total_savings == 3 * 1024 * 1024
 
     def test_analyze_video_compression_no_bitrate(self):
         file_info = FileInfo(
@@ -427,7 +412,7 @@ class TestVideoCompressionInsight:
         )
 
         files = [mov_file, png_file, small_video]
-        compressible_files = list(self.insight._iter_compressible_files(files))
+        compressible_files = [fi for fi in files if self.insight._is_compressible_video_file(fi)]
 
         # Only the MOV file should be compressible
         assert len(compressible_files) == 1
@@ -456,14 +441,9 @@ class TestVideoCompressionInsight:
 
         with patch.object(self.insight, "_analyze_video_compression") as mock_analyze:
             # Mock return value with savings below threshold
-            mock_analyze.return_value = OptimizableVideoFile(
+            mock_analyze.return_value = FileSavingsResult(
                 file_path="assets/video.mov",
-                current_size=10 * 1024 * 1024,
-                current_format="mov",
-                compressed_size=(10 * 1024 * 1024) - 2048,  # Only 2KB savings (below 4KB threshold)
-                potential_savings=2048,
-                target_encoding="h264",
-                target_bitrate=850000,
+                total_savings=2048,  # Only 2KB savings (below 4KB threshold)
             )
 
             result = self.insight.generate(insights_input)

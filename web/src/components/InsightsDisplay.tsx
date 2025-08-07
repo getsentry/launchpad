@@ -96,6 +96,8 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       large_images: 'Large Images',
       large_videos: 'Large Videos',
       large_audio: 'Large Audio Files',
+      audio_compression: 'Audio Compression',
+      video_compression: 'Video Compression',
       hermes_debug_info: 'Hermes Debug Info',
       webp_optimization: 'WebP Optimization',
       image_optimization: 'Image Optimization',
@@ -116,6 +118,8 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       large_images: 'Image files with potential optimization savings',
       large_videos: 'Video files with potential compression savings',
       large_audio: 'Audio files with potential optimization savings',
+      audio_compression: 'Audio files that can be compressed to AAC format for size reduction',
+      video_compression: 'Video files that can be compressed with H.264/HEVC encoding for size reduction',
       hermes_debug_info: 'Debug information that can be removed from production builds',
       webp_optimization: 'Images that could be converted to WebP format for better compression',
       image_optimization: 'Image files that can be optimized through minification or HEIC conversion',
@@ -136,6 +140,8 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       large_images: '🖼️',
       large_videos: '🎥',
       large_audio: '🎵',
+      audio_compression: '🎵',
+      video_compression: '🎥',
       hermes_debug_info: '🐛',
       webp_optimization: '🗜️',
       image_optimization: '📸',
@@ -195,7 +201,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
     }
 
     // Handle insights that now use FileSavingsResult format
-    if (['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'small_files'].includes(key)) {
+    if (['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'small_files', 'audio_compression', 'video_compression'].includes(key)) {
       const fileSavingsInsight = value as FileSavingsInsightResult;
       const hasFiles = fileSavingsInsight.files && Array.isArray(fileSavingsInsight.files) && fileSavingsInsight.files.length > 0;
       return hasValidSavings || hasFiles;
@@ -713,7 +719,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                   </div>
                 );
               })()
-            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_comments', 'small_files'].includes(key) ? (
+            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_comments', 'small_files', 'audio_compression', 'video_compression'].includes(key) ? (
               // Handle insights that now use FileSavingsResult format
               (() => {
                 const fileSavingsInsight = insight as FileSavingsInsightResult;
