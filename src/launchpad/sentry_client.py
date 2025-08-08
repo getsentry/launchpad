@@ -18,9 +18,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# DEBUG: Remove this block when debugging is complete
-DEBUG_DOWNLOADS = True  # Force enable for debugging
-
 logger = logging.getLogger(__name__)
 
 
@@ -105,72 +102,14 @@ class SentryClient:
             error_category, error_description = categorize_http_error(error_result)
             raise RuntimeError(f"Failed to download artifact ({error_category}): {error_description}")
 
-        # DEBUG: Remove this entire block when debugging is complete
-        if DEBUG_DOWNLOADS:
-            logger.info(f"[DEBUG_DOWNLOADS] Response headers: {dict(response.headers)}")
-            content_length = response.headers.get("Content-Length")
-            if content_length:
-                logger.info(f"[DEBUG_DOWNLOADS] Expected content length: {content_length} bytes")
-            content_encoding = response.headers.get("Content-Encoding")
-            if content_encoding:
-                logger.info(f"[DEBUG_DOWNLOADS] Content encoding: {content_encoding}")
-            transfer_encoding = response.headers.get("Transfer-Encoding")
-            if transfer_encoding:
-                logger.info(f"[DEBUG_DOWNLOADS] Transfer encoding: {transfer_encoding}")
-
         # Stream directly to the file-like object
         file_size = 0
-        chunk_count = 0
-        last_chunk = None
-
-        # DEBUG: Remove this line when debugging is complete
-        if DEBUG_DOWNLOADS:
-            logger.info(f"[DEBUG_DOWNLOADS] Starting download stream for artifact {artifact_id}")
-
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
-                chunk_count += 1
-
-                # DEBUG: Remove this block when debugging is complete
-                if DEBUG_DOWNLOADS and chunk_count == 1:
-                    logger.info(f"[DEBUG_DOWNLOADS] First chunk: {len(chunk)} bytes, starts with: {chunk[:20]}")
-
-                # Always update last chunk (needed for truncation detection)
-                last_chunk = chunk
-
                 out.write(chunk)
                 file_size += len(chunk)
-
-                # DEBUG: Remove this block when debugging is complete
-                if DEBUG_DOWNLOADS and file_size % (100 * 1024 * 1024) < 8192:  # Every 100MB
-                    logger.info(f"[DEBUG_DOWNLOADS] Progress: {file_size / 1024 / 1024:.1f} MB ({chunk_count} chunks)")
-
                 if file_size > 5 * 1024 * 1024 * 1024:  # 5GB limit
                     raise RuntimeError("Failed to download artifact (client_error): File size exceeds 5GB limit")
-
-        # DEBUG: Remove this block when debugging is complete
-        if DEBUG_DOWNLOADS:
-            logger.info(f"[DEBUG_DOWNLOADS] Download completed: {file_size} bytes in {chunk_count} chunks")
-            if last_chunk and len(last_chunk) < 8192:
-                logger.info(f"[DEBUG_DOWNLOADS] Last chunk: {len(last_chunk)} bytes, ends with: {last_chunk[-20:]}")
-
-            # Verify we got a complete file by checking if it looks truncated
-            if chunk_count > 0 and last_chunk:
-                if len(last_chunk) == 8192:
-                    logger.warning("[DEBUG_DOWNLOADS] Last chunk is exactly 8192 bytes - possible truncation!")
-                else:
-                    logger.info(f"[DEBUG_DOWNLOADS] Last chunk is {len(last_chunk)} bytes - appears complete")
-
-            # Compare with expected content length if available
-            expected_length = response.headers.get("Content-Length")
-            if expected_length:
-                expected_size = int(expected_length)
-                if file_size != expected_size:
-                    logger.error(
-                        f"[DEBUG_DOWNLOADS] SIZE MISMATCH! Expected: {expected_size} bytes, Got: {file_size} bytes (diff: {file_size - expected_size})"
-                    )
-                else:
-                    logger.info(f"[DEBUG_DOWNLOADS] Size verification passed: {file_size} bytes matches Content-Length")
 
         return file_size
 
