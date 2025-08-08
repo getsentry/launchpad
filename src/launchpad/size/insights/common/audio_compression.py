@@ -68,10 +68,6 @@ class AudioCompressionInsight(Insight[AudioCompressionInsightResult]):
         if file_type not in self.COMPRESSIBLE_FORMATS:
             return False
 
-        # Skip files that are already in AAC format to avoid redundant processing
-        if file_type in {"aac", "m4a"}:
-            return False
-
         return True
 
     def _analyze_audio_compression(self, file_info: FileInfo) -> FileSavingsResult | None:
@@ -121,7 +117,7 @@ class AudioCompressionInsight(Insight[AudioCompressionInsightResult]):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=30,
+                    timeout=10,
                     check=False,
                 )
 

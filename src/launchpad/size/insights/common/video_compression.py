@@ -138,18 +138,18 @@ class VideoCompressionInsight(Insight[VideoCompressionInsightResult]):
             )
 
             if result.returncode != 0:
-                logger.debug("ffprobe failed for %s: %s", video_path, result.stderr.strip())
+                logger.error("ffprobe failed for %s: %s", video_path, result.stderr.strip())
                 return None
 
             bitrate_str = result.stdout.strip()
             if bitrate_str and bitrate_str != "N/A":
                 return int(bitrate_str)
             else:
-                logger.debug("No bitrate information available for %s", video_path)
+                logger.error("No bitrate information available for %s", video_path)
                 return None
 
         except (subprocess.TimeoutExpired, ValueError, FileNotFoundError) as exc:
-            logger.debug("Error getting bitrate for %s: %s", video_path, exc)
+            logger.error("Error getting bitrate for %s: %s", video_path, exc)
             return None
 
     def _get_compressed_size(self, video_path: Path, encoding: str, target_bitrate: int) -> int | None:
@@ -184,7 +184,7 @@ class VideoCompressionInsight(Insight[VideoCompressionInsightResult]):
                 )
 
                 if result.returncode != 0:
-                    logger.debug(
+                    logger.error(
                         "ffmpeg failed for %s with %s: %s",
                         video_path,
                         encoding,
