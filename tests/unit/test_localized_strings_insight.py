@@ -56,17 +56,17 @@ class TestLocalizedStringsInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LocalizedStringInsightResult)
-        # Total savings should be 80% of the total file size (110KB * 0.8 = 88KB)
-        expected_total_savings = int((60 + 50) * 1024 * 0.8)
+        # Total savings should be 50% of the total file size (110KB * 0.5 = 55KB)
+        expected_total_savings = int((60 + 50) * 1024 * 0.5)
         assert result.total_savings == expected_total_savings
 
     def test_generate_with_small_localized_strings(self):
         """Test that no insight is generated when estimated savings is below 100KB threshold."""
-        # Create localized strings files where estimated savings (80%) don't exceed 100KB
+        # Create localized strings files where estimated savings (50%) don't exceed 100KB
         localized_file_1 = FileInfo(
             full_path=Path("en.lproj/Localizable.strings"),
             path="en.lproj/Localizable.strings",
-            size=60 * 1024,  # 60KB * 0.8 = 48KB savings
+            size=60 * 1024,  # 60KB * 0.5 = 30KB savings
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
@@ -75,7 +75,7 @@ class TestLocalizedStringsInsight:
         localized_file_2 = FileInfo(
             full_path=Path("es.lproj/Localizable.strings"),
             path="es.lproj/Localizable.strings",
-            size=50 * 1024,  # 50KB * 0.8 = 40KB savings (total 88KB < 100KB threshold)
+            size=50 * 1024,  # 50KB * 0.5 = 25KB savings (total 55KB < 100KB threshold)
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash2",
@@ -97,11 +97,11 @@ class TestLocalizedStringsInsight:
 
     def test_generate_with_exactly_threshold_size(self):
         """Test that insight is generated when estimated savings exceeds 100KB threshold."""
-        # Need 125KB to get exactly 100KB savings (125KB * 0.8 = 100KB)
+        # Need 200KB to get exactly 100KB savings (200KB * 0.5 = 100KB)
         localized_file = FileInfo(
             full_path=Path("en.lproj/Localizable.strings"),
             path="en.lproj/Localizable.strings",
-            size=125 * 1024,  # 125KB * 0.8 = 100KB savings
+            size=200 * 1024,  # 200KB * 0.5 = 100KB savings
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
@@ -213,8 +213,8 @@ class TestLocalizedStringsInsight:
 
         assert isinstance(result, LocalizedStringInsightResult)
         # Should include localizable and infoplist, but not launchscreen
-        # Total size: (80KB + 50KB) * 0.8 = 104KB savings
-        expected_savings = int((80 + 50) * 1024 * 0.8)
+        # Total size: (80KB + 50KB) * 0.5 = 65KB savings
+        expected_savings = int((80 + 50) * 1024 * 0.5)
         assert result.total_savings == expected_savings
 
     def test_generate_ignores_non_lproj_localizable_strings(self):
@@ -250,8 +250,8 @@ class TestLocalizedStringsInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LocalizedStringInsightResult)
-        # Only the valid file should be included: 150KB * 0.8 = 120KB savings
-        expected_savings = int(150 * 1024 * 0.8)
+        # Only the valid file should be included: 150KB * 0.5 = 75KB savings
+        expected_savings = int(150 * 1024 * 0.5)
         assert result.total_savings == expected_savings
 
     def test_regex_pattern_matching(self):
@@ -261,7 +261,7 @@ class TestLocalizedStringsInsight:
             FileInfo(
                 full_path=Path("en.lproj/Localizable.strings"),
                 path="en.lproj/Localizable.strings",
-                size=130 * 1024,  # Large enough to trigger insight after 0.8 ratio
+                size=250 * 1024,  # Large enough to trigger insight after 0.5 ratio
                 file_type="strings",
                 treemap_type=TreemapType.RESOURCES,
                 hash="hash1",
@@ -331,6 +331,6 @@ class TestLocalizedStringsInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LocalizedStringInsightResult)
-        # Should only include valid files: (130 + 30 + 20) * 1024 * 0.8 = 144KB
-        expected_savings = int((130 + 30 + 20) * 1024 * 0.8)
+        # Should only include valid files: (250 + 30 + 20) * 1024 * 0.5 = 150KB
+        expected_savings = int((250 + 30 + 20) * 1024 * 0.5)
         assert result.total_savings == expected_savings
