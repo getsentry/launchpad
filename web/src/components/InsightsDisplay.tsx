@@ -103,6 +103,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       image_optimization: 'Image Optimization',
       strip_binary: 'Binary Stripping',
       localized_strings: 'Localized Strings',
+      localized_strings_minify: 'Localized Strings Minify',
       localized_strings_comments: 'Localized Strings Comments',
       small_files: 'Small Files',
       unnecessary_files: 'Unnecessary Files',
@@ -125,6 +126,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       image_optimization: 'Image files that can be optimized through minification or HEIC conversion',
       strip_binary: 'Debug symbols and metadata that can be removed from binaries',
       localized_strings: 'Localization strings with potential optimization savings',
+      localized_strings_minify: 'Comments and whitespace in localized strings files that can be stripped to save space',
       localized_strings_comments: 'Comments in localized strings files that can be stripped to save space',
       small_files: 'Small files wasting space due to filesystem block size constraints',
       main_binary_exported_symbols: 'Export metadata in main binaries that could be optimized',
@@ -147,6 +149,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
       image_optimization: '📸',
       strip_binary: '⚡',
       localized_strings: '🌐',
+      localized_strings_minify: '✂️',
       localized_strings_comments: '💬',
       small_files: '📄',
       main_binary_exported_symbols: '📦',
@@ -201,7 +204,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
     }
 
     // Handle insights that now use FileSavingsResult format
-    if (['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'small_files', 'audio_compression', 'video_compression'].includes(key)) {
+    if (['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_minify', 'small_files', 'audio_compression', 'video_compression'].includes(key)) {
       const fileSavingsInsight = value as FileSavingsInsightResult;
       const hasFiles = fileSavingsInsight.files && Array.isArray(fileSavingsInsight.files) && fileSavingsInsight.files.length > 0;
       return hasValidSavings || hasFiles;
@@ -719,7 +722,7 @@ const InsightsDisplay: React.FC<InsightsDisplayProps> = ({ data }) => {
                   </div>
                 );
               })()
-            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_comments', 'small_files', 'audio_compression', 'video_compression'].includes(key) ? (
+            ) : ['large_images', 'large_videos', 'large_audio', 'hermes_debug_info', 'unnecessary_files', 'localized_strings', 'localized_strings_minify', 'localized_strings_comments', 'small_files', 'audio_compression', 'video_compression'].includes(key) ? (
               // Handle insights that now use FileSavingsResult format
               (() => {
                 const fileSavingsInsight = insight as FileSavingsInsightResult;
