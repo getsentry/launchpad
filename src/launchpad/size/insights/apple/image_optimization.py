@@ -10,7 +10,7 @@ from typing import Iterable, List, Sequence
 
 import pillow_heif  # type: ignore
 
-from PIL import Image
+from PIL import Image, ImageFile
 
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
@@ -21,6 +21,7 @@ from launchpad.size.models.insights import (
 from launchpad.utils.logging import get_logger
 
 pillow_heif.register_heif_opener()  # type: ignore
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # Silence noisy loggers
 for noisy in ("PIL", "pillow_heif"):
