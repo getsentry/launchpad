@@ -71,6 +71,7 @@ class TestSentryClientRetry:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.iter_content.return_value = [b"test content"]
+        mock_response.headers = {"Content-Length": "12", "Content-Type": "application/octet-stream"}
         mock_session.get.return_value = mock_response
 
         # Create client with mocked session
