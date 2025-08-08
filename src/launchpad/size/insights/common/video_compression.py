@@ -9,7 +9,7 @@ from pathlib import Path
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.insights import (
-    FileSavingsResult,
+    VideoCompressionFileSavingsResult,
     VideoCompressionInsightResult,
 )
 from launchpad.utils.logging import get_logger
@@ -38,7 +38,7 @@ class VideoCompressionInsight(Insight[VideoCompressionInsightResult]):
         if not files:
             return None
 
-        results: list[FileSavingsResult] = []
+        results: list[VideoCompressionFileSavingsResult] = []
         with ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(files))) as executor:
             future_to_file = {executor.submit(self._analyze_video_compression, f): f for f in files}
             for future in as_completed(future_to_file):
@@ -73,7 +73,7 @@ class VideoCompressionInsight(Insight[VideoCompressionInsightResult]):
 
         return True
 
-    def _analyze_video_compression(self, file_info: FileInfo) -> FileSavingsResult | None:
+    def _analyze_video_compression(self, file_info: FileInfo) -> VideoCompressionFileSavingsResult | None:
         """Analyze a single video file for compression opportunities."""
         full_path = file_info.full_path
         if full_path is None:
@@ -91,6 +91,7 @@ class VideoCompressionInsight(Insight[VideoCompressionInsightResult]):
 
             # Try both H.264 and HEVC encodings to find the best compression
             best_savings = 0
+            best_codec = None
             for encoding in self.TARGET_ENCODINGS:
                 target_bitrate = int(current_bitrate * self.DEFAULT_QUALITY_FACTOR)
                 compressed_size = self._get_compressed_size(full_path, encoding, target_bitrate)
@@ -99,11 +100,13 @@ class VideoCompressionInsight(Insight[VideoCompressionInsightResult]):
                     savings = file_size - compressed_size
                     if savings > best_savings:
                         best_savings = savings
+                        best_codec = encoding
 
-            if best_savings > 0:
-                return FileSavingsResult(
+            if best_savings > 0 and best_codec:
+                return VideoCompressionFileSavingsResult(
                     file_path=file_info.path,
                     total_savings=best_savings,
+                    recommended_codec=best_codec,
                 )
 
             return None

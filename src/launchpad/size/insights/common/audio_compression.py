@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 class AudioCompressionInsight(Insight[AudioCompressionInsightResult]):
     """Analyze audio compression opportunities in iOS apps.
 
-    Uses afconvert to compress audio files to AAC format with 128kbps bitrate for size optimization.
+    Uses ffmpeg to compress audio files to AAC format with 128kbps bitrate for size optimization.
     """
 
     COMPRESSIBLE_FORMATS = {"wav", "aiff", "aif", "au", "snd", "m4a", "mp3", "caf", "3gp", "3g2", "amr"}

@@ -20,7 +20,6 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAg
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
-from launchpad.size.insights.apple.audio_compression import AudioCompressionInsight
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.localized_strings_minify import MinifyLocalizedStringsInsight
@@ -31,11 +30,12 @@ from launchpad.size.insights.apple.main_binary_export_metadata import (
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.apple.unnecessary_files import UnnecessaryFilesInsight
-from launchpad.size.insights.apple.video_compression import VideoCompressionInsight
+from launchpad.size.insights.common.audio_compression import AudioCompressionInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
 from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
+from launchpad.size.insights.common.video_compression import VideoCompressionInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes

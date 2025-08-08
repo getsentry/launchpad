@@ -1,10 +1,10 @@
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
-from launchpad.size.insights.apple.video_compression import VideoCompressionInsight
+from launchpad.size.insights.common.video_compression import VideoCompressionInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
-from launchpad.size.models.insights import FileSavingsResult, VideoCompressionInsightResult
+from launchpad.size.models.insights import VideoCompressionFileSavingsResult, VideoCompressionInsightResult
 from launchpad.size.models.treemap import TreemapType
 
 
@@ -46,13 +46,15 @@ class TestVideoCompressionInsight:
         # Mock the compression analysis
         with patch.object(self.insight, "_analyze_video_compression") as mock_analyze:
             mock_analyze.side_effect = [
-                FileSavingsResult(
+                VideoCompressionFileSavingsResult(
                     file_path="assets/video.mov",
                     total_savings=3 * 1024 * 1024,
+                    recommended_codec="hevc",
                 ),
-                FileSavingsResult(
+                VideoCompressionFileSavingsResult(
                     file_path="assets/video.mp4",
                     total_savings=5 * 1024 * 1024,
+                    recommended_codec="h264",
                 ),
             ]
 
@@ -142,7 +144,7 @@ class TestVideoCompressionInsight:
                 result = self.insight._analyze_video_compression(file_info)
 
                 assert result is not None
-                assert isinstance(result, FileSavingsResult)
+                assert isinstance(result, VideoCompressionFileSavingsResult)
                 assert result.file_path == "assets/test.mov"
                 assert result.total_savings == 3 * 1024 * 1024
 
@@ -257,7 +259,7 @@ class TestVideoCompressionInsight:
         mock_subprocess.return_value = mock_result
 
         # Mock the Path creation and methods to simulate file existence and size
-        with patch("launchpad.size.insights.apple.video_compression.Path") as mock_path_constructor:
+        with patch("launchpad.size.insights.common.video_compression.Path") as mock_path_constructor:
             mock_temp_path_instance = MagicMock()
             mock_temp_path_instance.exists.return_value = True
             mock_temp_path_instance.stat.return_value.st_size = 7 * 1024 * 1024  # 7MB
@@ -290,7 +292,7 @@ class TestVideoCompressionInsight:
         mock_subprocess.return_value = mock_result
 
         # Mock the Path creation and methods to simulate file existence and size
-        with patch("launchpad.size.insights.apple.video_compression.Path") as mock_path_constructor:
+        with patch("launchpad.size.insights.common.video_compression.Path") as mock_path_constructor:
             mock_temp_path_instance = MagicMock()
             mock_temp_path_instance.exists.return_value = True
             mock_temp_path_instance.stat.return_value.st_size = 6 * 1024 * 1024  # 6MB
@@ -441,9 +443,10 @@ class TestVideoCompressionInsight:
 
         with patch.object(self.insight, "_analyze_video_compression") as mock_analyze:
             # Mock return value with savings below threshold
-            mock_analyze.return_value = FileSavingsResult(
+            mock_analyze.return_value = VideoCompressionFileSavingsResult(
                 file_path="assets/video.mov",
                 total_savings=2048,  # Only 2KB savings (below 4KB threshold)
+                recommended_codec="h264",
             )
 
             result = self.insight.generate(insights_input)

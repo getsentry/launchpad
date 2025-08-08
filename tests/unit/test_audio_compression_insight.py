@@ -1,7 +1,7 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from launchpad.size.insights.apple.audio_compression import AudioCompressionInsight
+from launchpad.size.insights.common.audio_compression import AudioCompressionInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.insights import AudioCompressionInsightResult, FileSavingsResult

@@ -216,10 +216,16 @@ class AudioCompressionInsightResult(FilesInsightResult):
     pass
 
 
-class VideoCompressionInsightResult(FilesInsightResult):
+class VideoCompressionFileSavingsResult(FileSavingsResult):
+    """Information about a video file that can be compressed."""
+
+    recommended_codec: str = Field(..., description="Recommended codec (h264 or hevc)")
+
+
+class VideoCompressionInsightResult(BaseInsightResult):
     """Results from video compression analysis.
 
     Files contain video files that can be compressed with their potential savings.
     """
 
-    pass
+    files: List[VideoCompressionFileSavingsResult] = Field(..., description="Video files that can be compressed")
