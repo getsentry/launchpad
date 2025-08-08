@@ -64,6 +64,7 @@ const TYPE_COLORS: Record<TreemapType, string> = {
   [TreemapType.METHODS]: COLORS.cyan,
   [TreemapType.STRINGS]: COLORS.cyan,
   [TreemapType.SYMBOLS]: COLORS.cyan,
+  [TreemapType.BINARY]: COLORS.cyan,
   [TreemapType.EXTERNAL_METHODS]: COLORS.cyan,
 
   // Catch-all
@@ -85,15 +86,20 @@ function convertToEChartsData(
 ): EChartsTreemapData {
   // TreemapElement only has a single size field - the sizeMode doesn't affect individual elements
   const size = element.size;
-  const color = element.type ? TYPE_COLORS[element.type] : TYPE_COLORS[TreemapType.OTHER];
+  // Get border color with fallbacks for safety
+  const borderColor = (element.type && TYPE_COLORS[element.type]) || TYPE_COLORS[TreemapType.OTHER];
+
+  // Use a very transparent version of the border color for the fill to avoid white background
+  // Convert the border color to a more transparent version (fallback to gray if conversion fails)
+  const fillColor = borderColor ? borderColor.replace(/,\s*[\d.]+\)$/, ', 0.1)') : COLORS.gray100;
 
   const data: EChartsTreemapData = {
     name: element.name,
     value: size,
     path: element.path,
     itemStyle: {
-      color: 'transparent',
-      borderColor: color,
+      color: fillColor,
+      borderColor: borderColor,
       borderWidth: 6,
       gapWidth: 2, // Base gap width
     },
@@ -155,6 +161,8 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
       formatter: function (info: { name: string; value: number; data?: EChartsTreemapData }) {
         const value = info.value;
         const percent = ((value / totalSize) * 100).toFixed(2);
+        const path = info.data?.path;
+
         return `
           <div>
             <div style="display: flex; align-items: center; font-size: 12px; font-family: Rubik; font-weight: bold; line-height: 1;">
@@ -163,7 +171,7 @@ export const TreemapVisualization: React.FC<TreemapVisualizationProps> = ({
             </div>
             <div style="font-family: Rubik; line-height: 1;">
               <p style="font-size: 14px; font-weight: bold; margin-bottom: -2px;">${info.name}</p>
-              <p style="font-size: 12px; margin-bottom: -4px;">${info.data?.path}</p>
+              ${path ? `<p style="font-size: 12px; margin-bottom: -4px;">${path}</p>` : ''}
               <p style="font-size: 12px; margin-bottom: -4px;">Size: ${formatBytes(value, data.use_si_units)}</p>
               <p style="font-size: 12px;">Percentage: ${percent}%</p>
             </div>

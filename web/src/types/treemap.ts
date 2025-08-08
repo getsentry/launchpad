@@ -28,6 +28,7 @@ export enum TreemapType {
   METHODS = "methods",
   STRINGS = "strings",
   SYMBOLS = "symbols",
+  BINARY = "binary",
 
   // iOS binary categories
   DYLD = "dyld",
