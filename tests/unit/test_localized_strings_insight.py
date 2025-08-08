@@ -18,7 +18,7 @@ class TestLocalizedStringsInsight:
         localized_file_1 = FileInfo(
             full_path=Path("en.lproj/Localizable.strings"),
             path="en.lproj/Localizable.strings",
-            size=60 * 1024,  # 60KB
+            size=150 * 1024,  # 150KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
@@ -27,7 +27,7 @@ class TestLocalizedStringsInsight:
         localized_file_2 = FileInfo(
             full_path=Path("es.lproj/Localizable.strings"),
             path="es.lproj/Localizable.strings",
-            size=50 * 1024,  # 50KB
+            size=60 * 1024,  # 60KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash2",
@@ -56,8 +56,8 @@ class TestLocalizedStringsInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LocalizedStringInsightResult)
-        # Total savings should be 50% of the total file size (110KB * 0.5 = 55KB)
-        expected_total_savings = int((60 + 50) * 1024 * 0.5)
+        # Total savings should be 50% of the total file size (210KB * 0.5 = 105KB)
+        expected_total_savings = int((150 + 60) * 1024 * 0.5)
         assert result.total_savings == expected_total_savings
 
     def test_generate_with_small_localized_strings(self):
@@ -175,7 +175,7 @@ class TestLocalizedStringsInsight:
         localizable_file = FileInfo(
             full_path=Path("en.lproj/Localizable.strings"),
             path="en.lproj/Localizable.strings",
-            size=80 * 1024,  # 80KB
+            size=150 * 1024,  # 150KB
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
@@ -184,7 +184,7 @@ class TestLocalizedStringsInsight:
         infoplist_file = FileInfo(
             full_path=Path("en.lproj/InfoPlist.strings"),
             path="en.lproj/InfoPlist.strings",
-            size=50 * 1024,  # 50KB - should be included
+            size=100 * 1024,  # 100KB - should be included
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash2",
@@ -213,8 +213,8 @@ class TestLocalizedStringsInsight:
 
         assert isinstance(result, LocalizedStringInsightResult)
         # Should include localizable and infoplist, but not launchscreen
-        # Total size: (80KB + 50KB) * 0.5 = 65KB savings
-        expected_savings = int((80 + 50) * 1024 * 0.5)
+        # Total size: (150KB + 100KB) * 0.5 = 125KB savings
+        expected_savings = int((150 + 100) * 1024 * 0.5)
         assert result.total_savings == expected_savings
 
     def test_generate_ignores_non_lproj_localizable_strings(self):
@@ -222,7 +222,7 @@ class TestLocalizedStringsInsight:
         valid_localized_file = FileInfo(
             full_path=Path("en.lproj/Localizable.strings"),
             path="en.lproj/Localizable.strings",
-            size=150 * 1024,  # 150KB - should be included
+            size=250 * 1024,  # 250KB - should be included
             file_type="strings",
             treemap_type=TreemapType.RESOURCES,
             hash="hash1",
@@ -250,8 +250,8 @@ class TestLocalizedStringsInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LocalizedStringInsightResult)
-        # Only the valid file should be included: 150KB * 0.5 = 75KB savings
-        expected_savings = int(150 * 1024 * 0.5)
+        # Only the valid file should be included: 250KB * 0.5 = 125KB savings
+        expected_savings = int(250 * 1024 * 0.5)
         assert result.total_savings == expected_savings
 
     def test_regex_pattern_matching(self):
@@ -285,6 +285,15 @@ class TestLocalizedStringsInsight:
                 hash="hash3",
                 is_dir=False,
             ),
+            FileInfo(
+                full_path=Path("some/path/en.lproj/file.strings"),  # Valid: frameworks can have .lproj dirs
+                path="some/path/en.lproj/file.strings",
+                size=50 * 1024,
+                file_type="strings",
+                treemap_type=TreemapType.RESOURCES,
+                hash="hash5",
+                is_dir=False,
+            ),
         ]
 
         # Invalid patterns that should NOT match
@@ -296,15 +305,6 @@ class TestLocalizedStringsInsight:
                 file_type="strings",
                 treemap_type=TreemapType.RESOURCES,
                 hash="hash4",
-                is_dir=False,
-            ),
-            FileInfo(
-                full_path=Path("some/path/en.lproj/file.strings"),  # Has path before .lproj
-                path="some/path/en.lproj/file.strings",
-                size=50 * 1024,
-                file_type="strings",
-                treemap_type=TreemapType.RESOURCES,
-                hash="hash5",
                 is_dir=False,
             ),
             FileInfo(
@@ -331,6 +331,7 @@ class TestLocalizedStringsInsight:
         result = self.insight.generate(insights_input)
 
         assert isinstance(result, LocalizedStringInsightResult)
-        # Should only include valid files: (250 + 30 + 20) * 1024 * 0.5 = 150KB
-        expected_savings = int((250 + 30 + 20) * 1024 * 0.5)
+        # Should include valid files: (250 + 30 + 20 + 50) * 1024 * 0.5 = 175KB
+        # Note: some/path/en.lproj/file.strings is valid (frameworks can have .lproj dirs)
+        expected_savings = int((250 + 30 + 20 + 50) * 1024 * 0.5)
         assert result.total_savings == expected_savings
