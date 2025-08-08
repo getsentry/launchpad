@@ -105,7 +105,7 @@ class WebPOptimizationInsightResult(FilesInsightResult):
     pass
 
 
-class LocalizedStringInsightResult(FilesInsightResult):
+class LocalizedStringInsightResult(BaseInsightResult):
     """Results from localized string analysis.
 
     Files contain localized strings files exceeding 100KB threshold with their sizes.
