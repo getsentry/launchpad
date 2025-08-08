@@ -9,8 +9,10 @@ import signal
 import tempfile
 import time
 
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, cast
+from zipfile import BadZipFile, ZipFile
 
 from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
@@ -47,6 +49,9 @@ from launchpad.utils.statsd import DogStatsd, get_statsd
 from .kafka import create_kafka_consumer
 from .sentry_sdk_init import initialize_sentry_sdk
 from .server import HealthCheckResponse, LaunchpadServer, get_server_config
+
+# DEBUG: Remove this line when debugging is complete
+DEBUG_ARTIFACTS = True  # Force enable for debugging
 
 logger = get_logger(__name__)
 
@@ -160,6 +165,10 @@ class LaunchpadService:
         try:
             temp_file = self._download_artifact_to_temp_file(sentry_client, artifact_id, project_id, organization_id)
             file_path = Path(temp_file)
+
+            # DEBUG: Remove this block when debugging is complete
+            if DEBUG_ARTIFACTS:
+                self._analyze_downloaded_file(file_path, artifact_id)
 
             artifact = ArtifactFactory.from_path(Path(temp_file))
             logger.info(f"Running preprocessing on {temp_file}...")
@@ -412,6 +421,93 @@ class LaunchpadService:
             if temp_file:
                 self._safe_cleanup(temp_file, "temporary file")
             raise
+
+    def _analyze_downloaded_file(self, file_path: Path, artifact_id: str) -> None:
+        """DEBUG: Remove this entire method when debugging is complete."""
+        try:
+            logger.info(f"[DEBUG_ARTIFACTS] === ANALYZING DOWNLOADED FILE FOR ARTIFACT {artifact_id} ===")
+
+            # Basic file stats
+            file_size = file_path.stat().st_size
+            logger.info(f"[DEBUG_ARTIFACTS] File path: {file_path}")
+            logger.info(f"[DEBUG_ARTIFACTS] File size: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
+
+            # Read and analyze file content
+            content = file_path.read_bytes()
+            logger.info(f"[DEBUG_ARTIFACTS] Content length: {len(content)} bytes")
+
+            # Check file header (first 100 bytes)
+            header = content[:100]
+            logger.info(f"[DEBUG_ARTIFACTS] File header (first 100 bytes): {header}")
+            logger.info(f"[DEBUG_ARTIFACTS] Header as hex: {header.hex()}")
+
+            # Check file trailer (last 100 bytes)
+            if len(content) > 100:
+                trailer = content[-100:]
+                logger.info(f"[DEBUG_ARTIFACTS] File trailer (last 100 bytes): {trailer}")
+                logger.info(f"[DEBUG_ARTIFACTS] Trailer as hex: {trailer.hex()}")
+
+            # ZIP file specific analysis
+            if content.startswith(b"PK\x03\x04"):
+                logger.info("[DEBUG_ARTIFACTS] File has ZIP magic bytes - attempting ZIP analysis")
+                try:
+                    with ZipFile(BytesIO(content)) as zip_file:
+                        file_list = zip_file.namelist()
+                        logger.info(f"[DEBUG_ARTIFACTS] ZIP file is valid with {len(file_list)} files")
+                        logger.info(f"[DEBUG_ARTIFACTS] First 10 files in ZIP: {file_list[:10]}")
+
+                        # Look for xcarchive patterns
+                        xcarchive_files = [f for f in file_list if ".xcarchive" in f]
+                        logger.info(f"[DEBUG_ARTIFACTS] Files containing '.xcarchive': {len(xcarchive_files)}")
+                        if xcarchive_files:
+                            logger.info(f"[DEBUG_ARTIFACTS] XCArchive files (first 10): {xcarchive_files[:10]}")
+
+                        # Look for Info.plist specifically
+                        plist_files = [f for f in file_list if f.endswith(".xcarchive/Info.plist")]
+                        logger.info(f"[DEBUG_ARTIFACTS] Files ending with '.xcarchive/Info.plist': {plist_files}")
+
+                        # Check for Android patterns too
+                        android_files = [f for f in file_list if "AndroidManifest.xml" in f]
+                        if android_files:
+                            logger.info(f"[DEBUG_ARTIFACTS] Android manifest files: {android_files}")
+
+                except BadZipFile as e:
+                    logger.error(f"[DEBUG_ARTIFACTS] ZIP file is corrupted or truncated: {e}")
+                    logger.info("[DEBUG_ARTIFACTS] Attempting to read partial ZIP structure...")
+
+                    # Try to find end of central directory record
+                    eocd_signature = b"PK\x05\x06"
+                    eocd_pos = content.rfind(eocd_signature)
+                    if eocd_pos >= 0:
+                        logger.info(f"[DEBUG_ARTIFACTS] Found End of Central Directory at byte {eocd_pos}")
+                        eocd_data = content[eocd_pos : eocd_pos + 22]
+                        logger.info(f"[DEBUG_ARTIFACTS] EOCD data: {eocd_data.hex()}")
+                    else:
+                        logger.error("[DEBUG_ARTIFACTS] No End of Central Directory found - file severely truncated")
+
+                    # Check for central directory signature
+                    cd_signature = b"PK\x01\x02"
+                    cd_pos = content.find(cd_signature)
+                    if cd_pos >= 0:
+                        logger.info(f"[DEBUG_ARTIFACTS] Found Central Directory entry at byte {cd_pos}")
+                    else:
+                        logger.error(
+                            "[DEBUG_ARTIFACTS] No Central Directory found - file may only contain local headers"
+                        )
+
+                except Exception as e:
+                    logger.error(f"[DEBUG_ARTIFACTS] Unexpected error analyzing ZIP: {e}", exc_info=True)
+            else:
+                logger.info("[DEBUG_ARTIFACTS] File does not have ZIP magic bytes")
+                if len(content) > 0:
+                    logger.info(f"[DEBUG_ARTIFACTS] First 4 bytes: {content[:4]} (hex: {content[:4].hex()})")
+                else:
+                    logger.error("[DEBUG_ARTIFACTS] File is empty!")
+
+        except Exception as e:
+            logger.error(f"[DEBUG_ARTIFACTS] Failed to analyze downloaded file: {e}", exc_info=True)
+
+        logger.info(f"[DEBUG_ARTIFACTS] === END ANALYSIS FOR ARTIFACT {artifact_id} ===")
 
     def _prepare_update_data(self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact) -> Dict[str, Any]:
         def _get_artifact_type(artifact: Artifact) -> ArtifactType:
