@@ -9,48 +9,42 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
 
-from launchpad.server import HealthCheckResponse, LaunchpadServer
+from launchpad.server import LaunchpadServer
 from launchpad.service import LaunchpadService
 
 
-class TestLaunchpadServer(AioHTTPTestCase):
+class TestHealthyLaunchpadServer(AioHTTPTestCase):
     """Test cases for LaunchpadServer."""
 
     async def get_application(self):
         """Create the application for testing."""
 
-        # Create a mock health check callback
-        async def mock_health_check() -> HealthCheckResponse:
-            return {
-                "service": "launchpad",
-                "status": "ok",
-                "components": {
-                    "kafka": {"status": "healthy"},
-                    "server": {"status": "ok"},
-                },
-            }
+        def mock_health_check() -> bool:
+            return True
 
         server = LaunchpadServer(health_check_callback=mock_health_check)
-        return await server.create_app()
+        return server.create_app()
 
-    # async def test_health_check(self):
-    #     """Test the health check endpoint."""
-    #     resp = await self.client.request("GET", "/health")
-    #     assert resp.status == 200
+    async def test_health_check(self):
+        """Test the health check endpoint."""
+        resp = await self.client.request("GET", "/health")
+        assert resp.status == 200
 
-    #     data = await resp.json()
-    #     assert data["status"] == "ok"
-    #     assert data["service"] == "launchpad"
-    #     assert "components" in data
+        # The health check has to be *precisely* this to pass, you
+        # can't add extra fields without changing the getsentry/ops
+        # repo:
+        assert await resp.text() == '{"status": "ok", "service": "launchpad"}'
 
-    # async def test_ready_check(self):
-    #     """Test the readiness check endpoint."""
-    #     resp = await self.client.request("GET", "/ready")
-    #     assert resp.status == 200
+    async def test_ready_check(self):
+        """Test the readiness check endpoint."""
+        resp = await self.client.request("GET", "/ready")
+        assert resp.status == 200
 
-    #     data = await resp.json()
-    #     assert data["status"] == "ready"
-    #     assert data["service"] == "launchpad"
+        data = await resp.json()
+        assert data == {
+            "status": "ok",
+            "service": "launchpad",
+        }
 
 
 class TestLaunchpadService:

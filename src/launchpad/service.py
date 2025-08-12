@@ -7,13 +7,12 @@ import json
 import os
 import signal
 import tempfile
+import threading
 import time
 
 from pathlib import Path
 from typing import Any, Dict, cast
 
-from arroyo.backends.kafka import KafkaPayload
-from arroyo.processing.processor import StreamProcessor
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
@@ -26,7 +25,6 @@ from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
-    HEALTHCHECK_MAX_AGE_SECONDS,
     MAX_RETRY_ATTEMPTS,
     OPERATION_ERRORS,
     ArtifactType,
@@ -44,9 +42,9 @@ from launchpad.utils.file_utils import cleanup_directory
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import DogStatsd, get_statsd
 
-from .kafka import create_kafka_consumer
+from .kafka import LaunchpadKafkaConsumer, create_kafka_consumer
 from .sentry_sdk_init import initialize_sentry_sdk
-from .server import HealthCheckResponse, LaunchpadServer, get_server_config
+from .server import LaunchpadServer, get_server_config
 
 logger = get_logger(__name__)
 
@@ -56,8 +54,7 @@ class LaunchpadService:
 
     def __init__(self) -> None:
         self.server: LaunchpadServer | None = None
-        self.kafka_processor: StreamProcessor[KafkaPayload] | None = None
-        self._shutdown_event = asyncio.Event()
+        self.kafka: LaunchpadKafkaConsumer | None = None
         self._kafka_task: asyncio.Future[Any] | None = None
         self._statsd: DogStatsd | None = None
         self._healthcheck_file: str | None = None
@@ -72,49 +69,60 @@ class LaunchpadService:
         )
         initialize_sentry_sdk()
 
-        # Setup HTTP server with health check callback
         server_config = get_server_config()
         self.server = LaunchpadServer(
+            self.is_healthy,
             host=server_config["host"],
             port=server_config["port"],
-            health_check_callback=self.health_check,
         )
 
-        # Setup healthcheck file if not configured
-        self._healthcheck_file = os.getenv("KAFKA_HEALTHCHECK_FILE")
-        if not self._healthcheck_file:
-            # Create a default healthcheck file in tmp
-            self._healthcheck_file = f"/tmp/launchpad-kafka-health-{os.getpid()}"
-            os.environ["KAFKA_HEALTHCHECK_FILE"] = self._healthcheck_file
-            logger.info(f"Using healthcheck file: {self._healthcheck_file}")
-
-        # Create Kafka consumer with message handler
-        self.kafka_processor = create_kafka_consumer(message_handler=self.handle_kafka_message)
+        self.kafka = create_kafka_consumer(message_handler=self.handle_kafka_message)
 
         logger.info("Service components initialized")
 
     async def start(self) -> None:
         """Start all service components."""
-        if not self.server or not self.kafka_processor:
+        if not self.server or not self.kafka:
             raise RuntimeError("Service not properly initialized. Call setup() first.")
 
         logger.info("Starting Launchpad service...")
 
-        # Set up signal handlers for graceful shutdown
-        self._setup_signal_handlers()
+        shutdown_event = asyncio.Event()
 
-        # Start Kafka processor in a background thread
+        def signal_handler(signum: int) -> None:
+            if shutdown_event.is_set():
+                logger.info(f"Received signal {signum} during shutdown, forcing exit...")
+                # Force exit if we get a second signal
+                os._exit(1)
+                return
+            logger.info(f"Received signal {signum}, initiating shutdown...")
+            shutdown_event.set()
+
+        assert threading.current_thread() is threading.main_thread()
         loop = asyncio.get_event_loop()
-        self._kafka_task = loop.run_in_executor(None, self.kafka_processor.run)
+        loop.add_signal_handler(signal.SIGTERM, signal_handler, signal.SIGTERM)
+        loop.add_signal_handler(signal.SIGINT, signal_handler, signal.SIGINT)
 
-        # Start HTTP server as a background task
-        server_task = asyncio.create_task(self.server.start())
+        await self.kafka.start()
+        await self.server.start()
+
         logger.info("Launchpad service started successfully")
 
         try:
-            await self._shutdown_event.wait()
+            await shutdown_event.wait()
         finally:
-            await self._cleanup(server_task)
+            logger.info("Cleaning up service resources...")
+            awaitable_stop_server = None
+            awaitable_stop_kafka = None
+            if self.kafka:
+                awaitable_stop_kafka = self.kafka.stop()
+            if self.server:
+                awaitable_stop_server = self.server.stop()
+            if awaitable_stop_kafka:
+                await awaitable_stop_kafka
+            if awaitable_stop_server:
+                await awaitable_stop_server
+            logger.info("...service cleanup completed")
 
     def handle_kafka_message(self, payload: PreprodArtifactEvents) -> None:
         """
@@ -534,126 +542,11 @@ class LaunchpadService:
             except Exception as e:
                 logger.warning(f"Failed to clean up {description} {file_path}: {e}")
 
-    def _setup_signal_handlers(self) -> None:
-        """Set up signal handlers for graceful shutdown."""
-
-        def signal_handler(signum: int, frame: Any) -> None:
-            if self._shutdown_event.is_set():
-                logger.info(f"Received signal {signum} during shutdown, forcing exit...")
-                # Force exit if we get a second signal
-                os._exit(1)
-                return
-
-            logger.info(f"Received signal {signum}, initiating shutdown...")
-
-            # Signal Kafka processor shutdown
-            if self.kafka_processor:
-                try:
-                    self.kafka_processor.signal_shutdown()
-                except Exception as e:
-                    logger.warning(f"Error stopping Kafka processor: {e}")
-
-            # Set the shutdown event
-            self._shutdown_event.set()
-
-        signal.signal(signal.SIGTERM, signal_handler)
-        signal.signal(signal.SIGINT, signal_handler)
-
-    async def _cleanup(self, server_task: asyncio.Task[Any]) -> None:
-        """Clean up service resources."""
-        logger.info("Cleaning up service resources...")
-
-        # Stop HTTP server
-        if self.server:
-            try:
-                self.server.shutdown()
-                await asyncio.wait_for(server_task, timeout=5.0)
-                logger.info("HTTP server stopped")
-            except asyncio.TimeoutError:
-                logger.warning("HTTP server did not stop within timeout")
-                server_task.cancel()
-                try:
-                    await server_task
-                except asyncio.CancelledError:
-                    pass
-            except Exception as e:
-                logger.warning(f"Error shutting down server: {e}")
-
-        # Wait for Kafka processor to stop
-        if self._kafka_task:
-            try:
-                logger.info("Waiting for Kafka processor to stop...")
-                await asyncio.wait_for(self._kafka_task, timeout=10.0)
-                logger.info("Kafka processor stopped")
-            except asyncio.TimeoutError:
-                logger.warning("Kafka processor did not stop within timeout")
-                self._kafka_task.cancel()
-            except Exception as e:
-                logger.warning(f"Error waiting for Kafka processor: {e}")
-
-        # Clean up healthcheck file
-        if self._healthcheck_file and os.path.exists(self._healthcheck_file):
-            try:
-                os.remove(self._healthcheck_file)
-                logger.info(f"Removed healthcheck file: {self._healthcheck_file}")
-            except Exception as e:
-                logger.warning(f"Failed to remove healthcheck file: {e}")
-
-        logger.info("Service cleanup completed")
-
-    async def health_check(self) -> HealthCheckResponse:
+    def is_healthy(self) -> bool:
         """Get overall service health status."""
-        health_status = cast(
-            HealthCheckResponse,
-            {
-                "service": "launchpad",
-                "status": "ok",
-                "components": {},
-            },
-        )
-
-        # Check Kafka health via healthcheck file
-        kafka_health: Dict[str, Any] = {"status": "unknown"}
-        if self._healthcheck_file:
-            try:
-                if os.path.exists(self._healthcheck_file):
-                    # Check file modification time
-                    mtime = os.path.getmtime(self._healthcheck_file)
-                    age = time.time() - mtime
-
-                    if age <= HEALTHCHECK_MAX_AGE_SECONDS:
-                        kafka_health = {
-                            "status": "healthy",
-                            "last_heartbeat_age_seconds": round(age, 2),
-                        }
-                    else:
-                        kafka_health = {
-                            "status": "unhealthy",
-                            "last_heartbeat_age_seconds": round(age, 2),
-                            "reason": f"No heartbeat for {round(age, 2)} seconds",
-                        }
-                        health_status["status"] = "degraded"
-                else:
-                    kafka_health = {
-                        "status": "unhealthy",
-                        "reason": "Healthcheck file does not exist",
-                    }
-                    health_status["status"] = "degraded"
-            except Exception as e:
-                kafka_health = {"status": "error", "reason": str(e)}
-                health_status["status"] = "degraded"
-        else:
-            kafka_health = {
-                "status": "unknown",
-                "reason": "No healthcheck file configured",
-            }
-
-        health_status["components"]["kafka"] = kafka_health
-
-        # Check server health
-        health_status["components"]["server"] = {"status": "ok" if self.server else "not_initialized"}
-
-        return health_status
+        is_server_healthy = self.server.is_healthy()
+        is_kafka_healthy = self.kafka.is_healthy()
+        return is_server_healthy and is_kafka_healthy
 
 
 def get_service_config() -> Dict[str, Any]:

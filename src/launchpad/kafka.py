@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 
 from typing import Any, Callable, Dict, Mapping
 
@@ -20,7 +22,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
 
-from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
+from launchpad.constants import HEALTHCHECK_MAX_AGE_SECONDS, PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -31,9 +33,15 @@ PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 def create_kafka_consumer(
     message_handler: Callable[[PreprodArtifactEvents], Any],
-) -> StreamProcessor[KafkaPayload]:
+) -> LaunchpadKafkaConsumer:
     """Create and configure a Kafka consumer using environment variables."""
-    # Get configuration from environment
+
+    healthcheck_path = os.getenv("KAFKA_HEALTHCHECK_FILE")
+    if not healthcheck_path:
+        healthcheck_path = f"/tmp/launchpad-kafka-health-{os.getpid()}"
+        os.environ["KAFKA_HEALTHCHECK_FILE"] = healthcheck_path
+        logger.info(f"Using healthcheck file: {healthcheck_path}")
+
     config = get_kafka_config()
 
     environment = os.getenv("LAUNCHPAD_ENV")
@@ -65,23 +73,78 @@ def create_kafka_consumer(
         )
 
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
+    healthcheck_path = config.get("healthcheck_file")
 
-    # Create strategy factory
     strategy_factory = LaunchpadStrategyFactory(
         message_handler=message_handler,
         concurrency=config["concurrency"],
         max_pending_futures=config["max_pending_futures"],
-        healthcheck_file=config.get("healthcheck_file"),
+        healthcheck_file=healthcheck_path,
     )
 
-    # Create and return stream processor
     topics = [Topic(topic) for topic in config["topics"]]
     topic = topics[0] if topics else Topic("default")
-    return StreamProcessor(
+    processor = StreamProcessor(
         consumer=arroyo_consumer,
         topic=topic,
         processor_factory=strategy_factory,
     )
+    return LaunchpadKafkaConsumer(processor, healthcheck_path)
+
+
+class LaunchpadKafkaConsumer:
+    processor: StreamProcessor[KafkaPayload]
+    healthcheck_path: str
+    _future: asyncio.Future
+    _running: bool
+
+    def __init__(self, processor, healthcheck_path):
+        self.processor = processor
+        self.healthcheck_path = healthcheck_path
+        loop = asyncio.get_event_loop()
+        self._future = loop.create_future()
+        self._future.set_result(None)
+        self._running = False
+
+    async def start(self):
+        logger.info(f"{self} start commanded")
+        loop = asyncio.get_event_loop()
+        # run() is blocking so we need to run in another thread:
+        self._future = loop.run_in_executor(None, self.run)
+
+    def run(self):
+        assert not self._running, "Already running"
+        logger.info(f"{self} running")
+        try:
+            self._running = True
+            self.processor.run()
+            try:
+                os.remove(self.healthcheck_path)
+                logger.info(f"Removed healthcheck file: {self.healthcheck_path}")
+            except FileNotFoundError:
+                pass
+        finally:
+            self._running = False
+
+    async def stop(self, timeout_s=10):
+        logger.info(f"{self} stop commanded")
+        self.processor.signal_shutdown()
+        try:
+            logger.info(f"Waiting for Kafka processor shutdown ({timeout_s}s)...")
+            await asyncio.wait_for(self._future, timeout=timeout_s)
+            logger.info("...Kafka processor shutdown complete")
+        except asyncio.TimeoutError:
+            logger.warning(f"{self} did not stop within timeout {timeout_s}s")
+            self._future.cancel()
+
+    def is_healthy(self) -> bool:
+        try:
+            mtime = os.path.getmtime(self.healthcheck_path)
+            age = time.time() - mtime
+        except OSError:
+            return False
+        else:
+            return age <= HEALTHCHECK_MAX_AGE_SECONDS
 
 
 class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
@@ -113,16 +176,12 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
         logger.info("KAFKASETUP: Base strategy: CommitOffsets")
 
-        # Add healthcheck if configured
         logger.info("KAFKASETUP: Checking healthcheck configuration...")
-        if self.healthcheck_file:
-            logger.info(f"KAFKASETUP: Healthcheck file configured: {self.healthcheck_file}")
-            logger.info("KAFKASETUP: Adding Healthcheck strategy to processing chain")
-            next_step = Healthcheck(self.healthcheck_file, next_step)
-            logger.info("KAFKASETUP: Healthcheck strategy added successfully")
-        else:
-            logger.warning("KAFKASETUP: No healthcheck file configured - skipping healthcheck strategy")
-            logger.info("KAFKASETUP: Processing will continue without healthcheck monitoring")
+        logger.info(f"KAFKASETUP: Healthcheck file configured: {self.healthcheck_file}")
+        logger.info("KAFKASETUP: Adding Healthcheck strategy to processing chain")
+        assert self.healthcheck_file
+        next_step = Healthcheck(self.healthcheck_file, next_step)
+        logger.info("KAFKASETUP: Healthcheck strategy added successfully")
 
         # Use RunTaskInThreads for concurrent processing
         logger.info("KAFKASETUP: Setting up concurrent message processing")

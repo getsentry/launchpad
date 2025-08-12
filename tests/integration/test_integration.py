@@ -167,8 +167,8 @@ class TestServiceWithMockServer:
         # that would start the actual service and test HTTP endpoints
         # For now, we test the components separately
 
-        server = LaunchpadServer(host="127.0.0.1", port=0)  # Random port
-        app = await server.create_app()
+        server = LaunchpadServer(lambda: True, host="127.0.0.1", port=0)  # Random port
+        app = server.create_app()
 
         # Test that we can create the app without errors
         assert app is not None
