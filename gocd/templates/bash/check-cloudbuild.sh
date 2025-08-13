@@ -5,4 +5,5 @@ checks-googlecloud-check-cloudbuild \
   launchpad \
   launchpad-main-trigger \
   "${GO_REVISION_LAUNCHPAD_REPO}" \
-  main
+  main \
+  --location=us-central1
