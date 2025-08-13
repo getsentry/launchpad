@@ -25,6 +25,7 @@ from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 # Schema codec for preprod artifact events
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
