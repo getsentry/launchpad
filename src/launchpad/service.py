@@ -420,7 +420,6 @@ class LaunchpadService:
 
             if temp_file:
                 self._safe_cleanup(temp_file, "temporary file")
-            raise
 
     def _analyze_downloaded_file(self, file_path: Path, artifact_id: str) -> None:
         """DEBUG: Remove this entire method when debugging is complete."""
