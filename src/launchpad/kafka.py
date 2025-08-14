@@ -8,7 +8,7 @@ import time
 
 from typing import Any, Callable, Dict, Mapping
 
-from arroyo import Message, Topic
+from arroyo import Message, Topic, configure_metrics
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
 from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
@@ -22,7 +22,11 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
 
-from launchpad.constants import HEALTHCHECK_MAX_AGE_SECONDS, PREPROD_ARTIFACT_EVENTS_TOPIC
+from launchpad.constants import (
+    HEALTHCHECK_MAX_AGE_SECONDS,
+    PREPROD_ARTIFACT_EVENTS_TOPIC,
+)
+from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -42,6 +46,7 @@ def create_kafka_consumer(
         os.environ["KAFKA_HEALTHCHECK_FILE"] = healthcheck_path
         logger.info(f"Using healthcheck file: {healthcheck_path}")
 
+    configure_metrics(DatadogMetricsBackend())
     config = get_kafka_config()
 
     environment = os.getenv("LAUNCHPAD_ENV")

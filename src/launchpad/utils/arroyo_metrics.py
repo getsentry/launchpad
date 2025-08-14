@@ -1,0 +1,52 @@
+"""DataDog metrics backend for Arroyo."""
+
+from __future__ import annotations
+
+from typing import Optional, Union
+
+from arroyo.utils.metrics import MetricName, Metrics, Tags
+from datadog.dogstatsd.base import DogStatsd
+
+from launchpad.utils.statsd import get_statsd
+
+
+class DatadogMetricsBackend(Metrics):
+    """
+    DataDog metrics backend that implements Arroyo's Metrics protocol.
+
+    This bridges Arroyo's metrics interface with DataDog StatsD.
+    """
+
+    def __init__(self, statsd: Optional[DogStatsd] = None) -> None:
+        self._statsd = statsd or get_statsd()
+
+    def increment(
+        self,
+        name: MetricName,
+        value: Union[int, float] = 1,
+        tags: Optional[Tags] = None,
+    ) -> None:
+        """Increments a counter metric by a given value."""
+        self._statsd.increment(name, value, tags=self._format_tags(tags))
+
+    def gauge(self, name: MetricName, value: Union[int, float], tags: Optional[Tags] = None) -> None:
+        """Sets a gauge metric to the given value."""
+        self._statsd.gauge(name, value, tags=self._format_tags(tags))
+
+    def timing(self, name: MetricName, value: Union[int, float], tags: Optional[Tags] = None) -> None:
+        """Records a timing metric."""
+        # DataDog StatsD expects timing values in milliseconds
+        # Check if value is likely in seconds (< 10) and convert, otherwise assume milliseconds
+        if value < 10:
+            # Likely in seconds, convert to milliseconds
+            timing_value = value * 1000
+        else:
+            # Likely already in milliseconds
+            timing_value = value
+        self._statsd.timing(name, timing_value, tags=self._format_tags(tags))
+
+    def _format_tags(self, tags: Optional[Tags]) -> Optional[list[str]]:
+        """Convert Arroyo tags format to DataDog tags format."""
+        if not tags:
+            return None
+        return [f"{key}:{value}" for key, value in tags.items()]
