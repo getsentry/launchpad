@@ -46,14 +46,13 @@ def initialize_sentry_sdk() -> None:
         dsn=config.dsn,
         integrations=integrations,
         send_default_pii=True,
+        # Release is the git sha
         release=config.release,
-        environment=config.environment,
+        # Convention is to set the Sentry environment to the region (us, de, etc).
+        environment=config.region,
     )
 
-    if config.region:
-        sentry_sdk.set_tag("sentry_region", config.region)
-
-    logger.info(f"Sentry SDK initialized for environment: {config.environment}")
+    logger.info(f"Sentry SDK initialized for environment: {config.region}")
 
 
 @dataclass
@@ -75,6 +74,6 @@ def get_sentry_config() -> SentryConfig:
     return SentryConfig(
         dsn=os.getenv("SENTRY_DSN"),
         environment=environment.lower(),
-        release=os.getenv("LAUNCHPAD_VERSION_SHA", "unknown"),  # TODO: auto fetch latest git commit hash
-        region=os.getenv("SENTRY_REGION"),
+        release=os.getenv("LAUNCHPAD_VERSION_SHA", "unknown"),
+        region=os.getenv("SENTRY_REGION", "unknown"),
     )

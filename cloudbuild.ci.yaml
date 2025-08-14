@@ -15,6 +15,7 @@ steps:
         set -euxo pipefail
         docker buildx build \
             --platform linux/amd64,linux/arm64 \
+            --build-arg LAUNCHPAD_VERSION_SHA=$COMMIT_SHA \
             -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$COMMIT_SHA \
             --label org.opencontainers.image.revision=$COMMIT_SHA \
             --label org.opencontainers.image.version=$COMMIT_SHA \

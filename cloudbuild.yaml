@@ -25,6 +25,7 @@ steps:
         docker buildx build \
             --push \
             --platform linux/amd64 \
+            --build-arg LAUNCHPAD_VERSION_SHA=$COMMIT_SHA \
             -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$COMMIT_SHA \
             -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$SHORT_SHA \
             -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:nightly \
