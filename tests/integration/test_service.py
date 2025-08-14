@@ -129,31 +129,3 @@ class TestLaunchpadService:
         assert len(calls) == 2
         assert calls[0][0][0] == "launchpad.artifact.processing.started"
         assert calls[1][0][0] == "launchpad.artifact.processing.failed"
-
-    # @pytest.mark.asyncio
-    # async def test_health_check_with_healthcheck_file(self, tmp_path):
-    #     """Test the service health check with healthcheck file."""
-    #     service = LaunchpadService()
-
-    #     # Create a temporary healthcheck file
-    #     healthcheck_file = tmp_path / "healthcheck"
-    #     healthcheck_file.touch()
-
-    #     service._healthcheck_file = str(healthcheck_file)
-    #     service.server = Mock()
-
-    #     # Test healthy state (recently touched file)
-    #     health = await service.health_check()
-    #     assert health["service"] == "launchpad"
-    #     assert health["status"] == "ok"
-    #     assert health["components"]["kafka"]["status"] == "healthy"
-
-    #     # Test unhealthy state (old file)
-    #     # Set file modification time to 2 minutes ago
-    #     old_time = time.time() - 120
-    #     os.utime(healthcheck_file, (old_time, old_time))
-
-    #     health = await service.health_check()
-    #     assert health["status"] == "degraded"
-    #     assert health["components"]["kafka"]["status"] == "unhealthy"
-    #     assert "No heartbeat" in health["components"]["kafka"]["reason"]
