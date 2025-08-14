@@ -112,6 +112,9 @@ class LaunchpadServer:
         app.router.add_get("/ready", self.health_check)
         return app
 
+    def is_healthy(self):
+        return True
+
     def health_check(self, request: Request) -> Response:
         is_healthy = self.health_check_callback()
         environment = self.config["environment"]
