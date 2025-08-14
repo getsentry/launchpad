@@ -168,25 +168,9 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         partitions: Mapping[Partition, int],
     ) -> ProcessingStrategy[KafkaPayload]:
         """Create the processing strategy chain."""
-        logger.info("KAFKASETUP: Creating processing strategy chain")
-        logger.info(f"KAFKASETUP: Partitions: {dict(partitions)}")
-        logger.info(f"KAFKASETUP: Commit strategy: {type(commit)}")
-
-        # Start with the commit strategy (always last in chain)
         next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
-        logger.info("KAFKASETUP: Base strategy: CommitOffsets")
-
-        logger.info("KAFKASETUP: Checking healthcheck configuration...")
-        logger.info(f"KAFKASETUP: Healthcheck file configured: {self.healthcheck_file}")
-        logger.info("KAFKASETUP: Adding Healthcheck strategy to processing chain")
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
-        logger.info("KAFKASETUP: Healthcheck strategy added successfully")
-
-        # Use RunTaskInThreads for concurrent processing
-        logger.info("KAFKASETUP: Setting up concurrent message processing")
-        logger.info(f"KAFKASETUP: Concurrency level: {self.concurrency}")
-        logger.info(f"KAFKASETUP: Max pending futures: {self.max_pending_futures}")
 
         def process_message(msg: Message[KafkaPayload]) -> Any:
             try:
@@ -203,8 +187,6 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
             next_step=next_step,
         )
 
-        logger.info("KAFKASETUP: Processing strategy chain creation complete")
-        logger.info(f"KAFKASETUP: Final strategy type: {type(strategy)}")
         return strategy
 
 
