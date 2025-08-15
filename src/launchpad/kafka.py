@@ -47,8 +47,8 @@ def create_kafka_consumer(
         os.environ["KAFKA_HEALTHCHECK_FILE"] = healthcheck_path
         logger.info(f"Using healthcheck file: {healthcheck_path}")
 
-    configure_metrics(DatadogMetricsBackend())
     config = get_kafka_config()
+    configure_metrics(DatadogMetricsBackend(config.group_id))
 
     environment = os.getenv("LAUNCHPAD_ENV")
     if not environment:

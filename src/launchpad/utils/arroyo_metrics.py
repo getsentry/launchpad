@@ -16,9 +16,9 @@ class DatadogMetricsBackend(Metrics):
     This bridges Arroyo's metrics interface with DataDog StatsD.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, group_id: str) -> None:
         self._statsd = get_statsd("consumer")
-        self._constant_tags = {"consumer_group": "launchpad"}
+        self._constant_tags = {"consumer_group": group_id}
 
     def increment(
         self,
