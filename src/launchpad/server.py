@@ -120,21 +120,29 @@ class LaunchpadServer:
 
     def health_check(self, request: Request) -> Response:
         is_healthy = self.health_check_callback()
-        environment = self.config.environment
+        if is_healthy:
+            json_status = "ok"
+            statsd_status = self._statsd.OK
+            http_status = 200
+        else:
+            json_status = "error"
+            statsd_status = self._statsd.CRITICAL
+            http_status = 500
+
+        sentry_region = self.config.sentry_region
+
         self._statsd.service_check(
             "launchpad.health_check",
-            self._statsd.OK if is_healthy else self._statsd.CRITICAL,
-            tags=[f"environment:{environment}"],
+            statsd_status,
+            tags=[f"sentry_region:{sentry_region}"],
         )
-        if is_healthy:
-            logger.debug("launchpad healthy")
-        else:
-            logger.warning("launchpad unhealthy - but reporting healthy")
+
         return web.json_response(
             {
-                "status": "ok",
+                "status": json_status,
                 "service": "launchpad",
-            }
+            },
+            status=http_status,
         )
 
     async def start(self):
@@ -182,6 +190,7 @@ class LaunchpadServer:
 class ServerConfig:
     """Server configuration data."""
 
+    sentry_region: str
     environment: str
     host: str
     port: int
@@ -214,8 +223,11 @@ def get_server_config() -> ServerConfig:
             f"LAUNCHPAD_PORT must be a valid integer, got: {port_str}"
         )
 
+    sentry_region = os.getenv("SENTRY_REGION", "unknown")
+
     return ServerConfig(
         environment=environment,
+        sentry_region=sentry_region,
         host=host,
         port=port,
         debug=not is_production,
