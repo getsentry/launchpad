@@ -63,10 +63,7 @@ class LaunchpadService:
     async def setup(self) -> None:
         """Set up the service components."""
         self._service_config = get_service_config()
-        self._statsd = get_statsd(
-            host=self._service_config["statsd_host"],
-            port=self._service_config["statsd_port"],
-        )
+        self._statsd = get_statsd()
         initialize_sentry_sdk()
 
         server_config = get_server_config()
@@ -551,21 +548,11 @@ class LaunchpadService:
 
 def get_service_config() -> Dict[str, Any]:
     """Get service configuration from environment."""
-    statsd_host = os.getenv("STATSD_HOST", "127.0.0.1")
-    statsd_port_str = os.getenv("STATSD_PORT", "8125")
-
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
     if sentry_base_url is None:
         sentry_base_url = "http://getsentry.default"
 
-    try:
-        statsd_port = int(statsd_port_str)
-    except ValueError:
-        raise ValueError(f"STATSD_PORT must be a valid integer, got: {statsd_port_str}")
-
     return {
-        "statsd_host": statsd_host,
-        "statsd_port": statsd_port,
         "sentry_base_url": sentry_base_url,
     }
 

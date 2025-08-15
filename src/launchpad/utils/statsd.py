@@ -1,3 +1,5 @@
+import os
+
 from datadog.dogstatsd.base import DogStatsd
 
 # There are a few weird issues with DataDog documented in other Sentry repos.
@@ -10,9 +12,29 @@ from datadog.dogstatsd.base import DogStatsd
 # - not using the global initialize() and statsd instances.
 
 
-def get_statsd(host: str = "127.0.0.1", port: int = 8125) -> DogStatsd:
-    disable_telemetry = True
-    origin_detection_enabled = False
-    return DogStatsd(
-        host=host, port=port, disable_telemetry=disable_telemetry, origin_detection_enabled=origin_detection_enabled
-    )
+_statsd: DogStatsd | None = None
+
+
+def get_statsd() -> DogStatsd:
+    global _statsd
+
+    if s := _statsd:
+        # Type checker does not seem to be able to work out _statsd
+        # must be set here hence the :=.
+        return s
+    else:
+        disable_telemetry = True
+        origin_detection_enabled = False
+
+        host = os.getenv("STATSD_HOST", "127.0.0.1")
+        port_str = os.getenv("STATSD_PORT", "8125")
+
+        try:
+            port = int(port_str)
+        except ValueError:
+            raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
+
+        _statsd = DogStatsd(
+            host=host, port=port, disable_telemetry=disable_telemetry, origin_detection_enabled=origin_detection_enabled
+        )
+        return _statsd
