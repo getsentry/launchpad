@@ -6,7 +6,8 @@ import asyncio
 import os
 import time
 
-from typing import Any, Callable, Dict, Mapping
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping
 
 from arroyo import Message, Topic, configure_metrics
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
@@ -58,36 +59,36 @@ def create_kafka_consumer(
     # topics, partitions and kafka clusters are configured through getsentry/ops.
     # We will work with the streaming teams to get this set up.
     consumer_config = {
-        "bootstrap.servers": config["bootstrap_servers"],
-        "group.id": config["group_id"],
-        "auto.offset.reset": config["auto_offset_reset"],
-        "arroyo.strict.offset.reset": config["arroyo_strict_offset_reset"],
+        "bootstrap.servers": config.bootstrap_servers,
+        "group.id": config.group_id,
+        "auto.offset.reset": config.auto_offset_reset,
+        "arroyo.strict.offset.reset": config.arroyo_strict_offset_reset,
         "enable.auto.commit": False,
         "enable.auto.offset.store": False,
-        "security.protocol": config["security.protocol"],
+        "security.protocol": config.security_protocol,
     }
 
     # SASL is used in some prod environments.
-    if config["sasl.mechanism"]:
+    if config.sasl_mechanism:
         consumer_config.update(
             {
-                "sasl.mechanism": config["sasl.mechanism"],
-                "sasl.username": config["sasl.username"],
-                "sasl.password": config["sasl.password"],
+                "sasl.mechanism": config.sasl_mechanism,
+                "sasl.username": config.sasl_username,
+                "sasl.password": config.sasl_password,
             }
         )
 
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
-    healthcheck_path = config.get("healthcheck_file")
+    healthcheck_path = config.healthcheck_file
 
     strategy_factory = LaunchpadStrategyFactory(
         message_handler=message_handler,
-        concurrency=config["concurrency"],
-        max_pending_futures=config["max_pending_futures"],
+        concurrency=config.concurrency,
+        max_pending_futures=config.max_pending_futures,
         healthcheck_file=healthcheck_path,
     )
 
-    topics = [Topic(topic) for topic in config["topics"]]
+    topics = [Topic(topic) for topic in config.topics]
     topic = topics[0] if topics else Topic("default")
     processor = StreamProcessor(
         consumer=arroyo_consumer,
@@ -195,7 +196,25 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         return strategy
 
 
-def get_kafka_config() -> Dict[str, Any]:
+@dataclass
+class KafkaConfig:
+    """Kafka configuration data."""
+
+    bootstrap_servers: str
+    group_id: str
+    topics: list[str]
+    concurrency: int
+    max_pending_futures: int
+    healthcheck_file: str | None
+    auto_offset_reset: str
+    arroyo_strict_offset_reset: bool | None
+    security_protocol: str
+    sasl_mechanism: str | None
+    sasl_username: str | None
+    sasl_password: str | None
+
+
+def get_kafka_config() -> KafkaConfig:
     """Get Kafka configuration from environment variables."""
     # Required configuration
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
@@ -214,17 +233,17 @@ def get_kafka_config() -> Dict[str, Any]:
     arroyo_strict_offset_reset = {"true": True, "false": False}.get(os.getenv("ARROYO_STRICT_OFFSET_RESET", "").lower())
 
     # Optional configuration with defaults
-    return {
-        "bootstrap_servers": bootstrap_servers,
-        "group_id": group_id,
-        "topics": topics_env.split(","),
-        "concurrency": int(os.getenv("KAFKA_CONCURRENCY", "4")),
-        "max_pending_futures": int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
-        "healthcheck_file": os.getenv("KAFKA_HEALTHCHECK_FILE"),
-        "auto_offset_reset": os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
-        "arroyo_strict_offset_reset": arroyo_strict_offset_reset,
-        "security.protocol": os.environ.get("KAFKA_SECURITY_PROTOCOL", "plaintext"),
-        "sasl.mechanism": os.environ.get("KAFKA_SASL_MECHANISM", None),
-        "sasl.username": os.environ.get("KAFKA_SASL_USERNAME", None),
-        "sasl.password": os.environ.get("KAFKA_SASL_PASSWORD", None),
-    }
+    return KafkaConfig(
+        bootstrap_servers=bootstrap_servers,
+        group_id=group_id,
+        topics=topics_env.split(","),
+        concurrency=int(os.getenv("KAFKA_CONCURRENCY", "4")),
+        max_pending_futures=int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
+        healthcheck_file=os.getenv("KAFKA_HEALTHCHECK_FILE"),
+        auto_offset_reset=os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
+        arroyo_strict_offset_reset=arroyo_strict_offset_reset,
+        security_protocol=os.environ.get("KAFKA_SECURITY_PROTOCOL", "plaintext"),
+        sasl_mechanism=os.environ.get("KAFKA_SASL_MECHANISM", None),
+        sasl_username=os.environ.get("KAFKA_SASL_USERNAME", None),
+        sasl_password=os.environ.get("KAFKA_SASL_PASSWORD", None),
+    )

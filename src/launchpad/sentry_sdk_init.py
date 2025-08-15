@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 
-from typing import Any, Dict
+from dataclasses import dataclass
 
 import sentry_sdk
 
@@ -24,11 +24,11 @@ def initialize_sentry_sdk() -> None:
     """Initialize Sentry SDK with launchpad-specific configuration."""
     config = get_sentry_config()
 
-    if config.get("environment", "").lower() in ("test", "development"):
-        logger.debug(f"In {config.get('environment')} environment, skipping Sentry SDK initialization")
+    if config.environment.lower() in ("test", "development"):
+        logger.debug(f"In {config.environment} environment, skipping Sentry SDK initialization")
         return
 
-    if not config.get("dsn"):
+    if not config.dsn:
         logger.info("Sentry DSN not provided, skipping Sentry SDK initialization")
         return
 
@@ -43,28 +43,38 @@ def initialize_sentry_sdk() -> None:
     ]
 
     sentry_sdk.init(
-        dsn=config["dsn"],
+        dsn=config.dsn,
         integrations=integrations,
         send_default_pii=True,
-        release=config.get("release"),
-        environment=config.get("environment"),
+        release=config.release,
+        environment=config.environment,
     )
 
-    if config.get("region"):
-        sentry_sdk.set_tag("sentry_region", config["region"])
+    if config.region:
+        sentry_sdk.set_tag("sentry_region", config.region)
 
-    logger.info(f"Sentry SDK initialized for environment: {config.get('environment')}")
+    logger.info(f"Sentry SDK initialized for environment: {config.environment}")
 
 
-def get_sentry_config() -> Dict[str, Any]:
+@dataclass
+class SentryConfig:
+    """Sentry configuration data."""
+
+    dsn: str | None
+    environment: str
+    release: str
+    region: str | None
+
+
+def get_sentry_config() -> SentryConfig:
     """Get Sentry configuration from environment variables."""
     environment = os.getenv("LAUNCHPAD_ENV")
     if not environment:
         raise ValueError("LAUNCHPAD_ENV environment variable is required")
 
-    return {
-        "dsn": os.getenv("SENTRY_DSN"),
-        "environment": environment.lower(),
-        "release": os.getenv("LAUNCHPAD_VERSION_SHA", "unknown"),  # TODO: auto fetch latest git commit hash
-        "region": os.getenv("SENTRY_REGION"),
-    }
+    return SentryConfig(
+        dsn=os.getenv("SENTRY_DSN"),
+        environment=environment.lower(),
+        release=os.getenv("LAUNCHPAD_VERSION_SHA", "unknown"),  # TODO: auto fetch latest git commit hash
+        region=os.getenv("SENTRY_REGION"),
+    )

@@ -7,7 +7,8 @@ import logging
 import os
 import sys
 
-from typing import Any, Callable, Dict
+from dataclasses import dataclass, replace
+from typing import Callable
 
 from aiohttp import web
 from aiohttp.typedefs import Handler
@@ -56,7 +57,7 @@ class LaunchpadServer:
         health_check_callback: Callable[[], bool],
         host: str | None = None,
         port: int | None = None,
-        config: Dict[str, Any] | None = None,
+        config: ServerConfig | None = None,
         setup_logging: bool = True,
     ) -> None:
         self.app: Application | None = None
@@ -67,13 +68,15 @@ class LaunchpadServer:
         self._statsd = get_statsd()
 
         # Override config with explicit parameters if provided
-        if host is not None:
-            self.config["host"] = host
-        if port is not None:
-            self.config["port"] = port
+        if host is not None or port is not None:
+            self.config = replace(
+                self.config,
+                host=host if host is not None else self.config.host,
+                port=port if port is not None else self.config.port,
+            )
 
-        self.host = self.config["host"]
-        self.port = self.config["port"]
+        self.host = self.config.host
+        self.port = self.config.port
 
         # Only setup logging if requested (CLI handles its own logging)
         if setup_logging:
@@ -81,7 +84,7 @@ class LaunchpadServer:
 
     def _setup_logging(self) -> None:
         """Configure logging based on environment."""
-        log_level = getattr(logging, self.config["log_level"])
+        log_level = getattr(logging, self.config.log_level)
 
         # Only configure if logging hasn't been configured yet
         if not logging.getLogger().handlers:
@@ -93,20 +96,20 @@ class LaunchpadServer:
             )
 
         # Adjust aiohttp access log level
-        if not self.config["access_log"]:
+        if not self.config.access_log:
             logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
 
     def create_app(self) -> Application:
         """Create the aiohttp application with routes."""
-        middlewares = [security_headers_middleware] if not self.config["debug"] else []
+        middlewares = [security_headers_middleware] if not self.config.debug else []
 
         app = web.Application(
             middlewares=middlewares,
         )
 
         # Store config in app using AppKey
-        app[APP_KEY_DEBUG] = self.config["debug"]
-        app[APP_KEY_ENVIRONMENT] = self.config["environment"]
+        app[APP_KEY_DEBUG] = self.config.debug
+        app[APP_KEY_ENVIRONMENT] = self.config.environment
 
         app.router.add_get("/health", self.health_check)
         app.router.add_get("/ready", self.health_check)
@@ -117,7 +120,7 @@ class LaunchpadServer:
 
     def health_check(self, request: Request) -> Response:
         is_healthy = self.health_check_callback()
-        environment = self.config["environment"]
+        environment = self.config.environment
         self._statsd.service_check(
             "launchpad.health_check",
             self._statsd.OK if is_healthy else self._statsd.CRITICAL,
@@ -147,7 +150,7 @@ class LaunchpadServer:
 
         runner = web.AppRunner(
             self.app,
-            access_log=logger if self.config["access_log"] else None,
+            access_log=logger if self.config.access_log else None,
         )
         await runner.setup()
 
@@ -156,7 +159,7 @@ class LaunchpadServer:
 
         logger.info(
             f"Launchpad server started on {self.host}:{self.port} "
-            f"(environment: {self.config['environment']}, debug: {self.config['debug']})"
+            f"(environment: {self.config.environment}, debug: {self.config.debug})"
         )
 
         await self._shutdown_event.wait()
@@ -175,7 +178,19 @@ class LaunchpadServer:
             self._task.cancel()
 
 
-def get_server_config() -> Dict[str, Any]:
+@dataclass
+class ServerConfig:
+    """Server configuration data."""
+
+    environment: str
+    host: str
+    port: int
+    debug: bool
+    log_level: str
+    access_log: bool
+
+
+def get_server_config() -> ServerConfig:
     """Get server configuration from environment."""
     environment = os.getenv("LAUNCHPAD_ENV")
     if not environment:
@@ -199,11 +214,11 @@ def get_server_config() -> Dict[str, Any]:
             f"LAUNCHPAD_PORT must be a valid integer, got: {port_str}"
         )
 
-    return {
-        "environment": environment,
-        "host": host,
-        "port": port,
-        "debug": not is_production,
-        "log_level": "WARNING" if is_production else "DEBUG",
-        "access_log": not is_production,  # Disable access logs in prod
-    }
+    return ServerConfig(
+        environment=environment,
+        host=host,
+        port=port,
+        debug=not is_production,
+        log_level="WARNING" if is_production else "DEBUG",
+        access_log=not is_production,  # Disable access logs in prod
+    )

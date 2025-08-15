@@ -10,10 +10,13 @@ import tempfile
 import threading
 import time
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, cast
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
+    PreprodArtifactEvents,
+)
 
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
 from launchpad.api.update_api_models import UpdateData
@@ -58,7 +61,7 @@ class LaunchpadService:
         self._kafka_task: asyncio.Future[Any] | None = None
         self._statsd: DogStatsd | None = None
         self._healthcheck_file: str | None = None
-        self._service_config: Dict[str, Any] | None = None
+        self._service_config: ServiceConfig | None = None
 
     async def setup(self) -> None:
         """Set up the service components."""
@@ -69,8 +72,8 @@ class LaunchpadService:
         server_config = get_server_config()
         self.server = LaunchpadServer(
             self.is_healthy,
-            host=server_config["host"],
-            port=server_config["port"],
+            host=server_config.host,
+            port=server_config.port,
         )
 
         self.kafka = create_kafka_consumer(message_handler=self.handle_kafka_message)
@@ -159,7 +162,7 @@ class LaunchpadService:
         if not self._service_config:
             raise RuntimeError("Service not properly initialized. Call setup() first.")
 
-        sentry_client = SentryClient(base_url=self._service_config["sentry_base_url"])
+        sentry_client = SentryClient(base_url=self._service_config.sentry_base_url)
         temp_file = None
 
         try:
@@ -546,15 +549,22 @@ class LaunchpadService:
         return is_server_healthy and is_kafka_healthy
 
 
-def get_service_config() -> Dict[str, Any]:
+@dataclass
+class ServiceConfig:
+    """Service configuration data."""
+
+    sentry_base_url: str
+
+
+def get_service_config() -> ServiceConfig:
     """Get service configuration from environment."""
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
     if sentry_base_url is None:
         sentry_base_url = "http://getsentry.default"
 
-    return {
-        "sentry_base_url": sentry_base_url,
-    }
+    return ServiceConfig(
+        sentry_base_url=sentry_base_url,
+    )
 
 
 async def run_service() -> None:
