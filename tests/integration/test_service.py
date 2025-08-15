@@ -72,8 +72,8 @@ class TestLaunchpadService:
         mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
 
         # Verify metrics were recorded
-        service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
-        service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
+        service._statsd.increment.assert_any_call("artifact.processing.started")
+        service._statsd.increment.assert_any_call("artifact.processing.completed")
 
     @patch.object(LaunchpadService, "process_artifact")
     def test_handle_kafka_message_android(self, mock_process):
@@ -97,8 +97,8 @@ class TestLaunchpadService:
         mock_process.assert_called_once_with("android-test-456", "test-project-android", "test-org-456")
 
         # Verify metrics were recorded
-        service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
-        service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
+        service._statsd.increment.assert_any_call("artifact.processing.started")
+        service._statsd.increment.assert_any_call("artifact.processing.completed")
 
     @patch.object(LaunchpadService, "process_artifact")
     def test_handle_kafka_message_error(self, mock_process):
@@ -127,5 +127,5 @@ class TestLaunchpadService:
         # Verify the metrics were called correctly
         calls = service._statsd.increment.call_args_list
         assert len(calls) == 2
-        assert calls[0][0][0] == "launchpad.artifact.processing.started"
-        assert calls[1][0][0] == "launchpad.artifact.processing.failed"
+        assert calls[0][0][0] == "artifact.processing.started"
+        assert calls[1][0][0] == "artifact.processing.failed"

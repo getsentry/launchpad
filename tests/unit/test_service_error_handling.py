@@ -246,7 +246,7 @@ class TestLaunchpadServiceErrorHandling:
 
         # Verify datadog logging
         service._statsd.increment.assert_called_once_with(
-            "launchpad.artifact.processing.error",
+            "artifact.processing.error",
             tags=[
                 "error_code:3",
                 "error_type:PREPROCESSING_FAILED",
