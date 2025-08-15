@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Optional, Union
 
 from arroyo.utils.metrics import MetricName, Metrics, Tags
-from datadog.dogstatsd.base import DogStatsd
 
 from launchpad.utils.statsd import get_statsd
 
@@ -17,8 +16,10 @@ class DatadogMetricsBackend(Metrics):
     This bridges Arroyo's metrics interface with DataDog StatsD.
     """
 
-    def __init__(self, statsd: Optional[DogStatsd] = None) -> None:
-        self._statsd = statsd or get_statsd()
+    def __init__(
+        self,
+    ) -> None:
+        self._statsd = get_statsd("consumer")
 
     def increment(
         self,

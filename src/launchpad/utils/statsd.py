@@ -1,5 +1,7 @@
 import os
 
+from typing import Literal
+
 from datadog.dogstatsd.base import DogStatsd
 
 # There are a few weird issues with DataDog documented in other Sentry repos.
@@ -12,29 +14,34 @@ from datadog.dogstatsd.base import DogStatsd
 # - not using the global initialize() and statsd instances.
 
 
-_statsd: DogStatsd | None = None
+_statsd_instances: dict[str, DogStatsd] = {}
 
 
-def get_statsd() -> DogStatsd:
-    global _statsd
+def get_statsd(environment: Literal["default", "consumer"] = "default") -> DogStatsd:
+    global _statsd_instances
 
-    if s := _statsd:
-        # Type checker does not seem to be able to work out _statsd
-        # must be set here hence the :=.
-        return s
-    else:
-        disable_telemetry = True
-        origin_detection_enabled = False
+    if environment in _statsd_instances:
+        return _statsd_instances[environment]
 
-        host = os.getenv("STATSD_HOST", "127.0.0.1")
-        port_str = os.getenv("STATSD_PORT", "8125")
+    disable_telemetry = True
+    origin_detection_enabled = False
 
-        try:
-            port = int(port_str)
-        except ValueError:
-            raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
+    host = os.getenv("STATSD_HOST", "127.0.0.1")
+    port_str = os.getenv("STATSD_PORT", "8125")
 
-        _statsd = DogStatsd(
-            host=host, port=port, disable_telemetry=disable_telemetry, origin_detection_enabled=origin_detection_enabled
-        )
-        return _statsd
+    try:
+        port = int(port_str)
+    except ValueError:
+        raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
+
+    # Create namespace with environment
+    namespace = "launchpad" if environment == "default" else "launchpad.consumer"
+
+    _statsd_instances[environment] = DogStatsd(
+        host=host,
+        port=port,
+        namespace=namespace,
+        disable_telemetry=disable_telemetry,
+        origin_detection_enabled=origin_detection_enabled,
+    )
+    return _statsd_instances[environment]
