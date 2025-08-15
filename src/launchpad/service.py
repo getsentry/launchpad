@@ -136,14 +136,14 @@ class LaunchpadService:
             logger.info(f"Processing artifact: {artifact_id} (project: {project_id}, org: {organization_id})")
 
             if self._statsd:
-                self._statsd.increment("launchpad.artifact.processing.started")
+                self._statsd.increment("artifact.processing.started")
 
             self.process_artifact(artifact_id, project_id, organization_id)
 
             logger.info(f"Analysis completed for artifact {artifact_id}")
 
             if self._statsd:
-                self._statsd.increment("launchpad.artifact.processing.completed")
+                self._statsd.increment("artifact.processing.completed")
 
         except Exception as e:
             # Log the full error for debugging
@@ -153,7 +153,7 @@ class LaunchpadService:
             )
 
             if self._statsd:
-                self._statsd.increment("launchpad.artifact.processing.failed")
+                self._statsd.increment("artifact.processing.failed")
 
     def process_artifact(self, artifact_id: str, project_id: str, organization_id: str) -> None:
         """
@@ -346,7 +346,7 @@ class LaunchpadService:
             # Log error to datadog with tags for better monitoring
             if self._statsd:
                 self._statsd.increment(
-                    "launchpad.artifact.processing.error",
+                    "artifact.processing.error",
                     tags=[
                         f"error_code:{error_code.value}",
                         f"error_type:{error_message.name}",

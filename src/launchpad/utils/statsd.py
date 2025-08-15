@@ -35,7 +35,7 @@ def get_statsd(environment: Literal["default", "consumer"] = "default") -> DogSt
         raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
 
     # Create namespace with environment
-    namespace = "launchpad" if environment == "default" else "launchpad.consumer"
+    namespace = "launchpad" if environment == "default" else "launchpad_consumer"
 
     _statsd_instances[environment] = DogStatsd(
         host=host,

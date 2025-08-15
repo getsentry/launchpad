@@ -48,8 +48,8 @@ class TestServiceIntegration:
             mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
 
             # Verify statsd metrics were sent
-            service._statsd.increment.assert_any_call("launchpad.artifact.processing.started")
-            service._statsd.increment.assert_any_call("launchpad.artifact.processing.completed")
+            service._statsd.increment.assert_any_call("artifact.processing.started")
+            service._statsd.increment.assert_any_call("artifact.processing.completed")
 
             # Reset mocks for next test
             mock_process.reset_mock()
