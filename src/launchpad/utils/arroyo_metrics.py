@@ -16,10 +16,9 @@ class DatadogMetricsBackend(Metrics):
     This bridges Arroyo's metrics interface with DataDog StatsD.
     """
 
-    def __init__(
-        self,
-    ) -> None:
+    def __init__(self) -> None:
         self._statsd = get_statsd("consumer")
+        self._constant_tags = {"consumer_group": "launchpad"}
 
     def increment(
         self,
@@ -47,7 +46,11 @@ class DatadogMetricsBackend(Metrics):
         self._statsd.timing(name, timing_value, tags=self._format_tags(tags))
 
     def _format_tags(self, tags: Optional[Tags]) -> Optional[list[str]]:
-        """Convert Arroyo tags format to DataDog tags format."""
-        if not tags:
+        """Convert Arroyo tags format to DataDog tags format, merging with constant tags."""
+        merged_tags = self._constant_tags.copy()
+        if tags:
+            merged_tags.update(tags)
+
+        if not merged_tags:
             return None
-        return [f"{key}:{value}" for key, value in tags.items()]
+        return [f"{key}:{value}" for key, value in merged_tags.items()]
