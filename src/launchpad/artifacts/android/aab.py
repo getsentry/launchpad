@@ -29,6 +29,7 @@ class AAB(AndroidArtifact):
         self._resource_table: ProtobufResourceTable | None = None
         self._primary_apks: list[APK] | None = None
         self._dex_mapping: DexMapping | None = None
+        self._universal_apk: APK | None = None
 
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
@@ -84,7 +85,7 @@ class AAB(AndroidArtifact):
         finally:
             cleanup_directory(apks_dir)
 
-    def get_universal_apk(self, apk_dir, device_spec: DeviceSpec = DeviceSpec()) -> APK:
+    def get_universal_apk(self, apk_dir: Path, device_spec: DeviceSpec = DeviceSpec()) -> APK:
         if self._universal_apk is not None:
             return self._universal_apk
 

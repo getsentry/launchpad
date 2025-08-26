@@ -26,3 +26,6 @@ class TestAAB:
         assert manifest["application"]["label"] == "Hacker News"
         assert manifest["application"]["icon_path"] == "res/mipmap-anydpi-v26/ic_launcher.xml"
         assert manifest["package_name"] == "com.emergetools.hackernews"
+
+    def test_universal_apk(self, test_aab: AAB, tmpdir) -> None:
+        assert test_aab.get_universal_apk(Path(tmpdir)) is not None
