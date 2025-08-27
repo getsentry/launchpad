@@ -10,7 +10,6 @@ import tempfile
 import threading
 import time
 
-from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, cast
@@ -139,10 +138,10 @@ class LaunchpadService:
             if self._statsd:
                 self._statsd.increment("artifact.processing.started")
 
-            timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
-            with (
-                self._statsd.timed("artifact.processing.duration", tags=timing_tags) if self._statsd else nullcontext()
-            ):
+                timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
+                with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
+                    self.process_artifact(artifact_id, project_id, organization_id)
+            else:
                 self.process_artifact(artifact_id, project_id, organization_id)
 
             logger.info(f"Analysis completed for artifact {artifact_id}")
