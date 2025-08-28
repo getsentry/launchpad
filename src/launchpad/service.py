@@ -294,6 +294,7 @@ class LaunchpadService:
         def log_fatal_signal(signum, frame):
             logger.error(f"Process received fatal signal {signum} during processing")
             # Re-raise the original signal to trigger default behavior
+            signal.signal(signum, signal.SIG_DFL)  # Restore default handler first
             os.kill(os.getpid(), signum)
 
         # Log segfaults and other fatal signals
