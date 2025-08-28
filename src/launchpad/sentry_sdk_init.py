@@ -49,6 +49,7 @@ def initialize_sentry_sdk() -> None:
         # Release is the git sha
         release=config.release,
         # Convention is to set the Sentry environment to the region (us, de, etc).
+        enable_logs=True,
         environment=config.region,
     )
 
