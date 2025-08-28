@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import faulthandler
 import json
 import os
 import signal
@@ -62,6 +63,7 @@ class LaunchpadService:
         self._statsd: DogStatsd | None = None
         self._healthcheck_file: str | None = None
         self._service_config: ServiceConfig | None = None
+        self._setup_signal_handling()
 
     async def setup(self) -> None:
         """Set up the service components."""
@@ -283,6 +285,21 @@ class LaunchpadService:
 
         logger.error(f"All {MAX_RETRY_ATTEMPTS} attempts failed for {operation_name.value}")
         raise RuntimeError(f"{error_message.value}: {str(last_exception)}") from last_exception
+
+    def _setup_signal_handling(self) -> None:
+        """Set up signal handling to log fatal signals before process death."""
+        # Enable faulthandler to capture segfaults/other fatal signals
+        faulthandler.enable()
+
+        def log_fatal_signal(signum, frame):
+            logger.error(f"Process received fatal signal {signum} during processing")
+            # Re-raise to allow normal signal handling
+            signal.default_int_handler(signum, frame)
+
+        # Log segfaults and other fatal signals
+        signal.signal(signal.SIGSEGV, log_fatal_signal)
+        signal.signal(signal.SIGABRT, log_fatal_signal)
+        signal.signal(signal.SIGBUS, log_fatal_signal)
 
     def _is_non_retryable_error(self, exception: Exception) -> bool:
         """Determine if an error should not be retried."""
