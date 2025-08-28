@@ -210,7 +210,7 @@ class LaunchpadService:
             logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
 
             artifact = ArtifactFactory.from_path(file_path)
-            if isinstance(artifact, ZippedXCArchive):
+            if isinstance(artifact, ZippedXCArchive) and app_info.is_code_signature_valid and not app_info.is_simulator:
                 temp_dir = Path(tempfile.mkdtemp())
                 ipa_path = temp_dir / "App.ipa"
                 cast(ZippedXCArchive, artifact).generate_ipa(ipa_path)
