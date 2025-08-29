@@ -485,7 +485,7 @@ class LaunchpadService:
     def _create_analyzer(self, app_info: AppleAppInfo | BaseAppInfo) -> AndroidAnalyzer | AppleAppAnalyzer:
         """Create analyzer with preprocessed app info."""
         if isinstance(app_info, AppleAppInfo):
-            analyzer = AppleAppAnalyzer()
+            analyzer = AppleAppAnalyzer(skip_insights=True)
             analyzer.app_info = app_info
             return analyzer
         else:  # Android
