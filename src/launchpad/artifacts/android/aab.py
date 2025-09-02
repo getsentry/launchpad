@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import tempfile
+
 from pathlib import Path
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
-from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
 
 from ..artifact import ZippedAndroidArtifact
@@ -27,6 +28,18 @@ class AAB(ZippedAndroidArtifact):
         self._primary_apks: list[APK] | None = None
         self._dex_mapping: DexMapping | None = None
         self._universal_apk: APK | None = None
+        self._temp_apk_files: list[Path] = []
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with cleanup of temporary APK files and ZIP extraction."""
+        # Clean up temporary APK files
+        for temp_file in self._temp_apk_files:
+            if temp_file.exists():
+                temp_file.unlink()
+        self._temp_apk_files.clear()
+
+        # Call parent cleanup for ZIP extraction
+        return super().__exit__(exc_type, exc_val, exc_tb)
 
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
@@ -70,41 +83,52 @@ class AAB(ZippedAndroidArtifact):
         if self._primary_apks is not None:
             return self._primary_apks
 
-        apks_dir = create_temp_directory("apks-")
-        try:
+        # Create APKs with their own managed temporary files
+        with tempfile.TemporaryDirectory(prefix="bundletool-apks-") as bundletool_temp:
+            apks_dir = Path(bundletool_temp)
             bundletool = Bundletool()
             bundletool.build_apks(bundle_path=self._path, output_dir=apks_dir, device_spec=device_spec)
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
-                apks.append(APK(apk_path, self.get_dex_mapping()))
+                # Copy each APK to its own managed temporary file
+                with tempfile.NamedTemporaryFile(suffix=".apk", delete=False) as temp_apk:
+                    temp_apk_path = Path(temp_apk.name)
+                    temp_apk.write(apk_path.read_bytes())
+                    self._temp_apk_files.append(temp_apk_path)
+                    apks.append(APK(temp_apk_path, self.get_dex_mapping()))
 
             self._primary_apks = apks
             return apks
-        finally:
-            cleanup_directory(apks_dir)
 
-    def get_universal_apk(self, apk_dir: Path, device_spec: DeviceSpec = DeviceSpec()) -> APK:
+    def get_universal_apk(self, device_spec: DeviceSpec = DeviceSpec()) -> APK:
         if self._universal_apk is not None:
             return self._universal_apk
 
-        bundletool = Bundletool()
-        bundletool.build_apks(
-            bundle_path=self._path,
-            output_dir=apk_dir,
-            device_spec=device_spec,
-            universal_apk=True,
-        )
+        # Create universal APK with its own managed temporary file
+        with tempfile.TemporaryDirectory(prefix="bundletool-universal-") as bundletool_temp:
+            apk_dir = Path(bundletool_temp)
+            bundletool = Bundletool()
+            bundletool.build_apks(
+                bundle_path=self._path,
+                output_dir=apk_dir,
+                device_spec=device_spec,
+                universal_apk=True,
+            )
 
-        apk = None
-        apk_files = list(apk_dir.glob("*.apk"))
-        if len(apk_files) != 1:
-            raise ValueError("Expected 1 APK, got %d" % len(apk_files))
+            apk_files = list(apk_dir.glob("*.apk"))
+            if len(apk_files) != 1:
+                raise ValueError("Expected 1 APK, got %d" % len(apk_files))
 
-        apk = APK(apk_files[0], self.get_dex_mapping())
+            # Copy the APK to its own managed temporary file
+            with tempfile.NamedTemporaryFile(suffix=".apk", delete=False) as temp_apk:
+                temp_apk_path = Path(temp_apk.name)
+                temp_apk.write(apk_files[0].read_bytes())
+                self._temp_apk_files.append(temp_apk_path)
+                apk = APK(temp_apk_path, self.get_dex_mapping())
 
-        self._universal_apk = apk
-        return apk
+            self._universal_apk = apk
+            return apk
 
     def get_dex_mapping(self) -> DexMapping | None:
         if self._dex_mapping is not None:
