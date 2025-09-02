@@ -43,11 +43,27 @@ class ZippedXCArchive(AppleArtifact):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
         self._zip_provider = ZipProvider(path)
-        self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        self._extract_dir: Path | None = None  # Lazy extraction
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
         self._dsym_files: dict[str, Path] | None = None
+
+    def _ensure_extracted(self) -> Path:
+        """Ensure the archive is extracted and return the extraction directory."""
+        if self._extract_dir is None:
+            self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        return self._extract_dir
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        self._zip_provider.cleanup()
+        self._extract_dir = None
+        return False  # Don't suppress exceptions
 
     def get_plist(self) -> dict[str, Any]:
         if self._plist is not None:
@@ -153,12 +169,13 @@ class ZippedXCArchive(AppleArtifact):
         if self._app_bundle_path is not None:
             return self._app_bundle_path
 
-        for path in self._extract_dir.rglob("*.xcarchive/Products/**/*.app"):
+        extract_dir = self._ensure_extracted()
+        for path in extract_dir.rglob("*.xcarchive/Products/**/*.app"):
             if path.is_dir() and "__MACOSX" not in str(path):
                 logger.debug(f"Found Apple app bundle: {path}")
                 return path
 
-        raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
+        raise FileNotFoundError(f"No .app bundle found in {extract_dir}")
 
     def get_main_binary_uuid(self) -> str | None:
         main_binary_path = self._get_main_binary_path()
@@ -270,7 +287,8 @@ class ZippedXCArchive(AppleArtifact):
         try:
             app_bundle_path = self.get_app_bundle_path()
             json_name = relative_path.with_suffix(".json")
-            xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
+            extract_dir = self._ensure_extracted()
+            xcarchive_dir = list(extract_dir.glob("*.xcarchive"))[0]
             app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
 
             parent_path = xcarchive_dir / "ParsedAssets" / app_bundle_path
@@ -356,8 +374,9 @@ class ZippedXCArchive(AppleArtifact):
 
         dsym_files: dict[str, Path] = {}
 
+        extract_dir = self._ensure_extracted()
         dsyms_dir = None
-        for path in self._extract_dir.rglob("dSYMs"):
+        for path in extract_dir.rglob("dSYMs"):
             if path.is_dir():
                 dsyms_dir = path
                 break

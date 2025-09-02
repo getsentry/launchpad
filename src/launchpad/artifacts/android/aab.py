@@ -24,18 +24,35 @@ class AAB(AndroidArtifact):
         super().__init__(path)
         self._path = path
         self._zip_provider = ZipProvider(path)
-        self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        self._extract_dir: Path | None = None  # Lazy extraction
         self._manifest: AndroidManifest | None = None
         self._resource_table: ProtobufResourceTable | None = None
         self._primary_apks: list[APK] | None = None
         self._dex_mapping: DexMapping | None = None
         self._universal_apk: APK | None = None
 
+    def _ensure_extracted(self) -> Path:
+        """Ensure the archive is extracted and return the extraction directory."""
+        if self._extract_dir is None:
+            self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        return self._extract_dir
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit with automatic cleanup."""
+        self._zip_provider.cleanup()
+        self._extract_dir = None
+        return False  # Don't suppress exceptions
+
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
             return self._manifest
 
-        manifest_files = list(self._extract_dir.rglob("base/manifest/AndroidManifest.xml"))
+        extract_dir = self._ensure_extracted()
+        manifest_files = list(extract_dir.rglob("base/manifest/AndroidManifest.xml"))
         if len(manifest_files) > 1:
             raise ValueError("Multiple AndroidManifest.xml files found in AAB")
 
@@ -54,7 +71,8 @@ class AAB(AndroidArtifact):
         if self._resource_table is not None:
             return [self._resource_table]
 
-        arsc_files = list(self._extract_dir.rglob("base/resources.pb"))
+        extract_dir = self._ensure_extracted()
+        arsc_files = list(extract_dir.rglob("base/resources.pb"))
         if len(arsc_files) > 1:
             raise ValueError("Multiple resources.pb files found in AAB")
 
@@ -111,7 +129,8 @@ class AAB(AndroidArtifact):
         if self._dex_mapping is not None:
             return self._dex_mapping
 
-        dex_mapping_files = list(self._extract_dir.rglob("proguard.map"))
+        extract_dir = self._ensure_extracted()
+        dex_mapping_files = list(extract_dir.rglob("proguard.map"))
         if len(dex_mapping_files) > 1:
             raise ValueError("Multiple proguard.map files found in AAB")
 

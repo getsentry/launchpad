@@ -43,9 +43,9 @@ class ZipProvider:
 
         return temp_dir
 
-    def __del__(self) -> None:
-        """Clean up resources when object is destroyed."""
-        # Clean up any temporary directories
+    def cleanup(self) -> None:
+        """Explicitly clean up all temporary directories."""
         for temp_dir in self._temp_dirs:
             if temp_dir.exists():
                 cleanup_directory(temp_dir)
+        self._temp_dirs.clear()
