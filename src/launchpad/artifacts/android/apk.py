@@ -10,8 +10,7 @@ from launchpad.utils.android.apksigner import Apksigner
 from ...parsers.android.dex.dex_file_parser import DexFileParser
 from ...parsers.android.dex.types import ClassDefinition
 from ...utils.logging import get_logger
-from ..artifact import AndroidArtifact
-from ..providers.zip_provider import ZipProvider
+from ..artifact import ZippedAndroidArtifact
 from .manifest.axml import AxmlUtils
 from .manifest.manifest import AndroidManifest
 from .resources.binary import BinaryResourceTable
@@ -19,32 +18,14 @@ from .resources.binary import BinaryResourceTable
 logger = get_logger(__name__)
 
 
-class APK(AndroidArtifact):
+class APK(ZippedAndroidArtifact):
     def __init__(self, path: Path, dex_mapping: DexMapping | None = None) -> None:
         super().__init__(path)
         self._path = path
         self._dex_mapping = dex_mapping
-        self._zip_provider = ZipProvider(path)
-        self._extract_dir: Path | None = None
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
         self._class_definitions: list[ClassDefinition] | None = None
-
-    def _ensure_extracted(self) -> Path:
-        """Ensure the archive is extracted and return the extraction directory."""
-        if self._extract_dir is None:
-            self._extract_dir = self._zip_provider.extract_to_temp_directory()
-        return self._extract_dir
-
-    def __enter__(self):
-        """Context manager entry."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit with automatic cleanup."""
-        self._zip_provider.cleanup()
-        self._extract_dir = None
-        return False  # Don't suppress exceptions
 
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:

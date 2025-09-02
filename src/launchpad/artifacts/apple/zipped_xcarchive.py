@@ -14,8 +14,7 @@ import lief
 
 from launchpad.utils.logging import get_logger
 
-from ..artifact import AppleArtifact
-from ..providers.zip_provider import ZipProvider
+from ..artifact import ZippedAppleArtifact
 
 logger = get_logger(__name__)
 
@@ -39,31 +38,13 @@ class BinaryInfo:
     is_main_binary: bool
 
 
-class ZippedXCArchive(AppleArtifact):
+class ZippedXCArchive(ZippedAppleArtifact):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
-        self._zip_provider = ZipProvider(path)
-        self._extract_dir: Path | None = None
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
         self._dsym_files: dict[str, Path] | None = None
-
-    def _ensure_extracted(self) -> Path:
-        """Ensure the archive is extracted and return the extraction directory."""
-        if self._extract_dir is None:
-            self._extract_dir = self._zip_provider.extract_to_temp_directory()
-        return self._extract_dir
-
-    def __enter__(self):
-        """Context manager entry."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context manager exit with automatic cleanup."""
-        self._zip_provider.cleanup()
-        self._extract_dir = None
-        return False  # Don't suppress exceptions
 
     def get_plist(self) -> dict[str, Any]:
         if self._plist is not None:
