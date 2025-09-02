@@ -3,16 +3,21 @@ import logging
 
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
-from typing import Dict, List
+from typing import Dict, List, Set, Tuple
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
-from launchpad.utils.file_utils import calculate_file_hash, get_file_size, to_nearest_block_size
+from launchpad.utils.file_utils import (
+    calculate_file_hash,
+    to_nearest_block_size,
+)
 from launchpad.utils.performance import trace
 
 logger = logging.getLogger(__name__)
+
+OMITTED_LEAF_NAME = "__omitted__"
 
 
 @trace("apple.analyze_files")
@@ -21,72 +26,158 @@ def analyze_apple_files(
     *,
     algo: str = "sha256",
     follow_symlinks: bool = False,
+    max_depth: int | None = None,
 ) -> FileAnalysis:
     """
-    Analyze all files in the app bundle, computing content hashes for files
-    and content-only hashes for directories (based on their children's hashes).
+    Build a content-hashed, block-rounded file map of the app bundle.
+    Directories are hashed from (sorted) child hashes. If `max_depth` is set,
+    deeper subtrees are omitted from children but their sizes are aggregated
+    into a single synthetic child, keeping parent sizes correct.
     """
+    import os
+
     logger.debug("Analyzing files in app bundle")
 
     app_bundle_path = xcarchive.get_app_bundle_path()
 
-    # These are filled during the walk (single pass for files/dirs)
     files: Dict[str, FileInfo] = {}
     dirs: Dict[str, FileInfo] = {}
-    # Parent -> [child paths] (relative, posix)
     children_by_dir: Dict[str, List[str]] = defaultdict(list)
 
-    # Ensure we include the root directory explicitly
-    root_rel = ""  # represent root with empty string
+    root_rel = ""
     dirs[root_rel] = _make_directory_info(app_bundle_path, root_rel)
 
-    # Walk everything
-    for file_path in app_bundle_path.rglob("*"):
-        # Optionally ignore symlinks (often safer for bundle analysis)
-        try:
-            if file_path.is_symlink() and not follow_symlinks:
+    seen_dir_inodes: Set[Tuple[int, int]] = set()
+    seen_file_inodes: Set[Tuple[int, int]] = set()
+
+    try:
+        st_root = app_bundle_path.stat()
+        seen_dir_inodes.add((st_root.st_dev, st_root.st_ino))
+    except OSError as e:
+        logger.warning("Failed stat on app bundle root %s: %s", app_bundle_path, e)
+
+    omitted_hash = hashlib.new(algo, b"omitted_subtree").hexdigest()
+
+    for dirpath, dirnames, filenames in os.walk(app_bundle_path, followlinks=follow_symlinks):
+        pdir = Path(dirpath)
+
+        rel_dir = pdir.relative_to(app_bundle_path).as_posix()
+        if rel_dir in ("", "."):
+            rel_dir = ""
+
+        # Depth guard: aggregate omitted subtrees so parent sizes remain correct.
+        if max_depth is not None:
+            depth = 0 if rel_dir == "" else len(PurePosixPath(rel_dir).parts)
+            if depth >= max_depth:
+                for dname in dirnames:
+                    child_path = pdir / dname
+                    child_rel = (PurePosixPath(rel_dir) / dname).as_posix()
+                    try:
+                        agg_size = _dir_size_aggregate(
+                            child_path,
+                            follow_symlinks=follow_symlinks,
+                            seen_dirs=seen_dir_inodes,
+                            seen_files=seen_file_inodes,
+                        )
+                    except Exception:
+                        agg_size = 0
+
+                    omitted_rel = f"{child_rel}/{OMITTED_LEAF_NAME}"
+                    files[omitted_rel] = FileInfo(
+                        full_path=child_path,
+                        path=omitted_rel,
+                        size=agg_size,
+                        file_type="directory_omitted",
+                        hash=omitted_hash,
+                        treemap_type=TreemapType.FILES,
+                        is_dir=False,
+                        children=[],
+                    )
+                    children_by_dir[rel_dir].append(omitted_rel)
+
+                dirnames[:] = []  # stop descending further
+
+        # Prune symlinked/duplicate dirs by inode
+        pruned: List[str] = []
+        for dname in dirnames:
+            dpath = pdir / dname
+            try:
+                if (not follow_symlinks) and dpath.is_symlink():
+                    continue
+                st = dpath.stat(follow_symlinks=follow_symlinks)
+                dinode = (st.st_dev, st.st_ino)
+                if dinode in seen_dir_inodes:
+                    continue
+                seen_dir_inodes.add(dinode)
+                pruned.append(dname)
+            except OSError:
+                logger.warning("Skipping inaccessible directory: %s", dpath)
                 continue
-        except OSError:
-            # Broken symlink etc
-            logger.warning("Skipping path due to OSError: %s", file_path)
-            continue
+        dirnames[:] = pruned
 
-        rel = file_path.relative_to(app_bundle_path).as_posix()  # "" for root not produced by rglob
-        parent_rel = PurePosixPath(rel).parent.as_posix() if rel else root_rel
+        # Ensure current dir exists
+        dirs.setdefault(rel_dir, _make_directory_info(pdir, rel_dir))
 
-        if file_path.is_dir():
-            di = _make_directory_info(file_path, rel)
-            dirs[rel] = di
-            children_by_dir[parent_rel].append(rel)
-        elif file_path.is_file():
-            size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
+        # Register child directories (edges only; sizes/hashes filled later)
+        for dname in dirnames:
+            child_rel = (PurePosixPath(rel_dir) / dname).as_posix()
+            if child_rel == rel_dir:
+                logger.warning("Self-referential directory edge at %s; skipping", child_rel)
+                continue
+            dirs[child_rel] = _make_directory_info(pdir / dname, child_rel)
+            children_by_dir[rel_dir].append(child_rel)
 
-            file_type = file_path.suffix.lower().lstrip(".")
-            if not file_type:
-                file_type = _detect_file_type(file_path)
+        # Files
+        for fname in filenames:
+            fpath = pdir / fname
+            try:
+                if fpath.is_symlink() and not follow_symlinks:
+                    continue
+            except OSError:
+                logger.warning("Skipping path due to OSError: %s", fpath)
+                continue
 
-            # File content hash
-            file_hash = calculate_file_hash(file_path, algorithm=algo)
+            try:
+                st = fpath.stat(follow_symlinks=follow_symlinks)
+                finode = (st.st_dev, st.st_ino)
+                if finode in seen_file_inodes:
+                    continue
+                seen_file_inodes.add(finode)
+                raw_size = st.st_size
+            except OSError:
+                logger.warning("Skipping path due to OSError: %s", fpath)
+                continue
+
+            rel = (PurePosixPath(rel_dir) / fname).as_posix()
+            parent_rel = rel_dir
+
+            size = to_nearest_block_size(raw_size, APPLE_FILESYSTEM_BLOCK_SIZE)
+
+            file_type = fpath.suffix.lower().lstrip(".") or _detect_file_type(fpath)
+
+            file_hash = calculate_file_hash(fpath, algorithm=algo)
 
             children: List[FileInfo] = []
             if file_type == "car":
                 children = _analyze_asset_catalog(xcarchive, Path(rel))
                 children_size = sum(child.size for child in children)
-                children.append(
-                    FileInfo(
-                        full_path=file_path,
-                        path=f"{rel}/Other",
-                        size=size - children_size,
-                        file_type="unknown",
-                        hash=file_hash,  # keep the same field name for BC, even if algo != md5
-                        treemap_type=TreemapType.ASSETS,
-                        is_dir=False,
-                        children=[],
+                residual = max(0, size - children_size)
+                if residual:
+                    children.append(
+                        FileInfo(
+                            full_path=fpath,
+                            path=f"{rel}/Other",
+                            size=residual,
+                            file_type="unknown",
+                            hash=file_hash,
+                            treemap_type=TreemapType.ASSETS,
+                            is_dir=False,
+                            children=[],
+                        )
                     )
-                )
 
-            fi = FileInfo(
-                full_path=file_path,
+            files[rel] = FileInfo(
+                full_path=fpath,
                 path=rel,
                 size=size,
                 file_type=file_type or "unknown",
@@ -95,26 +186,20 @@ def analyze_apple_files(
                 is_dir=False,
                 children=children,
             )
-            files[rel] = fi
             children_by_dir[parent_rel].append(rel)
-        else:
-            # Neither file nor dir (fifo, socket, etc.) -> skip
-            continue
 
-    # Bottom-up hash all directories from deepest to root
     directories_with_hashes = _hash_directories_bottom_up(dirs, files, children_by_dir, algo=algo)
 
     return FileAnalysis(files=list(files.values()), directories=list(directories_with_hashes.values()))
 
 
 def _make_directory_info(full_path: Path, rel: str) -> FileInfo:
-    # size will be filled later as sum(children)
     return FileInfo(
         full_path=full_path,
         path=rel,
         size=0,
         file_type="directory",
-        hash="",  # to be filled
+        hash="",
         treemap_type=TreemapType.FILES,
         is_dir=True,
         children=[],
@@ -128,14 +213,12 @@ def _hash_directories_bottom_up(
     *,
     algo: str,
 ) -> Dict[str, FileInfo]:
-    # Sort dirs by depth (deepest first)
     def depth(p: str) -> int:
         return 0 if p == "" else len(PurePosixPath(p).parts)
 
     sorted_dirs = sorted(dirs.values(), key=lambda d: depth(d.path), reverse=True)
     updated: Dict[str, FileInfo] = {}
 
-    # Pre-populate lookup for file hashes/sizes
     file_hash_lookup = {f.path: f.hash for f in files.values()}
     file_size_lookup = {f.path: f.size for f in files.values()}
     dir_hash_lookup: Dict[str, str] = {}
@@ -143,7 +226,6 @@ def _hash_directories_bottom_up(
 
     for d in sorted_dirs:
         child_paths = children_by_dir.get(d.path, [])
-
         child_hashes: List[str] = []
         total_size = 0
 
@@ -152,16 +234,12 @@ def _hash_directories_bottom_up(
                 child_hashes.append(file_hash_lookup[child])
                 total_size += file_size_lookup[child]
             else:
-                # child is a directory
-                # If we visit deepest-first, the child dir hash should already be computed
                 child_hashes.append(dir_hash_lookup[child])
                 total_size += dir_size_lookup[child]
 
-        # Empty dir -> stable, shared hash
         if not child_hashes:
             digest = hashlib.new(algo, b"empty_directory").hexdigest()
         else:
-            # Only content hashes, sorted, so directory name changes don't matter
             h = hashlib.new(algo)
             for hexd in sorted(child_hashes):
                 h.update(hexd.encode("utf-8"))
@@ -187,15 +265,13 @@ def _hash_directories_bottom_up(
 
 @trace("apple.analyze_asset_catalog")
 def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> List[FileInfo]:
-    """Analyze an asset catalog file."""
+    """Analyze an asset catalog file into treemap children."""
     catalog_details = xcarchive.get_asset_catalog_details(relative_path)
     result: List[FileInfo] = []
     for element in catalog_details:
         if element.full_path and element.full_path.exists() and element.full_path.is_file():
-            # keep md5 field name for BC even if algo set to sha256 above
             file_hash = calculate_file_hash(element.full_path, algorithm="sha256")
         else:
-            # not every element is backed by a file, so use imageId as hash
             file_hash = element.image_id
 
         result.append(
@@ -203,7 +279,7 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
                 full_path=element.full_path,
                 path=str(relative_path / element.name),
                 size=element.size,
-                file_type=Path(element.full_path).suffix.lstrip(".") if element.full_path else "other",
+                file_type=(Path(element.full_path).suffix.lstrip(".") if element.full_path else "other"),
                 hash=file_hash,
                 treemap_type=TreemapType.ASSETS,
                 is_dir=False,
@@ -215,9 +291,7 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
 
 @trace("apple.detect_file_type")
 def _detect_file_type(file_path: Path) -> str:
-    """
-    Detect file type using the `file` command only as a fallback.
-    """
+    """Best-effort file type detection via `file` as a fallback."""
     import subprocess
 
     try:
@@ -247,3 +321,53 @@ def _detect_file_type(file_path: Path) -> str:
     except Exception as e:  # pragma: no cover – defensive
         logger.warning("Unexpected error detecting file type for %s: %s", file_path, e)
         return "unknown"
+
+
+def _dir_size_aggregate(
+    root: Path,
+    *,
+    follow_symlinks: bool,
+    seen_dirs: Set[Tuple[int, int]],
+    seen_files: Set[Tuple[int, int]],
+) -> int:
+    """
+    Return the rounded size of all unique files under `root`.
+    Reuses `seen_*` sets so totals stay globally de-duplicated across the archive.
+    """
+    import os
+
+    total = 0
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=follow_symlinks):
+        pdir = Path(dirpath)
+
+        pruned: List[str] = []
+        for dname in dirnames:
+            dpath = pdir / dname
+            try:
+                if (not follow_symlinks) and dpath.is_symlink():
+                    continue
+                st = dpath.stat(follow_symlinks=follow_symlinks)
+                dinode = (st.st_dev, st.st_ino)
+                if dinode in seen_dirs:
+                    continue
+                seen_dirs.add(dinode)
+                pruned.append(dname)
+            except OSError:
+                continue
+        dirnames[:] = pruned
+
+        for fname in filenames:
+            fpath = pdir / fname
+            try:
+                if fpath.is_symlink() and not follow_symlinks:
+                    continue
+                st = fpath.stat(follow_symlinks=follow_symlinks)
+                finode = (st.st_dev, st.st_ino)
+                if finode in seen_files:
+                    continue
+                seen_files.add(finode)
+                total += to_nearest_block_size(st.st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
+            except OSError:
+                continue
+
+    return total
