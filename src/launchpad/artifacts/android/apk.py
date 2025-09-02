@@ -25,7 +25,7 @@ class APK(AndroidArtifact):
         self._path = path
         self._dex_mapping = dex_mapping
         self._zip_provider = ZipProvider(path)
-        self._extract_dir: Path | None = None  # Lazy extraction
+        self._extract_dir: Path | None = None
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
         self._class_definitions: list[ClassDefinition] | None = None

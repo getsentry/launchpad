@@ -11,7 +11,7 @@ class ZippedAAB(AndroidArtifact):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
         self._zip_provider = ZipProvider(path)
-        self._extract_dir: Path | None = None  # Lazy extraction
+        self._extract_dir: Path | None = None
         self._aab: AAB | None = None
 
     def _ensure_extracted(self) -> Path:

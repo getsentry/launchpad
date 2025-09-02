@@ -43,7 +43,7 @@ class ZippedXCArchive(AppleArtifact):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
         self._zip_provider = ZipProvider(path)
-        self._extract_dir: Path | None = None  # Lazy extraction
+        self._extract_dir: Path | None = None
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None

@@ -11,7 +11,7 @@ class ZippedAPK(AndroidArtifact):
         super().__init__(path)
         self.path = path
         self._zip_provider = ZipProvider(path)
-        self._extract_dir: Path | None = None  # Lazy extraction
+        self._extract_dir: Path | None = None
         self._primary_apk: APK | None = None
 
     def _ensure_extracted(self) -> Path:

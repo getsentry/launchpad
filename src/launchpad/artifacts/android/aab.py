@@ -24,7 +24,7 @@ class AAB(AndroidArtifact):
         super().__init__(path)
         self._path = path
         self._zip_provider = ZipProvider(path)
-        self._extract_dir: Path | None = None  # Lazy extraction
+        self._extract_dir: Path | None = None
         self._manifest: AndroidManifest | None = None
         self._resource_table: ProtobufResourceTable | None = None
         self._primary_apks: list[APK] | None = None
