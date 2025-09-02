@@ -9,10 +9,7 @@ from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
-from launchpad.utils.file_utils import (
-    calculate_file_hash,
-    to_nearest_block_size,
-)
+from launchpad.utils.file_utils import calculate_file_hash, to_nearest_block_size
 from launchpad.utils.performance import trace
 
 logger = logging.getLogger(__name__)
@@ -30,7 +27,7 @@ def analyze_apple_files(
 ) -> FileAnalysis:
     """
     Build a content-hashed, block-rounded file map of the app bundle.
-    Directories are hashed from (sorted) child hashes. If `max_depth` is set,
+    Directories are hashed from sorted child hashes. If `max_depth` is set,
     deeper subtrees are omitted from children but their sizes are aggregated
     into a single synthetic child, keeping parent sizes correct.
     """
@@ -44,9 +41,11 @@ def analyze_apple_files(
     dirs: Dict[str, FileInfo] = {}
     children_by_dir: Dict[str, List[str]] = defaultdict(list)
 
+    # register root
     root_rel = ""
     dirs[root_rel] = _make_directory_info(app_bundle_path, root_rel)
 
+    # inode de-dup (dirs + files)
     seen_dir_inodes: Set[Tuple[int, int]] = set()
     seen_file_inodes: Set[Tuple[int, int]] = set()
 
@@ -61,6 +60,7 @@ def analyze_apple_files(
     for dirpath, dirnames, filenames in os.walk(app_bundle_path, followlinks=follow_symlinks):
         pdir = Path(dirpath)
 
+        # compute normalized rel path of current directory
         rel_dir = pdir.relative_to(app_bundle_path).as_posix()
         if rel_dir in ("", "."):
             rel_dir = ""
@@ -71,7 +71,7 @@ def analyze_apple_files(
             if depth >= max_depth:
                 for dname in dirnames:
                     child_path = pdir / dname
-                    child_rel = (PurePosixPath(rel_dir) / dname).as_posix()
+                    child_rel = child_path.relative_to(app_bundle_path).as_posix()
                     try:
                         agg_size = _dir_size_aggregate(
                             child_path,
@@ -93,9 +93,11 @@ def analyze_apple_files(
                         is_dir=False,
                         children=[],
                     )
+                    # attach the synthetic node to the current dir
                     children_by_dir[rel_dir].append(omitted_rel)
 
-                dirnames[:] = []  # stop descending further
+                # stop descending further
+                dirnames[:] = []
 
         # Prune symlinked/duplicate dirs by inode
         pruned: List[str] = []
@@ -118,13 +120,14 @@ def analyze_apple_files(
         # Ensure current dir exists
         dirs.setdefault(rel_dir, _make_directory_info(pdir, rel_dir))
 
-        # Register child directories (edges only; sizes/hashes filled later)
+        # Register child directories using their true rel path
         for dname in dirnames:
-            child_rel = (PurePosixPath(rel_dir) / dname).as_posix()
+            dpath = pdir / dname
+            child_rel = dpath.relative_to(app_bundle_path).as_posix()
             if child_rel == rel_dir:
                 logger.warning("Self-referential directory edge at %s; skipping", child_rel)
                 continue
-            dirs[child_rel] = _make_directory_info(pdir / dname, child_rel)
+            dirs[child_rel] = _make_directory_info(dpath, child_rel)
             children_by_dir[rel_dir].append(child_rel)
 
         # Files
@@ -148,13 +151,13 @@ def analyze_apple_files(
                 logger.warning("Skipping path due to OSError: %s", fpath)
                 continue
 
-            rel = (PurePosixPath(rel_dir) / fname).as_posix()
+            # CRITICAL FIX: compute rel from the actual file path
+            rel = fpath.relative_to(app_bundle_path).as_posix()
             parent_rel = rel_dir
 
             size = to_nearest_block_size(raw_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
             file_type = fpath.suffix.lower().lstrip(".") or _detect_file_type(fpath)
-
             file_hash = calculate_file_hash(fpath, algorithm=algo)
 
             children: List[FileInfo] = []

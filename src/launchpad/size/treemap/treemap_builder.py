@@ -31,7 +31,7 @@ class TreemapBuilder:
         app_name: str,
         platform: Literal["ios", "android"],
         filesystem_block_size: int | None = None,
-        # TODO: We should try to move iOS-specific logic out of this class's constructor
+        # TODO: Move iOS-specific logic out of constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
         hermes_reports: Dict[str, HermesReport] | None = None,
@@ -53,8 +53,6 @@ class TreemapBuilder:
         logger.info(f"Building file-based treemap for {self.platform} platform")
 
         children = self._build_file_hierarchy(file_analysis)
-
-        # Calculate total sizes from children
         total_size = sum(child.size for child in children)
 
         root = TreemapElement(
@@ -62,7 +60,7 @@ class TreemapBuilder:
             size=total_size,
             type=None,
             path=None,
-            is_dir=True,  # Root app element is treated as a directory
+            is_dir=True,
             children=children,
         )
 
@@ -98,98 +96,94 @@ class TreemapBuilder:
                     hermes_reports=self.hermes_reports,
                 )
             case _:
-                # Use default element builder for any other file types
                 pass
 
         element = element_builder.build_element(file_info, display_name)
         if element is None:
             element = default_element_builder.build_element(file_info, display_name)
-
         return element
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
         """Build hierarchical file structure from file analysis."""
-
-        # Group files by their full directory structure
+        # Group files by their immediate directory
         directory_map: Dict[str, List[FileInfo]] = defaultdict(list)
         root_files: List[FileInfo] = []
 
         for file_info in file_analysis.files:
             path_obj = Path(file_info.path)
             if len(path_obj.parts) == 1:
-                # Root level file
                 root_files.append(file_info)
             else:
-                # File in subdirectory - group by full directory path
                 dir_path = str(path_obj.parent)
                 directory_map[dir_path].append(file_info)
 
         elements: List[TreemapElement] = []
 
-        # Add root level files
-        for file_info in root_files:
-            element = self._create_file_element(file_info, file_info.path)
+        # Root-level files
+        for file_info in sorted(root_files, key=lambda f: f.path):
+            element = self._create_file_element(file_info, Path(file_info.path).name)
             elements.append(element)
 
-        # Create a map of all directories and their files
+        # dir_structure maps each directory -> all files beneath it (including in subdirs)
         dir_structure: Dict[str, List[FileInfo]] = defaultdict(list)
 
-        # First pass: organize all files into their respective directories
+        # Pull files up into all ancestors to make recursive building cheap
         for dir_path, files in directory_map.items():
             path_obj = Path(dir_path)
-            current_dir = dir_path
-
-            # Add files to their immediate directory
-            dir_structure[current_dir].extend(files)
-
-            # Add to parent directories
+            # Add to immediate dir
+            dir_structure[dir_path].extend(files)
+            # Add to all parent dirs up to (but not beyond) the top-level directory
             while len(path_obj.parts) > 1:
                 parent = str(path_obj.parent)
                 dir_structure[parent].extend(files)
-                current_dir = parent
                 path_obj = path_obj.parent
 
-        # Get all unique directory paths
+        # Collect all directory paths
         all_dirs: set[str] = set()
         for dir_path in directory_map.keys():
             path_obj = Path(dir_path)
-            # Add all parent directories
             current = path_obj
             while len(current.parts) > 0:
                 all_dirs.add(str(current))
                 current = current.parent
 
-        # Second pass: build the directory hierarchy
         def build_directory(dir_path: str) -> TreemapElement:
+            """Recursively build a directory node, ensuring only immediate children render under this node."""
             dir_name = os.path.basename(dir_path)
-            files = dir_structure[dir_path]
+            files_below = dir_structure[dir_path]
 
-            # Group files by subdirectory
+            # Partition into direct files and immediate child directories
             subdirs: Dict[str, List[FileInfo]] = defaultdict(list)
             direct_files: List[FileInfo] = []
 
-            for file_info in files:
-                path_obj = Path(file_info.path)
-                if str(path_obj.parent) == dir_path:
+            base = Path(dir_path)
+
+            for file_info in files_below:
+                p = Path(file_info.path)
+                if str(p.parent) == dir_path:
                     direct_files.append(file_info)
                 else:
-                    # File is in a subdirectory
-                    subdir = str(path_obj.parent)
-                    subdirs[subdir].append(file_info)
+                    # KEY FIX: group by the *immediate* child directory under dir_path
+                    try:
+                        rel = p.relative_to(base)
+                    except ValueError:
+                        # Not actually under this dir (shouldn't happen since we pre-filled), skip
+                        continue
+                    if not rel.parts:
+                        continue
+                    immediate = str(base / rel.parts[0])
+                    subdirs[immediate].append(file_info)
 
-            # Create child elements
             children: List[TreemapElement] = []
 
             # Add direct files
-            for file_info in direct_files:
+            for file_info in sorted(direct_files, key=lambda f: Path(f.path).name):
                 filename = os.path.basename(file_info.path)
-                element = self._create_file_element(file_info, filename)
-                children.append(element)
+                children.append(self._create_file_element(file_info, filename))
 
-            # Add subdirectories
-            for subdir_path, _ in subdirs.items():
-                subdir_element = build_directory(subdir_path)
-                children.append(subdir_element)
+            # Add immediate subdirectories (recursively)
+            for subdir_path in sorted(subdirs.keys()):
+                children.append(build_directory(subdir_path))
 
             total_size = sum(child.size for child in children)
 
@@ -202,10 +196,10 @@ class TreemapBuilder:
                 children=children,
             )
 
+        # Build top-level directories (e.g., "Frameworks", "PlugIns", etc.)
         top_level_dirs: set[str] = {d for d in all_dirs if len(Path(d).parts) == 1}
         for dir_path in sorted(top_level_dirs):
-            dir_element = build_directory(dir_path)
-            elements.append(dir_element)
+            elements.append(build_directory(dir_path))
 
         return elements
 
@@ -226,24 +220,20 @@ class TreemapBuilder:
         elif name_lower == "plugins":
             return TreemapType.EXTENSIONS
 
-        return TreemapType.FILES  # Default to FILES instead of None
+        return TreemapType.FILES  # Default
 
     def _calculate_category_breakdown(self, file_analysis: FileAnalysis) -> Dict[str, Dict[str, int]]:
         """Calculate size breakdown by category."""
         breakdown: Dict[str, Dict[str, int]] = defaultdict(lambda: {"size": 0})
-
         for file_info in file_analysis.files:
             treemap_type = file_info.treemap_type.value
-            # Use filesystem block-aligned size for install calculations
             size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
-
             breakdown[treemap_type]["size"] += size
-
         return dict(breakdown)
 
 
 # Platform-specific filesystem block sizes (in bytes)
 FILESYSTEM_BLOCK_SIZES = {
-    "ios": APPLE_FILESYSTEM_BLOCK_SIZE,  # iOS uses 4KB filesystem blocks
-    "android": 4 * 1024,  # Android typically uses 4KB as well
+    "ios": APPLE_FILESYSTEM_BLOCK_SIZE,
+    "android": 4 * 1024,
 }
