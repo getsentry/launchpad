@@ -38,7 +38,7 @@ class ArtifactFactory:
             magic_bytes = f.read(4)
 
         # Check if it's a zip file by looking at magic bytes
-        if magic_bytes.startswith(b"PK"):
+        if magic_bytes.startswith(b"PK\x03\x04"):
             try:
                 with ZipFile(path) as zip_file:
                     # Check if zip contains a Info.plist in the root of the .xcarchive folder (ZippedXCArchive)
