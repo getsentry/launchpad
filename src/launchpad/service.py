@@ -168,6 +168,7 @@ class LaunchpadService:
 
         sentry_client = SentryClient(base_url=self._service_config.sentry_base_url)
         temp_file = None
+        artifact = None
 
         try:
             temp_file = self._download_artifact_to_temp_file(sentry_client, artifact_id, project_id, organization_id)
@@ -209,14 +210,15 @@ class LaunchpadService:
 
             logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
 
-            artifact = ArtifactFactory.from_path(file_path)
             if isinstance(artifact, ZippedXCArchive) and app_info.is_code_signature_valid and not app_info.is_simulator:
                 temp_dir = Path(tempfile.mkdtemp())
-                ipa_path = temp_dir / "App.ipa"
-                cast(ZippedXCArchive, artifact).generate_ipa(ipa_path)
-                sentry_client.upload_installable_app(organization_id, project_id, artifact_id, str(ipa_path))
-                self._safe_cleanup(str(ipa_path), "installable app")
-                logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
+                try:
+                    ipa_path = temp_dir / "App.ipa"
+                    cast(ZippedXCArchive, artifact).generate_ipa(ipa_path)
+                    sentry_client.upload_installable_app(organization_id, project_id, artifact_id, str(ipa_path))
+                    logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
+                finally:
+                    cleanup_directory(temp_dir)
             elif isinstance(artifact, (AAB, ZippedAAB)):
                 temp_dir = Path(tempfile.mkdtemp())
                 if isinstance(artifact, AAB):
