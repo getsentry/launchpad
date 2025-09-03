@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 
 from collections import defaultdict
-from dataclasses import replace
 from pathlib import PurePosixPath as PPath
 from typing import Dict, List, Literal
 
@@ -223,7 +222,7 @@ class TreemapBuilder:
 
         # If any direct files exist, don't compress this node
         if any(not c.is_dir for c in compressed_children):
-            return replace(node, children=compressed_children)
+            return node.model_copy(update={"children": compressed_children})
 
         # Count directory children
         dir_children = [c for c in compressed_children if c.is_dir]
@@ -233,13 +232,9 @@ class TreemapBuilder:
             only = dir_children[0]
             merged_name = f"{node.name}/{only.name}" if node.name else only.name
             # Keep the child's children; size stays the same because it's the sum already
-            return replace(
-                only,
-                name=merged_name,
-                # path can be merged for display, or keep child's path; we keep child's
-            )
+            return only.model_copy(update={"name": merged_name})
 
-        return replace(node, children=compressed_children)
+        return node.model_copy(update={"children": compressed_children})
 
     def _get_directory_type(self, directory_name: str) -> TreemapType | None:
         """Determine treemap type for a directory."""
