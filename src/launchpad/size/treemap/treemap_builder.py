@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 
 from collections import defaultdict
-from pathlib import Path
+from dataclasses import replace
+from pathlib import PurePosixPath as PPath
 from typing import Dict, List, Literal
 
 from launchpad.parsers.android.dex.types import ClassDefinition
@@ -24,6 +25,12 @@ from .macho_element_builder import MachOElementBuilder
 
 logger = get_logger(__name__)
 
+# Platform-specific filesystem block sizes (in bytes)
+FILESYSTEM_BLOCK_SIZES = {
+    "ios": APPLE_FILESYSTEM_BLOCK_SIZE,
+    "android": 4 * 1024,
+}
+
 
 class TreemapBuilder:
     def __init__(
@@ -31,7 +38,9 @@ class TreemapBuilder:
         app_name: str,
         platform: Literal["ios", "android"],
         filesystem_block_size: int | None = None,
-        # TODO: We should try to move iOS-specific logic out of this class's constructor
+        # Optional presentation tweak: collapse one-child directory chains (off by default)
+        compress_paths: bool = False,
+        # TODO: Move iOS-specific logic out of constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
         hermes_reports: Dict[str, HermesReport] | None = None,
@@ -41,13 +50,16 @@ class TreemapBuilder:
         self.binary_analysis_map = binary_analysis_map or {}
         self.class_definitions = class_definitions or []
         self.hermes_reports = hermes_reports or {}
+        self.compress_paths = compress_paths
 
         if filesystem_block_size is not None:
             self.filesystem_block_size = filesystem_block_size
         else:
             self.filesystem_block_size = FILESYSTEM_BLOCK_SIZES.get(platform, 4 * 1024)
 
-        logger.debug(f"Using filesystem block size: {self.filesystem_block_size} bytes")
+        logger.debug(
+            f"Using filesystem block size: {self.filesystem_block_size} bytes; compress_paths={self.compress_paths}"
+        )
 
     def build_file_treemap(self, file_analysis: FileAnalysis) -> TreemapResults:
         logger.info(f"Building file-based treemap for {self.platform} platform")
@@ -64,6 +76,9 @@ class TreemapBuilder:
             children=children,
         )
 
+        if self.compress_paths:
+            root = self._compress_one_child_dirs(root)
+
         category_breakdown = self._calculate_category_breakdown(file_analysis)
 
         return TreemapResults(
@@ -79,120 +94,108 @@ class TreemapBuilder:
         )
 
         element_builder: TreemapElementBuilder = default_element_builder
-        match file_info.file_type:
-            case "macho":
-                element_builder = MachOElementBuilder(
-                    binary_analysis_map=self.binary_analysis_map,
-                    filesystem_block_size=self.filesystem_block_size,
-                )
-            case "dex":
-                element_builder = DexElementBuilder(
-                    class_definitions=self.class_definitions,
-                    filesystem_block_size=self.filesystem_block_size,
-                )
-            case _ if file_info.file_type.lower() in HERMES_EXTENSIONS:
-                element_builder = HermesElementBuilder(
-                    filesystem_block_size=self.filesystem_block_size,
-                    hermes_reports=self.hermes_reports,
-                )
-            case _:
-                # Use default element builder for any other file types
-                pass
+        ftype = (file_info.file_type or "").lower()
+        if ftype == "macho":
+            element_builder = MachOElementBuilder(
+                binary_analysis_map=self.binary_analysis_map,
+                filesystem_block_size=self.filesystem_block_size,
+            )
+        elif ftype == "dex":
+            element_builder = DexElementBuilder(
+                class_definitions=self.class_definitions,
+                filesystem_block_size=self.filesystem_block_size,
+            )
+        elif ftype in HERMES_EXTENSIONS:
+            element_builder = HermesElementBuilder(
+                filesystem_block_size=self.filesystem_block_size,
+                hermes_reports=self.hermes_reports,
+            )
 
         element = element_builder.build_element(file_info, display_name)
         if element is None:
             element = default_element_builder.build_element(file_info, display_name)
-
         return element
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
-        """Build hierarchical file structure from file analysis."""
-        # Group files by their immediate directory
+        """Build hierarchical file structure using the SINGLE RULE:
+        - At each directory node, group items by the *immediate* child segment below that node.
+        """
+        # Map: directory path -> files directly or indirectly under it
         directory_map: Dict[str, List[FileInfo]] = defaultdict(list)
         root_files: List[FileInfo] = []
 
         for file_info in file_analysis.files:
-            path_obj = Path(file_info.path)
-            if len(path_obj.parts) == 1:
-                # Root level file
+            p = PPath(file_info.path)
+            if len(p.parts) == 1:
                 root_files.append(file_info)
             else:
-                # File in subdirectory - group by full directory path
-                dir_path = str(path_obj.parent)
-                directory_map[dir_path].append(file_info)
+                directory_map[str(p.parent.as_posix())].append(file_info)
 
         elements: List[TreemapElement] = []
 
-        # Add root level files
+        # Root-level files
         for file_info in sorted(root_files, key=lambda f: f.path):
-            element = self._create_file_element(file_info, Path(file_info.path).name)
-            elements.append(element)
+            elements.append(self._create_file_element(file_info, PPath(file_info.path).name))
 
-        # dir_structure maps each directory -> all files beneath it (including in subdirs)
+        # dir_structure: each dir -> all files beneath it (including in subdirs)
         dir_structure: Dict[str, List[FileInfo]] = defaultdict(list)
 
-        # Pull files up into all ancestors to make recursive building cheap
+        # Populate dir_structure by walking ancestors
         for dir_path, files in directory_map.items():
-            path_obj = Path(dir_path)
-            # Add to immediate dir
+            path_obj = PPath(dir_path)
             dir_structure[dir_path].extend(files)
-            # Add to all parent dirs up to (but not beyond) the top-level directory
             while len(path_obj.parts) > 1:
-                parent = str(path_obj.parent)
+                parent = str(path_obj.parent.as_posix())
                 dir_structure[parent].extend(files)
                 path_obj = path_obj.parent
 
-        # Collect all directory paths
+        # Collect all directory paths to render
         all_dirs: set[str] = set()
         for dir_path in directory_map.keys():
-            path_obj = Path(dir_path)
-            current = path_obj
+            current = PPath(dir_path)
             while len(current.parts) > 0:
-                all_dirs.add(str(current))
+                all_dirs.add(str(current.as_posix()))
                 current = current.parent
 
         def build_directory(dir_path: str) -> TreemapElement:
-            """Recursively build a directory node, ensuring only immediate children render under this node."""
-            dir_name = os.path.basename(dir_path)
+            """Recursively build a directory node; group by immediate child segment."""
+            dir_name = os.path.basename(dir_path.rstrip("/"))
             files_below = dir_structure[dir_path]
 
-            # Partition into direct files and immediate child directories
             subdirs: Dict[str, List[FileInfo]] = defaultdict(list)
             direct_files: List[FileInfo] = []
 
-            base = Path(dir_path)
-
+            base = PPath(dir_path)
             for file_info in files_below:
-                p = Path(file_info.path)
-                if str(p.parent) == dir_path:
+                p = PPath(file_info.path)
+                if str(p.parent.as_posix()) == dir_path:
                     direct_files.append(file_info)
                 else:
+                    # SINGLE RULE: attach under the immediate child directory below `dir_path`
                     try:
                         rel = p.relative_to(base)
                     except ValueError:
-                        # Not actually under this dir (shouldn't happen since we pre-filled), skip
+                        # Shouldn't happen (defensive)
                         continue
                     if not rel.parts:
                         continue
-                    immediate = str(base / rel.parts[0])
+                    immediate = str((base / rel.parts[0]).as_posix())
                     subdirs[immediate].append(file_info)
 
             children: List[TreemapElement] = []
 
-            # Add direct files
-            for file_info in direct_files:
-                filename = os.path.basename(file_info.path)
-                element = self._create_file_element(file_info, filename)
-                children.append(element)
+            # Direct files
+            for file_info in sorted(direct_files, key=lambda f: PPath(f.path).name):
+                children.append(self._create_file_element(file_info, os.path.basename(file_info.path)))
 
-            # Add immediate subdirectories (recursively)
+            # Immediate subdirectories
             for subdir_path in sorted(subdirs.keys()):
                 children.append(build_directory(subdir_path))
 
             total_size = sum(child.size for child in children)
 
             return TreemapElement(
-                name=dir_name,
+                name=dir_name or dir_path,  # fall back if basename is empty
                 size=total_size,
                 type=self._get_directory_type(dir_name),
                 path=dir_path,
@@ -200,16 +203,47 @@ class TreemapBuilder:
                 children=children,
             )
 
-        # Build top-level directories (e.g., "Frameworks", "PlugIns", etc.)
-        top_level_dirs: set[str] = {d for d in all_dirs if len(Path(d).parts) == 1}
+        # Build top-level directories (e.g., "Frameworks", "PlugIns", "javax", etc.)
+        top_level_dirs: set[str] = {d for d in all_dirs if len(PPath(d).parts) == 1}
         for dir_path in sorted(top_level_dirs):
             elements.append(build_directory(dir_path))
 
         return elements
 
+    def _compress_one_child_dirs(self, node: TreemapElement) -> TreemapElement:
+        """Optional presentation pass: collapse chains of directories where
+        a directory has exactly one child and that child is a directory, and
+        the directory has no direct files (i.e., all children are dirs).
+        """
+        if not node.is_dir or not node.children:
+            return node
+
+        # First, compress children
+        compressed_children = [self._compress_one_child_dirs(c) for c in node.children]
+
+        # If any direct files exist, don't compress this node
+        if any(not c.is_dir for c in compressed_children):
+            return replace(node, children=compressed_children)
+
+        # Count directory children
+        dir_children = [c for c in compressed_children if c.is_dir]
+
+        # If exactly one dir child and no files, merge names: "a" + "/" + "b"
+        if len(dir_children) == 1 and len(compressed_children) == 1:
+            only = dir_children[0]
+            merged_name = f"{node.name}/{only.name}" if node.name else only.name
+            # Keep the child's children; size stays the same because it's the sum already
+            return replace(
+                only,
+                name=merged_name,
+                # path can be merged for display, or keep child's path; we keep child's
+            )
+
+        return replace(node, children=compressed_children)
+
     def _get_directory_type(self, directory_name: str) -> TreemapType | None:
         """Determine treemap type for a directory."""
-        name_lower = directory_name.lower()
+        name_lower = (directory_name or "").lower()
 
         if ".appex" in name_lower:
             return TreemapType.EXTENSIONS
@@ -234,10 +268,3 @@ class TreemapBuilder:
             size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
             breakdown[treemap_type]["size"] += size
         return dict(breakdown)
-
-
-# Platform-specific filesystem block sizes (in bytes)
-FILESYSTEM_BLOCK_SIZES = {
-    "ios": APPLE_FILESYSTEM_BLOCK_SIZE,
-    "android": 4 * 1024,
-}
