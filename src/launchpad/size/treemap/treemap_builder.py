@@ -31,7 +31,7 @@ class TreemapBuilder:
         app_name: str,
         platform: Literal["ios", "android"],
         filesystem_block_size: int | None = None,
-        # TODO: Move iOS-specific logic out of constructor
+        # TODO: We should try to move iOS-specific logic out of this class's constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
         hermes_reports: Dict[str, HermesReport] | None = None,
@@ -96,11 +96,13 @@ class TreemapBuilder:
                     hermes_reports=self.hermes_reports,
                 )
             case _:
+                # Use default element builder for any other file types
                 pass
 
         element = element_builder.build_element(file_info, display_name)
         if element is None:
             element = default_element_builder.build_element(file_info, display_name)
+
         return element
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
@@ -112,14 +114,16 @@ class TreemapBuilder:
         for file_info in file_analysis.files:
             path_obj = Path(file_info.path)
             if len(path_obj.parts) == 1:
+                # Root level file
                 root_files.append(file_info)
             else:
+                # File in subdirectory - group by full directory path
                 dir_path = str(path_obj.parent)
                 directory_map[dir_path].append(file_info)
 
         elements: List[TreemapElement] = []
 
-        # Root-level files
+        # Add root level files
         for file_info in sorted(root_files, key=lambda f: f.path):
             element = self._create_file_element(file_info, Path(file_info.path).name)
             elements.append(element)
@@ -163,7 +167,6 @@ class TreemapBuilder:
                 if str(p.parent) == dir_path:
                     direct_files.append(file_info)
                 else:
-                    # KEY FIX: group by the *immediate* child directory under dir_path
                     try:
                         rel = p.relative_to(base)
                     except ValueError:
@@ -177,9 +180,10 @@ class TreemapBuilder:
             children: List[TreemapElement] = []
 
             # Add direct files
-            for file_info in sorted(direct_files, key=lambda f: Path(f.path).name):
+            for file_info in direct_files:
                 filename = os.path.basename(file_info.path)
-                children.append(self._create_file_element(file_info, filename))
+                element = self._create_file_element(file_info, filename)
+                children.append(element)
 
             # Add immediate subdirectories (recursively)
             for subdir_path in sorted(subdirs.keys()):
