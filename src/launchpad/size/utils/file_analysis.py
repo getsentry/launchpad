@@ -26,7 +26,8 @@ def analyze_apple_files(
     Build a content-hashed, block-rounded file map of the app bundle.
     Directories are hashed from sorted child hashes. If `max_depth` is set,
     deeper subtrees are omitted from children but their sizes are aggregated
-    into a single synthetic child, keeping parent sizes correct.
+    into a single synthetic child, keeping parent sizes correct. This does not
+    follow symlinks which are common in xcarchives.
     """
     import os
 
@@ -147,7 +148,6 @@ def analyze_apple_files(
                 logger.warning("Skipping path due to OSError: %s", fpath)
                 continue
 
-            # CRITICAL FIX: compute rel from the actual file path
             rel = fpath.relative_to(app_bundle_path).as_posix()
             parent_rel = rel_dir
 
