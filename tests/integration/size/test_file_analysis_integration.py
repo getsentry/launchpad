@@ -68,19 +68,34 @@ class TestFileAnalysisIntegration:
         assert len(root_dirs) == 1
         assert root_dirs[0].size == total_size
 
-    def test_framework_analysis(self, hackernews_xcarchive):
-        """Test that framework binaries are properly analyzed and nested."""
-        result = analyze_apple_files(hackernews_xcarchive)
+        car_files = [f for f in result.files if f.file_type == "car"]
+        if car_files:
+            car_file = car_files[0]
+            for child in car_file.children:
+                assert child.path.startswith(car_file.path)
+                assert child.size >= 0
+                assert child.hash is not None
+                assert child.treemap_type == TreemapType.ASSETS
+
+        file_types = {f.file_type for f in result.files}
+        assert {
+            "plist",
+            "png",
+            "car",
+            "json",
+            "strings",
+            "macho",
+            "executable",
+        } & file_types
 
         framework_dirs = [d for d in result.directories if d.path.endswith(".framework")]
+        assert len(framework_dirs) > 0
         if framework_dirs:
             framework_binaries = [
                 f.path for f in result.files if ".framework/" in f.path and f.file_type in ["macho", "executable"]
             ]
-            assert framework_binaries, "Expected at least one framework binary"
+            assert len(framework_binaries) > 0
 
-            # Framework binaries should contain .framework/ in their path
-            # They might be under Frameworks/ or in other locations like PlugIns/
             for binary_path in framework_binaries:
                 assert ".framework/" in binary_path, f"Framework binary should contain .framework/: {binary_path}"
 
@@ -95,42 +110,6 @@ class TestFileAnalysisIntegration:
         base_root = next(d for d in baseline.directories if d.path == "")
         lim_root = next(d for d in limited.directories if d.path == "")
         assert lim_root.size == base_root.size, "Root size must be preserved with max_depth pruning"
-
-    def test_asset_catalog_children(self, hackernews_xcarchive):
-        """Asset catalogs produce children; children carry ASSETS type."""
-        result = analyze_apple_files(hackernews_xcarchive)
-
-        car_files = [f for f in result.files if f.file_type == "car"]
-        if car_files:
-            car_file = car_files[0]  # Take the first .car file
-            # If children exist, they should be under the .car path with sizes
-            if car_file.children:
-                for child in car_file.children:
-                    assert child.path.startswith(car_file.path)
-                    assert child.size >= 0
-                    # Hash might be empty for some asset catalog entries
-                    assert child.hash is not None  # Just check it's not None
-                    assert child.treemap_type == TreemapType.ASSETS
-
-    def test_treemap_type_assignment(self, hackernews_xcarchive):
-        """Treemap types are assigned; .car files are ASSETS, their children are also ASSETS."""
-        result = analyze_apple_files(hackernews_xcarchive)
-
-        for file in result.files:
-            assert file.treemap_type is not None
-
-            if file.file_type == "car":
-                assert file.treemap_type == TreemapType.ASSETS
-                for child in file.children:
-                    assert child.treemap_type == TreemapType.ASSETS
-
-    def test_file_type_detection(self, hackernews_xcarchive):
-        """Detect a reasonable variety of file types present in typical iOS apps."""
-        result = analyze_apple_files(hackernews_xcarchive)
-        file_types = {f.file_type for f in result.files}
-
-        expected_any = {"plist", "png", "car", "json", "strings", "macho", "executable"}
-        assert expected_any & file_types
 
     def test_root_dir_hash_deterministic(self, hackernews_xcarchive):
         """Directory hashing should be stable for the same inputs."""
