@@ -20,10 +20,8 @@ OMITTED_LEAF_NAME = "__omitted__"
 @trace("apple.analyze_files")
 def analyze_apple_files(
     xcarchive: ZippedXCArchive,
-    *,
-    algo: str = "sha256",
     follow_symlinks: bool = False,
-    max_depth: int | None = None,
+    max_depth: int | None = 1000,
 ) -> FileAnalysis:
     """
     Build a content-hashed, block-rounded file map of the app bundle.
@@ -55,7 +53,7 @@ def analyze_apple_files(
     except OSError as e:
         logger.warning("Failed stat on app bundle root %s: %s", app_bundle_path, e)
 
-    omitted_hash = hashlib.new(algo, b"omitted_subtree").hexdigest()
+    omitted_hash = hashlib.new("sha256", b"omitted_subtree").hexdigest()
 
     for dirpath, dirnames, filenames in os.walk(app_bundle_path, followlinks=follow_symlinks):
         pdir = Path(dirpath)
@@ -158,7 +156,7 @@ def analyze_apple_files(
             size = to_nearest_block_size(raw_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
             file_type = fpath.suffix.lower().lstrip(".") or _detect_file_type(fpath)
-            file_hash = calculate_file_hash(fpath, algorithm=algo)
+            file_hash = calculate_file_hash(fpath, algorithm="sha256")
 
             children: List[FileInfo] = []
             if file_type == "car":
@@ -191,7 +189,7 @@ def analyze_apple_files(
             )
             children_by_dir[parent_rel].append(rel)
 
-    directories_with_hashes = _hash_directories_bottom_up(dirs, files, children_by_dir, algo=algo)
+    directories_with_hashes = _hash_directories_bottom_up(dirs, files, children_by_dir, algo="sha256")
 
     return FileAnalysis(files=list(files.values()), directories=list(directories_with_hashes.values()))
 
