@@ -20,7 +20,6 @@ OMITTED_LEAF_NAME = "__omitted__"
 @trace("apple.analyze_files")
 def analyze_apple_files(
     xcarchive: ZippedXCArchive,
-    follow_symlinks: bool = False,
     max_depth: int | None = 1000,
 ) -> FileAnalysis:
     """
@@ -55,7 +54,7 @@ def analyze_apple_files(
 
     omitted_hash = hashlib.new("sha256", b"omitted_subtree").hexdigest()
 
-    for dirpath, dirnames, filenames in os.walk(app_bundle_path, followlinks=follow_symlinks):
+    for dirpath, dirnames, filenames in os.walk(app_bundle_path, followlinks=False):
         pdir = Path(dirpath)
 
         # compute normalized rel path of current directory
@@ -73,7 +72,6 @@ def analyze_apple_files(
                     try:
                         agg_size = _dir_size_aggregate(
                             child_path,
-                            follow_symlinks=follow_symlinks,
                             seen_dirs=seen_dir_inodes,
                             seen_files=seen_file_inodes,
                         )
@@ -102,9 +100,9 @@ def analyze_apple_files(
         for dname in dirnames:
             dpath = pdir / dname
             try:
-                if (not follow_symlinks) and dpath.is_symlink():
+                if dpath.is_symlink():
                     continue
-                st = dpath.stat(follow_symlinks=follow_symlinks)
+                st = dpath.stat(follow_symlinks=False)
                 dinode = (st.st_dev, st.st_ino)
                 if dinode in seen_dir_inodes:
                     continue
@@ -132,14 +130,14 @@ def analyze_apple_files(
         for fname in filenames:
             fpath = pdir / fname
             try:
-                if fpath.is_symlink() and not follow_symlinks:
+                if fpath.is_symlink():
                     continue
             except OSError:
                 logger.warning("Skipping path due to OSError: %s", fpath)
                 continue
 
             try:
-                st = fpath.stat(follow_symlinks=follow_symlinks)
+                st = fpath.stat(follow_symlinks=False)
                 finode = (st.st_dev, st.st_ino)
                 if finode in seen_file_inodes:
                     continue
@@ -326,8 +324,6 @@ def _detect_file_type(file_path: Path) -> str:
 
 def _dir_size_aggregate(
     root: Path,
-    *,
-    follow_symlinks: bool,
     seen_dirs: Set[Tuple[int, int]],
     seen_files: Set[Tuple[int, int]],
 ) -> int:
@@ -338,16 +334,16 @@ def _dir_size_aggregate(
     import os
 
     total = 0
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=follow_symlinks):
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
         pdir = Path(dirpath)
 
         pruned: List[str] = []
         for dname in dirnames:
             dpath = pdir / dname
             try:
-                if (not follow_symlinks) and dpath.is_symlink():
+                if dpath.is_symlink():
                     continue
-                st = dpath.stat(follow_symlinks=follow_symlinks)
+                st = dpath.stat(follow_symlinks=False)
                 dinode = (st.st_dev, st.st_ino)
                 if dinode in seen_dirs:
                     continue
@@ -360,9 +356,9 @@ def _dir_size_aggregate(
         for fname in filenames:
             fpath = pdir / fname
             try:
-                if fpath.is_symlink() and not follow_symlinks:
+                if fpath.is_symlink():
                     continue
-                st = fpath.stat(follow_symlinks=follow_symlinks)
+                st = fpath.stat(follow_symlinks=False)
                 finode = (st.st_dev, st.st_ino)
                 if finode in seen_files:
                     continue

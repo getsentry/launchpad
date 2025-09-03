@@ -8,14 +8,34 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.apple.zipped_xcarchive import (
+    AssetCatalogElement,
+    ZippedXCArchive,
+)
+from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import FileAnalysis
 from launchpad.size.models.treemap import TreemapType
 from launchpad.size.utils.file_analysis import analyze_apple_files
+from launchpad.utils.file_utils import to_nearest_block_size
 
 
 class TestAnalyzeAppleFiles:
     """Test the analyze_apple_files function with various scenarios."""
+
+    BASE_EXPECTED_FILES = {
+        "Info.plist": 38,  # "<?xml version='1.0' encoding='UTF-8'?>"
+        "TestApp": 1900,  # len(b"fake_binary_content") == 19; *100
+        "Assets.car": 800,  # len(b"fake_car_content") == 16; *50
+        "Frameworks/Framework1.framework/Framework1": 1600,  # len(b"framework_binary") == 16; *100
+        "Resources/image.png": 260,  # len(b"fake_png_data") == 13; *20
+        "Resources/data.json": 16,  # '{"key": "value"}'
+    }
+    BASE_EXPECTED_DIRS = {
+        "",
+        "Frameworks",
+        "Frameworks/Framework1.framework",
+        "Resources",
+    }
 
     @pytest.fixture
     def mock_xcarchive(self):
@@ -30,12 +50,10 @@ class TestAnalyzeAppleFiles:
             app_path = Path(temp_dir) / "TestApp.app"
             app_path.mkdir()
 
-            # Create some test files
             (app_path / "Info.plist").write_text("<?xml version='1.0' encoding='UTF-8'?>")
-            (app_path / "TestApp").write_bytes(b"fake_binary_content" * 100)  # ~2000 bytes
-            (app_path / "Assets.car").write_bytes(b"fake_car_content" * 50)  # ~850 bytes
+            (app_path / "TestApp").write_bytes(b"fake_binary_content" * 100)  # 1900 bytes
+            (app_path / "Assets.car").write_bytes(b"fake_car_content" * 50)  # 800 bytes
 
-            # Create subdirectories
             frameworks_dir = app_path / "Frameworks"
             frameworks_dir.mkdir()
             (frameworks_dir / "Framework1.framework").mkdir()
@@ -56,55 +74,60 @@ class TestAnalyzeAppleFiles:
         result = analyze_apple_files(mock_xcarchive)
 
         assert isinstance(result, FileAnalysis)
-        assert len(result.files) > 0
-        assert len(result.directories) > 0
 
-        # Check that root directory exists
+        files = {f.path: f for f in result.files}
+        assert set(files.keys()) == set(self.BASE_EXPECTED_FILES.keys())
+        assert len(result.files) == len(self.BASE_EXPECTED_FILES)
+
+        directories = {d.path for d in result.directories}
+        assert directories == self.BASE_EXPECTED_DIRS
+        assert len(result.directories) == len(self.BASE_EXPECTED_DIRS)
+
         root_dirs = [d for d in result.directories if d.path == ""]
         assert len(root_dirs) == 1
         root_dir = root_dirs[0]
         assert root_dir.is_dir
         assert root_dir.file_type == "directory"
 
-        # Check that files have proper attributes
-        files = {f.path: f for f in result.files}
         assert "Info.plist" in files
         assert "TestApp" in files
         assert "Assets.car" in files
 
         plist_file = files["Info.plist"]
         assert plist_file.file_type == "plist"
-        assert plist_file.size > 0
+        assert plist_file.size == to_nearest_block_size(
+            self.BASE_EXPECTED_FILES["Info.plist"], APPLE_FILESYSTEM_BLOCK_SIZE
+        )
         assert plist_file.hash
         assert not plist_file.is_dir
+
+        for path, expected_size in self.BASE_EXPECTED_FILES.items():
+            assert files[path].size == to_nearest_block_size(expected_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
     def test_max_depth_limiting(self, mock_xcarchive, temp_app_bundle):
         """Test that max_depth parameter creates omitted subtree nodes."""
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
         mock_xcarchive.get_asset_catalog_details.return_value = []
 
-        # Create deeper structure
         deep_dir = temp_app_bundle / "level1" / "level2" / "level3"
         deep_dir.mkdir(parents=True)
         (deep_dir / "deep_file.txt").write_text("deep content")
 
         result = analyze_apple_files(mock_xcarchive, max_depth=2)
 
-        # Check for omitted nodes
         omitted_files = [f for f in result.files if f.file_type == "directory_omitted"]
-        assert len(omitted_files) > 0
-
-        omitted_file = omitted_files[0]
-        assert "__omitted__" in omitted_file.path
-        assert omitted_file.size > 0
-        assert omitted_file.treemap_type == TreemapType.FILES
+        assert any(
+            ("__omitted__" in f.path)
+            and (f.size == to_nearest_block_size(len("deep content".encode("utf-8")), APPLE_FILESYSTEM_BLOCK_SIZE))
+            and (f.treemap_type == TreemapType.FILES)
+            for f in omitted_files
+        )
 
     def test_symlink_handling_ignore(self, mock_xcarchive, temp_app_bundle):
         """Test that symlinks are ignored when follow_symlinks=False."""
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
         mock_xcarchive.get_asset_catalog_details.return_value = []
 
-        # Create a symlink
         target_file = temp_app_bundle / "target.txt"
         target_file.write_text("target content")
         symlink_file = temp_app_bundle / "symlink.txt"
@@ -114,41 +137,16 @@ class TestAnalyzeAppleFiles:
         except OSError:
             pytest.skip("Symlinks not supported on this system")
 
-        result = analyze_apple_files(mock_xcarchive, follow_symlinks=False)
+        result = analyze_apple_files(mock_xcarchive)
 
         # Symlink should not be included
         file_paths = [f.path for f in result.files]
         assert "target.txt" in file_paths
         assert "symlink.txt" not in file_paths
 
-    def test_symlink_handling_follow(self, mock_xcarchive, temp_app_bundle):
-        """Test that symlinks are followed when follow_symlinks=True."""
-        mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
-        mock_xcarchive.get_asset_catalog_details.return_value = []
-
-        # Create a symlink
-        target_file = temp_app_bundle / "target.txt"
-        target_file.write_text("target content")
-        symlink_file = temp_app_bundle / "symlink.txt"
-
-        try:
-            symlink_file.symlink_to(target_file)
-        except OSError:
-            pytest.skip("Symlinks not supported on this system")
-
-        result = analyze_apple_files(mock_xcarchive, follow_symlinks=True)
-
-        # Both should be included, but due to inode deduplication, only one should remain
-        file_paths = [f.path for f in result.files]
-        # Either target.txt or symlink.txt should be present (but not both due to dedup)
-        assert ("target.txt" in file_paths) or ("symlink.txt" in file_paths)
-
     def test_asset_catalog_analysis(self, mock_xcarchive, temp_app_bundle):
         """Test .car file analysis creates child nodes."""
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
-
-        # Mock asset catalog details
-        from launchpad.artifacts.apple.zipped_xcarchive import AssetCatalogElement
 
         mock_elements = [
             AssetCatalogElement(
@@ -174,20 +172,21 @@ class TestAnalyzeAppleFiles:
 
         result = analyze_apple_files(mock_xcarchive)
 
-        # Find the .car file
         car_files = [f for f in result.files if f.file_type == "car"]
         assert len(car_files) == 1
         car_file = car_files[0]
 
-        # Should have children from asset catalog
-        assert len(car_file.children) >= 2  # At least the 2 mock elements
+        assert len(car_file.children) == 3
+        assert {c.size for c in car_file.children} == {1024, 2048, 1024}
+        assert car_file.size == to_nearest_block_size(
+            self.BASE_EXPECTED_FILES["Assets.car"], APPLE_FILESYSTEM_BLOCK_SIZE
+        )
 
     def test_file_type_detection(self, mock_xcarchive, temp_app_bundle):
         """Test file type detection for various file extensions."""
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
         mock_xcarchive.get_asset_catalog_details.return_value = []
 
-        # Create files with various extensions
         (temp_app_bundle / "test.json").write_text('{"test": true}')
         (temp_app_bundle / "test.png").write_bytes(b"fake_png")
         (temp_app_bundle / "test.dylib").write_bytes(b"fake_dylib")
@@ -200,7 +199,6 @@ class TestAnalyzeAppleFiles:
         assert files["test.json"].file_type == "json"
         assert files["test.png"].file_type == "png"
         assert files["test.dylib"].file_type == "dylib"
-        # no_extension should get detected via file command
         assert files["no_extension"].file_type in ["text", "unknown"]
 
     def test_directory_size_calculation(self, mock_xcarchive, temp_app_bundle):
@@ -210,14 +208,14 @@ class TestAnalyzeAppleFiles:
 
         result = analyze_apple_files(mock_xcarchive)
 
-        # Find the root directory
         root_dirs = [d for d in result.directories if d.path == ""]
         assert len(root_dirs) == 1
         root_dir = root_dirs[0]
 
-        # Root directory size should be sum of all file sizes (rounded to block size)
-        total_file_size = sum(f.size for f in result.files)
-        assert root_dir.size == total_file_size
+        # Root directory size should be sum of all file sizes
+        assert root_dir.size == sum(
+            to_nearest_block_size(size, APPLE_FILESYSTEM_BLOCK_SIZE) for size in self.BASE_EXPECTED_FILES.values()
+        )
 
     def test_directory_hashing(self, mock_xcarchive, temp_app_bundle):
         """Test that directory hashes are computed from child hashes."""
@@ -231,14 +229,12 @@ class TestAnalyzeAppleFiles:
             assert directory.hash
             assert len(directory.hash) > 0
 
-        # Empty directory should have specific hash
         empty_dir = temp_app_bundle / "empty_dir"
         empty_dir.mkdir()
 
         result2 = analyze_apple_files(mock_xcarchive)
         empty_dirs = [d for d in result2.directories if d.path == "empty_dir"]
         if empty_dirs:
-            # Should have the "empty_directory" hash
             assert empty_dirs[0].hash
 
     @patch("os.walk")
@@ -264,7 +260,6 @@ class TestAnalyzeAppleFiles:
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
         mock_xcarchive.get_asset_catalog_details.return_value = []
 
-        # Create a hard link (if supported)
         original_file = temp_app_bundle / "original.txt"
         original_file.write_text("shared content")
         hardlink_file = temp_app_bundle / "hardlink.txt"
@@ -276,13 +271,11 @@ class TestAnalyzeAppleFiles:
 
         result = analyze_apple_files(mock_xcarchive)
 
-        # Should only have one of the files due to inode deduplication
         file_paths = [f.path for f in result.files]
         has_original = "original.txt" in file_paths
         has_hardlink = "hardlink.txt" in file_paths
 
-        # Exactly one should be present
-        assert has_original != has_hardlink  # XOR - exactly one should be True
+        assert has_original != has_hardlink
 
     def test_hash_consistency(self, mock_xcarchive, temp_app_bundle):
         """Test that file hashes are consistent across multiple runs."""
@@ -294,7 +287,6 @@ class TestAnalyzeAppleFiles:
 
         assert len(result1.files) == len(result2.files)
 
-        # Hashes should be consistent
         files1 = {f.path: f for f in result1.files}
         files2 = {f.path: f for f in result2.files}
 
@@ -327,11 +319,9 @@ class TestAnalyzeAppleFiles:
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
         mock_xcarchive.get_asset_catalog_details.return_value = []
 
-        # Create a file without extension
         unknown_file = temp_app_bundle / "unknown_file"
         unknown_file.write_bytes(b"some binary data")
 
-        # Mock subprocess to simulate file command failure
         mock_subprocess.side_effect = subprocess.CalledProcessError(1, "file")
 
         result = analyze_apple_files(mock_xcarchive)
