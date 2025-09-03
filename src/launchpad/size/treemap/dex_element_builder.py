@@ -62,8 +62,14 @@ class DexElementBuilder(TreemapElementBuilder):
             # Add the class to the leaf package
             leaf_package = package_tree
             for package_part in package_parts:
-                leaf_package = leaf_package[package_part]["packages"]
-            leaf_package[class_name] = {"class_def": class_def}
+                if package_part not in leaf_package:
+                    leaf_package[package_part] = {"packages": {}, "classes": {}}
+                if package_part == package_parts[-1]:
+                    # This is the final package, add the class here
+                    leaf_package[package_part]["classes"][class_name] = {"class_def": class_def}
+                else:
+                    # Navigate to the next level
+                    leaf_package = leaf_package[package_part]["packages"]
 
         return self._convert_tree_to_elements(package_tree)
 
@@ -71,28 +77,32 @@ class DexElementBuilder(TreemapElementBuilder):
         elements: list[TreemapElement] = []
 
         for name, node in package_tree.items():
-            if "class_def" in node:
-                class_def = node["class_def"]
-                class_element = self._create_class_element(class_def)
-                elements.append(class_element)
-            else:
-                package_path = f"{parent_path}.{name}" if parent_path else f"{name}"
+            package_path = f"{parent_path}.{name}" if parent_path else f"{name}"
 
-                # Process children (sub-packages and classes)
-                children = self._convert_tree_to_elements(node["packages"], package_path)
+            # Process sub-packages
+            children = []
+            if "packages" in node:
+                children.extend(self._convert_tree_to_elements(node["packages"], package_path))
 
-                total_size = sum(child.size for child in children)
+            # Process classes in this package
+            if "classes" in node:
+                for class_name, class_node in node["classes"].items():
+                    class_def = class_node["class_def"]
+                    class_element = self._create_class_element(class_def)
+                    children.append(class_element)
 
-                elements.append(
-                    TreemapElement(
-                        name=name,
-                        size=total_size,
-                        type=TreemapType.DEX,
-                        path=package_path,
-                        is_dir=True,
-                        children=children,
-                    )
+            total_size = sum(child.size for child in children)
+
+            elements.append(
+                TreemapElement(
+                    name=name,
+                    size=total_size,
+                    type=TreemapType.DEX,
+                    path=package_path,
+                    is_dir=True,
+                    children=children,
                 )
+            )
 
         return elements
 
