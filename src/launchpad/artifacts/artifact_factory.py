@@ -1,6 +1,5 @@
 import logging
 
-from io import BytesIO
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 
@@ -34,12 +33,14 @@ class ArtifactFactory:
         if not path.is_file():
             raise FileNotFoundError(f"Path is not a file: {path}")
 
-        content = path.read_bytes()
+        # Read only the first few bytes to check for ZIP magic bytes
+        with open(path, "rb") as f:
+            magic_bytes = f.read(4)
 
         # Check if it's a zip file by looking at magic bytes
-        if content.startswith(b"PK\x03\x04"):
+        if magic_bytes.startswith(b"PK\x03\x04"):
             try:
-                with ZipFile(BytesIO(content)) as zip_file:
+                with ZipFile(path) as zip_file:
                     # Check if zip contains a Info.plist in the root of the .xcarchive folder (ZippedXCArchive)
                     plist_files = [f for f in zip_file.namelist() if f.endswith(".xcarchive/Info.plist")]
                     if plist_files:
@@ -72,7 +73,7 @@ class ArtifactFactory:
 
         # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations
         try:
-            with ZipFile(BytesIO(content)) as zip_file:
+            with ZipFile(path) as zip_file:
                 if any(f.endswith("base/manifest/AndroidManifest.xml") for f in zip_file.namelist()):
                     return AAB(path)
 

@@ -258,7 +258,8 @@ class DexBaseUtils:
             case EncodedValueType.SHORT:
                 value = buffer_wrapper.read_sized_int(value_arg + 1)
             case EncodedValueType.CHAR:
-                value = chr(buffer_wrapper.read_u16())
+                char_value = buffer_wrapper.read_sized_uint(value_arg + 1)
+                value = chr(char_value)
             case EncodedValueType.INT:
                 value = buffer_wrapper.read_sized_int(value_arg + 1)
             case EncodedValueType.LONG:
@@ -376,8 +377,9 @@ class DexBaseUtils:
             annotations=[],
         )
 
+        field = field_parser.parse()
         buffer_wrapper.seek(cursor)
-        return field_parser.parse()
+        return field
 
     @staticmethod
     def get_encoded_method(buffer_wrapper: BufferWrapper, header: DexFileHeader, method_index: int) -> Method:
@@ -415,8 +417,9 @@ class DexBaseUtils:
             annotations=[],
         )
 
+        method = method_parser.parse()
         buffer_wrapper.seek(cursor)
-        return method_parser.parse()
+        return method
 
     @staticmethod
     def get_encoded_array(buffer_wrapper: BufferWrapper, header: DexFileHeader) -> list[EncodedValue]:
@@ -501,8 +504,8 @@ class DexBaseUtils:
 
         string_index = buffer_wrapper.read_u32()
         string = DexBaseUtils.get_string(buffer_wrapper, header, string_index)
-        buffer_wrapper.seek(cursor)
 
+        buffer_wrapper.seek(cursor)
         return string
 
     @staticmethod

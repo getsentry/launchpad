@@ -43,7 +43,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     MIN_SAVINGS_THRESHOLD = 4096
     TARGET_JPEG_QUALITY = 85
     TARGET_HEIC_QUALITY = 85
-    _MAX_WORKERS = 8
+    _MAX_WORKERS = 4
 
     def generate(self, input: InsightsInput) -> ImageOptimizationInsightResult | None:  # noqa: D401
         files = list(self._iter_optimizable_files(input.file_analysis.files))
@@ -127,8 +127,11 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                 if fmt == "png":
                     img.save(buf, format="PNG", **save_params)
                 else:
-                    work = img.convert("RGB") if img.mode in {"RGBA", "LA", "P"} else img
-                    work.save(buf, format="JPEG", quality=self.TARGET_JPEG_QUALITY, **save_params)
+                    if img.mode in {"RGBA", "LA", "P"}:
+                        with img.convert("RGB") as work:
+                            work.save(buf, format="JPEG", quality=self.TARGET_JPEG_QUALITY, **save_params)
+                    else:
+                        img.save(buf, format="JPEG", quality=self.TARGET_JPEG_QUALITY, **save_params)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
         except Exception as exc:
