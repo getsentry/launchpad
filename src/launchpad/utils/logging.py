@@ -53,6 +53,10 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     if not verbose:
         logging.getLogger("lief").setLevel(logging.WARNING)
 
+    # Set levels for third-party libraries
+    logging.getLogger("datadog.dogstatsd").setLevel(logging.ERROR)
+    logging.getLogger("arroyo.processing.processor").setLevel(logging.ERROR)
+
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger with the specified name."""
