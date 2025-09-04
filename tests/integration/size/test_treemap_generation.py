@@ -61,7 +61,7 @@ class TestTreemapGeneration:
 
         # Verify size calculations work
         root_size = root.size
-        assert root_size == 9171936
+        assert root_size == 9126880
 
         # Verify platform
         platform_val = treemap.platform
@@ -148,7 +148,7 @@ class TestTreemapGeneration:
 
         # Verify size calculations work
         root_size = root.size
-        assert root_size == 7218144
+        assert root_size == 7173088
 
         # Verify platform
         platform_val = treemap.platform

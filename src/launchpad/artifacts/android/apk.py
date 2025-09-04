@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
+from typing import IO, Iterator
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.apksigner import Apksigner
@@ -29,6 +31,14 @@ class APK(AndroidArtifact):
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
         self._class_definitions: list[ClassDefinition] | None = None
+
+    @contextmanager
+    def raw_file(self) -> Iterator[IO[bytes]]:
+        f = open(self._path, "rb")
+        try:
+            yield f
+        finally:
+            f.close()
 
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:

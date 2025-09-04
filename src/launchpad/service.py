@@ -225,6 +225,15 @@ class LaunchpadService:
                         universal_apk = artifact.get_aab().get_universal_apk(temp_dir)
                     sentry_client.upload_installable_app(organization_id, project_id, artifact_id, universal_apk._path)
                     logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
+            elif isinstance(artifact, (APK, ZippedAPK)):
+                if isinstance(artifact, ZippedAPK):
+                    apk = artifact.get_primary_apk()
+                else:
+                    apk = artifact
+
+                with apk.raw_file() as f:
+                    sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+                    logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
 
             analyzer = self._create_analyzer(app_info)
             logger.info(f"Running full analysis on {temp_file}...")

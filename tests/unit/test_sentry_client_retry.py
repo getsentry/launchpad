@@ -1,10 +1,15 @@
 """Tests for retry logic in SentryClient."""
 
+import hashlib
+import io
+
 from unittest.mock import Mock, patch
 
 import requests
+import responses
 
 from requests.adapters import HTTPAdapter
+from responses.matchers import multipart_matcher
 from urllib3.util.retry import Retry
 
 from launchpad.sentry_client import SentryClient, create_retry_session
@@ -16,7 +21,7 @@ class TestSentryClientRetry:
     def setup_method(self):
         """Set up test fixtures."""
         with patch.dict("os.environ", {"LAUNCHPAD_RPC_SHARED_SECRET": "test_secret"}):
-            self.client = SentryClient(base_url="https://test.sentry.io")
+            self.client = SentryClient(base_url="https://example.com")
 
     def test_create_retry_session_configuration(self):
         """Test that create_retry_session creates a session with correct retry configuration."""
@@ -49,7 +54,7 @@ class TestSentryClientRetry:
     def test_sentry_client_uses_retry_session(self):
         """Test that SentryClient uses a retry session."""
         with patch.dict("os.environ", {"LAUNCHPAD_RPC_SHARED_SECRET": "test_secret"}):
-            client = SentryClient(base_url="https://test.sentry.io")
+            client = SentryClient(base_url="https://example.com")
 
             # Check that the client has a session
             assert hasattr(client, "session")
@@ -76,7 +81,7 @@ class TestSentryClientRetry:
 
         # Create client with mocked session
         with patch.dict("os.environ", {"LAUNCHPAD_RPC_SHARED_SECRET": "test_secret"}):
-            client = SentryClient(base_url="https://test.sentry.io")
+            client = SentryClient(base_url="https://example.com")
             client.session = mock_session
 
         # Mock file object
@@ -102,37 +107,13 @@ class TestSentryClientRetry:
 
         # Create client with mocked session
         with patch.dict("os.environ", {"LAUNCHPAD_RPC_SHARED_SECRET": "test_secret"}):
-            client = SentryClient(base_url="https://test.sentry.io")
+            client = SentryClient(base_url="https://example.com")
             client.session = mock_session
 
         result = client.update_artifact("test-org", "test-project", "test-artifact", {"version": "1.0"})
 
         assert result == {"success": True}
         assert mock_session.request.called
-
-    @patch("launchpad.sentry_client.requests.Session")
-    def test_upload_chunk_with_retry_session(self, mock_session_class):
-        """Test that _upload_chunk uses the retry session."""
-        # Mock the session and its methods
-        mock_session = Mock()
-        mock_session_class.return_value = mock_session
-
-        # Mock successful response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_session.post.return_value = mock_response
-
-        # Create client with mocked session
-        with patch.dict("os.environ", {"LAUNCHPAD_RPC_SHARED_SECRET": "test_secret"}):
-            client = SentryClient(base_url="https://test.sentry.io")
-            client.session = mock_session
-
-        chunk = {"checksum": "abcd1234", "data": b"test data", "size": 9}
-
-        result = client._upload_chunk("test-org", chunk)
-
-        assert result is True
-        assert mock_session.post.called
 
     def test_retry_strategy_configuration(self):
         """Test that the retry strategy is configured correctly."""
@@ -174,7 +155,7 @@ class TestSentryClientRetry:
 
         # Create client with mocked session
         with patch.dict("os.environ", {"LAUNCHPAD_RPC_SHARED_SECRET": "test_secret"}):
-            client = SentryClient(base_url="https://test.sentry.io")
+            client = SentryClient(base_url="https://example.com")
             client.session = mock_session
 
         result = client._make_json_request("POST", "/test", {"key": "value"})
@@ -185,4 +166,84 @@ class TestSentryClientRetry:
         # Verify the call was made with correct parameters
         call_args = mock_session.request.call_args
         assert call_args[1]["method"] == "POST"
-        assert "test.sentry.io/test" in call_args[1]["url"]
+        assert "example.com/test" in call_args[1]["url"]
+
+
+@responses.activate
+def test_upload_installable_app_single_chunk():
+    responses.add(
+        responses.GET,
+        "https://example.com/api/0/organizations/some_org/chunk-upload/",
+        json={},
+    )
+    responses.add(
+        responses.POST,
+        "https://example.com/api/0/internal/some_org/some_project/files/preprodartifacts/some_artifact_id/assemble-generic/",
+        json={},
+    )
+
+    sha1_of_hello_world = "943a702d06f34599aee1f8da8ef9f7296031d699"
+
+    responses.add(
+        responses.POST,
+        "https://example.com/api/0/organizations/some_org/chunk-upload/",
+        match=[
+            multipart_matcher({"file": (sha1_of_hello_world, b"Hello, world!", "application/octet-stream")}),
+        ],
+    )
+
+    client = SentryClient(base_url="https://example.com", shared_secret="password")
+
+    f = io.BytesIO(b"Hello, world!")
+    client.upload_installable_app(
+        "some_org",
+        "some_project",
+        "some_artifact_id",
+        f,
+    )
+
+
+@responses.activate
+def test_upload_installable_app_multiple_chunks():
+    responses.add(
+        responses.GET,
+        "https://example.com/api/0/organizations/some_org/chunk-upload/",
+        json={},
+    )
+    responses.add(
+        responses.POST,
+        "https://example.com/api/0/internal/some_org/some_project/files/preprodartifacts/some_artifact_id/assemble-generic/",
+        json={},
+    )
+
+    first_chunk = b"A" * 8 * 1024 * 1024
+    second_chunk = b"B"
+    first_chunk_sha1 = hashlib.sha1(first_chunk).hexdigest()
+    second_chunk_sha1 = hashlib.sha1(second_chunk).hexdigest()
+    data = first_chunk + second_chunk
+
+    responses.add(
+        responses.POST,
+        "https://example.com/api/0/organizations/some_org/chunk-upload/",
+        match=[
+            multipart_matcher({"file": (first_chunk_sha1, first_chunk, "application/octet-stream")}),
+        ],
+    )
+
+    responses.add(
+        responses.POST,
+        "https://example.com/api/0/organizations/some_org/chunk-upload/",
+        match=[
+            multipart_matcher({"file": (second_chunk_sha1, second_chunk, "application/octet-stream")}),
+        ],
+    )
+
+    client = SentryClient(base_url="https://example.com", shared_secret="password")
+
+    f = io.BytesIO(data)
+    client.upload_installable_app(
+        "some_org",
+        "some_project",
+        "some_artifact_id",
+        f,
+    )
