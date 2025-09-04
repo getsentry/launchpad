@@ -100,5 +100,26 @@
       },
       "justMyCode": false
     },
+    {
+      "name": "Python: Debug Android APK CLI",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "launchpad.cli",
+      "args": [
+        "size",
+        "--verbose",
+        "tests/_fixtures/android/zipped_apk.zip",
+        "--output",
+        "output/android-apk-size-output.json"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
+      },
+      "justMyCode": false
+    },
   ]
 }
