@@ -9,7 +9,11 @@ from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
-from launchpad.utils.file_utils import calculate_file_hash, get_file_size, to_nearest_block_size
+from launchpad.utils.file_utils import (
+    calculate_file_hash,
+    get_file_size,
+    to_nearest_block_size,
+)
 from launchpad.utils.performance import trace
 
 logger = logging.getLogger(__name__)
@@ -72,18 +76,20 @@ def analyze_apple_files(
             if file_type == "car":
                 children = _analyze_asset_catalog(xcarchive, Path(rel))
                 children_size = sum(child.size for child in children)
-                children.append(
-                    FileInfo(
-                        full_path=file_path,
-                        path=f"{rel}/Other",
-                        size=size - children_size,
-                        file_type="unknown",
-                        hash=file_hash,  # keep the same field name for BC, even if algo != md5
-                        treemap_type=TreemapType.ASSETS,
-                        is_dir=False,
-                        children=[],
+                other_size = max(size - children_size, 0)
+                if other_size > 0:
+                    children.append(
+                        FileInfo(
+                            full_path=file_path,
+                            path=f"{rel}/Other",
+                            size=size - children_size,
+                            file_type="unknown",
+                            hash=file_hash,  # keep the same field name for BC, even if algo != md5
+                            treemap_type=TreemapType.ASSETS,
+                            is_dir=False,
+                            children=[],
+                        )
                     )
-                )
 
             fi = FileInfo(
                 full_path=file_path,
@@ -203,7 +209,7 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
                 full_path=element.full_path,
                 path=str(relative_path / element.name),
                 size=element.size,
-                file_type=Path(element.full_path).suffix.lstrip(".") if element.full_path else "other",
+                file_type=(Path(element.full_path).suffix.lstrip(".") if element.full_path else "other"),
                 hash=file_hash,
                 treemap_type=TreemapType.ASSETS,
                 is_dir=False,

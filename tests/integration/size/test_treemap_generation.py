@@ -212,9 +212,9 @@ class TestTreemapGeneration:
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 
         install_size = results.install_size
-        assert install_size == 7364608
+        assert install_size == 7335936
         download_size = results.download_size
-        assert download_size == 4195669
+        assert download_size == 4202512
 
         # Verify treemap was generated
         treemap = results.treemap
