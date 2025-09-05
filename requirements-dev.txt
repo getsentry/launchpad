@@ -18,6 +18,7 @@ safety>=3.6.1
 bandit>=1.7.0
 pip-audit>=2.6.0
 debugpy>=1.8.16
+responses>=0.25.8
 
 # Testing web endpoints
 aiohttp-test-utils>=0.5.0
