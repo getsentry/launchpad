@@ -10,6 +10,7 @@ from launchpad.constants import (
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
+from launchpad.sentry_client import SentryClientError
 from launchpad.service import LaunchpadService
 
 
@@ -151,7 +152,7 @@ class TestLaunchpadServiceErrorHandling:
         """Test that _update_artifact_error successfully updates artifact with error."""
         mock_sentry_client = Mock()
         mock_sentry_client_class.return_value = mock_sentry_client
-        mock_sentry_client.update_artifact.return_value = {"success": True}
+        mock_sentry_client.update_artifact.return_value = None
 
         self.service._update_artifact_error(
             mock_sentry_client,
@@ -196,7 +197,7 @@ class TestLaunchpadServiceErrorHandling:
         """Test that _update_artifact_error handles exceptions gracefully."""
         mock_sentry_client = Mock()
         mock_sentry_client_class.return_value = mock_sentry_client
-        mock_sentry_client.update_artifact.side_effect = Exception("Network error")
+        mock_sentry_client.update_artifact.side_effect = SentryClientError()
 
         # Should not raise an exception
         self.service._update_artifact_error(

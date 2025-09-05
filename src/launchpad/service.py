@@ -35,7 +35,7 @@ from launchpad.constants import (
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
-from launchpad.sentry_client import ErrorResult, SentryClient, categorize_http_error
+from launchpad.sentry_client import SentryClient, SentryClientError
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.apple import AppleAppInfo
@@ -183,19 +183,15 @@ class LaunchpadService:
 
             update_data = self._prepare_update_data(app_info, artifact)
             logger.info(f"Sending preprocessed info to Sentry for artifact {artifact_id}...")
-            update_result = sentry_client.update_artifact(
-                org=organization_id,
-                project=project_id,
-                artifact_id=artifact_id,
-                data=update_data,
-            )
-
-            # Check if update_result is an ErrorResult
-            if isinstance(update_result, ErrorResult):
-                error_category, error_description = categorize_http_error(update_result)
-                error_msg = f"Failed to send preprocessed info: {error_description}"
-                logger.error(error_msg)
-                # Use the categorized error description for the database
+            try:
+                sentry_client.update_artifact(
+                    org=organization_id,
+                    project=project_id,
+                    artifact_id=artifact_id,
+                    data=update_data,
+                )
+            except SentryClientError as e:
+                logger.exception(e)
                 self._update_artifact_error(
                     sentry_client,
                     artifact_id,
@@ -203,18 +199,19 @@ class LaunchpadService:
                     organization_id,
                     ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                     ProcessingErrorMessage.UPDATE_FAILED,
-                    error_description,
+                    e.user_facing_message(),
                 )
                 return
-
-            logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
+            else:
+                logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
 
             if isinstance(artifact, ZippedXCArchive) and app_info.is_code_signature_valid and not app_info.is_simulator:
                 with tempfile.TemporaryDirectory() as temp_dir_str:
                     temp_dir = Path(temp_dir_str)
                     ipa_path = temp_dir / "App.ipa"
                     cast(ZippedXCArchive, artifact).generate_ipa(ipa_path)
-                    sentry_client.upload_installable_app(organization_id, project_id, artifact_id, str(ipa_path))
+                    with open(ipa_path, "rb") as f:
+                        sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
                     logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
             elif isinstance(artifact, (AAB, ZippedAAB)):
                 with tempfile.TemporaryDirectory() as temp_dir_str:
@@ -223,7 +220,8 @@ class LaunchpadService:
                         universal_apk = artifact.get_universal_apk(temp_dir)
                     else:  # ZippedAAB
                         universal_apk = artifact.get_aab().get_universal_apk(temp_dir)
-                    sentry_client.upload_installable_app(organization_id, project_id, artifact_id, universal_apk._path)
+                    with universal_apk.raw_file() as f:
+                        sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
                     logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
             elif isinstance(artifact, (APK, ZippedAPK)):
                 if isinstance(artifact, ZippedAPK):
@@ -349,25 +347,25 @@ class LaunchpadService:
         detailed_error: str | None = None,
     ) -> None:
         """Update artifact with error information."""
+        logger.info(f"Updating artifact {artifact_id} with error code {error_code.value}")
+
+        # Use detailed error message if provided, otherwise use enum value
+        final_error_message = f"{error_message.value}: {detailed_error}" if detailed_error else error_message.value
+
+        # Log error to datadog with tags for better monitoring
+        if self._statsd:
+            self._statsd.increment(
+                "artifact.processing.error",
+                tags=[
+                    f"error_code:{error_code.value}",
+                    f"error_type:{error_message.name}",
+                    f"project_id:{project_id}",
+                    f"organization_id:{organization_id}",
+                ],
+            )
+
         try:
-            logger.info(f"Updating artifact {artifact_id} with error code {error_code.value}")
-
-            # Use detailed error message if provided, otherwise use enum value
-            final_error_message = f"{error_message.value}: {detailed_error}" if detailed_error else error_message.value
-
-            # Log error to datadog with tags for better monitoring
-            if self._statsd:
-                self._statsd.increment(
-                    "artifact.processing.error",
-                    tags=[
-                        f"error_code:{error_code.value}",
-                        f"error_type:{error_message.name}",
-                        f"project_id:{project_id}",
-                        f"organization_id:{organization_id}",
-                    ],
-                )
-
-            result = sentry_client.update_artifact(
+            sentry_client.update_artifact(
                 org=organization_id,
                 project=project_id,
                 artifact_id=artifact_id,
@@ -376,17 +374,10 @@ class LaunchpadService:
                     "error_message": final_error_message,
                 },
             )
-
-            if isinstance(result, ErrorResult):
-                logger.error(f"Failed to update artifact with error: {result.error}")
-            else:
-                logger.info(f"Successfully updated artifact {artifact_id} with error information")
-
-        except Exception as e:
-            logger.error(
-                f"Failed to update artifact {artifact_id} with error information: {e}",
-                exc_info=True,
-            )
+        except SentryClientError as e:
+            logger.error(f"Failed to update artifact with error {final_error_message} due to {e}", exc_info=True)
+        else:
+            logger.info(f"Successfully updated artifact {artifact_id} with error information")
 
     def _download_artifact_to_temp_file(
         self,
@@ -503,58 +494,30 @@ class LaunchpadService:
         organization_id: str,
     ) -> None:
         """Upload analysis results to Sentry."""
-        analysis_file = None
-
         try:
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as af:
-                json.dump(results.to_dict(), af, indent=2)
-                analysis_file = af.name
-
-            logger.info(f"Analysis results written to temporary file: {analysis_file}")
-            logger.info(f"Uploading analysis results for artifact {artifact_id}...")
-
-            upload_result = sentry_client.upload_size_analysis_file(
-                org=organization_id,
-                project=project_id,
-                artifact_id=artifact_id,
-                file_path=analysis_file,
+            with tempfile.TemporaryFile() as file:
+                file.write(json.dumps(results.to_dict()).encode())
+                file.seek(0)
+                sentry_client.upload_size_analysis_file(
+                    org=organization_id,
+                    project=project_id,
+                    artifact_id=artifact_id,
+                    file=file,
+                )
+        except SentryClientError as e:
+            logger.exception(e)
+            self._update_artifact_error(
+                sentry_client,
+                artifact_id,
+                project_id,
+                organization_id,
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.UPLOAD_FAILED,
+                e.user_facing_message(),
             )
-
-            if isinstance(upload_result, ErrorResult):
-                error_category, error_description = categorize_http_error(upload_result)
-                error_msg = f"Failed to upload analysis results: {error_description}"
-                logger.error(error_msg)
-                # Use the categorized error description for the database
-                self._update_artifact_error(
-                    sentry_client,
-                    artifact_id,
-                    project_id,
-                    organization_id,
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.UPLOAD_FAILED,
-                    error_description,
-                )
-                raise RuntimeError(error_msg)
-
+            raise e
+        else:
             logger.info(f"Successfully uploaded analysis results for artifact {artifact_id}")
-
-        except Exception as e:
-            if not isinstance(e, RuntimeError):
-                detailed_error = str(e)
-                self._update_artifact_error(
-                    sentry_client,
-                    artifact_id,
-                    project_id,
-                    organization_id,
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.UPLOAD_FAILED,
-                    detailed_error,
-                )
-            raise
-
-        finally:
-            if analysis_file:
-                self._safe_cleanup(analysis_file, "analysis file")
 
     def _safe_cleanup(self, file_path: str, description: str) -> None:
         """Safely clean up a file with error handling."""
