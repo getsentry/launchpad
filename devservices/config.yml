@@ -43,6 +43,7 @@ services:
       LAUNCHPAD_HOST: "0.0.0.0" # Inside container, but port binding restricts access
       LAUNCHPAD_PORT: "2218"
       LAUNCHPAD_ENV: "development"
+      SENTRY_BASE_URL: "http://host.docker.internal:8000"
     platform: linux/amd64
     extra_hosts:
       host.docker.internal: host-gateway
