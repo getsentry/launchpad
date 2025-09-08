@@ -28,7 +28,9 @@ jobs:
 
       - name: Unzip iOS app
         run: |
-          unzip -o ./tests/_fixtures/ios/HackerNews.xcarchive.zip -d ./HackerNews.xcarchive
+          unzip -o ./tests/_fixtures/ios/HackerNews.xcarchive.zip
+          EXTRACTED_PATH=$(find . -name "*.xcarchive" -type d | head -1)
+          mv "$EXTRACTED_PATH" ./HackerNews.xcarchive
 
       - name: Upload iOS app to Sentry
         run: |
@@ -56,7 +58,7 @@ jobs:
              --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
              build \
              upload \
-             ./ios/HackerNews.xcarchive \
+             ./HackerNews.xcarchive \
              --org sentry \
              --project launchpad-test-ios \
              --head-sha ${{ github.sha }} \
