@@ -28,7 +28,7 @@ jobs:
 
       - name: Unzip iOS app
         run: |
-          unzip -o ./tests/_fixtures/ios/HackerNews.xcarchive.zip
+          unzip -o ./tests/_fixtures/ios/HackerNews_without_parsedassets.xcarchive.zip
           EXTRACTED_PATH=$(find . -name "*.xcarchive" -type d | head -1)
           mv "$EXTRACTED_PATH" ./HackerNews.xcarchive
 
