@@ -78,7 +78,7 @@ jobs:
              upload \
              ./tests/_fixtures/android/hn.aab \
              --org sentry \
-             --project launchpad-test-ios \
+             --project launchpad-test-android \
              --head-sha ${{ github.event.pull_request.head.sha }} \
              --base-sha ${{ github.event.pull_request.base.sha }} \
              --vcs-provider github \
