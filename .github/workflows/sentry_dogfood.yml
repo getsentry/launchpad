@@ -1,0 +1,101 @@
+name: Sentry Dogfooding
+
+on:
+  pull_request:
+    branches: [main]
+    paths: [src/**, .github/workflows/sentry_dogfood.yml]
+  push:
+    branches: [main]
+    paths: [src/**, .github/workflows/sentry_dogfood.yml]
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install Sentry CLI
+        run: |
+          curl -L -o sentry-cli https://github.com/getsentry/sentry-cli/releases/download/2.53.0-alpha/sentry-cli-Darwin-universal
+          chmod +x sentry-cli
+          sudo mv sentry-cli /usr/local/bin/
+
+      - name: Unzip iOS app
+        run: |
+          unzip -o ./tests/_fixtures/ios/HackerNews.xcarchive.zip -d ./ios/HackerNews.xcarchive
+
+      - name: Upload iOS app to Sentry
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            sentry-cli \
+             --log-level=debug \
+             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             build \
+             upload \
+             ./ios/HackerNews.xcarchive \
+             --org sentry \
+             --project launchpad-test-ios \
+             --head-sha ${{ github.event.pull_request.head.sha }} \
+             --base-sha ${{ github.event.pull_request.base.sha }} \
+             --vcs-provider github \
+             --head-repo-name ${{ github.repository }} \
+             --base-repo-name ${{ github.repository }} \
+             --head-ref ${{ github.head_ref }} \
+             --base-ref ${{ github.base_ref }} \
+             --pr-number ${{ github.event.number }} \
+             --build-configuration Release
+          else
+            sentry-cli \
+             --log-level=debug \
+             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             build \
+             upload \
+             ./ios/HackerNews.xcarchive \
+             --org sentry \
+             --project launchpad-test-ios \
+             --head-sha ${{ github.sha }} \
+             --vcs-provider github \
+             --head-repo-name ${{ github.repository }} \
+             --head-ref ${{ github.ref_name }} \
+             --build-configuration Release
+          fi
+
+      - name: Upload Android app to Sentry
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            sentry-cli \
+             --log-level=debug \
+             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             build \
+             upload \
+             ./tests/_fixtures/android/hn.aab \
+             --org sentry \
+             --project launchpad-test-ios \
+             --head-sha ${{ github.event.pull_request.head.sha }} \
+             --base-sha ${{ github.event.pull_request.base.sha }} \
+             --vcs-provider github \
+             --head-repo-name ${{ github.repository }} \
+             --base-repo-name ${{ github.repository }} \
+             --head-ref ${{ github.head_ref }} \
+             --base-ref ${{ github.base_ref }} \
+             --pr-number ${{ github.event.number }} \
+             --build-configuration Release
+          else
+            sentry-cli \
+             --log-level=debug \
+             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             build \
+             upload \
+             ./tests/_fixtures/android/hn.aab \
+             --org sentry \
+             --project launchpad-test-android \
+             --head-sha ${{ github.sha }} \
+             --vcs-provider github \
+             --head-repo-name ${{ github.repository }} \
+             --head-ref ${{ github.ref_name }} \
+             --build-configuration Release
+          fi
