@@ -17,12 +17,16 @@ from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
-from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
+from launchpad.parsers.apple.swift_symbol_type_aggregator import (
+    SwiftSymbolTypeAggregator,
+)
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
-from launchpad.size.insights.apple.localized_strings_minify import MinifyLocalizedStringsInsight
+from launchpad.size.insights.apple.localized_strings_minify import (
+    MinifyLocalizedStringsInsight,
+)
 from launchpad.size.insights.apple.loose_images import LooseImagesInsight
 from launchpad.size.insights.apple.main_binary_export_metadata import (
     MainBinaryExportMetadataInsight,
@@ -30,12 +34,10 @@ from launchpad.size.insights.apple.main_binary_export_metadata import (
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.apple.unnecessary_files import UnnecessaryFilesInsight
-from launchpad.size.insights.common.audio_compression import AudioCompressionInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
 from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
-from launchpad.size.insights.common.video_compression import VideoCompressionInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
@@ -177,7 +179,9 @@ class AppleAppAnalyzer:
                     LocalizedStringsInsight, insights_input, "localized_strings"
                 ),
                 localized_strings_minify=self._generate_insight_with_tracing(
-                    MinifyLocalizedStringsInsight, insights_input, "localized_strings_minify"
+                    MinifyLocalizedStringsInsight,
+                    insights_input,
+                    "localized_strings_minify",
                 ),
                 hermes_debug_info=self._generate_insight_with_tracing(
                     HermesDebugInfoInsight, insights_input, "hermes_debug_info"
@@ -188,17 +192,20 @@ class AppleAppAnalyzer:
                     ImageOptimizationInsight, insights_input, "image_optimization"
                 ),
                 main_binary_exported_symbols=self._generate_insight_with_tracing(
-                    MainBinaryExportMetadataInsight, insights_input, "main_binary_exported_symbols"
+                    MainBinaryExportMetadataInsight,
+                    insights_input,
+                    "main_binary_exported_symbols",
                 ),
                 unnecessary_files=self._generate_insight_with_tracing(
                     UnnecessaryFilesInsight, insights_input, "unnecessary_files"
                 ),
-                audio_compression=self._generate_insight_with_tracing(
-                    AudioCompressionInsight, insights_input, "audio_compression"
-                ),
-                video_compression=self._generate_insight_with_tracing(
-                    VideoCompressionInsight, insights_input, "video_compression"
-                ),
+                # TODO: enable audio/video compression insights once we handle ffmpeg
+                # audio_compression=self._generate_insight_with_tracing(
+                #     AudioCompressionInsight, insights_input, "audio_compression"
+                # ),
+                # video_compression=self._generate_insight_with_tracing(
+                #     VideoCompressionInsight, insights_input, "video_compression"
+                # ),
             )
 
         results = AppleAnalysisResults(
@@ -349,7 +356,10 @@ class AppleAppAnalyzer:
 
     @trace("apple.analyze_binary")
     def _analyze_binary(
-        self, binary_info: BinaryInfo, app_bundle_path: Path, skip_swift_metadata: bool = False
+        self,
+        binary_info: BinaryInfo,
+        app_bundle_path: Path,
+        skip_swift_metadata: bool = False,
     ) -> MachOBinaryAnalysis | None:
         binary_path = binary_info.path
         dwarf_binary_path = binary_info.dsym_path
@@ -458,7 +468,11 @@ class AppleAppAnalyzer:
 
                 with trace_ctx("strip_symbols.strip_binary"):
                     apple_strip = AppleStrip()
-                    result = apple_strip.strip(input_file=binary_path, output_file=temp_output_path, flags=strip_flags)
+                    result = apple_strip.strip(
+                        input_file=binary_path,
+                        output_file=temp_output_path,
+                        flags=strip_flags,
+                    )
 
                 if result.returncode != 0:
                     logger.error(f"Strip command failed for {binary_path.name} with return code {result.returncode}")
@@ -494,7 +508,13 @@ class AppleAppAnalyzer:
                         section_name = self._parse_lief_name(section.name)
                         section_infos.append(SectionInfo(name=section_name, size=section.size))
 
-                    segments.append(SegmentInfo(name=segment_name, sections=section_infos, size=command.file_size))
+                    segments.append(
+                        SegmentInfo(
+                            name=segment_name,
+                            sections=section_infos,
+                            size=command.file_size,
+                        )
+                    )
         except Exception as e:
             logger.warning(f"Error extracting segments info: {e}")
 
