@@ -2,11 +2,13 @@ name: Sentry Dogfooding
 
 on:
   pull_request:
-    branches: [main]
     paths: [src/**, .github/workflows/sentry_dogfood.yml]
   push:
     branches: [main]
     paths: [src/**, .github/workflows/sentry_dogfood.yml]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -26,7 +28,7 @@ jobs:
 
       - name: Unzip iOS app
         run: |
-          unzip -o ./tests/_fixtures/ios/HackerNews.xcarchive.zip -d ./ios/HackerNews.xcarchive
+          unzip -o ./tests/_fixtures/ios/HackerNews.xcarchive.zip -d ./HackerNews.xcarchive
 
       - name: Upload iOS app to Sentry
         run: |
@@ -36,7 +38,7 @@ jobs:
              --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
              build \
              upload \
-             ./ios/HackerNews.xcarchive \
+             ./HackerNews.xcarchive \
              --org sentry \
              --project launchpad-test-ios \
              --head-sha ${{ github.event.pull_request.head.sha }} \
