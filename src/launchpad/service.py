@@ -402,12 +402,23 @@ class LaunchpadService:
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
                 temp_file = tf.name
-                file_size = sentry_client.download_artifact_to_file(
-                    org=organization_id,
-                    project=project_id,
-                    artifact_id=artifact_id,
-                    out=tf,
-                )
+
+                timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
+                if self._statsd:
+                    with self._statsd.timed("artifact.download.duration", tags=timing_tags):
+                        file_size = sentry_client.download_artifact_to_file(
+                            org=organization_id,
+                            project=project_id,
+                            artifact_id=artifact_id,
+                            out=tf,
+                        )
+                else:
+                    file_size = sentry_client.download_artifact_to_file(
+                        org=organization_id,
+                        project=project_id,
+                        artifact_id=artifact_id,
+                        out=tf,
+                    )
 
                 # Success case
                 logger.info(f"Downloaded artifact {artifact_id}: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
