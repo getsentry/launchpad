@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 
 class AppleAppInfo(BaseModel):
@@ -19,6 +19,11 @@ class AppleAppInfo(BaseModel):
 class ExtraInfo(BaseModel):
     dequeued_at: datetime | None = Field(None, description="Timestamp when message was dequeued from Kafka")
     processed_at: datetime | None = Field(None, description="Timestamp when processing completed")
+
+    @field_serializer("dequeued_at", "processed_at")
+    def serialize_datetime(self, dt: datetime | None) -> str | None:
+        """Serialize datetime objects to ISO format strings for JSON compatibility."""
+        return dt.isoformat() if dt is not None else None
 
 
 class UpdateData(BaseModel):

@@ -542,7 +542,7 @@ class LaunchpadService:
                 org=organization_id,
                 project=project_id,
                 artifact_id=artifact_id,
-                data={"extra_info": extra_info.model_dump(mode="json")},
+                data={"extra_info": extra_info.model_dump()},
             )
             logger.info(f"Successfully sent final update with timestamps for artifact {artifact_id}")
         except SentryClientError as e:
