@@ -37,8 +37,6 @@ def mock_chunk_options(org):
 class TestSentryClientRetry:
     @responses.activate
     def test_get_chunk_upload_options(self):
-        """Test that update_artifact uses the retry session."""
-
         responses.add(
             responses.GET,
             "https://example.com/api/0/organizations/test-org/chunk-upload/",
@@ -71,8 +69,6 @@ class TestSentryClientRetry:
 
     @responses.activate
     def test_get_chunk_upload_options_invalid_response(self):
-        """Test that update_artifact uses the retry session."""
-
         responses.add(
             responses.GET,
             "https://example.com/api/0/organizations/test-org/chunk-upload/",
@@ -87,8 +83,6 @@ class TestSentryClientRetry:
 
     @responses.activate
     def test_get_chunk_upload_options_error_response(self):
-        """Test that update_artifact uses the retry session."""
-
         responses.add(
             responses.GET,
             "https://example.com/api/0/organizations/test-org/chunk-upload/",
@@ -102,8 +96,6 @@ class TestSentryClientRetry:
 
     @responses.activate
     def test_get_chunk_upload_options_invalid_response_with_error(self):
-        """Test that update_artifact uses the retry session."""
-
         responses.add(
             responses.GET,
             "https://example.com/api/0/organizations/test-org/chunk-upload/",
@@ -120,8 +112,6 @@ class TestSentryClientRetry:
 
     @responses.activate
     def test_update_artifact(self):
-        """Test that update_artifact uses the retry session."""
-
         responses.add(
             responses.PUT,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/update/",
