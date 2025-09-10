@@ -189,6 +189,9 @@ class SentryClient:
                 else:
                     logger.error(f"Download failed after retry due to network error: {e}")
                     raise RuntimeError(f"Failed to download artifact (network_error): {e}")
+            except Exception as e:
+                logger.error(f"Download failed due to unexpected error: {e}")
+                raise e
 
     def update_artifact(
         self, org: str, project: str, artifact_id: str, data: Dict[str, Any]
