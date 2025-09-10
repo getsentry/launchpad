@@ -161,6 +161,7 @@ class SentryClient:
         """
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
         url = self._build_url(endpoint)
+        file_size = 0
 
         for attempt in range(2):
             try:
@@ -180,7 +181,7 @@ class SentryClient:
                             )
                 if attempt > 0:
                     logger.info(f"Download retry succeeded on attempt {attempt + 1}")
-                return file_size
+                break
 
             except (ConnectionError, Timeout, ChunkedEncodingError, ContentDecodingError) as e:
                 if attempt == 0:
@@ -192,6 +193,8 @@ class SentryClient:
             except Exception as e:
                 logger.error(f"Download failed due to unexpected error: {e}")
                 raise e
+
+        return file_size
 
     def update_artifact(
         self, org: str, project: str, artifact_id: str, data: Dict[str, Any]
