@@ -10,6 +10,7 @@ from responses.matchers import multipart_matcher
 
 from launchpad.sentry_client import (
     ChunkOptionsResponse,
+    OldUpdateResponse,
     SentryClient,
     SentryClientError,
     UpdateResponse,
@@ -127,6 +128,24 @@ class TestSentryClientRetry:
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/update/",
             json={
                 "success": True,
+                "artifactId": "test-artifact",
+                "updatedFields": ["version"],
+            },
+        )
+
+        client = SentryClient(base_url="https://example.com", shared_secret="password")
+        response = client.update_artifact("test-org", "test-project", "test-artifact", {"version": "1.0"})
+        assert response == UpdateResponse(success=True, artifactId="test-artifact", updatedFields=["version"])
+
+    @responses.activate
+    def test_update_artifact_old(self):
+        """Test that update_artifact uses the retry session."""
+
+        responses.add(
+            responses.PUT,
+            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/update/",
+            json={
+                "success": True,
                 "artifact_id": "test-artifact",
                 "updated_fields": ["version"],
             },
@@ -134,7 +153,7 @@ class TestSentryClientRetry:
 
         client = SentryClient(base_url="https://example.com", shared_secret="password")
         response = client.update_artifact("test-org", "test-project", "test-artifact", {"version": "1.0"})
-        assert response == UpdateResponse(success=True, artifact_id="test-artifact", updated_fields=["version"])
+        assert response == OldUpdateResponse(success=True, artifact_id="test-artifact", updated_fields=["version"])
 
     @responses.activate
     def test_upload_installable_app_previously_uploaded(self):

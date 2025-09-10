@@ -77,8 +77,15 @@ class SentryClientError(Exception):
 
 
 class UpdateResponse(BaseModel):
-    # Deliberately no alias_generator=to_camel the end point returns
-    # snake case unlike the others.
+    model_config = ConfigDict(strict=True, alias_generator=to_camel)
+    success: bool
+    artifact_id: str
+    updated_fields: list[str]
+
+
+class OldUpdateResponse(BaseModel):
+    # Deliberately no alias_generator=to_camel the old version of the
+    # endpoint returns snake case unlike the others.
     model_config = ConfigDict(strict=True)
     success: bool
     artifact_id: str
@@ -176,10 +183,15 @@ class SentryClient:
 
         return file_size
 
-    def update_artifact(self, org: str, project: str, artifact_id: str, data: Dict[str, Any]) -> UpdateResponse:
+    def update_artifact(
+        self, org: str, project: str, artifact_id: str, data: Dict[str, Any]
+    ) -> UpdateResponse | OldUpdateResponse:
         """Update preprod artifact."""
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/"
-        return self._make_json_request("PUT", endpoint, UpdateResponse, data=data)
+        try:
+            return self._make_json_request("PUT", endpoint, UpdateResponse, data=data)
+        except SentryClientError:
+            return self._make_json_request("PUT", endpoint, OldUpdateResponse, data=data)
 
     def upload_size_analysis_file(
         self,
