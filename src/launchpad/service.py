@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, cast
 
+import sentry_sdk
+
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
@@ -131,32 +133,35 @@ class LaunchpadService:
         project_id = payload["project_id"]
         organization_id = payload["organization_id"]
 
-        try:
-            logger.info(f"Processing artifact: {artifact_id} (project: {project_id}, org: {organization_id})")
+        with sentry_sdk.new_scope() as scope:
+            scope.set_tag("launchpad.project_id", project_id)
+            scope.set_tag("launchpad.organization_id", organization_id)
+            scope.set_tag("launchpad.artifact_id", artifact_id)
 
-            if self._statsd:
-                self._statsd.increment("artifact.processing.started")
+            try:
+                logger.info(f"Processing artifact: {artifact_id} (project: {project_id}, org: {organization_id})")
+                if self._statsd:
+                    self._statsd.increment("artifact.processing.started")
 
-                timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
-                with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
+                    timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
+                    with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
+                        raise RuntimeError("Testing please ignore")
+                        self.process_artifact(artifact_id, project_id, organization_id)
+                else:
                     self.process_artifact(artifact_id, project_id, organization_id)
-            else:
-                self.process_artifact(artifact_id, project_id, organization_id)
+                logger.info(f"Analysis completed for artifact {artifact_id}")
 
-            logger.info(f"Analysis completed for artifact {artifact_id}")
+                if self._statsd:
+                    self._statsd.increment("artifact.processing.completed")
 
-            if self._statsd:
-                self._statsd.increment("artifact.processing.completed")
+            except Exception as e:
+                logger.error(
+                    f"Failed to process artifact {artifact_id} (project: {project_id}, org: {organization_id}): {e}",
+                    exc_info=True,
+                )
 
-        except Exception as e:
-            # Log the full error for debugging
-            logger.error(
-                f"Failed to process artifact {artifact_id} (project: {project_id}, org: {organization_id}): {e}",
-                exc_info=True,
-            )
-
-            if self._statsd:
-                self._statsd.increment("artifact.processing.failed")
+                if self._statsd:
+                    self._statsd.increment("artifact.processing.failed")
 
     def process_artifact(self, artifact_id: str, project_id: str, organization_id: str) -> None:
         """
