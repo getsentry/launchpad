@@ -10,14 +10,16 @@ import sys
 from dataclasses import dataclass, replace
 from typing import Callable
 
-from aiohttp import web
 from aiohttp.typedefs import Handler
 from aiohttp.web import (
     AppKey,
     Application,
+    AppRunner,
     Request,
     Response,
     StreamResponse,
+    TCPSite,
+    json_response,
     middleware,
 )
 
@@ -103,7 +105,7 @@ class LaunchpadServer:
         """Create the aiohttp application with routes."""
         middlewares = [security_headers_middleware] if not self.config.debug else []
 
-        app = web.Application(
+        app = Application(
             middlewares=middlewares,
         )
 
@@ -137,7 +139,7 @@ class LaunchpadServer:
             tags=[f"sentry_region:{sentry_region}"],
         )
 
-        return web.json_response(
+        return json_response(
             {
                 "status": json_status,
                 "service": "launchpad",
@@ -156,13 +158,13 @@ class LaunchpadServer:
         self._running = True
         self.app = self.create_app()
 
-        runner = web.AppRunner(
+        runner = AppRunner(
             self.app,
             access_log=logger if self.config.access_log else None,
         )
         await runner.setup()
 
-        site = web.TCPSite(runner, self.host, self.port)
+        site = TCPSite(runner, self.host, self.port)
         await site.start()
 
         logger.info(

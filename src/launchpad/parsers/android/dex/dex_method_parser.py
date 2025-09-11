@@ -4,6 +4,7 @@ from launchpad.parsers.android.dex.types import (
     Annotation,
     DexFileHeader,
     Method,
+    Prototype,
 )
 from launchpad.parsers.buffer_wrapper import BufferWrapper
 
@@ -14,7 +15,7 @@ class DexMethodParser:
         buffer_wrapper: BufferWrapper,
         header: DexFileHeader,
         class_name: str,
-        prototype: str,
+        prototype: Prototype,
         name: str,
         code_offset: int,
         method_overhead: int,

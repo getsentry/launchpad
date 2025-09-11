@@ -23,15 +23,13 @@ def do_preprocess(path: Path, **flags: Any) -> BaseAppInfo | AppleAppInfo:
         App info extracted during preprocessing
     """
 
-    # isinstance switch below is a bit sad. Ryan suggested a
-    # get_analyzer method on artifact which might be nicer.
     artifact = ArtifactFactory.from_path(path)
     if isinstance(artifact, AndroidArtifact):
         analyzer = AndroidAnalyzer(**flags)
-        return analyzer.preprocess(cast(AndroidArtifact, artifact))
+        return analyzer.preprocess(artifact)
     elif isinstance(artifact, AppleArtifact):
         analyzer = AppleAppAnalyzer(**flags)
-        return analyzer.preprocess(cast(AppleArtifact, artifact))
+        return analyzer.preprocess(artifact)
     else:
         raise ValueError(f"Unknown artifact kind {artifact}")
 

@@ -26,10 +26,6 @@ classifiers = [
     "Topic :: System :: Archiving",
 ]
 requires-python = ">=3.11"
-dynamic = ["dependencies"]
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
 
 [project.scripts]
 launchpad = "launchpad.cli:main"
@@ -65,8 +61,13 @@ lines-between-types = 1
 "tests/**/*" = ["S101", "PLR2004"]
 "src/launchpad/artifacts/android/resources/protos/**/*" = ["E", "F", "I", "N", "UP", "ARG", "SIM", "TCH", "TID", "Q", "RSE", "RET", "SLF", "SLOT", "PIE", "T20", "PYI", "PT", "YTT", "BLE", "FBT", "A", "COM", "C90", "DTZ", "ISC", "G", "INP", "PTH", "AIR", "ERA", "PD", "PGH", "PL", "TRY", "NPY", "S"]
 
-[tool.ty]
-src = { include = ["src/"], exclude = ["src/launchpad/artifacts/android/resources/protos/**/*"], root = ".", respect-ignore-files = true }
+[tool.ty.src]
+include = ["src/"]
+exclude = ["src/launchpad/artifacts/android/resources/protos/**/*"]
+respect-ignore-files = true
+
+[tool.ty.environment]
+root = ["./src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

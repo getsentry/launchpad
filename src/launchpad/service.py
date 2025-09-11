@@ -12,7 +12,7 @@ import time
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, cast
+from typing import Any, Dict
 
 import sentry_sdk
 
@@ -213,7 +213,7 @@ class LaunchpadService:
                 with tempfile.TemporaryDirectory() as temp_dir_str:
                     temp_dir = Path(temp_dir_str)
                     ipa_path = temp_dir / "App.ipa"
-                    cast(ZippedXCArchive, artifact).generate_ipa(ipa_path)
+                    artifact.generate_ipa(ipa_path)
                     with open(ipa_path, "rb") as f:
                         sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
                     logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
@@ -476,7 +476,7 @@ class LaunchpadService:
             apple_app_info=apple_app_info,
         )
 
-        return update_data.dict(exclude_none=True)
+        return update_data.model_dump(exclude_none=True)
 
     def _create_analyzer(self, app_info: AppleAppInfo | BaseAppInfo) -> AndroidAnalyzer | AppleAppAnalyzer:
         """Create analyzer with preprocessed app info."""
