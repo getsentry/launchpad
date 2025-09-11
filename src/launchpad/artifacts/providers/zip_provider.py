@@ -1,4 +1,4 @@
-import subprocess
+import zipfile
 
 from pathlib import Path
 from typing import List
@@ -33,15 +33,32 @@ class ZipProvider:
         self._temp_dirs.append(temp_dir)
 
         try:
-            # Use system unzip command to preserve symlinks and metadata
-            subprocess.run(["unzip", "-q", str(self.path), "-d", str(temp_dir)], check=True, capture_output=True)
-
+            self._safe_extract(str(self.path), str(temp_dir))
             logger.debug(f"Extracted zip contents to {temp_dir} using system unzip")
         except Exception as e:
             logger.error(f"Failed to extract zip contents to {temp_dir}: {e}")
             raise e
 
         return temp_dir
+
+    def _safe_extract(self, zip_path: str, extract_path: str):
+        """Extract the zip contents to a temporary directory, ensuring that the paths are safe from path traversal attacks."""
+        base_dir = Path(extract_path)
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            for member in zip_ref.namelist():
+                if self._is_safe_path(base_dir, member):
+                    zip_ref.extract(member, extract_path)
+                else:
+                    raise ValueError(f"Potential path traversal attack: {member}")
+
+    def _is_safe_path(self, base_dir: Path, requested_path: str) -> bool:
+        """Ensure file operations occur within the intended directory"""
+        try:
+            base_dir = Path(base_dir).resolve()
+            target_path = Path(base_dir, requested_path).resolve()
+            return target_path.is_relative_to(base_dir)
+        except (RuntimeError, ValueError):
+            return False
 
     def __del__(self) -> None:
         """Clean up resources when object is destroyed."""
