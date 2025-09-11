@@ -52,7 +52,10 @@ class ZipProvider:
                     raise ValueError(f"Potential path traversal attack: {member}")
 
     def _is_safe_path(self, base_dir: Path, requested_path: str) -> bool:
-        """Ensure file operations occur within the intended directory"""
+        """
+        Ensure file operations occur within the intended directory
+        Based on: https://medium.com/@contactomyna/securing-zip-file-operations-understanding-and-preventing-path-traversal-attacks-74d79f696c46
+        """
         try:
             base_dir = Path(base_dir).resolve()
             target_path = Path(base_dir, requested_path).resolve()
