@@ -57,7 +57,7 @@ class ZipProvider:
         Based on: https://medium.com/@contactomyna/securing-zip-file-operations-understanding-and-preventing-path-traversal-attacks-74d79f696c46
         """
         try:
-            base_dir = Path(base_dir).resolve()
+            base_dir = base_dir.resolve()
             target_path = Path(base_dir, requested_path).resolve()
             return target_path.is_relative_to(base_dir)
         except (RuntimeError, ValueError):

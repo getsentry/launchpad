@@ -481,7 +481,7 @@ class TestTreemapGeneration:
         assert assets.type == "assets"
         assert len(assets.children) == 14
 
-        assert treemap.file_count == 31
+        assert treemap.file_count == 32
         assert treemap.platform == "ios"
 
     @pytest.mark.skipif(platform.system() != "Darwin", reason="CwlDemangle tool only available on macOS")

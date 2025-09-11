@@ -38,7 +38,7 @@ class TestFileAnalysisIntegration:
         assert duration < 1
 
         assert isinstance(result, FileAnalysis)
-        assert len(result.files) == 31
+        assert len(result.files) == 32
         assert len(result.directories) == 13
 
         file_paths = {f.path for f in result.files}
