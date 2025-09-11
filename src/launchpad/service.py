@@ -145,7 +145,6 @@ class LaunchpadService:
 
                     timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
                     with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
-                        raise RuntimeError("Testing please ignore")
                         self.process_artifact(artifact_id, project_id, organization_id)
                 else:
                     self.process_artifact(artifact_id, project_id, organization_id)
