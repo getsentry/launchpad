@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_serializer
 
 
 class AppleAppInfo(BaseModel):
@@ -22,4 +23,11 @@ class UpdateData(BaseModel):
     build_number: Optional[int]
     artifact_type: int
     apple_app_info: Optional[AppleAppInfo] = None
+    dequeued_at: Optional[datetime] = Field(None, description="Timestamp when message was dequeued from Kafka")
+
+    @field_serializer("dequeued_at")
+    def serialize_datetime(self, dt: datetime | None) -> str | None:
+        """Serialize datetime objects to ISO format strings for JSON compatibility."""
+        return dt.isoformat() if dt is not None else None
+
     # TODO: add "date_built" and custom android fields

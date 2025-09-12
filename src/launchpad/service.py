@@ -11,6 +11,7 @@ import threading
 import time
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
@@ -164,6 +165,7 @@ class LaunchpadService:
         if not self._service_config:
             raise RuntimeError("Service not properly initialized. Call setup() first.")
 
+        dequeued_at = datetime.now()
         sentry_client = SentryClient(base_url=self._service_config.sentry_base_url)
         temp_file = None
         artifact = None
@@ -180,7 +182,7 @@ class LaunchpadService:
             )
             logger.info(f"Preprocessing completed for artifact {artifact_id}")
 
-            update_data = self._prepare_update_data(app_info, artifact)
+            update_data = self._prepare_update_data(app_info, artifact, dequeued_at)
             logger.info(f"Sending preprocessed info to Sentry for artifact {artifact_id}...")
             try:
                 sentry_client.update_artifact(
@@ -423,7 +425,9 @@ class LaunchpadService:
                 self._safe_cleanup(temp_file, "temporary file")
             raise
 
-    def _prepare_update_data(self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact) -> Dict[str, Any]:
+    def _prepare_update_data(
+        self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact, dequeued_at: datetime | None = None
+    ) -> Dict[str, Any]:
         def _get_artifact_type(artifact: Artifact) -> ArtifactType:
             if isinstance(artifact, ZippedXCArchive):
                 return ArtifactType.XCARCHIVE
@@ -458,6 +462,7 @@ class LaunchpadService:
             build_number=build_number,
             artifact_type=_get_artifact_type(artifact).value,
             apple_app_info=apple_app_info,
+            dequeued_at=dequeued_at,
         )
 
         return update_data.model_dump(exclude_none=True)
