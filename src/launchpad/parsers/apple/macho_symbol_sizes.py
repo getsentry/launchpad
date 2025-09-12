@@ -39,7 +39,7 @@ class MachOSymbolSizes:
                 )
             )
 
-        logger.info(f"Found {len(symbol_sizes)} symbol sizes")
+        logger.debug(f"Found {len(symbol_sizes)} symbol sizes")
         symbol_sizes.sort(key=lambda x: x.size, reverse=True)
         return symbol_sizes
 
@@ -67,7 +67,7 @@ class MachOSymbolSizes:
                 max_section_addr = section.virtual_address + section.size
             else:
                 max_section_addr = None
-                logger.warning(f"Symbol {sym.name} not found in any section, skipping")
+                logger.warning("size.macho.symbol_not_found_in_section", extra={"symbol": sym.name})
                 continue
 
             # Only calculate the distance between symbols in the same section

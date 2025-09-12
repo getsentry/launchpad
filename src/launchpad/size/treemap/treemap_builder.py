@@ -61,7 +61,7 @@ class TreemapBuilder:
         )
 
     def build_file_treemap(self, file_analysis: FileAnalysis) -> TreemapResults:
-        logger.info(f"Building file-based treemap for {self.platform} platform")
+        logger.info("size.treemap.build_file_treemap", extra={"platform": self.platform})
 
         children = self._build_file_hierarchy(file_analysis)
         total_size = sum(child.size for child in children)

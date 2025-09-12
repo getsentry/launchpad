@@ -49,6 +49,9 @@ class ZippedXCArchive(AppleArtifact):
         self._provisioning_profile: dict[str, Any] | None = None
         self._dsym_files: dict[str, Path] | None = None
 
+    def get_extract_dir(self) -> Path:
+        return self._extract_dir
+
     def get_plist(self) -> dict[str, Any]:
         if self._plist is not None:
             return self._plist
@@ -199,7 +202,12 @@ class ZippedXCArchive(AppleArtifact):
                 framework_dsym_path = dsym_files.get(framework_uuid) if framework_uuid else None
 
                 binaries.append(
-                    BinaryInfo(framework_name, framework_binary_path, framework_dsym_path, is_main_binary=False)
+                    BinaryInfo(
+                        framework_name,
+                        framework_binary_path,
+                        framework_dsym_path,
+                        is_main_binary=False,
+                    )
                 )
 
         # Find app extension binaries
@@ -277,7 +285,10 @@ class ZippedXCArchive(AppleArtifact):
             file_path = parent_path / json_name
 
             if not file_path.exists():
-                logger.warning(f"Assets.json not found at {file_path}")
+                logger.warning(
+                    "size.apple.assets_json_not_found",
+                    extra={"file_path": file_path.relative_to(self._extract_dir)},
+                )
                 return []
 
             with open(file_path, "r", encoding="utf-8") as f:

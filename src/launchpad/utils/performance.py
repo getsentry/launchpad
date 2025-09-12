@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Callable, List, TypeVar
 
+from launchpad.utils.logging import get_logger
+
 F = TypeVar("F", bound=Callable[..., Any])
 
 # --------------------------------------------------------------------------- #
@@ -164,12 +166,10 @@ class Registry:
 
     def log_summary(self, logger_name: str | None = None, level: str = "info") -> None:
         """Emit summary through the logger (never prints)."""
-        from launchpad.utils.logging import get_logger
 
         log = get_logger(logger_name) if logger_name else get_logger(__name__)
-        log_fn = getattr(log, level, log.info)
         for line in self.summary_lines():
-            log_fn(line)
+            log.debug(line)
 
 
 # --------------------------------------------------------------------------- #

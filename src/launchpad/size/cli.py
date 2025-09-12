@@ -1,10 +1,8 @@
-from contextlib import ExitStack
 from pathlib import Path
 from typing import Dict, TextIO
 
 import click
 
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from launchpad.size.models.android import AndroidAnalysisResults
@@ -92,27 +90,14 @@ def size_command(
         flags["working_dir"] = working_dir
 
     try:
-        with ExitStack() as stack:
-            progress = stack.enter_context(
-                Progress(
-                    SpinnerColumn(),
-                    TextColumn("[progress.description]{task.description}"),
-                    console=console,
-                    disable=quiet,
-                )
-            )
+        results = do_size(input_path, **flags)
+        if output_format == "json":
+            write_results_as_json(results, output)
+        else:
+            _print_results_as_table(results)
 
-            task = progress.add_task("Analyzing...", total=None)
-            results = do_size(input_path, **flags)
-            if output_format == "json":
-                write_results_as_json(results, output)
-            else:
-                _print_results_as_table(results)
-
-            if isinstance(results, AppleAnalysisResults) and not quiet:
-                _print_apple_summary(results)
-
-            progress.update(task, description="Analysis complete!")
+        if isinstance(results, AppleAnalysisResults) and not quiet:
+            _print_apple_summary(results)
 
     except Exception:
         console.print_exception()
