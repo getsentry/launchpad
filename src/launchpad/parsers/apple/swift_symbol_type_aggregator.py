@@ -50,7 +50,7 @@ class SwiftSymbolTypeAggregator:
             for symbol in symbol_sizes
             if symbol.mangled_name.startswith("_$s") or symbol.mangled_name.startswith("_Tt")
         ]
-        logger.info(f"Found {len(swift_symbols)} Swift symbols out of {len(symbol_sizes)} total symbols")
+        logger.debug(f"Found {len(swift_symbols)} Swift symbols out of {len(symbol_sizes)} total symbols")
 
         mangled_names = [symbol.mangled_name for symbol in swift_symbols]
 
@@ -99,5 +99,5 @@ class SwiftSymbolTypeAggregator:
         # Sort by total size (descending)
         result.sort(key=lambda x: x.total_size, reverse=True)
 
-        logger.info(f"Aggregated {len(swift_symbols)} Swift symbols into {len(result)} type groups")
+        logger.debug(f"Aggregated {len(swift_symbols)} Swift symbols into {len(result)} type groups")
         return result

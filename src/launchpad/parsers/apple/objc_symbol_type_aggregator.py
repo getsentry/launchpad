@@ -68,7 +68,7 @@ class ObjCSymbolTypeAggregator:
                 class_name = self._class_from_metadata(mname)
                 buckets[(class_name, None)].append(sym)
 
-        logger.info(
+        logger.debug(
             "Aggregated %d Objective-C symbols into %d groups",
             sum(len(v) for v in buckets.values()),
             len(buckets),

@@ -7,6 +7,52 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 
+class StructuredRichHandler(RichHandler):
+    """RichHandler that shows structured logging extras."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        message = super().format(record)
+
+        # Default attributes to ignore
+        standard_attrs = {
+            "name",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "getMessage",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "message",
+            "taskName",
+        }
+
+        extras = {k: v for k, v in record.__dict__.items() if k not in standard_attrs and not k.startswith("_")}
+
+        if extras:
+            extra_parts = []
+            for key, value in extras.items():
+                extra_parts.append(f"[dim]{key}[/dim]=[yellow]{value}[/yellow]")
+
+            if extra_parts:
+                message += f" [dim]|[/dim] {' '.join(extra_parts)}"
+
+        return message
+
+
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     """Setup logging configuration.
 
@@ -31,7 +77,7 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
             format="%(message)s",
             datefmt="[%X]",
             handlers=[
-                RichHandler(
+                StructuredRichHandler(
                     console=console,
                     show_time=True,
                     show_path=False,

@@ -121,14 +121,23 @@ class AppleAppAnalyzer:
             self.app_info = self.preprocess(artifact)
 
         app_info = self.app_info
-        logger.info(f"Analyzing app: {app_info.name} v{app_info.version}")
+        logger.info(
+            "size.apple.analyze_app",
+            extra={"app_name": app_info.name, "app_version": app_info.version},
+        )
 
         file_analysis = analyze_apple_files(artifact)
-        logger.info(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
+        logger.debug(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
 
         app_bundle_path = artifact.get_app_bundle_path()
         download_size, install_size = calculate_bundle_sizes(app_bundle_path)
-        logger.info(f"Download size: {download_size} bytes, Install size: {install_size} bytes")
+        logger.info(
+            "size.apple.bundle_sizes",
+            extra={
+                "download_size": download_size,
+                "install_size": install_size,
+            },
+        )
 
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
@@ -137,16 +146,37 @@ class AppleAppAnalyzer:
 
         if not self.skip_treemap and not self.skip_component_analysis:
             binaries = artifact.get_all_binary_paths()
-            logger.info(f"Found {len(binaries)} binaries to analyze")
+            logger.debug(f"Found {len(binaries)} binaries to analyze")
 
             for binary_info in binaries:
-                logger.info(f"Analyzing binary {binary_info.name} at {binary_info.path}")
+                logger.info(
+                    "size.apple.binary_analysis_started",
+                    extra={
+                        "event": "size.binary_analysis_started",
+                        "binary_name": binary_info.name,
+                        "binary_path": str(binary_info.path.relative_to(app_bundle_path)),
+                        "has_dsym": binary_info.dsym_path is not None,
+                    },
+                )
                 if binary_info.dsym_path:
-                    logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path}")
+                    logger.debug(
+                        f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(artifact.get_extract_dir())}"
+                    )
                 binary = self._analyze_binary(binary_info, app_bundle_path)
                 if binary is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
+
+                logger.info(
+                    "size.apple.binary_analysis_completed",
+                    extra={
+                        "event": "size.binary_analysis_completed",
+                        "binary_name": binary_info.name,
+                        "symbol_count": (len(binary.symbol_info.symbol_sizes) if binary.symbol_info else 0),
+                        "swift_types_count": (len(binary.symbol_info.swift_type_groups) if binary.symbol_info else 0),
+                        "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),
+                    },
+                )
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
@@ -160,7 +190,7 @@ class AppleAppAnalyzer:
 
         insights: AppleInsightResults | None = None
         if not self.skip_insights:
-            logger.info("Generating insights from analysis results")
+            logger.info("size.apple.generate_insights")
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
@@ -218,6 +248,11 @@ class AppleAppAnalyzer:
             use_si_units=True,
             download_size=download_size,
             install_size=install_size,
+        )
+
+        logger.info(
+            "size.apple.analyze_app_completed",
+            extra={"app_name": app_info.name, "app_version": app_info.version},
         )
 
         return results
@@ -410,7 +445,12 @@ class AppleAppAnalyzer:
                     strippable_symbols_size=strippable_symbols_size,
                 )
             else:
-                logger.warning(f"Failed to parse dwarf binary: {dwarf_binary_path}")
+                logger.error(
+                    "size.apple.skip_symbol_analysis.dwarf_binary_parse_failed",
+                    extra={
+                        "binary_name": binary_info.name,
+                    },
+                )
         else:
             if strippable_symbols_size > 0:
                 symbol_info = SymbolInfo(
@@ -420,7 +460,12 @@ class AppleAppAnalyzer:
                     static_inits=static_inits,
                     strippable_symbols_size=strippable_symbols_size,
                 )
-            logger.info("No dwarf binary path provided, skipping detailed symbol analysis")
+            logger.info(
+                "size.apple.skip_symbol_analysis.no_dwarf_binary",
+                extra={
+                    "binary_name": binary_info.name,
+                },
+            )
 
         # Extract Swift metadata if enabled
         swift_metadata = None

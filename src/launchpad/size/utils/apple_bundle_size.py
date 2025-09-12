@@ -48,9 +48,9 @@ def _calculate_app_store_size(bundle_url: Path) -> int:
     file_count = 0
 
     for file_path in bundle_url.rglob("*"):
-        logger.info(f"Processing file: {file_path.relative_to(bundle_url)}")
+        logger.debug(f"Processing file: {file_path.relative_to(bundle_url)}")
         if file_path.is_symlink():
-            logger.info("Skipping symlink")
+            logger.debug("Skipping symlink")
             continue
 
         file_count += 1
@@ -67,9 +67,9 @@ def _calculate_app_store_size(bundle_url: Path) -> int:
             file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
         total_size += file_size
-        logger.info(f"File size: {file_size}, Total size: {total_size}")
+        logger.debug(f"File size: {file_size}, Total size: {total_size}")
 
-    logger.info(f"App Store size calculation: {file_count} files, {total_size} bytes")
+    logger.debug(f"App Store size calculation: {file_count} files, {total_size} bytes")
 
     return total_size
 
@@ -115,7 +115,7 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
     bundle_name = bundle_url.name
 
     try:
-        logger.info(f"Creating ZIP file: zip -r {zip_file_path} {bundle_name}")
+        logger.debug(f"Creating ZIP file: zip -r {zip_file_path} {bundle_name}")
         result = subprocess.run(
             ["zip", "-r", str(zip_file_path), str(bundle_name)],
             shell=False,
@@ -127,7 +127,7 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
             logger.error(f"ZIP command failed: {result.stderr}")
             return 0
 
-        logger.info(f"Getting ZIP info: unzip -v {zip_file_path}")
+        logger.debug(f"Getting ZIP info: unzip -v {zip_file_path}")
         with open(zip_info_file_path, "w") as zip_info_file:
             result = subprocess.run(
                 ["unzip", "-v", str(zip_file_path)],
