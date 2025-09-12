@@ -72,18 +72,16 @@ class AAB(AndroidArtifact):
             return self._primary_apks
 
         apks_dir = create_temp_directory("apks-")
-        try:
-            bundletool = Bundletool()
-            bundletool.build_apks(bundle_path=self._path, output_dir=apks_dir, device_spec=device_spec)
+        # TODO(EME-275): Should clean-up this directory which currently is leaked.
+        bundletool = Bundletool()
+        bundletool.build_apks(bundle_path=self._path, output_dir=apks_dir, device_spec=device_spec)
 
-            apks = []
-            for apk_path in apks_dir.glob("*.apk"):
-                apks.append(APK(apk_path, self.get_dex_mapping()))
+        apks = []
+        for apk_path in apks_dir.glob("*.apk"):
+            apks.append(APK(apk_path, self.get_dex_mapping()))
 
-            self._primary_apks = apks
-            return apks
-        finally:
-            cleanup_directory(apks_dir)
+        self._primary_apks = apks
+        return apks
 
     def get_universal_apk(self, apk_dir: Path, device_spec: DeviceSpec = DeviceSpec()) -> APK:
         if self._universal_apk is not None:
