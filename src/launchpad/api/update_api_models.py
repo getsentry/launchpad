@@ -16,16 +16,6 @@ class AppleAppInfo(BaseModel):
     # TODO: add "date_built" field once exposed in 'AppleAppInfo'
 
 
-class ExtraInfo(BaseModel):
-    dequeued_at: datetime | None = Field(None, description="Timestamp when message was dequeued from Kafka")
-    processed_at: datetime | None = Field(None, description="Timestamp when processing completed")
-
-    @field_serializer("dequeued_at", "processed_at")
-    def serialize_datetime(self, dt: datetime | None) -> str | None:
-        """Serialize datetime objects to ISO format strings for JSON compatibility."""
-        return dt.isoformat() if dt is not None else None
-
-
 class UpdateData(BaseModel):
     app_name: str
     app_id: str
@@ -33,5 +23,11 @@ class UpdateData(BaseModel):
     build_number: Optional[int]
     artifact_type: int
     apple_app_info: Optional[AppleAppInfo] = None
-    extra_info: Optional[ExtraInfo] = None
+    dequeued_at: Optional[datetime] = Field(None, description="Timestamp when message was dequeued from Kafka")
+
+    @field_serializer("dequeued_at")
+    def serialize_datetime(self, dt: datetime | None) -> str | None:
+        """Serialize datetime objects to ISO format strings for JSON compatibility."""
+        return dt.isoformat() if dt is not None else None
+
     # TODO: add "date_built" and custom android fields

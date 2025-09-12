@@ -20,7 +20,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 )
 
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
-from launchpad.api.update_api_models import ExtraInfo, UpdateData
+from launchpad.api.update_api_models import UpdateData
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
@@ -183,7 +183,7 @@ class LaunchpadService:
             )
             logger.info(f"Preprocessing completed for artifact {artifact_id}")
 
-            update_data = self._prepare_update_data(app_info, artifact)
+            update_data = self._prepare_update_data(app_info, artifact, dequeued_at)
             logger.info(f"Sending preprocessed info to Sentry for artifact {artifact_id}...")
             try:
                 sentry_client.update_artifact(
@@ -242,11 +242,6 @@ class LaunchpadService:
                 OperationName.SIZE_ANALYSIS,
             )
             logger.info(f"Size analysis completed for artifact {artifact_id}")
-
-            processed_at = datetime.now()
-            self._send_final_update_with_timestamps(
-                sentry_client, artifact_id, project_id, organization_id, dequeued_at, processed_at
-            )
 
             self._upload_results(sentry_client, results, artifact_id, project_id, organization_id)
 
@@ -442,7 +437,9 @@ class LaunchpadService:
                 self._safe_cleanup(temp_file, "temporary file")
             raise
 
-    def _prepare_update_data(self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact) -> Dict[str, Any]:
+    def _prepare_update_data(
+        self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact, dequeued_at: datetime | None = None
+    ) -> Dict[str, Any]:
         def _get_artifact_type(artifact: Artifact) -> ArtifactType:
             if isinstance(artifact, ZippedXCArchive):
                 return ArtifactType.XCARCHIVE
@@ -477,6 +474,7 @@ class LaunchpadService:
             build_number=build_number,
             artifact_type=_get_artifact_type(artifact).value,
             apple_app_info=apple_app_info,
+            dequeued_at=dequeued_at,
         )
 
         return update_data.dict(exclude_none=True)
@@ -525,28 +523,6 @@ class LaunchpadService:
             raise e
         else:
             logger.info(f"Successfully uploaded analysis results for artifact {artifact_id}")
-
-    def _send_final_update_with_timestamps(
-        self,
-        sentry_client: SentryClient,
-        artifact_id: str,
-        project_id: str,
-        organization_id: str,
-        dequeued_at: datetime,
-        processed_at: datetime,
-    ) -> None:
-        """Send final update with dequeued_at and processed_at timestamps."""
-        extra_info = ExtraInfo(dequeued_at=dequeued_at, processed_at=processed_at)
-        try:
-            sentry_client.update_artifact(
-                org=organization_id,
-                project=project_id,
-                artifact_id=artifact_id,
-                data={"extra_info": extra_info.model_dump()},
-            )
-            logger.info(f"Successfully sent final update with timestamps for artifact {artifact_id}")
-        except SentryClientError as e:
-            logger.error(f"Failed to send final update with timestamps for artifact {artifact_id}: {e}")
 
     def _safe_cleanup(self, file_path: str, description: str) -> None:
         """Safely clean up a file with error handling."""
