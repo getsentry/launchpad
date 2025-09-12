@@ -1,6 +1,8 @@
 import os
 
-from typing import Literal
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from typing import Any, Literal
 
 from datadog.dogstatsd.base import DogStatsd
 
@@ -14,14 +16,135 @@ from datadog.dogstatsd.base import DogStatsd
 # - not using the global initialize() and statsd instances.
 
 
-_statsd_instances: dict[str, DogStatsd] = {}
+OK = DogStatsd.OK
+WARNING = DogStatsd.WARNING
+CRITICAL = DogStatsd.CRITICAL
+UNKNOWN = DogStatsd.UNKNOWN
 
 
-def get_statsd(environment: Literal["default", "consumer"] = "default") -> DogStatsd:
-    global _statsd_instances
+class StatsdInterface(ABC):
+    @abstractmethod
+    def increment(self, metric: str, value: int = 1, tags: list[str] | None = None) -> None:
+        pass
 
-    if environment in _statsd_instances:
-        return _statsd_instances[environment]
+    @abstractmethod
+    def gauge(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        pass
+
+    @abstractmethod
+    def timing(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        pass
+
+    @abstractmethod
+    def service_check(
+        self,
+        name: str,
+        status: int,
+        tags: list[str] | None = None,
+        hostname: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    @contextmanager
+    def timed(self, metric: str, tags: list[str] | None = None) -> Any:
+        pass
+
+
+class NullStatsd(StatsdInterface):
+    def increment(self, metric: str, value: int = 1, tags: list[str] | None = None) -> None:
+        pass
+
+    def gauge(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        pass
+
+    def timing(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        pass
+
+    def service_check(
+        self,
+        name: str,
+        status: int,
+        tags: list[str] | None = None,
+        hostname: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        pass
+
+    @contextmanager
+    def timed(self, metric: str, tags: list[str] | None = None) -> Any:
+        yield
+
+
+class FakeStatsd(StatsdInterface):
+    def __init__(self):
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def increment(self, metric: str, value: int = 1, tags: list[str] | None = None) -> None:
+        self.calls.append(("increment", {"metric": metric, "value": value, "tags": tags}))
+
+    def gauge(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        self.calls.append(("gauge", {"metric": metric, "value": value, "tags": tags}))
+
+    def timing(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        self.calls.append(("timing", {"metric": metric, "value": value, "tags": tags}))
+
+    def service_check(
+        self,
+        name: str,
+        status: int,
+        tags: list[str] | None = None,
+        hostname: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        self.calls.append(
+            ("service_check", {"name": name, "status": status, "tags": tags, "hostname": hostname, "message": message})
+        )
+
+    @contextmanager
+    def timed(self, metric: str, tags: list[str] | None = None) -> Any:
+        self.calls.append(("timed", {"metric": metric, "tags": tags}))
+        yield
+
+
+class DogStatsdWrapper(StatsdInterface):
+    def __init__(self, dogstatsd: DogStatsd):
+        self._dogstatsd = dogstatsd
+
+    def increment(self, metric: str, value: int = 1, tags: list[str] | None = None) -> None:
+        self._dogstatsd.increment(metric, value, tags)
+
+    def gauge(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        self._dogstatsd.gauge(metric, value, tags)
+
+    def timing(self, metric: str, value: float, tags: list[str] | None = None) -> None:
+        self._dogstatsd.timing(metric, value, tags)
+
+    def service_check(
+        self,
+        name: str,
+        status: int,
+        tags: list[str] | None = None,
+        hostname: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        self._dogstatsd.service_check(name, status, tags, hostname, message)
+
+    @contextmanager
+    def timed(self, metric: str, tags: list[str] | None = None) -> Any:
+        with self._dogstatsd.timed(metric, tags):
+            yield
+
+
+_namespace_to_statsd: dict[str, StatsdInterface] = {}
+
+
+def get_statsd(namespace_suffix: Literal[None, "consumer"] = None) -> StatsdInterface:
+    namespace = f"launchpad_{namespace_suffix}" if namespace_suffix else "launchpad"
+
+    if namespace in _namespace_to_statsd:
+        return _namespace_to_statsd[namespace]
 
     disable_telemetry = True
     origin_detection_enabled = False
@@ -34,14 +157,14 @@ def get_statsd(environment: Literal["default", "consumer"] = "default") -> DogSt
     except ValueError:
         raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
 
-    # Create namespace with environment
-    namespace = "launchpad" if environment == "default" else "launchpad_consumer"
-
-    _statsd_instances[environment] = DogStatsd(
-        host=host,
-        port=port,
-        namespace=namespace,
-        disable_telemetry=disable_telemetry,
-        origin_detection_enabled=origin_detection_enabled,
+    wrapper = DogStatsdWrapper(
+        DogStatsd(
+            host=host,
+            port=port,
+            namespace=namespace,
+            disable_telemetry=disable_telemetry,
+            origin_detection_enabled=origin_detection_enabled,
+        )
     )
-    return _statsd_instances[environment]
+    _namespace_to_statsd[namespace] = wrapper
+    return wrapper

@@ -44,7 +44,7 @@ from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
 from launchpad.size.runner import do_preprocess, do_size
 from launchpad.utils.logging import get_logger
-from launchpad.utils.statsd import DogStatsd, get_statsd
+from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
 
 from .kafka import LaunchpadKafkaConsumer, create_kafka_consumer
 from .sentry_sdk_init import initialize_sentry_sdk
@@ -56,18 +56,17 @@ logger = get_logger(__name__)
 class LaunchpadService:
     """Main service that orchestrates HTTP server and Kafka consumer."""
 
-    def __init__(self) -> None:
+    def __init__(self, statsd: StatsdInterface | None = None) -> None:
         self.server: LaunchpadServer | None = None
         self.kafka: LaunchpadKafkaConsumer | None = None
         self._kafka_task: asyncio.Future[Any] | None = None
-        self._statsd: DogStatsd | None = None
+        self._statsd = statsd or NullStatsd()
         self._healthcheck_file: str | None = None
         self._service_config: ServiceConfig | None = None
 
     async def setup(self) -> None:
         """Set up the service components."""
         self._service_config = get_service_config()
-        self._statsd = get_statsd()
         initialize_sentry_sdk()
 
         server_config = get_server_config()
@@ -75,6 +74,7 @@ class LaunchpadService:
             self.is_healthy,
             host=server_config.host,
             port=server_config.port,
+            statsd=self._statsd,
         )
 
         self.kafka = create_kafka_consumer(message_handler=self.handle_kafka_message)
@@ -140,18 +140,14 @@ class LaunchpadService:
 
             try:
                 logger.info(f"Processing artifact: {artifact_id} (project: {project_id}, org: {organization_id})")
-                if self._statsd:
-                    self._statsd.increment("artifact.processing.started")
+                self._statsd.increment("artifact.processing.started")
 
-                    timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
-                    with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
-                        self.process_artifact(artifact_id, project_id, organization_id)
-                else:
+                timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
+                with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
                     self.process_artifact(artifact_id, project_id, organization_id)
                 logger.info(f"Analysis completed for artifact {artifact_id}")
 
-                if self._statsd:
-                    self._statsd.increment("artifact.processing.completed")
+                self._statsd.increment("artifact.processing.completed")
 
             except Exception as e:
                 logger.error(
@@ -159,8 +155,7 @@ class LaunchpadService:
                     exc_info=True,
                 )
 
-                if self._statsd:
-                    self._statsd.increment("artifact.processing.failed")
+                self._statsd.increment("artifact.processing.failed")
 
     def process_artifact(self, artifact_id: str, project_id: str, organization_id: str) -> None:
         """
@@ -356,17 +351,15 @@ class LaunchpadService:
         # Use detailed error message if provided, otherwise use enum value
         final_error_message = f"{error_message.value}: {detailed_error}" if detailed_error else error_message.value
 
-        # Log error to datadog with tags for better monitoring
-        if self._statsd:
-            self._statsd.increment(
-                "artifact.processing.error",
-                tags=[
-                    f"error_code:{error_code.value}",
-                    f"error_type:{error_message.name}",
-                    f"project_id:{project_id}",
-                    f"organization_id:{organization_id}",
-                ],
-            )
+        self._statsd.increment(
+            "artifact.processing.error",
+            tags=[
+                f"error_code:{error_code.value}",
+                f"error_type:{error_message.name}",
+                f"project_id:{project_id}",
+                f"organization_id:{organization_id}",
+            ],
+        )
 
         try:
             sentry_client.update_artifact(
@@ -399,15 +392,7 @@ class LaunchpadService:
                 temp_file = tf.name
 
                 timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
-                if self._statsd:
-                    with self._statsd.timed("artifact.download.duration", tags=timing_tags):
-                        file_size = sentry_client.download_artifact_to_file(
-                            org=organization_id,
-                            project=project_id,
-                            artifact_id=artifact_id,
-                            out=tf,
-                        )
-                else:
+                with self._statsd.timed("artifact.download.duration", tags=timing_tags):
                     file_size = sentry_client.download_artifact_to_file(
                         org=organization_id,
                         project=project_id,
@@ -415,7 +400,6 @@ class LaunchpadService:
                         out=tf,
                     )
 
-                # Success case
                 logger.info(f"Downloaded artifact {artifact_id}: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
                 logger.info(f"Saved artifact to temporary file: {temp_file}")
                 return temp_file
@@ -559,6 +543,7 @@ def get_service_config() -> ServiceConfig:
 
 async def run_service() -> None:
     """Run the Launchpad service."""
-    service = LaunchpadService()
+    statsd = get_statsd()
+    service = LaunchpadService(statsd)
     await service.setup()
     await service.start()

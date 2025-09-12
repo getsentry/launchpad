@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -12,19 +12,17 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 
 from launchpad.server import LaunchpadServer
 from launchpad.service import LaunchpadService
+from launchpad.utils.statsd import FakeStatsd
 
 
 class TestServiceIntegration:
     """Integration tests for the full service."""
 
-    @pytest.mark.xfail
     @pytest.mark.asyncio
     async def test_kafka_message_processing(self):
         """Test processing of different Kafka message types."""
-        service = LaunchpadService()
-
-        # Mock statsd
-        service._statsd = Mock()
+        fake_statsd = FakeStatsd()
+        service = LaunchpadService(fake_statsd)
 
         # Mock service config to make the service appear initialized
         service._service_config = {
@@ -49,12 +47,13 @@ class TestServiceIntegration:
             mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
 
             # Verify statsd metrics were sent
-            service._statsd.increment.assert_any_call("artifact.processing.started")
-            service._statsd.increment.assert_any_call("artifact.processing.completed")
+            calls = fake_statsd.calls
+            assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
+            assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
 
             # Reset mocks for next test
             mock_process.reset_mock()
-            service._statsd.reset_mock()
+            fake_statsd.calls.clear()
 
             # Test artifact analysis message with Android artifact
             android_payload: PreprodArtifactEvents = {
@@ -72,10 +71,8 @@ class TestServiceIntegration:
     @pytest.mark.asyncio
     async def test_error_handling_in_message_processing(self):
         """Test that errors in message processing are handled properly."""
-        service = LaunchpadService()
-
-        # Mock statsd
-        service._statsd = Mock()
+        fake_statsd = FakeStatsd()
+        service = LaunchpadService(fake_statsd)
 
         # Create a valid payload
         payload: PreprodArtifactEvents = {
@@ -84,27 +81,29 @@ class TestServiceIntegration:
             "organization_id": "test-org",
         }
 
-        # Mock the handler to raise an exception
-        with patch.object(service, "_statsd") as mock_statsd:
-            mock_statsd.increment.side_effect = [
-                None,  # First call: processing.started
-                Exception("Processing failed"),  # Second call: processing.completed (raises)
-                None,  # Third call: processing.failed
-            ]
+        # Mock process_artifact to raise an exception
+        with patch.object(service, "process_artifact") as mock_process:
+            mock_process.side_effect = Exception("Processing failed")
 
-            # This should raise the exception (to be handled by Arroyo)
-            with pytest.raises(Exception, match="Processing failed"):
-                service.handle_kafka_message(payload)
+            # This should handle the exception gracefully
+            service.handle_kafka_message(payload)
+
+            # Verify the processing method was called
+            mock_process.assert_called_once_with("test-123", "test-project", "test-org")
+
+            # Verify statsd metrics were sent including failure metric
+            calls = fake_statsd.calls
+            increment_calls = [call for call in calls if call[0] == "increment"]
+            assert len(increment_calls) == 2  # started and failed
+            assert increment_calls[0][1]["metric"] == "artifact.processing.started"
+            assert increment_calls[1][1]["metric"] == "artifact.processing.failed"
 
     @pytest.mark.asyncio
     async def test_concurrent_message_processing(self):
         """Test that multiple messages can be processed concurrently."""
-        service = LaunchpadService()
+        fake_statsd = FakeStatsd()
+        service = LaunchpadService(fake_statsd)
 
-        # Mock statsd
-        service._statsd = Mock()
-
-        # Create multiple messages
         messages = [
             {
                 "artifact_id": f"test-artifact-{i}",
@@ -114,12 +113,14 @@ class TestServiceIntegration:
             for i in range(10)
         ]
 
-        # Process all messages
-        for msg in messages:
-            service.handle_kafka_message(msg)  # type: ignore
+        with patch.object(service, "process_artifact"):
+            for msg in messages:
+                service.handle_kafka_message(msg)  # type: ignore
 
-        # Verify all messages were processed
-        assert service._statsd.increment.call_count == 20  # 2 calls per message
+        # Verify all messages were processed (2 increment calls per message: started + completed)
+        calls = fake_statsd.calls
+        increment_calls = [call for call in calls if call[0] == "increment"]
+        assert len(increment_calls) == 20
 
 
 @pytest.mark.integration
@@ -133,7 +134,8 @@ class TestServiceWithMockServer:
         # that would start the actual service and test HTTP endpoints
         # For now, we test the components separately
 
-        server = LaunchpadServer(lambda: True, host="127.0.0.1", port=0)  # Random port
+        fake_statsd = FakeStatsd()
+        server = LaunchpadServer(lambda: True, host="127.0.0.1", port=0, statsd=fake_statsd)  # Random port
         app = server.create_app()
 
         # Test that we can create the app without errors

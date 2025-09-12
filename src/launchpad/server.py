@@ -24,7 +24,7 @@ from aiohttp.web import (
 )
 
 from .utils.logging import get_logger
-from .utils.statsd import get_statsd
+from .utils.statsd import OK, NullStatsd, StatsdInterface
 
 logger = get_logger(__name__)
 
@@ -61,13 +61,14 @@ class LaunchpadServer:
         port: int | None = None,
         config: ServerConfig | None = None,
         setup_logging: bool = True,
+        statsd: StatsdInterface | None = None,
     ) -> None:
         self.app: Application | None = None
         self._running = False
         self._shutdown_event = asyncio.Event()
         self.config = config or get_server_config()
         self.health_check_callback = health_check_callback
-        self._statsd = get_statsd()
+        self._statsd = statsd or NullStatsd()
 
         # Override config with explicit parameters if provided
         if host is not None or port is not None:
@@ -124,11 +125,11 @@ class LaunchpadServer:
         # is_healthy = self.health_check_callback()
         # if is_healthy:
         json_status = "ok"
-        statsd_status = self._statsd.OK
+        statsd_status = OK
         http_status = 200
         # else:
         #     json_status = "error"
-        #     statsd_status = self._statsd.CRITICAL
+        #     statsd_status = CRITICAL
         #     http_status = 500
 
         sentry_region = self.config.sentry_region
