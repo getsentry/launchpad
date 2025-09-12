@@ -11,9 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import lief
 
-from cryptography import x509
-from cryptography.hazmat.primitives import hashes
-
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.code_signature_parser import CodeSignInformation
 from launchpad.parsers.apple.macho_parser import MachOParser
@@ -21,28 +18,6 @@ from launchpad.parsers.apple.macho_parser import MachOParser
 from ..logging import get_logger
 
 logger = get_logger(__name__)
-
-# Known Apple root certificate fingerprints
-KNOWN_APPLE_ROOT_CERT_FINGERPRINTS = [
-    # Apple Inc Root
-    "b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024",
-    # Apple Root CA - G2 Root
-    "c2b9b042dd57830e7d117dac55ac8ae19407d38e41d88f3215bc3a890444a050",
-    # Apple Root CA - G3 Root
-    "63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179",
-    # Worldwide Developer Relations - G2 (Expiring 05/06/2029 23:43:24 UTC)
-    "c2b9b042dd57830e7d117dac55ac8ae19407d38e41d88f3215bc3a890444a050",
-    # Worldwide Developer Relations - G3 (Expiring 02/20/2030 00:00:00 UTC)
-    "dcf21878c77f4198e4b4614f03d696d89c66c66008d4244e1b99161aac91601f",
-    # Worldwide Developer Relations - G4 (Expiring 12/10/2030 00:00:00 UTC)
-    "ea4757885538dd8cb59ff4556f676087d83c85e70902c122e42c0808b5bce14c",
-    # Worldwide Developer Relations - G5 (Expiring 12/10/2030 00:00:00 UTC)
-    "53fd008278e5a595fe1e908ae9c5e5675f26243264a5a6438c023e3ce2870760",
-    # Worldwide Developer Relations - G6 (Expiring 03/19/2036 00:00:00 UTC)
-    "bdd4ed6e74691f0c2bfd01be0296197af1379e0418e2d300efa9c3bef642ca30",
-    # Apple WWDR MP CA 1 - G1 (Expiring 09/28/2038 00:00:00 UTC)
-    "128a8d3fd58a44f516041bb00a0ab9781badec974b11c907b2027f2cc4cfbe1f",
-]
 
 
 class CodeSignatureHashIndex:
@@ -366,72 +341,4 @@ class CodeSignatureValidator:
             )
             return False
 
-        # Check certificates chain of trust
-        certificates = list(reversed(cms_signing.certificates))
-        if not self._validate_certificates(certificates):
-            return False
-
         return True
-
-    def _validate_certificates(self, certificates: List[bytes]) -> bool:
-        """Validate certificates chain of trust.
-
-        This function validates the certificate chain by:
-        1. Checking that each certificate is signed by the next one in the chain
-        2. Validating that the root certificate is a known Apple certificate
-
-        Args:
-            certificates: List of certificate data in DER format
-
-        Returns:
-            True if certificate chain is valid, False otherwise
-        """
-        if not certificates:
-            logger.warning("[Codesign] No certificates found")
-            return False
-
-        try:
-            # Parse certificates from DER format
-            parsed_certs: list[x509.Certificate] = []
-            for cert_data in certificates:
-                try:
-                    cert = x509.load_der_x509_certificate(cert_data)
-                    parsed_certs.append(cert)
-                except Exception as e:
-                    logger.error(f"[Codesign] Failed to parse certificate: {e}")
-                    return False
-
-            commonNameOid = x509.ObjectIdentifier("2.5.4.3")
-            for i in range(len(parsed_certs) - 1):
-                commonName = parsed_certs[i].issuer.get_attributes_for_oid(commonNameOid)
-                found_cert = next(
-                    (cert for cert in parsed_certs if cert.subject.get_attributes_for_oid(commonNameOid) == commonName),
-                    None,
-                )
-                if not found_cert:
-                    logger.warning(
-                        f"[Codesign] Certificate chain is broken - issuer not found: {parsed_certs[i].issuer}"
-                    )
-                    return False
-
-                # We don't perform further validation of the signature because some certificates will
-                # use the sha1WithRSAEncryption signature algorithm which is not supported
-                # by `verify_directly_issued_by`
-
-            # Validate root certificate against known fingerprints
-            root_cert = parsed_certs[-1]
-            root_fingerprint = root_cert.fingerprint(hashes.SHA256()).hex()
-
-            is_known_apple_root = any(
-                fingerprint == root_fingerprint for fingerprint in KNOWN_APPLE_ROOT_CERT_FINGERPRINTS
-            )
-            if not is_known_apple_root:
-                logger.warning(f"[Codesign] Root certificate is not a trusted Apple CA: {root_fingerprint}")
-                return False
-
-            logger.debug("Certificate chain validation successful")
-            return True
-
-        except Exception as e:
-            logger.error(f"[Codesign] Certificate validation failed: {e}")
-            return False
