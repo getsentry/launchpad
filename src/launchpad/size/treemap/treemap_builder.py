@@ -196,7 +196,7 @@ class TreemapBuilder:
             return TreemapElement(
                 name=dir_name or dir_path,  # fall back if basename is empty
                 size=total_size,
-                type=self._get_directory_type(dir_name),
+                type=self._get_directory_type(dir_name, dir_path),
                 path=dir_path,
                 is_dir=True,
                 children=children,
@@ -236,22 +236,41 @@ class TreemapBuilder:
 
         return node.model_copy(update={"children": compressed_children})
 
-    def _get_directory_type(self, directory_name: str) -> TreemapType | None:
+    def _get_directory_type(self, directory_name: str, directory_path: str | None = None) -> TreemapType | None:
         """Determine treemap type for a directory."""
         name_lower = (directory_name or "").lower()
+        path_lower = (directory_path or "").lower()
 
+        # Cross-platform directory types
+        if name_lower in ["assets", "images"]:
+            return TreemapType.ASSETS
+
+        # iOS-specific directory types
         if ".appex" in name_lower:
             return TreemapType.EXTENSIONS
         elif ".framework" in name_lower:
             return TreemapType.FRAMEWORKS
-        elif name_lower in ["assets", "images"]:
-            return TreemapType.ASSETS
         elif ".lproj" in name_lower:
             return TreemapType.RESOURCES
         elif name_lower == "frameworks":
             return TreemapType.FRAMEWORKS
         elif name_lower == "plugins":
             return TreemapType.EXTENSIONS
+
+        # Android-specific directory types
+        elif name_lower == "res" or path_lower.startswith("res/"):
+            return TreemapType.RESOURCES
+        elif name_lower == "lib" or path_lower.startswith("lib/"):
+            return TreemapType.NATIVE_LIBRARIES
+        elif name_lower in [
+            "arm64-v8a",
+            "armeabi-v7a",
+            "x86",
+            "x86_64",
+            "mips",
+            "mips64",
+        ]:
+            return TreemapType.NATIVE_LIBRARIES
 
         return TreemapType.FILES  # Default
 

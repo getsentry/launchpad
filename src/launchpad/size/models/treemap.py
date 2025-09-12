@@ -58,6 +58,7 @@ FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
     "macho": TreemapType.EXECUTABLES,
     "executable": TreemapType.EXECUTABLES,
     "dex": TreemapType.DEX,
+    "so": TreemapType.NATIVE_LIBRARIES,
     # Asset types
     "png": TreemapType.ASSETS,
     "jpg": TreemapType.ASSETS,
