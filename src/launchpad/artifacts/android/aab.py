@@ -10,7 +10,6 @@ from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AndroidArtifact
-from ..providers.zip_provider import ZipProvider
 from .apk import APK
 from .manifest.manifest import AndroidManifest
 from .manifest.proto_xml import ProtoXmlUtils
@@ -20,11 +19,10 @@ logger = get_logger(__name__)
 
 
 class AAB(AndroidArtifact):
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, extract_dir: Path) -> None:
         super().__init__(path)
         self._path = path
-        self._zip_provider = ZipProvider(path)
-        self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        self._extract_dir = extract_dir
         self._manifest: AndroidManifest | None = None
         self._resource_table: ProtobufResourceTable | None = None
         self._primary_apks: list[APK] | None = None

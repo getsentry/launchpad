@@ -13,7 +13,6 @@ from ...parsers.android.dex.dex_file_parser import DexFileParser
 from ...parsers.android.dex.types import ClassDefinition
 from ...utils.logging import get_logger
 from ..artifact import AndroidArtifact
-from ..providers.zip_provider import ZipProvider
 from .manifest.axml import AxmlUtils
 from .manifest.manifest import AndroidManifest
 from .resources.binary import BinaryResourceTable
@@ -22,12 +21,11 @@ logger = get_logger(__name__)
 
 
 class APK(AndroidArtifact):
-    def __init__(self, path: Path, dex_mapping: DexMapping | None = None) -> None:
+    def __init__(self, path: Path, extract_dir: Path, dex_mapping: DexMapping | None = None) -> None:
         super().__init__(path)
         self._path = path
         self._dex_mapping = dex_mapping
-        self._zip_provider = ZipProvider(path)
-        self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        self._extract_dir = extract_dir
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
         self._class_definitions: list[ClassDefinition] | None = None

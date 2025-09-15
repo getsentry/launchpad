@@ -29,7 +29,6 @@ from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
-from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
     MAX_RETRY_ATTEMPTS,
     OPERATION_ERRORS,
@@ -46,6 +45,7 @@ from launchpad.size.models.common import BaseAppInfo
 from launchpad.size.runner import do_preprocess, do_size
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
+from launchpad.utils.zip_context import ArtifactContext
 
 from .kafka import LaunchpadKafkaConsumer, create_kafka_consumer
 from .sentry_sdk_init import initialize_sentry_sdk
@@ -174,75 +174,79 @@ class LaunchpadService:
             temp_file = self._download_artifact_to_temp_file(sentry_client, artifact_id, project_id, organization_id)
             file_path = Path(temp_file)
 
-            artifact = ArtifactFactory.from_path(Path(temp_file))
-            logger.info(f"Running preprocessing on {temp_file}...")
-            app_info = self._retry_operation(
-                lambda: do_preprocess(file_path),
-                OperationName.PREPROCESSING,
-            )
-            logger.info(f"Preprocessing completed for artifact {artifact_id}")
-
-            update_data = self._prepare_update_data(app_info, artifact, dequeued_at)
-            logger.info(f"Sending preprocessed info to Sentry for artifact {artifact_id}...")
-            try:
-                sentry_client.update_artifact(
-                    org=organization_id,
-                    project=project_id,
-                    artifact_id=artifact_id,
-                    data=update_data,
+            with ArtifactContext(file_path) as artifact:
+                logger.info(f"Running preprocessing on {temp_file}...")
+                app_info = self._retry_operation(
+                    lambda: do_preprocess(file_path),
+                    OperationName.PREPROCESSING,
                 )
-            except SentryClientError as e:
-                logger.exception(e)
-                self._update_artifact_error(
-                    sentry_client,
-                    artifact_id,
-                    project_id,
-                    organization_id,
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.UPDATE_FAILED,
-                    e.user_facing_message(),
-                )
-                return
-            else:
-                logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
+                logger.info(f"Preprocessing completed for artifact {artifact_id}")
 
-            if isinstance(artifact, ZippedXCArchive) and app_info.is_code_signature_valid and not app_info.is_simulator:
-                with tempfile.TemporaryDirectory() as temp_dir_str:
-                    temp_dir = Path(temp_dir_str)
-                    ipa_path = temp_dir / "App.ipa"
-                    artifact.generate_ipa(ipa_path)
-                    with open(ipa_path, "rb") as f:
-                        sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
-                    logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
-            elif isinstance(artifact, (AAB, ZippedAAB)):
-                with tempfile.TemporaryDirectory() as temp_dir_str:
-                    temp_dir = Path(temp_dir_str)
-                    if isinstance(artifact, AAB):
-                        universal_apk = artifact.get_universal_apk(temp_dir)
-                    else:  # ZippedAAB
-                        universal_apk = artifact.get_aab().get_universal_apk(temp_dir)
-                    with universal_apk.raw_file() as f:
-                        sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
-                    logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
-            elif isinstance(artifact, (APK, ZippedAPK)):
-                if isinstance(artifact, ZippedAPK):
-                    apk = artifact.get_primary_apk()
+                update_data = self._prepare_update_data(app_info, artifact, dequeued_at)
+                logger.info(f"Sending preprocessed info to Sentry for artifact {artifact_id}...")
+                try:
+                    sentry_client.update_artifact(
+                        org=organization_id,
+                        project=project_id,
+                        artifact_id=artifact_id,
+                        data=update_data,
+                    )
+                except SentryClientError as e:
+                    logger.exception(e)
+                    self._update_artifact_error(
+                        sentry_client,
+                        artifact_id,
+                        project_id,
+                        organization_id,
+                        ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                        ProcessingErrorMessage.UPDATE_FAILED,
+                        e.user_facing_message(),
+                    )
+                    return
                 else:
-                    apk = artifact
+                    logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
 
-                with apk.raw_file() as f:
-                    sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+                if (
+                    isinstance(artifact, ZippedXCArchive)
+                    and app_info.is_code_signature_valid
+                    and not app_info.is_simulator
+                ):
+                    with tempfile.TemporaryDirectory() as temp_dir_str:
+                        temp_dir = Path(temp_dir_str)
+                        ipa_path = temp_dir / "App.ipa"
+                        artifact.generate_ipa(ipa_path)
+                        with open(ipa_path, "rb") as f:
+                            sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+                        logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
+                elif isinstance(artifact, (AAB, ZippedAAB)):
+                    with tempfile.TemporaryDirectory() as temp_dir_str:
+                        temp_dir = Path(temp_dir_str)
+                        if isinstance(artifact, AAB):
+                            universal_apk = artifact.get_universal_apk(temp_dir)
+                        else:  # ZippedAAB
+                            universal_apk = artifact.get_aab().get_universal_apk(temp_dir)
+                        with universal_apk.raw_file() as f:
+                            sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+                        logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
+                elif isinstance(artifact, (APK, ZippedAPK)):
+                    if isinstance(artifact, ZippedAPK):
+                        apk = artifact.get_primary_apk()
+                    else:
+                        apk = artifact
+
+                    with apk.raw_file() as f:
+                        sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
                     logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
 
-            analyzer = self._create_analyzer(app_info)
-            logger.info(f"Running full analysis on {temp_file}...")
-            results = self._retry_operation(
-                lambda: do_size(file_path, analyzer=analyzer),
-                OperationName.SIZE_ANALYSIS,
-            )
-            logger.info(f"Size analysis completed for artifact {artifact_id}")
+                analyzer = self._create_analyzer(app_info)
+                logger.info(f"Running full analysis on {temp_file}...")
+                results = self._retry_operation(
+                    lambda: do_size(file_path, analyzer=analyzer),
+                    OperationName.SIZE_ANALYSIS,
+                )
+                logger.info(f"Size analysis completed for artifact {artifact_id}")
 
-            self._upload_results(sentry_client, results, artifact_id, project_id, organization_id)
+                self._upload_results(sentry_client, results, artifact_id, project_id, organization_id)
 
         except Exception as e:
             logger.error(f"Failed to process artifact {artifact_id}: {e}", exc_info=True)

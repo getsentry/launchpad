@@ -15,7 +15,6 @@ import lief
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AppleArtifact
-from ..providers.zip_provider import ZipProvider
 
 logger = get_logger(__name__)
 
@@ -40,10 +39,9 @@ class BinaryInfo:
 
 
 class ZippedXCArchive(AppleArtifact):
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, extract_dir: Path) -> None:
         super().__init__(path)
-        self._zip_provider = ZipProvider(path)
-        self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        self._extract_dir = extract_dir
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
