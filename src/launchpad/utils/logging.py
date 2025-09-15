@@ -6,6 +6,8 @@ import sys
 from rich.console import Console
 from rich.logging import RichHandler
 
+from launchpad.tracing import RequestLogFilter
+
 
 class StructuredRichHandler(RichHandler):
     """RichHandler that shows structured logging extras."""
@@ -72,27 +74,31 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     if console.is_terminal:
         # Use rich for colored terminal output _only_ for terminal output
         # We don't want to make server logs unreadable
+        handler = StructuredRichHandler(
+            console=console,
+            show_time=True,
+            show_path=False,
+            markup=True,
+            rich_tracebacks=True,
+        )
+        handler.addFilter(RequestLogFilter())
+
         logging.basicConfig(
             level=level,
             format="%(message)s",
             datefmt="[%X]",
-            handlers=[
-                StructuredRichHandler(
-                    console=console,
-                    show_time=True,
-                    show_path=False,
-                    markup=True,
-                    rich_tracebacks=True,
-                )
-            ],
+            handlers=[handler],
         )
     else:
         # Fall back to standard logging for non-terminal environments
         # (e.g., when output is redirected to a file or sent to Datadog)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.addFilter(RequestLogFilter())
+
         logging.basicConfig(
             level=level,
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            handlers=[logging.StreamHandler(sys.stdout)],
+            handlers=[handler],
         )
 
     # Set levels for third-party libraries

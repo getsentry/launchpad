@@ -6,7 +6,7 @@ from pathlib import Path
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
-from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
+from launchpad.utils.file_utils import create_temp_directory
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AndroidArtifact
