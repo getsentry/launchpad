@@ -54,10 +54,6 @@ def create_kafka_consumer(
     if not environment:
         raise ValueError("LAUNCHPAD_ENV environment variable is required")
 
-    # Create Arroyo consumer
-    # TODO: When we're closer to production, we'll need a way to disable this logic as
-    # topics, partitions and kafka clusters are configured through getsentry/ops.
-    # We will work with the streaming teams to get this set up.
     consumer_config = {
         "bootstrap.servers": config.bootstrap_servers,
         "group.id": config.group_id,
