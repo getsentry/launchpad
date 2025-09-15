@@ -128,3 +128,52 @@ class TestLaunchpadService:
         assert len(increment_calls) == 2
         assert increment_calls[0][1]["metric"] == "artifact.processing.started"
         assert increment_calls[1][1]["metric"] == "artifact.processing.failed"
+
+    @patch.dict("os.environ", {"PROJECT_IDS_TO_SKIP": "skip-project-1,skip-project-2"})
+    @patch.object(LaunchpadService, "process_artifact")
+    def test_handle_kafka_message_project_skipped(self, mock_process):
+        """Test that projects in the skip list are not processed."""
+        fake_statsd = FakeStatsd()
+        service = LaunchpadService(fake_statsd)
+
+        # Create a payload for a project that should be skipped
+        payload: PreprodArtifactEvents = {
+            "artifact_id": "skip-test-123",
+            "project_id": "skip-project-1",
+            "organization_id": "test-org-123",
+        }
+
+        # handle_kafka_message should return early and not process
+        service.handle_kafka_message(payload)
+
+        # Verify process_artifact was NOT called
+        mock_process.assert_not_called()
+
+        # Verify no metrics were recorded (since processing was skipped entirely)
+        calls = fake_statsd.calls
+        assert len(calls) == 0
+
+    @patch.dict("os.environ", {"PROJECT_IDS_TO_SKIP": "other-project"})
+    @patch.object(LaunchpadService, "process_artifact")
+    def test_handle_kafka_message_project_not_skipped(self, mock_process):
+        """Test that projects not in the skip list are processed normally."""
+        fake_statsd = FakeStatsd()
+        service = LaunchpadService(fake_statsd)
+
+        # Create a payload for a project that should NOT be skipped
+        payload: PreprodArtifactEvents = {
+            "artifact_id": "normal-test-123",
+            "project_id": "normal-project",
+            "organization_id": "test-org-123",
+        }
+
+        # handle_kafka_message should process normally
+        service.handle_kafka_message(payload)
+
+        # Verify process_artifact was called
+        mock_process.assert_called_once_with("normal-test-123", "normal-project", "test-org-123")
+
+        # Verify normal metrics were recorded
+        calls = fake_statsd.calls
+        assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
+        assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
