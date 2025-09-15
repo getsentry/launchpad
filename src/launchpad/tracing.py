@@ -20,7 +20,7 @@ def request_context():
 class RequestLogFilter:
     """Logging filter that adds request_id to log records."""
 
-    def filter(self, record):
+    def filter(self, record) -> bool:
         try:
             request_id = _request_id.get()
             record.request_id = request_id
