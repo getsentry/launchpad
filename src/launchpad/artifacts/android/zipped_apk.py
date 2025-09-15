@@ -19,6 +19,7 @@ class ZippedAPK(AndroidArtifact):
         if self._primary_apk is not None:
             return self._primary_apk
 
+        # NICO - test this more to make sure it works
         for path in self._extract_dir.rglob("*.apk"):
             if path.is_file():
                 # Create a temporary extraction for the nested APK

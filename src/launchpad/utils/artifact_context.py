@@ -99,6 +99,17 @@ class ArtifactContext:
         if manifest_files:
             return APK(self.path, self._extract_dir)
 
+        # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations - only really used for testing
+        try:
+            with ZipFile(self.path) as zip_file:
+                if any(f.endswith("base/manifest/AndroidManifest.xml") for f in zip_file.namelist()):
+                    return AAB(self.path, self._extract_dir)
+
+                if any(f.endswith("AndroidManifest.xml") for f in zip_file.namelist()):
+                    return APK(self.path, self._extract_dir)
+        except Exception:
+            pass
+
         raise ValueError("Input is not a supported artifact")
 
     def __exit__(

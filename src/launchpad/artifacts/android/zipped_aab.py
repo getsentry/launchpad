@@ -19,8 +19,10 @@ class ZippedAAB(AndroidArtifact):
         if self._aab is not None:
             return self._aab
 
+        # NICO - test this more to make sure it works
         for path in self._extract_dir.rglob("*.aab"):
             if path.is_file():
+                self._aab = AAB(path)
                 # Create a temporary extraction for the nested AAB
                 from ..providers.zip_provider import ZipProvider
 
