@@ -1,7 +1,7 @@
 aiohttp>=3.12.15
 click>=8.1.0
 confluent-kafka>=2.9.0,<2.10.0
-lief>=0.14.0
+lief==0.16.6
 pillow>=11.3.0
 pillow_heif>=1.1.0
 pydantic>=2.9.2,<2.10.0
