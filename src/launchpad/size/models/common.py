@@ -88,7 +88,7 @@ class BaseAnalysisResults(BaseModel):
     # Analysis metadata
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
-    analysis_version: str = Field(..., description="Analysis version", default=ANALYSIS_VERSION)
+    analysis_version: str = Field(default=ANALYSIS_VERSION, description="Analysis version")
 
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results", exclude=True)
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
