@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .treemap import TreemapResults, TreemapType
 
+ANALYSIS_VERSION = "1.0.0"
+
 
 class BaseAppInfo(BaseModel):
     """Base app information that applies across platforms."""
@@ -82,8 +84,12 @@ class BaseAnalysisResults(BaseModel):
     """Base analysis results structure."""
 
     model_config = ConfigDict(frozen=True)
+
+    # Analysis metadata
     generated_at: datetime = Field(default_factory=datetime.now, description="Analysis timestamp")
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
+    analysis_version: str = Field(..., description="Analysis version", default=ANALYSIS_VERSION)
+
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results", exclude=True)
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
     use_si_units: bool = Field(default=False, description="Whether to use SI units for size display")
