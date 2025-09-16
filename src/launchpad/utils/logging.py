@@ -4,7 +4,7 @@ import json
 import logging
 import sys
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from rich.console import Console
@@ -94,7 +94,7 @@ class JSONFormatter(logging.Formatter):
         """Format log record as JSON with structured fields."""
         # Create base log entry
         log_entry: Dict[str, Any] = {
-            "timestamp": datetime.utcfromtimestamp(record.created).isoformat() + "Z",
+            "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
