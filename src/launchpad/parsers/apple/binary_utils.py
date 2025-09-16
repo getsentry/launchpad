@@ -72,13 +72,25 @@ def parse_null_terminated_strings(content: bytes) -> List[str]:
     Returns:
         List of parsed strings, excluding empty strings
     """
-    try:
-        strings = [
-            part.decode("utf-8")
-            for part in content.split(b"\x00")
-            if part  # Filter out empty parts
-        ]
-        return strings
-    except UnicodeDecodeError:
-        logger.error("Failed to decode strings", exc_info=True)
-        return []
+    strings = []
+    for part in content.split(b"\x00"):
+        if not part:  # Filter out empty parts
+            continue
+
+        try:
+            # Try UTF-8 first
+            decoded = part.decode("utf-8")
+            strings.append(decoded)
+        except UnicodeDecodeError:
+            try:
+                # Try latin-1 as fallback (can decode any byte sequence)
+                decoded = part.decode("latin-1")
+                if decoded.isprintable() and len(decoded) > 0:
+                    strings.append(decoded)
+                else:
+                    logger.debug(f"Skipping non-printable string: {part[:20]}")
+            except UnicodeDecodeError:
+                logger.debug(f"Failed to decode string part: {part[:20]}")
+                continue
+
+    return strings
