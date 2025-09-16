@@ -12,6 +12,39 @@ from rich.logging import RichHandler
 
 from launchpad.tracing import RequestLogFilter
 
+# Standard LogRecord attributes to exclude from extra fields
+STANDARD_LOG_ATTRS = {
+    "name",
+    "msg",
+    "args",
+    "levelname",
+    "levelno",
+    "pathname",
+    "filename",
+    "module",
+    "lineno",
+    "funcName",
+    "created",
+    "msecs",
+    "relativeCreated",
+    "thread",
+    "threadName",
+    "processName",
+    "process",
+    "getMessage",
+    "exc_info",
+    "exc_text",
+    "stack_info",
+    "message",
+    "taskName",
+    "asctime",
+}
+
+
+def get_extra_fields(record: logging.LogRecord) -> Dict[str, Any]:
+    """Extract extra fields from a log record, excluding standard LogRecord attributes."""
+    return {k: v for k, v in record.__dict__.items() if k not in STANDARD_LOG_ATTRS and not k.startswith("_")}
+
 
 class StructuredRichHandler(RichHandler):
     """RichHandler that shows structured logging extras."""
@@ -19,34 +52,7 @@ class StructuredRichHandler(RichHandler):
     def format(self, record: logging.LogRecord) -> str:
         message = super().format(record)
 
-        # Default attributes to ignore
-        standard_attrs = {
-            "name",
-            "msg",
-            "args",
-            "levelname",
-            "levelno",
-            "pathname",
-            "filename",
-            "module",
-            "lineno",
-            "funcName",
-            "created",
-            "msecs",
-            "relativeCreated",
-            "thread",
-            "threadName",
-            "processName",
-            "process",
-            "getMessage",
-            "exc_info",
-            "exc_text",
-            "stack_info",
-            "message",
-            "taskName",
-        }
-
-        extras = {k: v for k, v in record.__dict__.items() if k not in standard_attrs and not k.startswith("_")}
+        extras = get_extra_fields(record)
 
         if extras:
             extra_parts = []
@@ -61,34 +67,6 @@ class StructuredRichHandler(RichHandler):
 
 class JSONFormatter(logging.Formatter):
     """JSON formatter for structured logging in production environments."""
-
-    # Standard LogRecord attributes to exclude from extra fields
-    STANDARD_ATTRS = {
-        "name",
-        "msg",
-        "args",
-        "levelname",
-        "levelno",
-        "pathname",
-        "filename",
-        "module",
-        "lineno",
-        "funcName",
-        "created",
-        "msecs",
-        "relativeCreated",
-        "thread",
-        "threadName",
-        "processName",
-        "process",
-        "getMessage",
-        "exc_info",
-        "exc_text",
-        "stack_info",
-        "message",
-        "taskName",
-        "asctime",
-    }
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON with structured fields."""
@@ -109,9 +87,7 @@ class JSONFormatter(logging.Formatter):
             }
 
         # Add any extra fields from logger.info(..., extra={...})
-        extra_fields = {
-            k: v for k, v in record.__dict__.items() if k not in self.STANDARD_ATTRS and not k.startswith("_")
-        }
+        extra_fields = get_extra_fields(record)
         if extra_fields:
             log_entry.update(extra_fields)
 
