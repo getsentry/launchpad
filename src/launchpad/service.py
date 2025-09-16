@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import multiprocessing
 import os
 import signal
 import tempfile
@@ -39,20 +40,38 @@ from launchpad.constants import (
     ProcessingErrorMessage,
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
+from launchpad.sentry_sdk_init import initialize_sentry_sdk
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
 from launchpad.size.runner import do_preprocess, do_size
-from launchpad.utils.logging import get_logger
+from launchpad.utils.logging import get_logger, setup_logging
 from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
 
 from .kafka import LaunchpadKafkaConsumer, create_kafka_consumer
-from .sentry_sdk_init import initialize_sentry_sdk
 from .server import LaunchpadServer, get_server_config
 from .tracing import request_context
 
 logger = get_logger(__name__)
+
+
+def _run_artifact_subprocess(
+    artifact_id: str, project_id: str, organization_id: str, service_config: ServiceConfig
+) -> None:
+    """Process artifact in subprocess and exit cleanly."""
+    try:
+        setup_logging(verbose=True)
+        initialize_sentry_sdk()
+
+        service = LaunchpadService()
+        service._service_config = service_config
+        service._process_artifact_in_process(artifact_id, project_id, organization_id)
+
+        os._exit(0)  # Success - clean exit
+    except Exception as e:
+        logger.error(f"Subprocess failed: {e}", exc_info=True)
+        os._exit(1)  # Failure - exit with error code
 
 
 class LaunchpadService:
@@ -115,6 +134,7 @@ class LaunchpadService:
             await shutdown_event.wait()
         finally:
             logger.info("Cleaning up service resources...")
+
             awaitable_stop_server = None
             awaitable_stop_kafka = None
             if self.kafka:
@@ -167,10 +187,33 @@ class LaunchpadService:
     def process_artifact(self, artifact_id: str, project_id: str, organization_id: str) -> None:
         """
         Download artifact and perform size analysis.
+
+        Uses subprocess isolation to ensure all memory is freed after processing,
+        preventing memory leaks from C extensions like LIEF and pillow_heif.
         """
         if not self._service_config:
             raise RuntimeError("Service not properly initialized. Call setup() first.")
 
+        process = multiprocessing.get_context("spawn").Process(
+            target=_run_artifact_subprocess,
+            args=(artifact_id, project_id, organization_id, self._service_config),
+        )
+
+        process.start()
+        process.join(timeout=300)  # 5 minute timeout
+
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
+            raise RuntimeError("Processing timed out after 5 minutes")
+
+        if process.exitcode != 0:
+            raise RuntimeError(f"Processing failed with exit code {process.exitcode}")
+
+    def _process_artifact_in_process(self, artifact_id: str, project_id: str, organization_id: str) -> None:
+        """
+        Original in-process artifact processing (fallback when subprocess isolation is disabled).
+        """
         dequeued_at = datetime.now()
         sentry_client = SentryClient(base_url=self._service_config.sentry_base_url)
         temp_file = None
@@ -212,7 +255,12 @@ class LaunchpadService:
             else:
                 logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
 
-            if isinstance(artifact, ZippedXCArchive) and app_info.is_code_signature_valid and not app_info.is_simulator:
+            if (
+                isinstance(artifact, ZippedXCArchive)
+                and isinstance(app_info, AppleAppInfo)
+                and app_info.is_code_signature_valid
+                and not app_info.is_simulator
+            ):
                 with tempfile.TemporaryDirectory() as temp_dir_str:
                     temp_dir = Path(temp_dir_str)
                     ipa_path = temp_dir / "App.ipa"
