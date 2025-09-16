@@ -135,34 +135,34 @@ class LaunchpadService:
         project_id = payload["project_id"]
         organization_id = payload["organization_id"]
 
-        if self._should_skip_processing_for_project(project_id):
+        if self._service_config and project_id in self._service_config.projects_to_skip:
             logger.info(f"Skipping processing for project {project_id}")
             return
 
         with request_context():
-          with sentry_sdk.new_scope() as scope:
-              scope.set_tag("launchpad.project_id", project_id)
-              scope.set_tag("launchpad.organization_id", organization_id)
-              scope.set_tag("launchpad.artifact_id", artifact_id)
+            with sentry_sdk.new_scope() as scope:
+                scope.set_tag("launchpad.project_id", project_id)
+                scope.set_tag("launchpad.organization_id", organization_id)
+                scope.set_tag("launchpad.artifact_id", artifact_id)
 
-              try:
-                  logger.info(f"Processing artifact: {artifact_id} (project: {project_id}, org: {organization_id})")
-                  self._statsd.increment("artifact.processing.started")
+                try:
+                    logger.info(f"Processing artifact: {artifact_id} (project: {project_id}, org: {organization_id})")
+                    self._statsd.increment("artifact.processing.started")
 
-                  timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
-                  with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
-                      self.process_artifact(artifact_id, project_id, organization_id)
-                  logger.info(f"Analysis completed for artifact {artifact_id}")
+                    timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
+                    with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
+                        self.process_artifact(artifact_id, project_id, organization_id)
+                    logger.info(f"Analysis completed for artifact {artifact_id}")
 
-                  self._statsd.increment("artifact.processing.completed")
+                    self._statsd.increment("artifact.processing.completed")
 
-              except Exception as e:
-                  logger.error(
-                      f"Failed to process artifact {artifact_id} (project: {project_id}, org: {organization_id}): {e}",
-                      exc_info=True,
-                  )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to process artifact {artifact_id} (project: {project_id}, org: {organization_id}): {e}",
+                        exc_info=True,
+                    )
 
-                  self._statsd.increment("artifact.processing.failed")
+                    self._statsd.increment("artifact.processing.failed")
 
     def process_artifact(self, artifact_id: str, project_id: str, organization_id: str) -> None:
         """
@@ -533,28 +533,27 @@ class LaunchpadService:
         is_kafka_healthy = self.kafka.is_healthy()
         return is_server_healthy and is_kafka_healthy
 
-    def _should_skip_processing_for_project(self, project_id: str) -> bool:
-        """Determine if processing should be skipped for a project."""
-
-        list_of_projects_to_skip = os.getenv("PROJECT_IDS_TO_SKIP", "").split(",")
-        return project_id in list_of_projects_to_skip
-
 
 @dataclass
 class ServiceConfig:
     """Service configuration data."""
 
     sentry_base_url: str
+    projects_to_skip: list[str]
 
 
 def get_service_config() -> ServiceConfig:
     """Get service configuration from environment."""
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
+    projects_to_skip_str = os.getenv("PROJECT_IDS_TO_SKIP")
+    projects_to_skip = projects_to_skip_str.split(",") if projects_to_skip_str else []
+
     if sentry_base_url is None:
         sentry_base_url = "http://getsentry.default"
 
     return ServiceConfig(
         sentry_base_url=sentry_base_url,
+        projects_to_skip=projects_to_skip,
     )
 
 

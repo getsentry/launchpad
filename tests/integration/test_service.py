@@ -10,7 +10,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 )
 
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService
+from launchpad.service import LaunchpadService, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -129,12 +129,14 @@ class TestLaunchpadService:
         assert increment_calls[0][1]["metric"] == "artifact.processing.started"
         assert increment_calls[1][1]["metric"] == "artifact.processing.failed"
 
-    @patch.dict("os.environ", {"PROJECT_IDS_TO_SKIP": "skip-project-1,skip-project-2"})
     @patch.object(LaunchpadService, "process_artifact")
     def test_handle_kafka_message_project_skipped(self, mock_process):
         """Test that projects in the skip list are not processed."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
+        service._service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io", projects_to_skip=["skip-project-1", "skip-project-2"]
+        )
 
         # Create a payload for a project that should be skipped
         payload: PreprodArtifactEvents = {
@@ -153,12 +155,14 @@ class TestLaunchpadService:
         calls = fake_statsd.calls
         assert len(calls) == 0
 
-    @patch.dict("os.environ", {"PROJECT_IDS_TO_SKIP": "other-project"})
     @patch.object(LaunchpadService, "process_artifact")
     def test_handle_kafka_message_project_not_skipped(self, mock_process):
         """Test that projects not in the skip list are processed normally."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
+        service._service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io", projects_to_skip=["other-project"]
+        )
 
         # Create a payload for a project that should NOT be skipped
         payload: PreprodArtifactEvents = {

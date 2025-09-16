@@ -11,7 +11,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 )
 
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService
+from launchpad.service import LaunchpadService, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -25,11 +25,10 @@ class TestServiceIntegration:
         service = LaunchpadService(fake_statsd)
 
         # Mock service config to make the service appear initialized
-        service._service_config = {
-            "statsd_host": "127.0.0.1",
-            "statsd_port": 8125,
-            "sentry_base_url": "https://sentry.example.com",
-        }
+        service._service_config = ServiceConfig(
+            sentry_base_url="https://sentry.example.com",
+            projects_to_skip=[],
+        )
 
         # Mock process_artifact to avoid actual processing
         with patch.object(service, "process_artifact") as mock_process:
