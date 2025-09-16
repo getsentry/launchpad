@@ -406,89 +406,102 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        fat_binary = lief.MachO.parse(str(binary_path))  # type: ignore
+        fat_binary = None
+        dwarf_fat_binary = None
+        try:
+            fat_binary = lief.MachO.parse(str(binary_path))  # type: ignore
 
-        if fat_binary is None or fat_binary.size == 0:
-            raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
+            if fat_binary is None or fat_binary.size == 0:
+                raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
 
-        binary = fat_binary.at(0)
-        executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
+            binary = fat_binary.at(0)
+            executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
-        # Create parser for this binary
-        parser = MachOParser(binary)
+            # Create parser for this binary
+            parser = MachOParser(binary)
 
-        # Extract basic information using the parser
-        architectures = parser.extract_architectures()
-        linked_libraries = parser.extract_linked_libraries()
-        swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
-        objc_method_names = parser.parse_objc_method_names()
-        static_inits = parser.static_inits()
-        segments = self._extract_segments_info(parser.binary)
-        load_commands = self._extract_load_commands_info(parser.binary)
-        dyld_info = parser.extract_dyld_info()
+            # Extract basic information using the parser
+            architectures = parser.extract_architectures()
+            linked_libraries = parser.extract_linked_libraries()
+            swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
+            objc_method_names = parser.parse_objc_method_names()
+            static_inits = parser.static_inits()
+            segments = self._extract_segments_info(parser.binary)
+            load_commands = self._extract_load_commands_info(parser.binary)
+            dyld_info = parser.extract_dyld_info()
 
-        symbol_info = None
+            symbol_info = None
 
-        # Always test symbol removal on the main app binary (not dSYM)
-        strippable_symbols_size = self._check_strip_symbols_removal(binary_path, binary)
+            # Always test symbol removal on the main app binary (not dSYM)
+            strippable_symbols_size = self._check_strip_symbols_removal(binary_path, binary)
 
-        if dwarf_binary_path:
-            dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
-            if dwarf_fat_binary:
-                dwarf_binary = dwarf_fat_binary.at(0)
-                symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
-                symbol_info = SymbolInfo(
-                    symbol_sizes=symbol_sizes,
-                    swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
-                    objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
-                    static_inits=static_inits,
-                    strippable_symbols_size=strippable_symbols_size,
-                )
+            if dwarf_binary_path:
+                dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
+                if dwarf_fat_binary:
+                    dwarf_binary = dwarf_fat_binary.at(0)
+                    symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
+                    symbol_info = SymbolInfo(
+                        symbol_sizes=symbol_sizes,
+                        swift_type_groups=SwiftSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                        objc_type_groups=ObjCSymbolTypeAggregator().aggregate_symbols(symbol_sizes),
+                        static_inits=static_inits,
+                        strippable_symbols_size=strippable_symbols_size,
+                    )
+                else:
+                    logger.error(
+                        "size.apple.skip_symbol_analysis.dwarf_binary_parse_failed",
+                        extra={
+                            "binary_name": binary_info.name,
+                        },
+                    )
             else:
-                logger.error(
-                    "size.apple.skip_symbol_analysis.dwarf_binary_parse_failed",
+                if strippable_symbols_size > 0:
+                    symbol_info = SymbolInfo(
+                        symbol_sizes=[],
+                        swift_type_groups=[],
+                        objc_type_groups=[],
+                        static_inits=static_inits,
+                        strippable_symbols_size=strippable_symbols_size,
+                    )
+                logger.info(
+                    "size.apple.skip_symbol_analysis.no_dwarf_binary",
                     extra={
                         "binary_name": binary_info.name,
                     },
                 )
-        else:
-            if strippable_symbols_size > 0:
-                symbol_info = SymbolInfo(
-                    symbol_sizes=[],
-                    swift_type_groups=[],
-                    objc_type_groups=[],
-                    static_inits=static_inits,
-                    strippable_symbols_size=strippable_symbols_size,
+
+            # Extract Swift metadata if enabled
+            swift_metadata = None
+            if not skip_swift_metadata:
+                swift_metadata = SwiftMetadata(
+                    protocol_conformances=swift_protocol_conformances,
                 )
-            logger.info(
-                "size.apple.skip_symbol_analysis.no_dwarf_binary",
-                extra={
-                    "binary_name": binary_info.name,
-                },
-            )
 
-        # Extract Swift metadata if enabled
-        swift_metadata = None
-        if not skip_swift_metadata:
-            swift_metadata = SwiftMetadata(
-                protocol_conformances=swift_protocol_conformances,
+            return MachOBinaryAnalysis(
+                binary_absolute_path=binary_path,
+                binary_relative_path=binary_path.relative_to(app_bundle_path),
+                executable_size=executable_size,
+                architectures=architectures,
+                linked_libraries=linked_libraries,
+                swift_metadata=swift_metadata,
+                symbol_info=symbol_info,
+                objc_method_names=objc_method_names,
+                is_main_binary=is_main_binary,
+                segments=segments,
+                load_commands=load_commands,
+                header_size=parser.get_header_size(),
+                dyld_info=dyld_info,
             )
+        finally:
+            # Explicitly delete LIEF objects to free memory
+            if fat_binary is not None:
+                del fat_binary
+            if dwarf_fat_binary is not None:
+                del dwarf_fat_binary
+            # Force garbage collection to reclaim memory used by LIEF
+            import gc
 
-        return MachOBinaryAnalysis(
-            binary_absolute_path=binary_path,
-            binary_relative_path=binary_path.relative_to(app_bundle_path),
-            executable_size=executable_size,
-            architectures=architectures,
-            linked_libraries=linked_libraries,
-            swift_metadata=swift_metadata,
-            symbol_info=symbol_info,
-            objc_method_names=objc_method_names,
-            is_main_binary=is_main_binary,
-            segments=segments,
-            load_commands=load_commands,
-            header_size=parser.get_header_size(),
-            dyld_info=dyld_info,
-        )
+            gc.collect()
 
     @trace("apple.test_strip_symbols_removal")
     def _check_strip_symbols_removal(self, binary_path: Path, binary: lief.MachO.Binary) -> int:

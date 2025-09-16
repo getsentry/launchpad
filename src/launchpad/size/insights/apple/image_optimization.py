@@ -68,6 +68,35 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
         results.sort(key=lambda x: x.potential_savings, reverse=True)
         total_savings = sum(f.potential_savings for f in results)
 
+        # Clear PIL/Pillow image cache to free memory
+        try:
+            from PIL import ImageFile
+
+            ImageFile.LOAD_TRUNCATED_IMAGES = False
+
+            # Clear PIL's internal image cache
+            Image.core.clear_cache()
+
+            # Try to clear pillow_heif internal state
+            try:
+                import pillow_heif
+
+                # Reset any module-level state
+                if hasattr(pillow_heif, "_heif_ctx"):
+                    del pillow_heif._heif_ctx
+                if hasattr(pillow_heif, "cached_data"):
+                    del pillow_heif.cached_data
+            except Exception:
+                pass
+
+            # Force garbage collection multiple times for C extensions
+            import gc
+
+            for _ in range(3):
+                gc.collect()
+        except Exception:
+            pass
+
         return ImageOptimizationInsightResult(
             optimizable_files=results,
             total_savings=total_savings,
@@ -104,9 +133,17 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
                 elif fmt in {"heif", "heic"}:
                     if res := self._check_heic_minification(img, file_size):
                         minify_savings, minified_size = res.savings, res.optimized_size
+
+                # Explicitly close image to free memory
+                img.close()
         except Exception as exc:
             logger.error("Failed to process %s: %s", display_path, exc)
             return None
+        finally:
+            # Force garbage collection after image processing
+            import gc
+
+            gc.collect()
 
         if max(minify_savings, conversion_savings) < self.MIN_SAVINGS_THRESHOLD:
             return None
@@ -140,9 +177,20 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
 
     def _check_heic_conversion(self, img: Image.Image, file_size: int) -> _OptimizationResult | None:
         try:
-            with io.BytesIO() as buf:
-                img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
-                new_size = buf.tell()
+            # Create a copy to avoid modifying the original
+            with img.copy() as img_copy:
+                with io.BytesIO() as buf:
+                    img_copy.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
+                    new_size = buf.tell()
+                    # Clear the buffer to free memory
+                    buf.close()
+                # Explicitly close the copy
+                img_copy.close()
+                del img_copy
+            # Force cleanup of pillow_heif internals
+            import gc
+
+            gc.collect()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
         except Exception as exc:
             logger.error("HEIC conversion check failed: %s", exc)
@@ -150,9 +198,18 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
 
     def _check_heic_minification(self, img: Image.Image, file_size: int) -> _OptimizationResult | None:
         try:
-            with io.BytesIO() as buf:
-                img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
-                new_size = buf.tell()
+            # Create a copy to avoid modifying the original
+            with img.copy() as img_copy:
+                with io.BytesIO() as buf:
+                    img_copy.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
+                    new_size = buf.tell()
+                    buf.close()
+                img_copy.close()
+                del img_copy
+            # Force cleanup
+            import gc
+
+            gc.collect()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
         except Exception as exc:
             logger.error("HEIC minification check failed: %s", exc)

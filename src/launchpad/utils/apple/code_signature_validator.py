@@ -109,19 +109,30 @@ class CodeSignatureValidator:
         executable = self.archive.get_binary_path()
         if not executable:
             raise ValueError("No executable found")
-        fat_binary = lief.MachO.parse(str(executable))
-        if fat_binary is None:
-            raise ValueError("Failed to parse binary")
 
-        self.macho_parser = MachOParser(fat_binary.at(0))
-        if self.macho_parser.is_encrypted():
-            raise ValueError("Binary is encrypted, not valid for distribution")
+        fat_binary = None
+        try:
+            fat_binary = lief.MachO.parse(str(executable))
+            if fat_binary is None:
+                raise ValueError("Failed to parse binary")
 
-        binary_hashes = self._check_binary()
-        if not binary_hashes.valid:
-            raise ValueError("Binary is not valid")
+            self.macho_parser = MachOParser(fat_binary.at(0))
+            if self.macho_parser.is_encrypted():
+                raise ValueError("Binary is encrypted, not valid for distribution")
 
-        return binary_hashes
+            binary_hashes = self._check_binary()
+            if not binary_hashes.valid:
+                raise ValueError("Binary is not valid")
+
+            return binary_hashes
+        finally:
+            # Explicitly delete LIEF objects to free memory
+            if fat_binary is not None:
+                del fat_binary
+            # Force garbage collection to reclaim memory used by LIEF
+            import gc
+
+            gc.collect()
 
     def _validate_info_plist(self, binary_hashes: BinaryCheckResult) -> None:
         """Validate the Info.plist."""

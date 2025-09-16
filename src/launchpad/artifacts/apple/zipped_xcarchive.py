@@ -338,6 +338,7 @@ class ZippedXCArchive(AppleArtifact):
         )
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:
+        fat_binary = None
         try:
             fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(str(binary_path))  # type: ignore
             if fat_binary is None or fat_binary.size == 0:
@@ -360,6 +361,14 @@ class ZippedXCArchive(AppleArtifact):
         except Exception as e:
             logger.error(f"Failed to extract UUID from binary {binary_path}: {e}")
             return None
+        finally:
+            # Explicitly delete LIEF objects to free memory
+            if fat_binary is not None:
+                del fat_binary
+            # Force garbage collection to reclaim memory used by LIEF
+            import gc
+
+            gc.collect()
 
     def _find_dsym_files(self) -> dict[str, Path]:
         if self._dsym_files is not None:
