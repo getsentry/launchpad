@@ -69,8 +69,6 @@ class JSONFormatter(logging.Formatter):
     """JSON formatter for structured logging in production environments."""
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON with structured fields."""
-        # Create base log entry
         log_entry: Dict[str, Any] = {
             "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
             "level": record.levelname,
@@ -78,28 +76,16 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        # Add location information
-        if record.pathname:
-            log_entry["source"] = {
-                "file": record.filename,
-                "line": record.lineno,
-                "function": record.funcName,
-            }
-
-        # Add any extra fields from logger.info(..., extra={...})
         extra_fields = get_extra_fields(record)
         if extra_fields:
             log_entry.update(extra_fields)
 
-        # Handle exceptions
         if record.exc_info:
             log_entry["exception"] = self.formatException(record.exc_info)
 
-        # Convert to JSON string
         try:
             return json.dumps(log_entry, default=str, ensure_ascii=False)
         except (TypeError, ValueError):
-            # Fallback to string representation if JSON serialization fails
             log_entry["message"] = str(record.getMessage())
             return json.dumps(log_entry, default=str, ensure_ascii=False)
 
@@ -140,7 +126,6 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
         )
     else:
         # Use JSON formatting for non-terminal environments (e.g., GCP logs)
-        # This enables structured logging with extra fields
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(JSONFormatter())
         handler.addFilter(RequestLogFilter())
