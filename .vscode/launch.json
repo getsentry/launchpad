@@ -104,7 +104,9 @@
         "PYTHONMALLOC": "malloc",
         "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
       },
-      "justMyCode": false
+      "justMyCode": false,
+      "preLaunchTask": "cleanup-memray-files",
+      "postDebugTask": "generate-memray-flamegraph"
     },
     {
       "name": "Python: Debug Android AAB CLI",

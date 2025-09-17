@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "cleanup-memray-files",
+      "type": "shell",
+      "command": "rm",
+      "args": ["-f", "output/memray-profile.bin", "output/memray-flamegraph-profile.html"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "generate-memray-flamegraph",
+      "type": "shell",
+      "command": "python",
+      "args": ["-m", "memray", "flamegraph", "output/memray-profile.bin"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
