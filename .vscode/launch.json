@@ -80,6 +80,33 @@
       "justMyCode": false
     },
     {
+      "name": "Python: Memray Debug iOS CLI",
+      "type": "debugpy",
+      "request": "launch",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "module": "memray",
+      "args": [
+        "run",
+        "--native",
+        "--output",
+        "output/memray-profile.bin",
+        "-m",
+        "launchpad.cli",
+        "size",
+        "tests/_fixtures/ios/HackerNews.xcarchive.zip",
+        "--output",
+        "output/apple-size-output.json"
+      ],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "PYTHONMALLOC": "malloc",
+        "PATH": "${workspaceFolder}/.devenv/all/bin:${workspaceFolder}/.devenv/aarch64-darwin/bin:${env:PATH}"
+      },
+      "justMyCode": false
+    },
+    {
       "name": "Python: Debug Android AAB CLI",
       "type": "debugpy",
       "request": "launch",
