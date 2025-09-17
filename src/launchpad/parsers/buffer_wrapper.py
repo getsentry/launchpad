@@ -199,15 +199,16 @@ class BufferWrapper:
         """Read signed LEB128 integer."""
         result = 0
         shift = 0
+        byte = 0
         while True:
             byte = self.read_u8()
             result |= (byte & 0x7F) << shift
-            if not (byte & 0x80):
-                # Sign extend if necessary
-                if shift < 32 and (byte & 0x40):
-                    result |= ~((1 << shift) - 1)
-                break
             shift += 7
+            if not (byte & 0x80):
+                break
+        # Sign extend if sign bit of last byte is set
+        if (shift < 64) and (byte & 0x40):
+            result |= -(1 << shift)
         return result
 
     def read_sized_int(self, size: int) -> int:
