@@ -339,23 +339,24 @@ class ZippedXCArchive(AppleArtifact):
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:
         try:
-            fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(str(binary_path))  # type: ignore
-            if fat_binary is None or fat_binary.size == 0:
-                logger.debug(f"Failed to parse binary with LIEF: {binary_path}")
+            with open(binary_path, "rb") as f:
+                fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(f)  # type: ignore
+                if fat_binary is None or fat_binary.size == 0:
+                    logger.debug(f"Failed to parse binary with LIEF: {binary_path}")
+                    return None
+
+                binary = fat_binary.at(0)
+
+                # Look for UUID load command
+                for command in binary.commands:
+                    if command.command == lief.MachO.LoadCommand.TYPE.UUID:
+                        if isinstance(command, lief.MachO.UUIDCommand):
+                            uuid_bytes = bytes(command.uuid)
+                            uuid_obj = uuid.UUID(bytes=uuid_bytes)
+                            return str(uuid_obj).upper()
+
+                logger.debug(f"No UUID command found in binary: {binary_path}")
                 return None
-
-            binary = fat_binary.at(0)
-
-            # Look for UUID load command
-            for command in binary.commands:
-                if command.command == lief.MachO.LoadCommand.TYPE.UUID:
-                    if isinstance(command, lief.MachO.UUIDCommand):
-                        uuid_bytes = bytes(command.uuid)
-                        uuid_obj = uuid.UUID(bytes=uuid_bytes)
-                        return str(uuid_obj).upper()
-
-            logger.debug(f"No UUID command found in binary: {binary_path}")
-            return None
 
         except Exception as e:
             logger.error(f"Failed to extract UUID from binary {binary_path}: {e}")

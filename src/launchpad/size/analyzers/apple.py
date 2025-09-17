@@ -406,7 +406,8 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        fat_binary = lief.MachO.parse(str(binary_path))  # type: ignore
+        with open(binary_path, "rb") as f:
+            fat_binary = lief.MachO.parse(f)  # type: ignore
 
         if fat_binary is None or fat_binary.size == 0:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
@@ -414,10 +415,7 @@ class AppleAppAnalyzer:
         binary = fat_binary.at(0)
         executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
-        # Create parser for this binary
         parser = MachOParser(binary)
-
-        # Extract basic information using the parser
         architectures = parser.extract_architectures()
         linked_libraries = parser.extract_linked_libraries()
         swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
@@ -433,7 +431,8 @@ class AppleAppAnalyzer:
         strippable_symbols_size = self._check_strip_symbols_removal(binary_path, binary)
 
         if dwarf_binary_path:
-            dwarf_fat_binary = lief.MachO.parse(str(dwarf_binary_path))  # type: ignore
+            with open(dwarf_binary_path, "rb") as f:
+                dwarf_fat_binary = lief.MachO.parse(f)  # type: ignore
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
@@ -467,7 +466,6 @@ class AppleAppAnalyzer:
                 },
             )
 
-        # Extract Swift metadata if enabled
         swift_metadata = None
         if not skip_swift_metadata:
             swift_metadata = SwiftMetadata(

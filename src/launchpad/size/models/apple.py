@@ -60,7 +60,8 @@ class AppleAppInfo(BaseAppInfo):
     sdk_version: str | None = Field(None, description="App SDK version used for build")
     is_simulator: bool = Field(False, description="If the app is a simulator build")
     codesigning_type: str | None = Field(
-        None, description="Type of codesigning used (development, adhoc, appstore, enterprise)"
+        None,
+        description="Type of codesigning used (development, adhoc, appstore, enterprise)",
     )
     profile_name: str | None = Field(None, description="Name of the provisioning profile used")
     profile_expiration_date: str | None = Field(None, description="Expiration date of the provisioning profile")

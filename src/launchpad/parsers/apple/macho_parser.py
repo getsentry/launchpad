@@ -248,7 +248,10 @@ class MachOParser:
                 swift_version = (flags >> 8) & 0xFF
                 has_swift_info = swift_version != 0
                 logger.debug(
-                    "objc_imageinfo flags=0x%08x  swift=%d  objcFlags=0x%02x", flags, swift_version, flags & 0xFF
+                    "objc_imageinfo flags=0x%08x  swift=%d  objcFlags=0x%02x",
+                    flags,
+                    swift_version,
+                    flags & 0xFF,
                 )
                 return has_swift_info
             return False
@@ -297,6 +300,6 @@ class MachOParser:
         dyld_chained_fixups = self.binary.dyld_chained_fixups
         dyld_exports_trie = self.binary.dyld_exports_trie
         return DyldInfo(
-            chained_fixups_size=dyld_chained_fixups.data_size if dyld_chained_fixups else 0,
+            chained_fixups_size=(dyld_chained_fixups.data_size if dyld_chained_fixups else 0),
             export_trie_size=dyld_exports_trie.data_size if dyld_exports_trie else 0,
         )
