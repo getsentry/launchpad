@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import tempfile
 
 from datetime import datetime
@@ -177,6 +178,7 @@ class AppleAppAnalyzer:
                         "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),
                     },
                 )
+                gc.collect()
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
