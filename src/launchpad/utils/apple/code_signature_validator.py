@@ -109,7 +109,9 @@ class CodeSignatureValidator:
         executable = self.archive.get_binary_path()
         if not executable:
             raise ValueError("No executable found")
-        fat_binary = lief.MachO.parse(str(executable))
+
+        with open(executable, "rb") as f:
+            fat_binary = lief.MachO.parse(f)  # type: ignore
         if fat_binary is None:
             raise ValueError("Failed to parse binary")
 
