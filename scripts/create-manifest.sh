@@ -50,6 +50,14 @@ for registry in "${!REGISTRIES[@]}"; do
       "${IMAGE_NAME}:${SHA}-amd64" \
       "${IMAGE_NAME}:${SHA}-arm64"
     echo "✓ Pushed ${IMAGE_NAME}:nightly"
+
+    # Also create latest tag when pushing nightly (main branch)
+    echo "Creating latest manifest: ${IMAGE_NAME}:latest"
+    docker buildx imagetools create \
+      --tag "${IMAGE_NAME}:latest" \
+      "${IMAGE_NAME}:${SHA}-amd64" \
+      "${IMAGE_NAME}:${SHA}-arm64"
+    echo "✓ Pushed ${IMAGE_NAME}:latest"
   else
     echo "Skipping nightly manifest"
   fi
