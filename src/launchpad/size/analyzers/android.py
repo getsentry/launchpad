@@ -287,7 +287,7 @@ class AndroidAnalyzer:
 
         for apk in apks:
             # Get the original APK file path
-            apk_path = apk._path
+            apk_path = apk.path
             logger.debug("Calculating sizes for APK: %s", apk_path)
 
             try:

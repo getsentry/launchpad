@@ -1,4 +1,8 @@
+import shutil
+import tempfile
+
 from pathlib import Path
+from typing import Callable
 
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
@@ -8,8 +12,8 @@ from .manifest.manifest import AndroidManifest
 
 
 class ZippedAAB(AndroidArtifact):
-    def __init__(self, path: Path) -> None:
-        super().__init__(path)
+    def __init__(self, path: Path, cleanup: None | Callable[[], None] = None) -> None:
+        super().__init__(path, cleanup=cleanup)
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._aab: AAB | None = None
@@ -23,7 +27,10 @@ class ZippedAAB(AndroidArtifact):
 
         for path in self._extract_dir.rglob("*.aab"):
             if path.is_file():
-                self._aab = AAB(path)
+                tmp_dir = Path(tempfile.mkdtemp())
+                new_path = tmp_dir / path.name
+                shutil.copyfile(path, new_path)
+                self._aab = AAB(new_path, cleanup=lambda: shutil.rmtree(tmp_dir))
                 return self._aab
 
         raise FileNotFoundError(f"No AAB found in {self._extract_dir}")

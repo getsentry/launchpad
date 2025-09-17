@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, Iterator
+from typing import IO, Callable, Iterator
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.apksigner import Apksigner
@@ -22,9 +22,10 @@ logger = get_logger(__name__)
 
 
 class APK(AndroidArtifact):
-    def __init__(self, path: Path, dex_mapping: DexMapping | None = None) -> None:
-        super().__init__(path)
-        self._path = path
+    def __init__(
+        self, path: Path, dex_mapping: DexMapping | None = None, cleanup: None | Callable[[], None] = None
+    ) -> None:
+        super().__init__(path, cleanup=cleanup)
         self._dex_mapping = dex_mapping
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
@@ -34,7 +35,7 @@ class APK(AndroidArtifact):
 
     @contextmanager
     def raw_file(self) -> Iterator[IO[bytes]]:
-        f = open(self._path, "rb")
+        f = open(self.path, "rb")
         try:
             yield f
         finally:
@@ -102,4 +103,4 @@ class APK(AndroidArtifact):
 
     def get_apksigner_certs(self) -> str:
         apksigner = Apksigner()
-        return apksigner.get_certs(self._path)
+        return apksigner.get_certs(self.path)

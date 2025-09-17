@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import shutil
+import tempfile
+
 from pathlib import Path
+from typing import Callable
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
@@ -20,9 +24,8 @@ logger = get_logger(__name__)
 
 
 class AAB(AndroidArtifact):
-    def __init__(self, path: Path) -> None:
-        super().__init__(path)
-        self._path = path
+    def __init__(self, path: Path, cleanup: None | Callable[[], None] = None) -> None:
+        super().__init__(path, cleanup=cleanup)
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
@@ -74,11 +77,14 @@ class AAB(AndroidArtifact):
         apks_dir = create_temp_directory("apks-")
         try:
             bundletool = Bundletool()
-            bundletool.build_apks(bundle_path=self._path, output_dir=apks_dir, device_spec=device_spec)
+            bundletool.build_apks(bundle_path=self.path, output_dir=apks_dir, device_spec=device_spec)
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
-                apks.append(APK(apk_path, self.get_dex_mapping()))
+                tmp_dir = Path(tempfile.mkdtemp())
+                new_apk_path = tmp_dir / apk_path.name
+                shutil.copyfile(apk_path, new_apk_path)
+                apks.append(APK(new_apk_path, self.get_dex_mapping(), cleanup=lambda: shutil.rmtree(tmp_dir)))
 
             self._primary_apks = apks
             return apks
@@ -91,7 +97,7 @@ class AAB(AndroidArtifact):
 
         bundletool = Bundletool()
         bundletool.build_apks(
-            bundle_path=self._path,
+            bundle_path=self.path,
             output_dir=apk_dir,
             device_spec=device_spec,
             universal_apk=True,
