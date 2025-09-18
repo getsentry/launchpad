@@ -83,15 +83,6 @@ class UpdateResponse(BaseModel):
     updated_fields: list[str]
 
 
-class OldUpdateResponse(BaseModel):
-    # Deliberately no alias_generator=to_camel the old version of the
-    # endpoint returns snake case unlike the others.
-    model_config = ConfigDict(strict=True)
-    success: bool
-    artifact_id: str
-    updated_fields: list[str]
-
-
 class ChunkOptionsResponse(BaseModel):
     model_config = ConfigDict(strict=True, alias_generator=to_camel)
     url: str
@@ -196,15 +187,10 @@ class SentryClient:
 
         return file_size
 
-    def update_artifact(
-        self, org: str, project: str, artifact_id: str, data: Dict[str, Any]
-    ) -> UpdateResponse | OldUpdateResponse:
+    def update_artifact(self, org: str, project: str, artifact_id: str, data: Dict[str, Any]) -> UpdateResponse:
         """Update preprod artifact."""
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/"
-        try:
-            return self._make_json_request("PUT", endpoint, UpdateResponse, data=data)
-        except SentryClientError:
-            return self._make_json_request("PUT", endpoint, OldUpdateResponse, data=data)
+        return self._make_json_request("PUT", endpoint, UpdateResponse, data=data)
 
     def upload_size_analysis_file(
         self,
