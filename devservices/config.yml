@@ -44,6 +44,7 @@ services:
       LAUNCHPAD_PORT: "2218"
       LAUNCHPAD_ENV: "development"
       SENTRY_BASE_URL: "http://host.docker.internal:8000"
+      LAUNCHPAD_RPC_SHARED_SECRET: "launchpad-also-very-long-value-haha"
     platform: linux/amd64
     extra_hosts:
       host.docker.internal: host-gateway
