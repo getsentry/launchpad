@@ -124,11 +124,7 @@ class CodeSignatureValidator:
         if self.macho_parser.is_encrypted():
             return BinaryCheckResult(valid=False)
 
-        binary_hashes = self._check_binary()
-        if not binary_hashes.valid:
-            return BinaryCheckResult(valid=False)
-
-        return binary_hashes
+        return self._check_binary()
 
     def _validate_info_plist(self, binary_hashes: BinaryCheckResult) -> None:
         """Validate the Info.plist."""
