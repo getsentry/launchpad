@@ -43,7 +43,12 @@ class CodeSigningRule:
 class FileHash:
     """File hash information."""
 
-    def __init__(self, hash2: Optional[str] = None, optional: bool = False, symlink: Optional[str] = None):
+    def __init__(
+        self,
+        hash2: Optional[str] = None,
+        optional: bool = False,
+        symlink: Optional[str] = None,
+    ):
         self.hash2 = hash2
         self.optional = optional
         self.symlink = symlink
@@ -117,11 +122,11 @@ class CodeSignatureValidator:
 
         self.macho_parser = MachOParser(fat_binary.at(0))
         if self.macho_parser.is_encrypted():
-            raise ValueError("Binary is encrypted, not valid for distribution")
+            return BinaryCheckResult(valid=False)
 
         binary_hashes = self._check_binary()
         if not binary_hashes.valid:
-            raise ValueError("Binary is not valid")
+            return BinaryCheckResult(valid=False)
 
         return binary_hashes
 
@@ -147,7 +152,10 @@ class CodeSignatureValidator:
         rules = plist_json.get("rules2", {})
         files_hashes = plist_json.get("files2", {})
 
-        files_to_skip = [re.compile(r"^_CodeSignature/.*"), re.compile(f"^{re.escape(self.executable_name)}$")]
+        files_to_skip = [
+            re.compile(r"^_CodeSignature/.*"),
+            re.compile(f"^{re.escape(self.executable_name)}$"),
+        ]
 
         errors = self._check_bundle_resources(rules, files_hashes, files_to_skip)
 
@@ -164,7 +172,10 @@ class CodeSignatureValidator:
         return errors
 
     def _check_bundle_resources(
-        self, rules: Dict[str, Any], file_hashes: Dict[str, Any], skipped_files: List[re.Pattern[str]]
+        self,
+        rules: Dict[str, Any],
+        file_hashes: Dict[str, Any],
+        skipped_files: List[re.Pattern[str]],
     ) -> List[str]:
         """Check bundle resources."""
         errors: list[str] = []
@@ -183,7 +194,11 @@ class CodeSignatureValidator:
         return errors
 
     def _check_file(
-        self, file_path: str, rules: Dict[str, Any], file_hashes: Dict[str, Any], errors: List[str]
+        self,
+        file_path: str,
+        rules: Dict[str, Any],
+        file_hashes: Dict[str, Any],
+        errors: List[str],
     ) -> None:
         """Check a single file."""
         if file_path in file_hashes:
@@ -332,7 +347,8 @@ class CodeSignatureValidator:
         # Check CMS signing hash
         code_directory_hash = code_directory.cd_hash
         cms_signing_hash = next(
-            (hash_data for hash_data in cms_signing.cd_hashes if hash_data["value"] == code_directory_hash), None
+            (hash_data for hash_data in cms_signing.cd_hashes if hash_data["value"] == code_directory_hash),
+            None,
         )
 
         if not cms_signing_hash:
