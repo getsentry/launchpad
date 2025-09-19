@@ -138,7 +138,7 @@ class SentryClient:
         self.auth = Rpc0Auth(shared_secret)
         self.session = create_retry_session()
 
-    def download_artifact_to_file(self, org: str, project: str, artifact_id: str, out) -> int:
+    def download_artifact_to_file(self, org: str, project: str, artifact_id: str, out: io.BytesIO) -> int:
         """Download preprod artifact directly to a file-like object.
 
         Args:
@@ -154,36 +154,35 @@ class SentryClient:
         url = self._build_url(endpoint)
         file_size = 0
 
-        for attempt in range(2):
+        attempts = 3
+        for attempt in range(attempts):
             try:
                 response = self.session.get(url, auth=self.auth, timeout=120, stream=True)
                 if response.status_code != 200:
                     raise SentryClientError(response=response)
-
-                file_size = 0
                 for chunk in response.iter_content(chunk_size=8192):
                     if chunk:
                         out.write(chunk)
                         file_size += len(chunk)
-
-                        if file_size > 5 * 1024 * 1024 * 1024:  # 5GB limit
-                            raise RuntimeError(
-                                "Failed to download artifact (client_error): File size exceeds 5GB limit"
+                        if file_size > 5 * 1024 * 1024 * 1024:
+                            raise SentryClientError(
+                                detail="Failed to download artifact: File size exceeds 5GB limit",
+                                response=response,
                             )
-                if attempt > 0:
-                    logger.info(f"Download retry succeeded on attempt {attempt + 1}")
                 break
-
             except (ConnectionError, Timeout, ChunkedEncodingError, ContentDecodingError) as e:
                 if attempt == 0:
-                    logger.warning(f"Download failed due to network error: {e} - retrying once")
-                    continue
+                    logger.warning(f"Download failed due to network error ({attempt + 1}/{attempts})", exc_info=True)
                 else:
-                    logger.error(f"Download failed after retry due to network error: {e}")
-                    raise RuntimeError(f"Failed to download artifact (network_error): {e}")
-            except Exception as e:
-                logger.error(f"Download failed due to unexpected error: {e}")
-                raise e
+                    logger.error(f"Download failed after {attempts} attempts due to network error", exc_info=True)
+                    raise SentryClientError(
+                        detail="Failed to download artifact (network error)", response=response, exception=e
+                    )
+
+            # Restart download from the beginning (endpoint does not
+            # currently support Range header).
+            out.seek(0)
+            file_size = 0
 
         return file_size
 
