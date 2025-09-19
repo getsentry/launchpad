@@ -284,19 +284,36 @@ class ZippedXCArchive(AppleArtifact):
             parent_path = xcarchive_dir / "ParsedAssets" / app_bundle_path
             file_path = parent_path / json_name
 
+            if not parent_path.exists():
+                logger.warning(
+                    f"ParsedAssets directory not found at {parent_path.relative_to(self._extract_dir)}, "
+                    "skipping detailed asset catalog analysis"
+                )
+                return []
+
             if not file_path.exists():
                 logger.warning(
-                    "size.apple.assets_json_not_found",
-                    extra={"file_path": file_path.relative_to(self._extract_dir)},
+                    f"Asset catalog JSON not found at {file_path.relative_to(self._extract_dir)}, "
+                    "asset catalog may not contain parseable assets"
                 )
                 return []
 
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
-            return [self._parse_asset_element(item, parent_path) for item in data]
+            if not isinstance(data, list):
+                logger.warning(f"Unexpected asset catalog format in {file_path}, expected list but got {type(data)}")
+                return []
+
+            return [self._parse_asset_element(item, parent_path) for item in data if isinstance(item, dict)]
+        except (OSError, IOError) as e:
+            logger.warning(f"Failed to read asset catalog details for {relative_path}: {e}")
+            return []
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.warning(f"Failed to parse asset catalog JSON for {relative_path}: {e}")
+            return []
         except Exception as e:
-            logger.error(f"Failed to get asset catalog details for {relative_path}: {e}")
+            logger.error(f"Unexpected error getting asset catalog details for {relative_path}: {e}")
             return []
 
     def _get_main_binary_path(self) -> Path:
@@ -316,16 +333,23 @@ class ZippedXCArchive(AppleArtifact):
         filename = item.get("filename", "")
 
         # Enhanced asset type handling
-        if asset_type == 1:  # Standard PNG image
-            full_path = parent_path / f"{image_id}.png"
-        elif asset_type == 2:  # JPEG image
-            full_path = parent_path / f"{image_id}.jpg"
-        elif asset_type == 3:  # PDF/Vector image
-            full_path = parent_path / f"{image_id}.pdf"
-        elif asset_type == 4:  # HEIF image
-            full_path = parent_path / f"{image_id}.heic"
-        else:
-            full_path = None
+        full_path = None
+        if image_id:
+            if asset_type == 1:  # Standard PNG image
+                candidate_path = parent_path / f"{image_id}.png"
+            elif asset_type == 2:  # JPEG image
+                candidate_path = parent_path / f"{image_id}.jpg"
+            elif asset_type == 3:  # PDF/Vector image
+                candidate_path = parent_path / f"{image_id}.pdf"
+            elif asset_type == 4:  # HEIF image
+                candidate_path = parent_path / f"{image_id}.heic"
+            else:
+                candidate_path = None
+
+            if candidate_path and candidate_path.exists():
+                full_path = candidate_path
+            elif candidate_path:
+                logger.debug(f"Asset file not found: {candidate_path}")
 
         return AssetCatalogElement(
             name=name,
