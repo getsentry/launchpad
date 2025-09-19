@@ -253,13 +253,13 @@ class CodeSignatureValidator:
             raise ValueError("MachO parser not initialized")
 
         code_signature = self.macho_parser.parse_code_signature()
-        code_directory = code_signature.code_directory if code_signature else None
-        if not code_directory:
-            logger.info("No code directory found")
-            return BinaryCheckResult(valid=False)
-
         if not code_signature:
             logger.info("No code signature found")
+            return BinaryCheckResult(valid=False)
+
+        code_directory = code_signature.code_directory
+        if not code_directory:
+            logger.info("No code directory found")
             return BinaryCheckResult(valid=False)
 
         is_valid_signature = self._check_is_valid_signature(code_signature)
