@@ -255,11 +255,12 @@ class CodeSignatureValidator:
         code_signature = self.macho_parser.parse_code_signature()
         code_directory = code_signature.code_directory if code_signature else None
         if not code_directory:
-            raise ValueError("No code directory found")
+            logger.info("No code directory found")
+            return BinaryCheckResult(valid=False)
 
         if not code_signature:
             logger.info("No code signature found")
-            raise ValueError(f"{self.app_root}: code object is not signed at all")
+            return BinaryCheckResult(valid=False)
 
         is_valid_signature = self._check_is_valid_signature(code_signature)
 
