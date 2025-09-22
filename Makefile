@@ -21,13 +21,13 @@ install-dev: $(VENV_DIR)
 	$(VENV_DIR)/bin/pre-commit install
 
 test:
-	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v
+	$(PYTHON_VENV) -m pytest -n auto tests/unit/ tests/integration/ -v
 
 test-unit:
-	$(PYTHON_VENV) -m pytest tests/unit/ -v
+	$(PYTHON_VENV) -m pytest -n auto tests/unit/ -v
 
 test-integration:
-	$(PYTHON_VENV) -m pytest tests/integration/ -v
+	$(PYTHON_VENV) -m pytest -n auto tests/integration/ -v
 
 coverage:
 	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml

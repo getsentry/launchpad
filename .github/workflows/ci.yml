@@ -76,7 +76,7 @@ jobs:
             -e KAFKA_BOOTSTRAP_SERVERS="localhost:9092" \
             -e KAFKA_GROUP_ID="launchpad-test" \
             -e KAFKA_TOPICS="preprod-artifact-events" \
-            launchpad-test python -m pytest tests/ -v
+            launchpad-test python -m pytest -n auto tests/ -v
 
       - name: Test CLI installation and basic functionality in Docker
         run: |
@@ -121,7 +121,7 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             --user $(id -u):$(id -g) \
-            launchpad-test python -m pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml
+            launchpad-test python -m pytest -n auto tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
