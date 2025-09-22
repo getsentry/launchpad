@@ -26,7 +26,7 @@ from launchpad.size.models.android import (
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
-from launchpad.size.utils.android_bundle_size import calculate_apk_download_size
+from launchpad.size.utils.android_bundle_size import calculate_apk_download_size, calculate_apk_install_size
 from launchpad.utils.file_utils import calculate_file_hash
 from launchpad.utils.logging import get_logger
 
@@ -291,7 +291,8 @@ class AndroidAnalyzer:
             logger.debug("Calculating sizes for APK: %s", apk_path)
 
             try:
-                install_size = apk_path.stat().st_size
+                with apk.raw_file() as f:
+                    install_size = calculate_apk_install_size(f)
                 download_size = calculate_apk_download_size(apk_path)
                 total_download_size += download_size
                 total_install_size += install_size
