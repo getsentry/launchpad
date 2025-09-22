@@ -16,6 +16,7 @@ class TestSizeRunner:
         output_file.seek(0)
         size = json.load(output_file)
         assert size["app_info"]["name"] == "HackerNews"
+        assert size["install_size"] > size["download_size"]
 
     def test_android(self) -> None:
         output_file = TextIOWrapper(BytesIO())
@@ -26,3 +27,4 @@ class TestSizeRunner:
         output_file.seek(0)
         size = json.load(output_file)
         assert size["app_info"]["name"] == "Hacker News"
+        assert size["install_size"] > size["download_size"]

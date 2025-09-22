@@ -1,4 +1,6 @@
 import gzip
+import typing
+import zipfile
 
 from pathlib import Path
 
@@ -38,3 +40,11 @@ def calculate_apk_download_size(apk_path: Path) -> int:
     except Exception as e:
         logger.error(f"Error calculating APK download size: {e}")
         raise ValueError(f"Failed to calculate download size for {apk_path}: {e}")
+
+
+def calculate_apk_install_size(apk_file: typing.BinaryIO) -> int:
+    size = 0
+    with zipfile.ZipFile(apk_file) as z:
+        for info in z.infolist():
+            size += info.file_size
+    return size
