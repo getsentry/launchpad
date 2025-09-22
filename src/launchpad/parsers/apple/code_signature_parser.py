@@ -443,8 +443,8 @@ class CodeSignatureParser:
                 cd_hash=cd_hash,
             )
 
-        except Exception as e:
-            logger.error(f"Failed to parse code directory: {e}")
+        except Exception:
+            logger.exception("Failed to parse code directory")
             return None
 
     def _parse_entitlements(
@@ -484,8 +484,8 @@ class CodeSignatureParser:
 
             return Entitlements(entitlements_plist=entitlements_plist, cd_hash=cd_hash)
 
-        except Exception as e:
-            logger.error(f"Failed to parse entitlements: {e}")
+        except Exception:
+            logger.exception("Failed to parse entitlements")
             return None
 
     def _parse_requirements(
@@ -519,8 +519,8 @@ class CodeSignatureParser:
 
             return Requirements(requirements=requirements_bytes, cd_hash=cd_hash)
 
-        except Exception as e:
-            logger.error(f"Failed to parse requirements: {e}")
+        except Exception:
+            logger.exception("Failed to parse requirements")
             return None
 
     def _parse_der_entitlements(
@@ -557,8 +557,8 @@ class CodeSignatureParser:
 
             return DEREntitlements(der_data=der_bytes, cd_hash=cd_hash)
 
-        except Exception as e:
-            logger.error(f"Failed to parse DER entitlements: {e}")
+        except Exception:
+            logger.exception("Failed to parse DER entitlements")
             return None
 
     def _parse_signature(self, super_blob: CSSuperBlob, cs: CodeSignature) -> CMSSigning | None:
@@ -589,8 +589,8 @@ class CodeSignatureParser:
             # Parse the CMS signature
             try:
                 signature = cms.ContentInfo.load(signature_content)  # type: ignore[attr-defined]
-            except Exception as e:
-                logger.error(f"Failed to parse CMS signature: {e}")
+            except Exception:
+                logger.exception("Failed to parse CMS signature")
                 return None
 
             cd_hashes: List[Dict[str, Union[CSAlgorithm, str]]] = []
@@ -632,12 +632,12 @@ class CodeSignatureParser:
 
                                             cd_hashes.append({"type": hash_type, "value": hash_value})
 
-                                    except Exception as e:
-                                        logger.error(f"Failed to parse CD hash value: {e}")
+                                    except Exception:
+                                        logger.exception("Failed to parse CD hash value")
                                         continue
 
             return CMSSigning(cd_hashes=cd_hashes, certificates=certificates)
 
-        except Exception as e:
-            logger.error(f"Failed to parse signature: {e}")
+        except Exception:
+            logger.exception("Failed to parse signature")
             return None

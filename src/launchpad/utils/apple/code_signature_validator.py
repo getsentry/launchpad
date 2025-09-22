@@ -60,14 +60,16 @@ class BinaryCheckResult:
     def __init__(
         self,
         valid: bool,
-        info_plist_hash: Optional[str] = None,
-        resources_hash: Optional[str] = None,
-        bundle_identifier: Optional[str] = None,
+        info_plist_hash: str | None = None,
+        resources_hash: str | None = None,
+        bundle_identifier: str | None = None,
+        error_message: str | None = None,
     ):
         self.valid = valid
         self.info_plist_hash = info_plist_hash
         self.resources_hash = resources_hash
         self.bundle_identifier = bundle_identifier
+        self.error_message = error_message
 
 
 class CodeSignatureValidator:
@@ -93,20 +95,23 @@ class CodeSignatureValidator:
         """
         try:
             binary_hashes = self._validate_executable()
-            self._validate_info_plist(binary_hashes)
-            errors = self._validate_code_resources(binary_hashes)
+            if not binary_hashes.valid:
+                return False, [binary_hashes.error_message or "Invalid executable"]
 
-            # Check bundle identifier mismatch
+            if not self._validate_info_plist(binary_hashes):
+                return False, [f"{self.app_root}: invalid Info.plist (plist or signature have been modified)"]
+
             if binary_hashes.bundle_identifier != self.plist.get("CFBundleIdentifier"):
-                raise ValueError(
+                return False, [
                     f"Signature bundle identifier mismatch, found: {binary_hashes.bundle_identifier}, "
                     f"expected: {self.plist.get('CFBundleIdentifier')}"
-                )
+                ]
 
+            errors = self._validate_code_resources(binary_hashes)
             return len(errors) == 0, errors
 
         except Exception as e:
-            logger.error(f"Failed to validate code signature: {e}")
+            logger.exception("Failed to validate code signature")
             return False, [str(e)]
 
     def _validate_executable(self) -> BinaryCheckResult:
@@ -126,13 +131,14 @@ class CodeSignatureValidator:
 
         return self._check_binary()
 
-    def _validate_info_plist(self, binary_hashes: BinaryCheckResult) -> None:
+    def _validate_info_plist(self, binary_hashes: BinaryCheckResult) -> bool:
         """Validate the Info.plist."""
         info_plist_file = self.app_root / "Info.plist"
 
         info_plist_hash = self._get_file_hash(info_plist_file)
         if info_plist_hash != binary_hashes.info_plist_hash:
-            raise ValueError(f"{self.app_root}: invalid Info.plist (plist or signature have been modified)")
+            return False
+        return True
 
     def _validate_code_resources(self, binary_hashes: BinaryCheckResult) -> List[str]:
         """Validate code resources."""
@@ -253,18 +259,19 @@ class CodeSignatureValidator:
             raise ValueError("MachO parser not initialized")
 
         code_signature = self.macho_parser.parse_code_signature()
-        code_directory = code_signature.code_directory if code_signature else None
-        if not code_directory:
-            raise ValueError("No code directory found")
-
         if not code_signature:
             logger.info("No code signature found")
-            raise ValueError(f"{self.app_root}: code object is not signed at all")
+            return BinaryCheckResult(valid=False, error_message="No code signature found")
+
+        code_directory = code_signature.code_directory
+        if not code_directory:
+            logger.info("No code directory found")
+            return BinaryCheckResult(valid=False, error_message="No code directory found")
 
         is_valid_signature = self._check_is_valid_signature(code_signature)
 
         if not is_valid_signature:
-            return BinaryCheckResult(valid=False)
+            return BinaryCheckResult(valid=False, error_message="Invalid code signature")
 
         special_hashes = code_directory.special_hashes
         info_plist_hash = (
