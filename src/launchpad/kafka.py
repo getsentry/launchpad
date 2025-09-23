@@ -16,7 +16,7 @@ from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
 from arroyo.processing.strategies.healthcheck import Healthcheck
-from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
+from arroyo.processing.strategies.run_task_with_multiprocessing import MultiprocessingPool, RunTaskWithMultiprocessing
 from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
@@ -34,6 +34,46 @@ logger = get_logger(__name__)
 
 # Schema codec for preprod artifact events
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
+
+
+def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
+    """Process a Kafka message using the actual service logic in a worker process."""
+    import logging
+    import os
+    import signal
+
+    # Set up signal handling in worker process to ensure clean shutdown
+    def worker_signal_handler(signum: int, frame) -> None:
+        logger.info(f"Worker process {os.getpid()} received signal {signum}, exiting...")
+        os._exit(0)
+
+    signal.signal(signal.SIGTERM, worker_signal_handler)
+    signal.signal(signal.SIGINT, worker_signal_handler)
+
+    # Initialize logging in worker process
+    if not logging.getLogger().handlers:
+        from launchpad.utils.logging import setup_logging
+
+        setup_logging(verbose=True, quiet=False)
+
+    try:
+        decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
+
+        # Create service instance in worker process
+        from launchpad.service import LaunchpadService, get_service_config
+        from launchpad.utils.statsd import get_statsd
+
+        statsd = get_statsd()
+        service = LaunchpadService(statsd)
+        service._service_config = get_service_config()
+
+        # Call the actual message handling logic
+        service.handle_kafka_message(decoded)
+
+        return decoded  # type: ignore[no-any-return]
+    except Exception as e:
+        logger.error(f"Failed to process message in worker: {e}", exc_info=True)
+        raise
 
 
 def create_kafka_consumer(
@@ -91,18 +131,20 @@ def create_kafka_consumer(
         topic=topic,
         processor_factory=strategy_factory,
     )
-    return LaunchpadKafkaConsumer(processor, healthcheck_path)
+    return LaunchpadKafkaConsumer(processor, healthcheck_path, strategy_factory)
 
 
 class LaunchpadKafkaConsumer:
     processor: StreamProcessor[KafkaPayload]
     healthcheck_path: str
+    strategy_factory: LaunchpadStrategyFactory
     _future: asyncio.Future
     _running: bool
 
-    def __init__(self, processor, healthcheck_path):
+    def __init__(self, processor, healthcheck_path, strategy_factory):
         self.processor = processor
         self.healthcheck_path = healthcheck_path
+        self.strategy_factory = strategy_factory
         loop = asyncio.get_event_loop()
         self._future = loop.create_future()
         self._future.set_result(None)
@@ -110,9 +152,8 @@ class LaunchpadKafkaConsumer:
 
     async def start(self):
         logger.info(f"{self} start commanded")
-        loop = asyncio.get_event_loop()
-        # run() is blocking so we need to run in another thread:
-        self._future = loop.run_in_executor(None, self.run)
+        # Run processor directly in main thread for signal handler compatibility
+        self._future = asyncio.create_task(self._run_with_yielding())
 
     def run(self):
         assert not self._running, "Already running"
@@ -128,16 +169,58 @@ class LaunchpadKafkaConsumer:
         finally:
             self._running = False
 
+    async def _run_with_yielding(self):
+        """Run processor in main thread with periodic yielding to event loop."""
+        assert not self._running, "Already running"
+        logger.info(f"{self} running async in main thread")
+        try:
+            self._running = True
+            while not self.processor._StreamProcessor__shutdown_requested:
+                self.processor._run_once()
+                await asyncio.sleep(0.01)  # Yield to event loop for signal handling
+
+            self.processor._shutdown()
+            try:
+                os.remove(self.healthcheck_path)
+            except FileNotFoundError:
+                pass
+        except asyncio.CancelledError:
+            logger.info("Kafka processor cancelled")
+            self.processor._shutdown()
+            raise
+        except Exception as e:
+            # Handle expected multiprocessing shutdown errors gracefully
+            if any(x in str(e).lower() for x in ["pickle", "eof", "bad file descriptor"]):
+                logger.warning(f"Expected multiprocessing shutdown error: {e}")
+            else:
+                logger.exception("Unexpected error during processor run")
+                raise
+        finally:
+            self._running = False
+
     async def stop(self, timeout_s=10):
         logger.info(f"{self} stop commanded")
         self.processor.signal_shutdown()
+
+        # Start shutdown of multiprocessing pool early
+        shutdown_task = asyncio.create_task(asyncio.to_thread(self.strategy_factory.shutdown))
+
+        if self._future and not self._future.done():
+            try:
+                await asyncio.wait_for(self._future, timeout=timeout_s)
+            except asyncio.TimeoutError:
+                logger.warning("Timeout, cancelling task...")
+                self._future.cancel()
+                try:
+                    await self._future
+                except asyncio.CancelledError:
+                    pass
+
+        # Wait for multiprocessing pool shutdown with timeout
         try:
-            logger.info(f"Waiting for Kafka processor shutdown ({timeout_s}s)...")
-            await asyncio.wait_for(self._future, timeout=timeout_s)
-            logger.info("...Kafka processor shutdown complete")
+            await asyncio.wait_for(shutdown_task, timeout=5.0)
         except asyncio.TimeoutError:
-            logger.warning(f"{self} did not stop within timeout {timeout_s}s")
-            self._future.cancel()
+            logger.warning("Multiprocessing pool shutdown timed out")
 
     def is_healthy(self) -> bool:
         try:
@@ -159,6 +242,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         max_pending_futures: int = 100,
         healthcheck_file: str | None = None,
     ) -> None:
+        self.__pool = MultiprocessingPool(num_processes=concurrency)
         self.message_handler = message_handler
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
@@ -174,22 +258,38 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
-        def process_message(msg: Message[KafkaPayload]) -> Any:
-            try:
-                decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
-                return self.message_handler(decoded)  # type: ignore[no-any-return]
-            except Exception as e:
-                logger.error(f"Failed to decode message: {e}")
-                raise  # Re-raise the exception to prevent processing invalid messages
-
-        strategy = RunTaskInThreads(
-            processing_function=process_message,
-            concurrency=self.concurrency,
-            max_pending_futures=self.max_pending_futures,
+        strategy = RunTaskWithMultiprocessing(
+            process_kafka_message_with_service,
             next_step=next_step,
+            max_batch_size=1,  # Process immediately, subject to be re-tuned
+            max_batch_time=1,  # Process after 1 second max, subject to be re-tuned
+            pool=self.__pool,
+            input_block_size=None,
+            output_block_size=None,
         )
 
         return strategy
+
+    def shutdown(self) -> None:
+        """Clean shutdown of multiprocessing pool."""
+        try:
+            logger.info("Shutting down multiprocessing pool...")
+            # First try graceful shutdown
+            self.__pool.close()
+            # Wait a bit for processes to finish gracefully
+            import time
+
+            time.sleep(0.5)
+            # Force terminate any remaining processes
+            self.__pool.terminate()
+            logger.info("Multiprocessing pool shutdown complete")
+        except Exception as e:
+            logger.warning(f"Error during multiprocessing pool shutdown: {e}")
+            # Try to force terminate even if close() failed
+            try:
+                self.__pool.terminate()
+            except Exception as term_e:
+                logger.warning(f"Error during pool termination: {term_e}")
 
 
 @dataclass
