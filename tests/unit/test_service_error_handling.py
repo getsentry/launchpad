@@ -1,6 +1,6 @@
 """Tests for error handling and retry logic in LaunchpadService."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -91,74 +91,16 @@ class TestLaunchpadServiceErrorHandling:
         with pytest.raises(RuntimeError, match="Failed to perform size analysis"):
             self.service._retry_operation(operation, OperationName.SIZE_ANALYSIS)
 
-    def test_is_non_retryable_error(self):
-        """Test that _is_non_retryable_error correctly identifies non-retryable errors."""
-        # Non-retryable errors
-        assert self.service._is_non_retryable_error(ValueError("test"))
-        assert self.service._is_non_retryable_error(NotImplementedError("test"))
-        assert self.service._is_non_retryable_error(FileNotFoundError("test"))
-
-        # Retryable errors
-        assert not self.service._is_non_retryable_error(RuntimeError("test"))
-        assert not self.service._is_non_retryable_error(ConnectionError("test"))
-        assert not self.service._is_non_retryable_error(Exception("test"))
-
-    def test_categorize_processing_error(self):
-        """Test that processing errors are categorized correctly."""
-        service = LaunchpadService()
-
-        # Test ValueError -> ARTIFACT_PARSING_FAILED
-        error_code, error_message = service._categorize_processing_error(ValueError("Invalid format"))
-        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
-        assert error_message == ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
-
-        # Test NotImplementedError -> UNSUPPORTED_ARTIFACT_TYPE
-        error_code, error_message = service._categorize_processing_error(NotImplementedError("Not supported"))
-        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
-        assert error_message == ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
-
-        # Test FileNotFoundError -> ARTIFACT_PARSING_FAILED
-        error_code, error_message = service._categorize_processing_error(FileNotFoundError("File not found"))
-        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
-        assert error_message == ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
-
-        # Test RuntimeError with timeout -> PROCESSING_TIMEOUT
-        error_code, error_message = service._categorize_processing_error(RuntimeError("Processing timeout occurred"))
-        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT
-        assert error_message == ProcessingErrorMessage.PROCESSING_TIMEOUT
-
-        # Test RuntimeError with preprocessing keywords -> PREPROCESSING_FAILED
-        error_code, error_message = service._categorize_processing_error(RuntimeError("Preprocessing failed"))
-        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
-        assert error_message == ProcessingErrorMessage.PREPROCESSING_FAILED
-
-        # Test RuntimeError with size keywords -> SIZE_ANALYSIS_FAILED
-        error_code, error_message = service._categorize_processing_error(RuntimeError("Size analysis failed"))
-        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
-        assert error_message == ProcessingErrorMessage.SIZE_ANALYSIS_FAILED
-
-        # Test RuntimeError with unknown content -> UNKNOWN_ERROR
-        error_code, error_message = service._categorize_processing_error(RuntimeError("Something unknown happened"))
-        assert error_code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR
-        assert error_message == ProcessingErrorMessage.UNKNOWN_ERROR
-
-        # Test generic exception -> UNKNOWN_ERROR
-        error_code, error_message = service._categorize_processing_error(Exception("Generic error"))
-        assert error_code == ProcessingErrorCode.UNKNOWN
-        assert error_message == ProcessingErrorMessage.UNKNOWN_ERROR
-
-    @patch("launchpad.service.SentryClient")
-    def test_update_artifact_error_success(self, mock_sentry_client_class):
+    def test_update_artifact_error_success(self):
         """Test that _update_artifact_error successfully updates artifact with error."""
         mock_sentry_client = Mock()
-        mock_sentry_client_class.return_value = mock_sentry_client
         mock_sentry_client.update_artifact.return_value = None
+        self.service._sentry_client = mock_sentry_client
 
         self.service._update_artifact_error(
-            mock_sentry_client,
-            "test-artifact-id",
-            "test-project-id",
             "test-org-id",
+            "test-project-id",
+            "test-artifact-id",
             ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
         )
@@ -173,61 +115,54 @@ class TestLaunchpadServiceErrorHandling:
             },
         )
 
-    @patch("launchpad.service.SentryClient")
-    def test_update_artifact_error_failure(self, mock_sentry_client_class):
+    def test_update_artifact_error_failure(self):
         """Test that _update_artifact_error handles update failures gracefully."""
         mock_sentry_client = Mock()
-        mock_sentry_client_class.return_value = mock_sentry_client
         mock_sentry_client.update_artifact.return_value = {"error": "Update failed"}
+        self.service._sentry_client = mock_sentry_client
 
         # Should not raise an exception
         self.service._update_artifact_error(
-            mock_sentry_client,
-            "test-artifact-id",
-            "test-project-id",
             "test-org-id",
+            "test-project-id",
+            "test-artifact-id",
             ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
         )
 
         mock_sentry_client.update_artifact.assert_called_once()
 
-    @patch("launchpad.service.SentryClient")
-    def test_update_artifact_error_exception(self, mock_sentry_client_class):
+    def test_update_artifact_error_exception(self):
         """Test that _update_artifact_error handles exceptions gracefully."""
         mock_sentry_client = Mock()
-        mock_sentry_client_class.return_value = mock_sentry_client
         mock_sentry_client.update_artifact.side_effect = SentryClientError()
+        self.service._sentry_client = mock_sentry_client
 
         # Should not raise an exception
         self.service._update_artifact_error(
-            mock_sentry_client,
-            "test-artifact-id",
-            "test-project-id",
             "test-org-id",
+            "test-project-id",
+            "test-artifact-id",
             ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
         )
 
         mock_sentry_client.update_artifact.assert_called_once()
 
-    @patch("launchpad.service.SentryClient")
-    def test_update_artifact_error_with_detailed_message(self, mock_sentry_client):
+    def test_update_artifact_error_with_detailed_message(self):
         """Test that _update_artifact_error uses detailed error message when provided."""
-        service = LaunchpadService()
-        service._statsd = Mock()
+        self.service._statsd = Mock()
 
         mock_client = Mock()
         mock_client.update_artifact.return_value = {"success": True}
-        mock_sentry_client.return_value = mock_client
+        self.service._sentry_client = mock_client
 
         detailed_error = "Failed to parse Info.plist: [Errno 2] No such file or directory"
 
-        service._update_artifact_error(
-            mock_client,
-            "test_artifact_id",
-            "test_project_id",
+        self.service._update_artifact_error(
             "test_org_id",
+            "test_project_id",
+            "test_artifact_id",
             ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
             ProcessingErrorMessage.PREPROCESSING_FAILED,
             detailed_error,
@@ -246,7 +181,7 @@ class TestLaunchpadServiceErrorHandling:
         )
 
         # Verify datadog logging
-        service._statsd.increment.assert_called_once_with(
+        self.service._statsd.increment.assert_called_once_with(
             "artifact.processing.error",
             tags=[
                 "error_code:3",

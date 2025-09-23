@@ -25,6 +25,13 @@ class ArtifactType(Enum):
     APK = 2
 
 
+# This should match exactly with the definition in:
+# src/sentry/preprod/producer.py
+class PreprodFeature(Enum):
+    SIZE_ANALYSIS = "size_analysis"
+    BUILD_DISTRIBUTION = "build_distribution"
+
+
 # Retry configuration
 MAX_RETRY_ATTEMPTS = 3
 

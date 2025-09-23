@@ -11,7 +11,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 )
 
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService, ServiceConfig
+from launchpad.service import LaunchpadService, PreprodFeature, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -37,13 +37,16 @@ class TestServiceIntegration:
                 "artifact_id": "ios-test-123",
                 "project_id": "test-project-ios",
                 "organization_id": "test-org-123",
+                "requested_features": ["size_analysis"],
             }
 
             # handle_kafka_message is synchronous
             service.handle_kafka_message(ios_payload)
 
             # Verify the processing method was called
-            mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
+            mock_process.assert_called_once_with(
+                "test-org-123", "test-project-ios", "ios-test-123", [PreprodFeature.SIZE_ANALYSIS]
+            )
 
             # Verify statsd metrics were sent
             calls = fake_statsd.calls
@@ -59,13 +62,16 @@ class TestServiceIntegration:
                 "artifact_id": "android-test-456",
                 "project_id": "test-project-android",
                 "organization_id": "test-org-456",
+                "requested_features": ["build_distribution"],
             }
 
             # handle_kafka_message is synchronous
             service.handle_kafka_message(android_payload)
 
             # Verify the processing method was called
-            mock_process.assert_called_once_with("android-test-456", "test-project-android", "test-org-456")
+            mock_process.assert_called_once_with(
+                "test-org-456", "test-project-android", "android-test-456", [PreprodFeature.BUILD_DISTRIBUTION]
+            )
 
     @pytest.mark.asyncio
     async def test_error_handling_in_message_processing(self):
@@ -78,6 +84,7 @@ class TestServiceIntegration:
             "artifact_id": "test-123",
             "project_id": "test-project",
             "organization_id": "test-org",
+            "requested_features": [],
         }
 
         # Mock process_artifact to raise an exception
@@ -88,7 +95,7 @@ class TestServiceIntegration:
             service.handle_kafka_message(payload)
 
             # Verify the processing method was called
-            mock_process.assert_called_once_with("test-123", "test-project", "test-org")
+            mock_process.assert_called_once_with("test-org", "test-project", "test-123", [])
 
             # Verify statsd metrics were sent including failure metric
             calls = fake_statsd.calls
@@ -108,6 +115,7 @@ class TestServiceIntegration:
                 "artifact_id": f"test-artifact-{i}",
                 "project_id": f"test-project-{i}",
                 "organization_id": f"test-org-{i}",
+                "requested_features": ["size_analysis", "build_distribution"],
             }
             for i in range(10)
         ]

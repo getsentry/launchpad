@@ -10,7 +10,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 )
 
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService, ServiceConfig
+from launchpad.service import LaunchpadService, PreprodFeature, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -63,13 +63,16 @@ class TestLaunchpadService:
             "artifact_id": "ios-test-123",
             "project_id": "test-project-ios",
             "organization_id": "test-org-123",
+            "requested_features": ["size_analysis"],
         }
 
         # handle_kafka_message is synchronous
         service.handle_kafka_message(payload)
 
         # Verify process_artifact was called with correct args
-        mock_process.assert_called_once_with("ios-test-123", "test-project-ios", "test-org-123")
+        mock_process.assert_called_once_with(
+            "test-org-123", "test-project-ios", "ios-test-123", [PreprodFeature.SIZE_ANALYSIS]
+        )
 
         # Verify metrics were recorded
         calls = fake_statsd.calls
@@ -87,13 +90,19 @@ class TestLaunchpadService:
             "artifact_id": "android-test-456",
             "project_id": "test-project-android",
             "organization_id": "test-org-456",
+            "requested_features": ["size_analysis", "build_distribution"],
         }
 
         # handle_kafka_message is synchronous
         service.handle_kafka_message(payload)
 
         # Verify process_artifact was called with correct args
-        mock_process.assert_called_once_with("android-test-456", "test-project-android", "test-org-456")
+        mock_process.assert_called_once_with(
+            "test-org-456",
+            "test-project-android",
+            "android-test-456",
+            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
+        )
 
         # Verify metrics were recorded
         calls = fake_statsd.calls
@@ -114,13 +123,16 @@ class TestLaunchpadService:
             "artifact_id": "test-123",
             "project_id": "test-project",
             "organization_id": "test-org",
+            "requested_features": ["size_analysis", "build_distribution"],
         }
 
         # This should not raise (simplified error handling catches all exceptions)
         service.handle_kafka_message(payload)
 
         # Verify process_artifact was called
-        mock_process.assert_called_once_with("test-123", "test-project", "test-org")
+        mock_process.assert_called_once_with(
+            "test-org", "test-project", "test-123", [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION]
+        )
 
         # Verify the metrics were called correctly
         calls = fake_statsd.calls
@@ -143,6 +155,7 @@ class TestLaunchpadService:
             "artifact_id": "skip-test-123",
             "project_id": "skip-project-1",
             "organization_id": "test-org-123",
+            "requested_features": ["size_analysis", "build_distribution"],
         }
 
         # handle_kafka_message should return early and not process
@@ -169,13 +182,19 @@ class TestLaunchpadService:
             "artifact_id": "normal-test-123",
             "project_id": "normal-project",
             "organization_id": "test-org-123",
+            "requested_features": ["size_analysis", "build_distribution"],
         }
 
         # handle_kafka_message should process normally
         service.handle_kafka_message(payload)
 
         # Verify process_artifact was called
-        mock_process.assert_called_once_with("normal-test-123", "normal-project", "test-org-123")
+        mock_process.assert_called_once_with(
+            "test-org-123",
+            "normal-project",
+            "normal-test-123",
+            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
+        )
 
         # Verify normal metrics were recorded
         calls = fake_statsd.calls

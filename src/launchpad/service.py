@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import signal
@@ -13,7 +14,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Iterator, cast
 
 import sentry_sdk
 
@@ -28,13 +29,14 @@ from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
-from launchpad.artifacts.artifact import Artifact
+from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact, Artifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
     MAX_RETRY_ATTEMPTS,
     OPERATION_ERRORS,
     ArtifactType,
     OperationName,
+    PreprodFeature,
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
@@ -43,7 +45,6 @@ from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
-from launchpad.size.runner import do_preprocess, do_size
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
 
@@ -53,6 +54,22 @@ from .server import LaunchpadServer, get_server_config
 from .tracing import request_context
 
 logger = get_logger(__name__)
+
+
+def guess_message(code: ProcessingErrorCode, e: Exception) -> ProcessingErrorMessage:
+    if code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR:
+        if isinstance(e, NotImplementedError):
+            return ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
+
+    # If we can't guess from the exception but the code is set to
+    # something useful return the matching message.
+    if code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR:
+        return ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
+    elif code == ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT:
+        return ProcessingErrorMessage.PROCESSING_TIMEOUT
+    else:
+        # If all else fails return unknown
+        return ProcessingErrorMessage.UNKNOWN_ERROR
 
 
 class LaunchpadService:
@@ -65,11 +82,13 @@ class LaunchpadService:
         self._statsd = statsd or NullStatsd()
         self._healthcheck_file: str | None = None
         self._service_config: ServiceConfig | None = None
+        self._sentry_client: SentryClient | None = None
 
     async def setup(self) -> None:
         """Set up the service components."""
-        self._service_config = get_service_config()
         initialize_sentry_sdk()
+        self._service_config = get_service_config()
+        self._sentry_client = SentryClient(base_url=self._service_config.sentry_base_url)
 
         server_config = get_server_config()
         self.server = LaunchpadServer(
@@ -128,150 +147,215 @@ class LaunchpadService:
             logger.info("...service cleanup completed")
 
     def handle_kafka_message(self, payload: PreprodArtifactEvents) -> None:
-        """
-        Handle incoming Kafka messages.
-        """
-        artifact_id = payload["artifact_id"]
-        project_id = payload["project_id"]
         organization_id = payload["organization_id"]
+        project_id = payload["project_id"]
+        artifact_id = payload["artifact_id"]
+
+        requested_features = []
+        for feature in payload["requested_features"]:
+            try:
+                requested_features.append(PreprodFeature(feature))
+            except ValueError:
+                logger.exception(f"Unknown feature {feature}")
 
         if self._service_config and project_id in self._service_config.projects_to_skip:
             logger.info(f"Skipping processing for project {project_id}")
             return
 
-        with request_context():
-            with sentry_sdk.new_scope() as scope:
-                scope.set_tag("launchpad.project_id", project_id)
-                scope.set_tag("launchpad.organization_id", organization_id)
-                scope.set_tag("launchpad.artifact_id", artifact_id)
-
-                try:
-                    logger.info(f"Processing artifact: {artifact_id} (project: {project_id}, org: {organization_id})")
-                    self._statsd.increment("artifact.processing.started")
-
-                    timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
-                    with self._statsd.timed("artifact.processing.duration", tags=timing_tags):
-                        self.process_artifact(artifact_id, project_id, organization_id)
-                    logger.info(f"Analysis completed for artifact {artifact_id}")
-
-                    self._statsd.increment("artifact.processing.completed")
-
-                except Exception as e:
-                    logger.error(
-                        f"Failed to process artifact {artifact_id} (project: {project_id}, org: {organization_id}): {e}",
-                        exc_info=True,
-                    )
-
-                    self._statsd.increment("artifact.processing.failed")
-
-    def process_artifact(self, artifact_id: str, project_id: str, organization_id: str) -> None:
-        """
-        Download artifact and perform size analysis.
-        """
-        if not self._service_config:
-            raise RuntimeError("Service not properly initialized. Call setup() first.")
-
-        dequeued_at = datetime.now()
-        sentry_client = SentryClient(base_url=self._service_config.sentry_base_url)
-        temp_file = None
-        artifact = None
-
-        try:
-            temp_file = self._download_artifact_to_temp_file(sentry_client, artifact_id, project_id, organization_id)
-            file_path = Path(temp_file)
-
-            artifact = ArtifactFactory.from_path(Path(temp_file))
-            logger.info(f"Running preprocessing on {temp_file}...")
-            app_info = self._retry_operation(
-                lambda: do_preprocess(file_path),
-                OperationName.PREPROCESSING,
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(request_context())
+            stack.enter_context(
+                self._statsd.timed(
+                    "artifact.processing.duration",
+                    tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"],
+                )
             )
-            logger.info(f"Preprocessing completed for artifact {artifact_id}")
+            scope = stack.enter_context(sentry_sdk.new_scope())
+            scope.set_tag("launchpad.project_id", project_id)
+            scope.set_tag("launchpad.organization_id", organization_id)
+            scope.set_tag("launchpad.artifact_id", artifact_id)
 
-            update_data = self._prepare_update_data(app_info, artifact, dequeued_at)
-            logger.info(f"Sending preprocessed info to Sentry for artifact {artifact_id}...")
+            self._statsd.increment("artifact.processing.started")
+            logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
-                sentry_client.update_artifact(
+                self.process_artifact(organization_id, project_id, artifact_id, requested_features)
+            except Exception:
+                self._statsd.increment("artifact.processing.failed")
+                logger.exception(
+                    f"Processing failed for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
+                )
+            else:
+                self._statsd.increment("artifact.processing.completed")
+                logger.info(
+                    f"Processing complete for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
+                )
+
+    def process_artifact(
+        self, organization_id: str, project_id: str, artifact_id: str, requested_features: list[PreprodFeature]
+    ) -> None:
+        dequeued_at = datetime.now()
+
+        with contextlib.ExitStack() as stack:
+            path = stack.enter_context(self._download_artifact(organization_id, project_id, artifact_id))
+            artifact = self._parse_artifact(organization_id, project_id, artifact_id, path)
+            analyzer = self._create_analyzer(artifact)
+
+            info = self._preprocess_artifact(organization_id, project_id, artifact_id, artifact, analyzer, dequeued_at)
+
+            if PreprodFeature.SIZE_ANALYSIS in requested_features:
+                self._do_size(organization_id, project_id, artifact_id, artifact, analyzer)
+
+            if PreprodFeature.BUILD_DISTRIBUTION in requested_features:
+                self._do_distribution(organization_id, project_id, artifact_id, artifact, info)
+
+    @contextlib.contextmanager
+    def _download_artifact(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+    ) -> Iterator[Path]:
+        logger.info(f"Downloading artifact {artifact_id} (project: {project_id}, org: {organization_id})")
+
+        with tempfile.NamedTemporaryFile(suffix=".zip") as tf:
+            with self._statsd.timed(
+                "artifact.download.duration", tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"]
+            ):
+                size = self._sentry_client.download_artifact_to_file(
                     org=organization_id,
                     project=project_id,
                     artifact_id=artifact_id,
-                    data=update_data,
+                    out=tf,
                 )
-            except SentryClientError as e:
-                logger.exception(e)
-                self._update_artifact_error(
-                    sentry_client,
-                    artifact_id,
-                    project_id,
-                    organization_id,
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.UPDATE_FAILED,
-                    e.user_facing_message(),
+                logger.info(
+                    f"Downloaded artifact {artifact_id} {size} bytes ({size / 1024 / 1024:.2f} MB) to {tf.name}"
                 )
-                return
-            else:
-                logger.info(f"Successfully sent preprocessed info for artifact {artifact_id}")
+            yield Path(tf.name)
 
-            if isinstance(artifact, ZippedXCArchive) and app_info.is_code_signature_valid and not app_info.is_simulator:
+    def _parse_artifact(self, organization_id: str, project_id: str, artifact_id: str, path: Path) -> Artifact:
+        try:
+            return ArtifactFactory.from_path(path)
+        except Exception as e:
+            logger.exception(e)
+            self._update_artifact_error_from_exception(
+                organization_id,
+                project_id,
+                artifact_id,
+                e,
+                error_code=ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                error_message=ProcessingErrorMessage.ARTIFACT_PARSING_FAILED,
+            )
+            raise
+
+    def _create_analyzer(self, artifact: AndroidArtifact | AppleArtifact) -> AndroidAnalyzer | AppleAppAnalyzer:
+        if isinstance(artifact, AndroidArtifact):
+            return AndroidAnalyzer()
+        elif isinstance(artifact, AppleArtifact):
+            return AppleAppAnalyzer()
+        else:
+            raise ValueError(f"Unknown artifact kind {artifact}")
+
+    def _preprocess_artifact(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        artifact: Artifact,
+        analyzer: AndroidAnalyzer | AppleAppAnalyzer,
+        dequeued_at: datetime,
+    ) -> AppleAppInfo | BaseAppInfo:
+        logger.info(f"Preprocessing for {artifact_id} (project: {project_id}, org: {organization_id})")
+        try:
+            info = self._retry_operation(
+                lambda: analyzer.preprocess(cast(Any, artifact)),
+                OperationName.PREPROCESSING,
+            )
+            update_data = self._prepare_update_data(info, artifact, dequeued_at)
+            self._sentry_client.update_artifact(
+                org=organization_id,
+                project=project_id,
+                artifact_id=artifact_id,
+                data=update_data,
+            )
+        except Exception as e:
+            logger.exception(e)
+            self._update_artifact_error_from_exception(
+                organization_id,
+                project_id,
+                artifact_id,
+                e,
+                error_code=ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                error_message=ProcessingErrorMessage.PREPROCESSING_FAILED,
+            )
+            raise
+        else:
+            return info
+
+    def _do_distribution(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        artifact: Artifact,
+        info: AppleAppInfo | BaseAppInfo,
+    ):
+        logger.info(f"BUILD_DISTRIBUTION for {artifact_id} (project: {project_id}, org: {organization_id})")
+        if isinstance(artifact, ZippedXCArchive):
+            apple_info = cast(AppleAppInfo, info)
+            if apple_info.is_code_signature_valid and not apple_info.is_simulator:
                 with tempfile.TemporaryDirectory() as temp_dir_str:
                     temp_dir = Path(temp_dir_str)
                     ipa_path = temp_dir / "App.ipa"
                     artifact.generate_ipa(ipa_path)
                     with open(ipa_path, "rb") as f:
-                        sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
-                    logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
-            elif isinstance(artifact, (AAB, ZippedAAB)):
-                with tempfile.TemporaryDirectory() as temp_dir_str:
-                    temp_dir = Path(temp_dir_str)
-                    if isinstance(artifact, AAB):
-                        universal_apk = artifact.get_universal_apk(temp_dir)
-                    else:  # ZippedAAB
-                        universal_apk = artifact.get_aab().get_universal_apk(temp_dir)
-                    with universal_apk.raw_file() as f:
-                        sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
-                    logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
-            elif isinstance(artifact, (APK, ZippedAPK)):
-                if isinstance(artifact, ZippedAPK):
-                    apk = artifact.get_primary_apk()
-                else:
-                    apk = artifact
+                        self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+        elif isinstance(artifact, (AAB, ZippedAAB)):
+            with tempfile.TemporaryDirectory() as temp_dir_str:
+                temp_dir = Path(temp_dir_str)
+                if isinstance(artifact, AAB):
+                    universal_apk = artifact.get_universal_apk(temp_dir)
+                else:  # ZippedAAB
+                    universal_apk = artifact.get_aab().get_universal_apk(temp_dir)
+                with universal_apk.raw_file() as f:
+                    self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+        elif isinstance(artifact, (APK, ZippedAPK)):
+            if isinstance(artifact, ZippedAPK):
+                apk = artifact.get_primary_apk()
+            else:
+                apk = artifact
+            with apk.raw_file() as f:
+                self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+        else:
+            # TODO: Should call _update_artifact_error here once we
+            # support setting errors just for build.
+            logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id} (project: {project_id}, org: {organization_id})")
 
-                with apk.raw_file() as f:
-                    sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
-                    logger.info(f"Successfully uploaded installable app for artifact {artifact_id}")
-
-            analyzer = self._create_analyzer(app_info)
-            logger.info(f"Running full analysis on {temp_file}...")
+    def _do_size(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        artifact: Artifact,
+        analyzer: AndroidAnalyzer | AppleAppAnalyzer,
+    ):
+        logger.info(f"SIZE_ANALYSIS for {artifact_id} (project: {project_id}, org: {organization_id})")
+        try:
             results = self._retry_operation(
-                lambda: do_size(file_path, analyzer=analyzer),
+                lambda: analyzer.analyze(cast(Any, artifact)),
                 OperationName.SIZE_ANALYSIS,
             )
-            logger.info(f"Size analysis completed for artifact {artifact_id}")
-
-            self._upload_results(sentry_client, results, artifact_id, project_id, organization_id)
-
+            self._upload_results(organization_id, project_id, artifact_id, results)
         except Exception as e:
-            logger.error(f"Failed to process artifact {artifact_id}: {e}", exc_info=True)
-
-            error_code, error_message = self._categorize_processing_error(e)
-
-            # Include detailed error information for better debugging
-            detailed_error = str(e)
-
-            self._update_artifact_error(
-                sentry_client,
-                artifact_id,
-                project_id,
+            logger.exception(f"SIZE_ANALYSIS failed artifact:{artifact_id} project:{project_id} org:{organization_id}")
+            self._update_artifact_error_from_exception(
                 organization_id,
-                error_code,
-                error_message,
-                detailed_error,
+                project_id,
+                artifact_id,
+                e,
+                error_code=ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                error_message=ProcessingErrorMessage.SIZE_ANALYSIS_FAILED,
             )
             raise
-
-        finally:
-            if temp_file:
-                self._safe_cleanup(temp_file, "temporary file")
 
     def _retry_operation(self, operation, operation_name: OperationName):
         """Retry an operation up to MAX_RETRY_ATTEMPTS times."""
@@ -286,7 +370,7 @@ class LaunchpadService:
                 last_exception = e
                 logger.warning(f"{operation_name.value} failed on attempt {attempt}/{MAX_RETRY_ATTEMPTS}: {e}")
 
-                if self._is_non_retryable_error(e):
+                if isinstance(e, (ValueError, NotImplementedError, FileNotFoundError)):
                     logger.info(f"Non-retryable error for {operation_name.value}, not retrying")
                     break
 
@@ -297,58 +381,25 @@ class LaunchpadService:
         logger.error(f"All {MAX_RETRY_ATTEMPTS} attempts failed for {operation_name.value}")
         raise RuntimeError(f"{error_message.value}: {str(last_exception)}") from last_exception
 
-    def _is_non_retryable_error(self, exception: Exception) -> bool:
-        """Determine if an error should not be retried."""
-        return isinstance(exception, (ValueError, NotImplementedError, FileNotFoundError))
+    def _update_artifact_error_from_exception(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        e: Exception,
+        error_code: ProcessingErrorCode = ProcessingErrorCode.UNKNOWN,
+        error_message: ProcessingErrorMessage = ProcessingErrorMessage.UNKNOWN_ERROR,
+    ) -> None:
+        if error_message == ProcessingErrorMessage.UNKNOWN_ERROR:
+            error_message = guess_message(error_code, e)
 
-    def _categorize_processing_error(self, exception: Exception) -> tuple[ProcessingErrorCode, ProcessingErrorMessage]:
-        """Categorize an exception into error code and message."""
-        if isinstance(exception, ValueError):
-            return (
-                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                ProcessingErrorMessage.ARTIFACT_PARSING_FAILED,
-            )
-        elif isinstance(exception, NotImplementedError):
-            return (
-                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE,
-            )
-        elif isinstance(exception, FileNotFoundError):
-            return (
-                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                ProcessingErrorMessage.ARTIFACT_PARSING_FAILED,
-            )
-        elif isinstance(exception, RuntimeError):
-            error_str = str(exception).lower()
-            if "timeout" in error_str:
-                return (
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT,
-                    ProcessingErrorMessage.PROCESSING_TIMEOUT,
-                )
-            elif "preprocess" in error_str:
-                return (
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.PREPROCESSING_FAILED,
-                )
-            elif "size" in error_str or "analysis" in error_str:
-                return (
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.SIZE_ANALYSIS_FAILED,
-                )
-            else:
-                return (
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.UNKNOWN_ERROR,
-                )
-        else:
-            return ProcessingErrorCode.UNKNOWN, ProcessingErrorMessage.UNKNOWN_ERROR
+        self._update_artifact_error(organization_id, project_id, artifact_id, error_code, error_message, str(e))
 
     def _update_artifact_error(
         self,
-        sentry_client: SentryClient,
-        artifact_id: str,
-        project_id: str,
         organization_id: str,
+        project_id: str,
+        artifact_id: str,
         error_code: ProcessingErrorCode,
         error_message: ProcessingErrorMessage,
         detailed_error: str | None = None,
@@ -356,8 +407,7 @@ class LaunchpadService:
         """Update artifact with error information."""
         logger.info(f"Updating artifact {artifact_id} with error code {error_code.value}")
 
-        # Use detailed error message if provided, otherwise use enum value
-        final_error_message = f"{error_message.value}: {detailed_error}" if detailed_error else error_message.value
+        message = f"{error_message.value}: {detailed_error}" if detailed_error else error_message.value
 
         self._statsd.increment(
             "artifact.processing.error",
@@ -370,69 +420,22 @@ class LaunchpadService:
         )
 
         try:
-            sentry_client.update_artifact(
+            self._sentry_client.update_artifact(
                 org=organization_id,
                 project=project_id,
                 artifact_id=artifact_id,
                 data={
                     "error_code": error_code.value,
-                    "error_message": final_error_message,
+                    "error_message": message,
                 },
             )
-        except SentryClientError as e:
-            logger.error(f"Failed to update artifact with error {final_error_message} due to {e}", exc_info=True)
+        except SentryClientError:
+            logger.exception(f"Failed to update artifact with error {message}")
         else:
             logger.info(f"Successfully updated artifact {artifact_id} with error information")
 
-    def _download_artifact_to_temp_file(
-        self,
-        sentry_client: SentryClient,
-        artifact_id: str,
-        project_id: str,
-        organization_id: str,
-    ) -> str:
-        """Download artifact from Sentry directly to a temporary file."""
-        logger.info(f"Downloading artifact {artifact_id}...")
-
-        temp_file = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tf:
-                temp_file = tf.name
-
-                timing_tags = [f"project_id:{project_id}", f"organization_id:{organization_id}"]
-                with self._statsd.timed("artifact.download.duration", tags=timing_tags):
-                    file_size = sentry_client.download_artifact_to_file(
-                        org=organization_id,
-                        project=project_id,
-                        artifact_id=artifact_id,
-                        out=tf,
-                    )
-
-                logger.info(f"Downloaded artifact {artifact_id}: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
-                logger.info(f"Saved artifact to temporary file: {temp_file}")
-                return temp_file
-
-        except Exception as e:
-            # Handle all errors (download errors, temp file creation errors, I/O errors)
-            error_msg = str(e)
-            logger.error(error_msg)
-
-            self._update_artifact_error(
-                sentry_client,
-                artifact_id,
-                project_id,
-                organization_id,
-                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                ProcessingErrorMessage.DOWNLOAD_FAILED,
-                error_msg,
-            )
-
-            if temp_file:
-                self._safe_cleanup(temp_file, "temporary file")
-            raise
-
     def _prepare_update_data(
-        self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact, dequeued_at: datetime | None = None
+        self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact, dequeued_at: datetime
     ) -> Dict[str, Any]:
         def _get_artifact_type(artifact: Artifact) -> ArtifactType:
             if isinstance(artifact, ZippedXCArchive):
@@ -473,31 +476,18 @@ class LaunchpadService:
 
         return update_data.model_dump(exclude_none=True)
 
-    def _create_analyzer(self, app_info: AppleAppInfo | BaseAppInfo) -> AndroidAnalyzer | AppleAppAnalyzer:
-        """Create analyzer with preprocessed app info."""
-        if isinstance(app_info, AppleAppInfo):
-            analyzer = AppleAppAnalyzer()
-            analyzer.app_info = app_info
-            return analyzer
-        else:  # Android
-            analyzer = AndroidAnalyzer()
-            analyzer.app_info = app_info
-            return analyzer
-
     def _upload_results(
         self,
-        sentry_client: SentryClient,
-        results: Any,
-        artifact_id: str,
-        project_id: str,
         organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        results: Any,
     ) -> None:
-        """Upload analysis results to Sentry."""
         try:
             with tempfile.TemporaryFile() as file:
                 file.write(json.dumps(results.to_dict()).encode())
                 file.seek(0)
-                sentry_client.upload_size_analysis_file(
+                self._sentry_client.upload_size_analysis_file(
                     org=organization_id,
                     project=project_id,
                     artifact_id=artifact_id,
@@ -506,10 +496,9 @@ class LaunchpadService:
         except SentryClientError as e:
             logger.exception(e)
             self._update_artifact_error(
-                sentry_client,
-                artifact_id,
-                project_id,
                 organization_id,
+                project_id,
+                artifact_id,
                 ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                 ProcessingErrorMessage.UPLOAD_FAILED,
                 e.user_facing_message(),
@@ -517,15 +506,6 @@ class LaunchpadService:
             raise e
         else:
             logger.info(f"Successfully uploaded analysis results for artifact {artifact_id}")
-
-    def _safe_cleanup(self, file_path: str, description: str) -> None:
-        """Safely clean up a file with error handling."""
-        if file_path and os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-                logger.debug(f"Cleaned up {description}: {file_path}")
-            except Exception as e:
-                logger.warning(f"Failed to clean up {description} {file_path}: {e}")
 
     def is_healthy(self) -> bool:
         """Get overall service health status."""

@@ -37,7 +37,7 @@ PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
 def create_kafka_consumer(
-    message_handler: Callable[[PreprodArtifactEvents], Any],
+    message_handler: Callable[[PreprodArtifactEvents], None],
 ) -> LaunchpadKafkaConsumer:
     """Create and configure a Kafka consumer using environment variables."""
 
@@ -154,7 +154,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
     def __init__(
         self,
-        message_handler: Callable[[PreprodArtifactEvents], Any],
+        message_handler: Callable[[PreprodArtifactEvents], None],
         concurrency: int = 4,
         max_pending_futures: int = 100,
         healthcheck_file: str | None = None,
@@ -174,13 +174,14 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
-        def process_message(msg: Message[KafkaPayload]) -> Any:
+        def process_message(msg: Message[KafkaPayload]) -> None:
             try:
                 decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
-                return self.message_handler(decoded)  # type: ignore[no-any-return]
-            except Exception as e:
-                logger.error(f"Failed to decode message: {e}")
+            except Exception:
+                logger.exception("Failed to decode message")
                 raise  # Re-raise the exception to prevent processing invalid messages
+            else:
+                self.message_handler(decoded)
 
         strategy = RunTaskInThreads(
             processing_function=process_message,
