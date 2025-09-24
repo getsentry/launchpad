@@ -30,6 +30,7 @@ def create_preprod_artifact_event(
         "artifact_id": artifact_id or f"test-artifact-{int(time.time())}",
         "project_id": project_id or f"test-project-{int(time.time())}",
         "organization_id": organization_id or f"test-org-{int(time.time())}",
+        "requested_features": ["size_analysis"],
     }
 
 
