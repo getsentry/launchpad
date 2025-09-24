@@ -174,7 +174,7 @@ class SentryClient:
                 if attempt == 0:
                     logger.warning(f"Download failed due to network error ({attempt + 1}/{attempts})", exc_info=True)
                 else:
-                    logger.error(f"Download failed after {attempts} attempts due to network error", exc_info=True)
+                    logger.exception(f"Download failed after {attempts} attempts due to network error")
                     raise SentryClientError(
                         detail="Failed to download artifact (network error)", response=response, exception=e
                     )

@@ -80,5 +80,5 @@ def parse_null_terminated_strings(content: bytes) -> List[str]:
         ]
         return strings
     except UnicodeDecodeError:
-        logger.error("Failed to decode strings", exc_info=True)
+        logger.exception("Failed to decode strings")
         return []
