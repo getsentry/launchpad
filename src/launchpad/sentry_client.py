@@ -8,6 +8,7 @@ import io
 import json
 import logging
 import os
+import time
 
 from typing import Any, Dict, Optional, TypeVar
 
@@ -25,6 +26,9 @@ from launchpad.api.update_api_models import PutSize
 logger = logging.getLogger(__name__)
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
+
+RETRY_ATTEMPTS = 3
+MB_DIVISOR = 1024 * 1024
 
 
 def read_exactly(file: io.BytesIO, n: int) -> bytes:
@@ -145,55 +149,65 @@ class SentryClient:
         self.auth = Rpc0Auth(shared_secret)
         self.session = create_retry_session()
 
-    def download_artifact_to_file(self, org: str, project: str, artifact_id: str, out: io.BytesIO) -> int:
-        """Download preprod artifact directly to a file-like object.
-
-        Args:
-            org: Organization slug
-            project: Project slug
-            artifact_id: Artifact ID
-            out: File-like object to write to (must support write() method)
-
-        Returns:
-            Number of bytes written on success
-        """
+    def download_artifact(self, org: str, project: str, artifact_id: str, out: io.BytesIO) -> int:
+        """Download artifact with resumable support using HTTP Range requests."""
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/"
         url = self._build_url(endpoint)
-        file_size = 0
 
-        attempts = 3
-        for attempt in range(attempts):
+        total_size = None
+        try:
+            head_resp = self.session.head(url, auth=self.auth, timeout=30)
+            if head_resp.status_code == 200:
+                content_length = head_resp.headers.get("Content-Length")
+                if content_length:
+                    total_size = int(content_length)
+        except Exception:
+            pass
+
+        file_size = 0
+        chunk_size = 20 * 1024 * 1024  # 20MB chunks
+        chunk_count = 0
+
+        for attempt in range(RETRY_ATTEMPTS):
             try:
-                response = self.session.get(url, auth=self.auth, timeout=120, stream=True)
-                if response.status_code != 200:
+                headers = {}
+                if file_size > 0:
+                    headers = {"Range": f"bytes={file_size}-"}
+
+                response = self.session.get(url, auth=self.auth, headers=headers, timeout=120, stream=True)
+
+                if response.status_code not in (200, 206):
                     raise SentryClientError(response=response)
-                for chunk in response.iter_content(chunk_size=8192):
+
+                for chunk in response.iter_content(chunk_size=chunk_size):
                     if chunk:
                         out.write(chunk)
                         file_size += len(chunk)
-                        if file_size > 5 * 1024 * 1024 * 1024:
-                            raise SentryClientError(
-                                detail="Failed to download artifact: File size exceeds 5GB limit",
-                                response=response,
+                        chunk_count += 1
+
+                        if total_size:
+                            total_chunks = (total_size + chunk_size - 1) // chunk_size
+                            progress = (file_size / total_size) * 100
+                            logger.info(
+                                f"Downloaded chunk {chunk_count}/{total_chunks} - {file_size / MB_DIVISOR:.1f} MB ({progress:.1f}%)"
                             )
-                break
+                        else:
+                            logger.info(f"Downloaded chunk {chunk_count} - {file_size / MB_DIVISOR:.1f} MB")
+
+                return file_size
+
             except (ConnectionError, Timeout, ChunkedEncodingError, ContentDecodingError) as e:
-                if attempt == 0:
-                    logger.warning(f"Download failed due to network error ({attempt + 1}/{attempts})", exc_info=True)
-                else:
-                    logger.exception(f"Download failed after {attempts} attempts due to network error")
-                    raise SentryClientError(
-                        detail="Failed to download artifact (network error)", response=response, exception=e
+                if attempt < RETRY_ATTEMPTS - 1:
+                    wait_time = 2**attempt  # Exponential backoff
+                    logger.warning(
+                        f"Download failed (attempt {attempt + 1}/{RETRY_ATTEMPTS}), retrying in {wait_time}s: {e}"
                     )
+                    time.sleep(wait_time)
+                else:
+                    raise SentryClientError(exception=e, detail="Download failed after retries")
 
-            # Restart download from the beginning (endpoint does not
-            # currently support Range header).
-            out.seek(0)
-            out.truncate()  # Clear any partial data from failed download
-            file_size = 0
-
-        out.flush()
-        return file_size
+        # This should never be reached - added for type safety
+        raise SentryClientError(detail="Download failed unexpectedly")
 
     def update_artifact(self, org: str, project: str, artifact_id: str, data: Dict[str, Any]) -> UpdateResponse:
         """Update preprod artifact."""

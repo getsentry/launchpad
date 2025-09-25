@@ -150,7 +150,7 @@ class LaunchpadService:
         artifact_id = payload["artifact_id"]
 
         requested_features = []
-        for feature in payload["requested_features"]:
+        for feature in payload.get("requested_features", []):
             try:
                 requested_features.append(PreprodFeature(feature))
             except ValueError:
@@ -219,7 +219,7 @@ class LaunchpadService:
             with self._statsd.timed(
                 "artifact.download.duration", tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"]
             ):
-                size = self._sentry_client.download_artifact_to_file(
+                size = self._sentry_client.download_artifact(
                     org=organization_id,
                     project=project_id,
                     artifact_id=artifact_id,
