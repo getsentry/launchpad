@@ -32,12 +32,8 @@ class ZipProvider:
         temp_dir = create_temp_directory("zip-extract-")
         self._temp_dirs.append(temp_dir)
 
-        try:
-            self._safe_extract(str(self.path), str(temp_dir))
-            logger.debug(f"Extracted zip contents to {temp_dir} using system unzip")
-        except Exception as e:
-            logger.error(f"Failed to extract zip contents to {temp_dir}: {e}")
-            raise e
+        self._safe_extract(str(self.path), str(temp_dir))
+        logger.debug(f"Extracted zip contents to {temp_dir} using system unzip")
 
         return temp_dir
 

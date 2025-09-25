@@ -18,20 +18,14 @@ from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
-from launchpad.parsers.apple.swift_symbol_type_aggregator import (
-    SwiftSymbolTypeAggregator,
-)
+from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
-from launchpad.size.insights.apple.localized_strings_minify import (
-    MinifyLocalizedStringsInsight,
-)
+from launchpad.size.insights.apple.localized_strings_minify import MinifyLocalizedStringsInsight
 from launchpad.size.insights.apple.loose_images import LooseImagesInsight
-from launchpad.size.insights.apple.main_binary_export_metadata import (
-    MainBinaryExportMetadataInsight,
-)
+from launchpad.size.insights.apple.main_binary_export_metadata import MainBinaryExportMetadataInsight
 from launchpad.size.insights.apple.small_files import SmallFilesInsight
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.apple.unnecessary_files import UnnecessaryFilesInsight
@@ -292,7 +286,7 @@ class AppleAppAnalyzer:
             validator = CodeSignatureValidator(xcarchive)
             is_code_signature_valid, code_signature_errors = validator.validate()
         except Exception as e:
-            logger.warning(f"Failed to validate code signature: {e}")
+            logger.exception("Failed to validate code signature")
             is_code_signature_valid = False
             code_signature_errors = [str(e)]
 
@@ -376,8 +370,8 @@ class AppleAppAnalyzer:
                 if earliest_expiration is None or expiration_date < earliest_expiration:
                     earliest_expiration = expiration_date
 
-            except Exception as e:
-                logger.error(f"Failed to parse certificate: {e}")
+            except Exception:
+                logger.exception("Failed to parse certificate")
                 continue
 
         if earliest_expiration:
@@ -535,8 +529,8 @@ class AppleAppAnalyzer:
 
             return actual_savings
 
-        except Exception as e:
-            logger.error(f"Error testing symbol removal for {binary_path}: {e}")
+        except Exception:
+            logger.exception(f"Error testing symbol removal for {binary_path}")
             return 0
 
     def _extract_segments_info(self, binary: lief.MachO.Binary) -> List[SegmentInfo]:
@@ -560,8 +554,8 @@ class AppleAppAnalyzer:
                             size=command.file_size,
                         )
                     )
-        except Exception as e:
-            logger.warning(f"Error extracting segments info: {e}")
+        except Exception:
+            logger.exception("Error extracting segments info")
 
         return segments
 

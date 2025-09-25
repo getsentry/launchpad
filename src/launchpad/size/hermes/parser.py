@@ -7,6 +7,7 @@ import struct
 from typing import List, Union
 
 from launchpad.parsers.buffer_wrapper import BufferWrapper
+from launchpad.utils.logging import get_logger
 
 from .types import (
     BytecodeFileHeader,
@@ -30,6 +31,8 @@ from .types import (
 MAGIC = 0x1F1903C103BC1FC6
 DELTA_MAGIC = ~MAGIC & 0xFFFFFFFFFFFFFFFF
 SHA1_NUM_BYTES = 20
+
+logger = get_logger(__name__)
 
 
 class HermesBytecodeParser:
@@ -416,7 +419,8 @@ class HermesBytecodeParser:
                 else:
                     strings.append(string_bytes.decode("utf-8"))
             except Exception as e:
-                strings.append(f"[Error reading string: {e}]")
+                logger.warning(f"Error reading string: {e}")
+                strings.append("")
 
         return strings
 

@@ -102,8 +102,8 @@ def _lzfse_compressed_size(file_path: Path) -> int:
 
         return compressed_size if compressed_size < source_size else source_size
 
-    except Exception as e:
-        logger.error(f"Error compressing {file_path}: {e}")
+    except Exception:
+        logger.exception(f"Error lzfse compressing file {file_path}")
         return os.path.getsize(file_path)
 
 
@@ -172,8 +172,8 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
 
         return metadata_size
 
-    except Exception as e:
-        logger.error(f"Error calculating ZIP metadata size: {e}")
+    except Exception:
+        logger.exception("Error calculating ZIP metadata size")
         return 0
 
     finally:

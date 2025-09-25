@@ -105,8 +105,8 @@ class CwlDemangler:
 
             try:
                 result = subprocess.run(command_parts, capture_output=True, text=True, check=True)
-            except subprocess.CalledProcessError as e:
-                logger.error(f"cwl-demangle failed: {e}")
+            except subprocess.CalledProcessError:
+                logger.exception("cwl-demangle failed")
                 return {}
 
             batch_result = json.loads(result.stdout)

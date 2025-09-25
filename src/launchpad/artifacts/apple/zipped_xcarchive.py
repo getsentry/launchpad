@@ -66,7 +66,7 @@ class ZippedXCArchive(AppleArtifact):
             self._plist = plist_data
             return plist_data
         except Exception as e:
-            raise RuntimeError(f"Failed to parse Info.plist: {e}")
+            raise RuntimeError("Failed to parse Info.plist") from e
 
     def generate_ipa(self, output_path: Path):
         """Generate an IPA file
@@ -115,7 +115,7 @@ class ZippedXCArchive(AppleArtifact):
                 logger.info(f"IPA file generated successfully: {output_path}")
                 return output_path
             except subprocess.CalledProcessError as e:
-                raise RuntimeError(f"Failed to generate IPA file with zip: {e}")
+                raise RuntimeError("Failed to generate IPA file with zip") from e
             except FileNotFoundError:
                 raise RuntimeError("zip command not found. This tool is required for IPA generation.")
 
@@ -238,8 +238,8 @@ class ZippedXCArchive(AppleArtifact):
                                     is_main_binary=True,  # App extension main executables are main binaries
                                 )
                             )
-                    except Exception as e:
-                        logger.warning(f"Failed to read extension Info.plist at {extension_path}: {e}")
+                    except Exception:
+                        logger.exception(f"Failed to read extension Info.plist at {extension_path}")
 
         # Find Watch app binaries
         for watch_path in app_bundle_path.rglob("Watch/*.app"):
@@ -267,8 +267,8 @@ class ZippedXCArchive(AppleArtifact):
                                     is_main_binary=True,  # Watch app main executables are main binaries
                                 )
                             )
-                    except Exception as e:
-                        logger.warning(f"Failed to read Watch app Info.plist at {watch_path}: {e}")
+                    except Exception:
+                        logger.exception(f"Failed to read Watch app Info.plist at {watch_path}")
 
         return binaries
 
@@ -295,8 +295,8 @@ class ZippedXCArchive(AppleArtifact):
                 data = json.load(f)
 
             return [self._parse_asset_element(item, parent_path) for item in data]
-        except Exception as e:
-            logger.error(f"Failed to get asset catalog details for {relative_path}: {e}")
+        except Exception:
+            logger.exception(f"Failed to get asset catalog details for {relative_path}")
             return []
 
     def _get_main_binary_path(self) -> Path:
@@ -358,8 +358,8 @@ class ZippedXCArchive(AppleArtifact):
                 logger.debug(f"No UUID command found in binary: {binary_path}")
                 return None
 
-        except Exception as e:
-            logger.error(f"Failed to extract UUID from binary {binary_path}: {e}")
+        except Exception:
+            logger.exception(f"Failed to extract UUID from binary {binary_path}")
             return None
 
     def _find_dsym_files(self) -> dict[str, Path]:

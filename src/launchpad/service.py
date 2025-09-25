@@ -18,9 +18,7 @@ from typing import Any, Dict, Iterator, cast
 
 import sentry_sdk
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
 from launchpad.api.update_api_models import UpdateData
@@ -236,7 +234,7 @@ class LaunchpadService:
         try:
             return ArtifactFactory.from_path(path)
         except Exception as e:
-            logger.exception(e)
+            logger.exception("Failed to parse artifact")
             self._update_artifact_error_from_exception(
                 organization_id,
                 project_id,

@@ -110,8 +110,8 @@ class MachOParser:
 
             return content[offset : offset + size]
 
-        except Exception as e:
-            logger.error(f"Failed to get section bytes at offset for {section_name}: {e}")
+        except Exception:
+            logger.exception(f"Failed to get section bytes at offset for {section_name}")
             return None
 
     @trace(name="get_section_bytes")
@@ -137,8 +137,8 @@ class MachOParser:
             logger.debug(f"Section {section_name} not found")
             return None
 
-        except Exception as e:
-            logger.error(f"Failed to get section content for {section_name}: {e}")
+        except Exception:
+            logger.exception(f"Failed to get section content for {section_name}")
             return None
 
     @trace(name="is_encrypted")
@@ -155,8 +155,8 @@ class MachOParser:
 
             # If encryption_info exists and crypt_id is non-zero, the binary is encrypted
             return bool(self.binary.encryption_info.crypt_id)
-        except Exception as e:
-            logger.error(f"Failed to check encryption status: {e}")
+        except Exception:
+            logger.exception("Failed to check encryption status")
             return False
 
     @trace(name="parse_swift_protocol_conformances")
@@ -232,8 +232,8 @@ class MachOParser:
             logger.debug(f"Parsed {len(method_names)} Objective-C method names")
             return method_names
 
-        except Exception as e:
-            logger.error(f"Failed to parse Objective-C method names: {e}")
+        except Exception:
+            logger.exception("Failed to parse Objective-C method names")
             return []
 
     @trace(name="has_swift_imageinfo")
@@ -260,8 +260,8 @@ class MachOParser:
                 )
                 return has_swift_info
             return False
-        except Exception as e:
-            logger.error("Could not parse __objc_imageinfo: %s", e)
+        except Exception:
+            logger.exception("Could not parse __objc_imageinfo")
             return False
 
     @trace(name="static_inits")

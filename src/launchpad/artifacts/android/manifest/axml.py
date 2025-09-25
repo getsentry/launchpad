@@ -97,8 +97,8 @@ class BinaryXmlParser:
 
             return convert_node(parsed_node)
 
-        except Exception as e:
-            logger.error(f"Failed to parse binary XML: {e}")
+        except Exception:
+            logger.exception("Failed to parse binary XML")
             return None
 
 

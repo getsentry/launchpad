@@ -65,11 +65,9 @@ class ArtifactFactory:
                         return APK(path)
 
             except BadZipFile as e:
-                logger.error(f"ZIP file is corrupted: {e}")
-                raise ValueError(f"Corrupted ZIP file: {e}")
+                raise ValueError("File appears to be a corrupted ZIP archive") from e
             except Exception as e:
-                logger.error(f"Unexpected error reading ZIP: {e}")
-                raise ValueError(f"Error reading ZIP file: {e}")
+                raise ValueError("Failed to read ZIP archive") from e
 
         # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations
         try:

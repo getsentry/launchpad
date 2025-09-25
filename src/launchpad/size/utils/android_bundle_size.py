@@ -38,8 +38,7 @@ def calculate_apk_download_size(apk_path: Path) -> int:
         return download_size
 
     except Exception as e:
-        logger.error(f"Error calculating APK download size: {e}")
-        raise ValueError(f"Failed to calculate download size for {apk_path}: {e}")
+        raise ValueError("Failed to calculate download size for APK") from e
 
 
 def calculate_apk_install_size(apk_file: typing.BinaryIO) -> int:
