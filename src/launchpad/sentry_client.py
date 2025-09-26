@@ -185,6 +185,7 @@ class SentryClient:
             out.truncate()  # Clear any partial data from failed download
             file_size = 0
 
+        out.flush()
         return file_size
 
     def update_artifact(self, org: str, project: str, artifact_id: str, data: Dict[str, Any]) -> UpdateResponse:
