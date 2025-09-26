@@ -434,3 +434,35 @@ class TestSentryClientRetry:
             client.download_artifact("test-org", "test-project", "test-artifact", out)
 
         assert "Download failed after retries" in str(excinfo.value)
+
+    @responses.activate
+    def test_download_artifact_handles_416_range_not_satisfiable(self):
+        """Test download handles 416 Range Not Satisfiable by restarting from beginning."""
+        responses.add(
+            responses.HEAD,
+            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
+            headers={"Content-Length": "13"},
+        )
+
+        # First request returns 416, second succeeds
+        responses.add(
+            responses.GET,
+            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
+            status=416,
+        )
+        responses.add(
+            responses.GET,
+            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
+            body="Hello, world!",
+        )
+
+        client = SentryClient(base_url="https://example.com", shared_secret="password")
+        out = io.BytesIO()
+        out.write(b"partial")  # Simulate partial download
+        out.seek(0, io.SEEK_END)
+
+        result = client.download_artifact("test-org", "test-project", "test-artifact", out)
+
+        assert result == 13
+        out.seek(0)
+        assert out.read() == b"Hello, world!"

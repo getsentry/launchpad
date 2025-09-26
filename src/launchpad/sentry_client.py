@@ -179,7 +179,20 @@ class SentryClient:
 
                 response = self.session.get(url, auth=self.auth, headers=headers, timeout=120, stream=True)
 
-                if response.status_code not in (200, 206):
+                # Handle cases where we need to restart download from beginning
+                if response.status_code == 416 or (file_size > 0 and response.status_code == 200):
+                    if response.status_code == 416:
+                        logger.warning("Range not satisfiable, restarting download from beginning")
+                    else:
+                        logger.warning("Server ignored Range header, restarting download from beginning")
+
+                    out.seek(0)
+                    out.truncate()
+                    file_size = 0
+                    chunk_count = 0
+                    continue
+
+                elif response.status_code not in (200, 206):
                     raise SentryClientError(response=response)
 
                 for chunk in response.iter_content(chunk_size=chunk_size):
