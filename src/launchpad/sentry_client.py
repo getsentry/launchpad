@@ -161,7 +161,10 @@ class SentryClient:
                 content_length = head_resp.headers.get("Content-Length")
                 if content_length:
                     total_size = int(content_length)
-        except Exception:
+        except Exception as e:
+            # HEAD request failed - this is non-critical as we can still download without progress info
+            # Common reasons: network issues, server doesn't support HEAD, auth issues
+            logger.debug(f"HEAD request failed, will download without progress info: {e}")
             pass
 
         file_size = 0
@@ -198,7 +201,7 @@ class SentryClient:
 
             except (ConnectionError, Timeout, ChunkedEncodingError, ContentDecodingError) as e:
                 if attempt < RETRY_ATTEMPTS - 1:
-                    wait_time = 2**attempt  # Exponential backoff
+                    wait_time = 5
                     logger.warning(
                         f"Download failed (attempt {attempt + 1}/{RETRY_ATTEMPTS}), retrying in {wait_time}s: {e}"
                     )

@@ -10,6 +10,7 @@ from requests.exceptions import ConnectionError
 from responses.matchers import multipart_matcher
 
 from launchpad.sentry_client import (
+    RETRY_ATTEMPTS,
     ChunkOptionsResponse,
     SentryClient,
     SentryClientError,
@@ -279,27 +280,21 @@ class TestSentryClientRetry:
                 f,
             )
         assert "failed after 3 attempts" in str(excinfo.value)
-        # We assemble once to find out the missing chunks
-        # We then retry the assemble 3 times uploading any missing chunks
-        # Each request can itself be retried 3 times
-        # So (1*3)*4 = 16
         assert upload.call_count == 16
 
     @responses.activate
     def test_download_artifact_success(self):
         """Test successful download of artifact."""
-        # Mock HEAD request for file size
         responses.add(
             responses.HEAD,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
-            headers={"Content-Length": "40"},  # 40 bytes total
+            headers={"Content-Length": "40"},
         )
 
-        # Mock GET request for download
         responses.add(
             responses.GET,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
-            body=b"A" * 20 + b"B" * 20,  # 40 bytes total, will be 2 chunks of 20MB each (but truncated)
+            body=b"A" * 20 + b"B" * 20,
         )
 
         client = SentryClient(base_url="https://example.com", shared_secret="password")
@@ -314,14 +309,12 @@ class TestSentryClientRetry:
     @responses.activate
     def test_download_artifact_no_head_request(self):
         """Test download when HEAD request fails."""
-        # Mock failed HEAD request
         responses.add(
             responses.HEAD,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
             status=404,
         )
 
-        # Mock GET request for download
         responses.add(
             responses.GET,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
@@ -340,21 +333,18 @@ class TestSentryClientRetry:
     @responses.activate
     def test_download_artifact_with_retry(self):
         """Test download with retry after connection error."""
-        # Mock HEAD request for file size
         responses.add(
             responses.HEAD,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
             headers={"Content-Length": "13"},
         )
 
-        # First attempt fails with ConnectionError
         responses.add(
             responses.GET,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
             body=ConnectionError("Connection failed"),
         )
 
-        # Second attempt succeeds
         responses.add(
             responses.GET,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
@@ -372,22 +362,19 @@ class TestSentryClientRetry:
 
     @responses.activate
     def test_download_artifact_resumable(self):
-        """Test resumable download using Range headers."""
-        # Mock HEAD request for file size
+        """Test download retry behavior (full restart, not true resumable)."""
         responses.add(
             responses.HEAD,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
             headers={"Content-Length": "26"},
         )
 
-        # First attempt fails with connection error
         responses.add(
             responses.GET,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
             body=ConnectionError("Connection lost"),
         )
 
-        # Second attempt succeeds and gets the full file
         responses.add(
             responses.GET,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
@@ -406,14 +393,12 @@ class TestSentryClientRetry:
     @responses.activate
     def test_download_artifact_http_error(self):
         """Test download with HTTP error response."""
-        # Mock HEAD request for file size
         responses.add(
             responses.HEAD,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
             headers={"Content-Length": "13"},
         )
 
-        # Mock GET request with error
         responses.add(
             responses.GET,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
@@ -429,15 +414,13 @@ class TestSentryClientRetry:
     @responses.activate
     def test_download_artifact_max_retries_exceeded(self):
         """Test download fails after maximum retries."""
-        # Mock HEAD request for file size
         responses.add(
             responses.HEAD,
             "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
             headers={"Content-Length": "13"},
         )
 
-        # All attempts fail with ConnectionError
-        for _ in range(3):  # RETRY_ATTEMPTS = 3
+        for _ in range(RETRY_ATTEMPTS):
             responses.add(
                 responses.GET,
                 "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
