@@ -182,6 +182,7 @@ class SentryClient:
             # Restart download from the beginning (endpoint does not
             # currently support Range header).
             out.seek(0)
+            out.truncate()  # Clear any partial data from failed download
             file_size = 0
 
         return file_size
