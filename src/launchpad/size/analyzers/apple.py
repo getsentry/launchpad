@@ -286,7 +286,7 @@ class AppleAppAnalyzer:
             validator = CodeSignatureValidator(xcarchive)
             is_code_signature_valid, code_signature_errors = validator.validate()
         except Exception as e:
-            logger.exception("Failed to validate code signature")
+            logger.warning("Failed to validate code signature", exc_info=True)
             is_code_signature_valid = False
             code_signature_errors = [str(e)]
 

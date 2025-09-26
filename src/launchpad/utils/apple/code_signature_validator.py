@@ -111,7 +111,7 @@ class CodeSignatureValidator:
             return len(errors) == 0, errors
 
         except Exception as e:
-            logger.exception("Failed to validate code signature")
+            logger.warning("Failed to validate code signature", exc_info=True)
             return False, [str(e)]
 
     def _validate_executable(self) -> BinaryCheckResult:
