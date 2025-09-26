@@ -167,9 +167,11 @@ class SentryClient:
             logger.debug(f"HEAD request failed, will download without progress info: {e}")
             pass
 
-        file_size = 0
-        chunk_size = 20 * 1024 * 1024  # 20MB chunks
+        # Chunk size selected based on guidance from Google Cloud docs suggesting "at least 8MB"
+        # https://cloud.google.com/storage/docs/performing-resumable-uploads
         chunk_count = 0
+        chunk_size = 20 * 1024 * 1024  # 20MB chunks
+        file_size = 0
 
         for attempt in range(RETRY_ATTEMPTS):
             try:
