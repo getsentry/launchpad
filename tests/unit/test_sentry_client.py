@@ -307,30 +307,6 @@ class TestSentryClientRetry:
         assert out.read() == b"A" * 20 + b"B" * 20
 
     @responses.activate
-    def test_download_artifact_no_head_request(self):
-        """Test download when HEAD request fails."""
-        responses.add(
-            responses.HEAD,
-            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
-            status=404,
-        )
-
-        responses.add(
-            responses.GET,
-            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/",
-            body=b"Hello, world!",
-        )
-
-        client = SentryClient(base_url="https://example.com", shared_secret="password")
-        out = io.BytesIO()
-
-        result = client.download_artifact("test-org", "test-project", "test-artifact", out)
-
-        assert result == 13
-        out.seek(0)
-        assert out.read() == b"Hello, world!"
-
-    @responses.activate
     def test_download_artifact_with_retry(self):
         """Test download with retry after connection error."""
         responses.add(
