@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from aiohttp.test_utils import AioHTTPTestCase
 
 from launchpad.server import LaunchpadServer
@@ -60,8 +62,6 @@ class TestLaunchpadService:
 
     def test_service_config_creation(self):
         """Test ServiceConfig creation with default values."""
-        from unittest.mock import patch
-
         from launchpad.service import get_service_config
 
         # Test with no environment variables set
