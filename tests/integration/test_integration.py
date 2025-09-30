@@ -10,6 +10,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
 
+from launchpad.processors.artifact_processor import ArtifactProcessor
 from launchpad.server import LaunchpadServer
 from launchpad.service import LaunchpadService, PreprodFeature, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
@@ -29,9 +30,11 @@ class TestServiceIntegration:
             sentry_base_url="https://sentry.example.com",
             projects_to_skip=[],
         )
+        service._sentry_client = None  # Will be mocked
+        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Mock process_artifact to avoid actual processing
-        with patch.object(service, "process_artifact") as mock_process:
+        with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
             # Test artifact analysis message with iOS artifact
             ios_payload: PreprodArtifactEvents = {
                 "artifact_id": "ios-test-123",
@@ -87,8 +90,16 @@ class TestServiceIntegration:
             "requested_features": [],
         }
 
+        # Initialize the service
+        service._service_config = ServiceConfig(
+            sentry_base_url="https://sentry.example.com",
+            projects_to_skip=[],
+        )
+        service._sentry_client = None  # Will be mocked
+        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+
         # Mock process_artifact to raise an exception
-        with patch.object(service, "process_artifact") as mock_process:
+        with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
             mock_process.side_effect = Exception("Processing failed")
 
             # This should handle the exception gracefully
@@ -120,7 +131,15 @@ class TestServiceIntegration:
             for i in range(10)
         ]
 
-        with patch.object(service, "process_artifact"):
+        # Initialize the service
+        service._service_config = ServiceConfig(
+            sentry_base_url="https://sentry.example.com",
+            projects_to_skip=[],
+        )
+        service._sentry_client = None  # Will be mocked
+        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+
+        with patch.object(ArtifactProcessor, "process_artifact"):
             for msg in messages:
                 service.handle_kafka_message(msg)  # type: ignore
 
