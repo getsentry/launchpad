@@ -21,7 +21,7 @@ import sentry_sdk
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
-from launchpad.api.update_api_models import UpdateData
+from launchpad.api.update_api_models import PutSizeFailed, UpdateData
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
@@ -345,7 +345,7 @@ class LaunchpadService:
             self._upload_results(organization_id, project_id, artifact_id, results)
         except Exception as e:
             logger.exception(f"SIZE_ANALYSIS failed artifact:{artifact_id} project:{project_id} org:{organization_id}")
-            self._update_artifact_error_from_exception(
+            self._update_size_error_from_exception(
                 organization_id,
                 project_id,
                 artifact_id,
@@ -353,7 +353,6 @@ class LaunchpadService:
                 error_code=ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                 error_message=ProcessingErrorMessage.SIZE_ANALYSIS_FAILED,
             )
-            raise
 
     def _retry_operation(self, operation, operation_name: OperationName):
         """Retry an operation up to MAX_RETRY_ATTEMPTS times."""
@@ -431,6 +430,55 @@ class LaunchpadService:
             logger.exception(f"Failed to update artifact with error {message}")
         else:
             logger.info(f"Successfully updated artifact {artifact_id} with error information")
+
+    def _update_size_error_from_exception(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        e: Exception,
+        error_code: ProcessingErrorCode = ProcessingErrorCode.UNKNOWN,
+        error_message: ProcessingErrorMessage = ProcessingErrorMessage.UNKNOWN_ERROR,
+        identifier: str | None = None,
+    ) -> None:
+        if error_message == ProcessingErrorMessage.UNKNOWN_ERROR:
+            error_message = guess_message(error_code, e)
+        self._update_size_error(
+            organization_id, project_id, artifact_id, error_code, error_message, str(e), identifier=identifier
+        )
+
+    def _update_size_error(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        error_code: ProcessingErrorCode,
+        error_message: ProcessingErrorMessage,
+        detailed_error: str | None = None,
+        identifier: str | None = None,
+    ) -> None:
+        message = f"{error_message.value}: {detailed_error}" if detailed_error else error_message.value
+
+        self._statsd.increment(
+            "artifact.processing.error",
+            tags=[
+                f"error_code:{error_code.value}",
+                f"error_type:{error_message.name}",
+                f"project_id:{project_id}",
+                f"organization_id:{organization_id}",
+            ],
+        )
+
+        try:
+            self._sentry_client.update_size_analysis(
+                org=organization_id,
+                project=project_id,
+                artifact_id=artifact_id,
+                data=PutSizeFailed(error_code=error_code.value, error_message=message),
+                identifier=identifier,
+            )
+        except SentryClientError:
+            logger.exception(f"Failed to update artifact with error {message}")
 
     def _prepare_update_data(
         self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact, dequeued_at: datetime

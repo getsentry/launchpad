@@ -1,7 +1,40 @@
 from datetime import datetime
-from typing import List, Optional
+from enum import IntEnum
+from typing import Annotated, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
+
+
+class SizeAnalysisState(IntEnum):
+    PENDING = 0
+    PROCESSING = 1
+    COMPLETED = 2
+    FAILED = 3
+
+
+class PutSizeFailed(BaseModel):
+    model_config = ConfigDict()
+    state: Literal[SizeAnalysisState.FAILED] = SizeAnalysisState.FAILED
+    error_code: int
+    error_message: str
+
+
+class PutSizeProcessing(BaseModel):
+    model_config = ConfigDict()
+    state: Literal[SizeAnalysisState.PROCESSING] = SizeAnalysisState.PROCESSING
+
+
+class PutSizePending(BaseModel):
+    model_config = ConfigDict()
+    state: Literal[SizeAnalysisState.PENDING] = SizeAnalysisState.PENDING
+
+
+# Missing SizeAnalysisState.COMPLETED is on purpose. The only way to mark
+# a size metrics as successful is via the assemble endpoint.
+PutSize = Annotated[
+    PutSizeFailed | PutSizePending | PutSizeProcessing,
+    Field(discriminator="state"),
+]
 
 
 class AppleAppInfo(BaseModel):

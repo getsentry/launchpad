@@ -20,6 +20,8 @@ from requests.auth import AuthBase
 from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDecodingError, JSONDecodeError, Timeout
 from urllib3.util.retry import Retry
 
+from launchpad.api.update_api_models import PutSize
+
 logger = logging.getLogger(__name__)
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
@@ -81,6 +83,11 @@ class UpdateResponse(BaseModel):
     success: bool
     artifact_id: str
     updated_fields: list[str]
+
+
+class PutSizeResponse(BaseModel):
+    model_config = ConfigDict(strict=True, alias_generator=to_camel)
+    artifact_id: str
 
 
 class ChunkOptionsResponse(BaseModel):
@@ -210,6 +217,15 @@ class SentryClient:
             max_retries=max_retries,
             assemble_type="size_analysis",
         )
+
+    def update_size_analysis(
+        self, org: str, project: str, artifact_id: str, data: PutSize, identifier: str | None = None
+    ) -> PutSizeResponse:
+        if identifier:
+            endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/size/{identifier}/"
+        else:
+            endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/size/"
+        return self._make_json_request("PUT", endpoint, PutSizeResponse, data=data.model_dump())
 
     def upload_installable_app(
         self,
