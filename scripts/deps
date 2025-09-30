@@ -121,7 +121,7 @@ DEPS = [
     ),
     Dep(
         "android-release-tools.tar.gz",
-        "https://github.com/chromy/android-sdk-prebuilts/releases/download/android16-release/android-release-tools-arm64-darwin-16.tar.gz",
+        "https://github.com/getsentry/android-sdk-prebuilts/releases/download/android16-release/android-release-tools-arm64-darwin-16.tar.gz",
         "54858ccff5563ea3c31294c1b275198922ab470ae2afd5e06d50fbca43b0326b",
         architecture="aarch64",
         system="darwin",
@@ -132,7 +132,7 @@ DEPS = [
     ),
     Dep(
         "android-release-tools.tar.gz",
-        "https://github.com/chromy/android-sdk-prebuilts/releases/download/android16-release/android-release-tools-x86_64-linux-16.tar.gz",
+        "https://github.com/getsentry/android-sdk-prebuilts/releases/download/android16-release/android-release-tools-x86_64-linux-16.tar.gz",
         "2b2acd765f3b7d770d1ea46c89f593be056c834e85010e500d106845ea76ba97",
         architecture="x86_64",
         system="linux",
