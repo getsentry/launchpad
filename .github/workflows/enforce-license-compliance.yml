@@ -1,0 +1,17 @@
+name: Enforce License Compliance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  enforce-license-compliance:
+    runs-on: ubuntu-latest
+    permissions: read-all
+    steps:
+      - name: 'Enforce License Compliance'
+        uses: getsentry/action-enforce-license-compliance@48236a773346cb6552a7bda1ee370d2797365d87
+        with:
+          fossa_api_key: ${{ secrets.FOSSA_API_KEY }}
