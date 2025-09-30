@@ -44,6 +44,8 @@ def calculate_apk_download_size(apk_path: Path) -> int:
 def calculate_apk_install_size(apk_file: typing.BinaryIO) -> int:
     size = 0
     with zipfile.ZipFile(apk_file) as z:
+        # No need to check_reasonable_zip here if all we are doing is
+        # counting the size.
         for info in z.infolist():
             size += info.file_size
     return size

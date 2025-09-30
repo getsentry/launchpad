@@ -9,6 +9,7 @@ from .android.zipped_aab import ZippedAAB
 from .android.zipped_apk import ZippedAPK
 from .apple.zipped_xcarchive import ZippedXCArchive
 from .artifact import Artifact
+from .providers.zip_provider import check_reasonable_zip
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,8 @@ class ArtifactFactory:
         if magic_bytes.startswith(b"PK\x03\x04"):
             try:
                 with ZipFile(path) as zip_file:
+                    check_reasonable_zip(zip_file)
+
                     # Check if zip contains a Info.plist in the root of the .xcarchive folder (ZippedXCArchive)
                     plist_files = [f for f in zip_file.namelist() if f.endswith(".xcarchive/Info.plist")]
                     if plist_files:
@@ -72,6 +75,7 @@ class ArtifactFactory:
         # Check if it's a direct APK or AAB by looking for AndroidManifest.xml in specific locations
         try:
             with ZipFile(path) as zip_file:
+                check_reasonable_zip(zip_file)
                 if any(f.endswith("base/manifest/AndroidManifest.xml") for f in zip_file.namelist()):
                     return AAB(path)
 
