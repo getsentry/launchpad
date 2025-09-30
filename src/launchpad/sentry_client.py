@@ -212,8 +212,8 @@ class SentryClient:
                         else:
                             logger.info(f"Downloaded chunk {chunk_count} - {file_size / MB_DIVISOR:.1f} MB")
 
+                out.flush()
                 return file_size
-
             except (ConnectionError, Timeout, ChunkedEncodingError, ContentDecodingError) as e:
                 if attempt < RETRY_ATTEMPTS - 1:
                     wait_time = 5
