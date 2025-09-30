@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import os
 import signal
 import threading
@@ -11,13 +10,6 @@ import threading
 from dataclasses import dataclass
 from typing import Any
 
-import sentry_sdk
-
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
-
-from launchpad.constants import (
-    PreprodFeature,
-)
 from launchpad.processors.artifact_processor import ArtifactProcessor
 from launchpad.sentry_client import SentryClient
 from launchpad.utils.logging import get_logger
@@ -26,7 +18,6 @@ from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
 from .kafka import LaunchpadKafkaConsumer, create_kafka_consumer
 from .sentry_sdk_init import initialize_sentry_sdk
 from .server import LaunchpadServer, get_server_config
-from .tracing import request_context
 
 logger = get_logger(__name__)
 
@@ -59,7 +50,7 @@ class LaunchpadService:
             statsd=self._statsd,
         )
 
-        self.kafka = create_kafka_consumer(message_handler=self.handle_kafka_message)
+        self.kafka = create_kafka_consumer()
 
         logger.info("Service components initialized")
 
@@ -106,50 +97,6 @@ class LaunchpadService:
             if awaitable_stop_server:
                 await awaitable_stop_server
             logger.info("...service cleanup completed")
-
-    def handle_kafka_message(self, payload: PreprodArtifactEvents) -> None:
-        organization_id = payload["organization_id"]
-        project_id = payload["project_id"]
-        artifact_id = payload["artifact_id"]
-
-        requested_features = []
-        for feature in payload.get("requested_features", []):
-            try:
-                requested_features.append(PreprodFeature(feature))
-            except ValueError:
-                logger.exception(f"Unknown feature {feature}")
-
-        if self._service_config and project_id in self._service_config.projects_to_skip:
-            logger.info(f"Skipping processing for project {project_id}")
-            return
-
-        with contextlib.ExitStack() as stack:
-            stack.enter_context(request_context())
-            stack.enter_context(
-                self._statsd.timed(
-                    "artifact.processing.duration",
-                    tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"],
-                )
-            )
-            scope = stack.enter_context(sentry_sdk.new_scope())
-            scope.set_tag("launchpad.project_id", project_id)
-            scope.set_tag("launchpad.organization_id", organization_id)
-            scope.set_tag("launchpad.artifact_id", artifact_id)
-
-            self._statsd.increment("artifact.processing.started")
-            logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
-            try:
-                self._artifact_processor.process_artifact(organization_id, project_id, artifact_id, requested_features)
-            except Exception:
-                self._statsd.increment("artifact.processing.failed")
-                logger.exception(
-                    f"Processing failed for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
-                )
-            else:
-                self._statsd.increment("artifact.processing.completed")
-                logger.info(
-                    f"Processing complete for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
-                )
 
     def is_healthy(self) -> bool:
         """Get overall service health status."""

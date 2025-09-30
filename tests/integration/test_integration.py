@@ -12,7 +12,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 
 from launchpad.processors.artifact_processor import ArtifactProcessor
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService, PreprodFeature, ServiceConfig
+from launchpad.service import PreprodFeature, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -23,15 +23,11 @@ class TestServiceIntegration:
     async def test_kafka_message_processing(self):
         """Test processing of different Kafka message types."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-
-        # Mock service config to make the service appear initialized
-        service._service_config = ServiceConfig(
+        service_config = ServiceConfig(
             sentry_base_url="https://sentry.example.com",
             projects_to_skip=[],
         )
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Mock process_artifact to avoid actual processing
         with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
@@ -43,8 +39,8 @@ class TestServiceIntegration:
                 "requested_features": ["size_analysis"],
             }
 
-            # handle_kafka_message is synchronous
-            service.handle_kafka_message(ios_payload)
+            # Use the new process_message method
+            ArtifactProcessor.process_message(ios_payload, service_config, artifact_processor, fake_statsd)
 
             # Verify the processing method was called
             mock_process.assert_called_once_with(
@@ -68,8 +64,8 @@ class TestServiceIntegration:
                 "requested_features": ["build_distribution"],
             }
 
-            # handle_kafka_message is synchronous
-            service.handle_kafka_message(android_payload)
+            # Use the new process_message method
+            ArtifactProcessor.process_message(android_payload, service_config, artifact_processor, fake_statsd)
 
             # Verify the processing method was called
             mock_process.assert_called_once_with(
@@ -80,7 +76,11 @@ class TestServiceIntegration:
     async def test_error_handling_in_message_processing(self):
         """Test that errors in message processing are handled properly."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
+        service_config = ServiceConfig(
+            sentry_base_url="https://sentry.example.com",
+            projects_to_skip=[],
+        )
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Create a valid payload
         payload: PreprodArtifactEvents = {
@@ -90,20 +90,12 @@ class TestServiceIntegration:
             "requested_features": [],
         }
 
-        # Initialize the service
-        service._service_config = ServiceConfig(
-            sentry_base_url="https://sentry.example.com",
-            projects_to_skip=[],
-        )
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
-
         # Mock process_artifact to raise an exception
         with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
             mock_process.side_effect = Exception("Processing failed")
 
             # This should handle the exception gracefully
-            service.handle_kafka_message(payload)
+            ArtifactProcessor.process_message(payload, service_config, artifact_processor, fake_statsd)
 
             # Verify the processing method was called
             mock_process.assert_called_once_with("test-org", "test-project", "test-123", [])
@@ -119,7 +111,11 @@ class TestServiceIntegration:
     async def test_concurrent_message_processing(self):
         """Test that multiple messages can be processed concurrently."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
+        service_config = ServiceConfig(
+            sentry_base_url="https://sentry.example.com",
+            projects_to_skip=[],
+        )
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         messages = [
             {
@@ -131,17 +127,9 @@ class TestServiceIntegration:
             for i in range(10)
         ]
 
-        # Initialize the service
-        service._service_config = ServiceConfig(
-            sentry_base_url="https://sentry.example.com",
-            projects_to_skip=[],
-        )
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
-
         with patch.object(ArtifactProcessor, "process_artifact"):
             for msg in messages:
-                service.handle_kafka_message(msg)  # type: ignore
+                ArtifactProcessor.process_message(msg, service_config, artifact_processor, fake_statsd)  # type: ignore
 
         # Verify all messages were processed (2 increment calls per message: started + completed)
         calls = fake_statsd.calls

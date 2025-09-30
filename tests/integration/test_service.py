@@ -11,7 +11,7 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 
 from launchpad.processors.artifact_processor import ArtifactProcessor
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService, PreprodFeature, ServiceConfig
+from launchpad.service import PreprodFeature, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -54,14 +54,11 @@ class TestLaunchpadService:
     """Test cases for LaunchpadService."""
 
     @patch.object(ArtifactProcessor, "process_artifact")
-    def test_handle_kafka_message_ios(self, mock_process):
-        """Test handling iOS artifact messages."""
+    def test_process_message_ios(self, mock_process):
+        """Test processing iOS artifact messages."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-        # Initialize the service to create the artifact processor
-        service._service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Create a payload for iOS artifact
         payload: PreprodArtifactEvents = {
@@ -71,8 +68,8 @@ class TestLaunchpadService:
             "requested_features": ["size_analysis"],
         }
 
-        # handle_kafka_message is synchronous
-        service.handle_kafka_message(payload)
+        # Use the new process_message method
+        ArtifactProcessor.process_message(payload, service_config, artifact_processor, fake_statsd)
 
         # Verify process_artifact was called with correct args
         mock_process.assert_called_once_with(
@@ -85,14 +82,11 @@ class TestLaunchpadService:
         assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
 
     @patch.object(ArtifactProcessor, "process_artifact")
-    def test_handle_kafka_message_android(self, mock_process):
-        """Test handling Android artifact messages."""
+    def test_process_message_android(self, mock_process):
+        """Test processing Android artifact messages."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-        # Initialize the service to create the artifact processor
-        service._service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Create a payload for Android artifact
         payload: PreprodArtifactEvents = {
@@ -102,8 +96,8 @@ class TestLaunchpadService:
             "requested_features": ["size_analysis", "build_distribution"],
         }
 
-        # handle_kafka_message is synchronous
-        service.handle_kafka_message(payload)
+        # Use the new process_message method
+        ArtifactProcessor.process_message(payload, service_config, artifact_processor, fake_statsd)
 
         # Verify process_artifact was called with correct args
         mock_process.assert_called_once_with(
@@ -119,14 +113,11 @@ class TestLaunchpadService:
         assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
 
     @patch.object(ArtifactProcessor, "process_artifact")
-    def test_handle_kafka_message_error(self, mock_process):
+    def test_process_message_error(self, mock_process):
         """Test error handling in message processing."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-        # Initialize the service to create the artifact processor
-        service._service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Make process_artifact raise an exception
         mock_process.side_effect = RuntimeError("Download failed: HTTP 404")
@@ -140,7 +131,7 @@ class TestLaunchpadService:
         }
 
         # This should not raise (simplified error handling catches all exceptions)
-        service.handle_kafka_message(payload)
+        ArtifactProcessor.process_message(payload, service_config, artifact_processor, fake_statsd)
 
         # Verify process_artifact was called
         mock_process.assert_called_once_with(
@@ -155,15 +146,13 @@ class TestLaunchpadService:
         assert increment_calls[1][1]["metric"] == "artifact.processing.failed"
 
     @patch.object(ArtifactProcessor, "process_artifact")
-    def test_handle_kafka_message_project_skipped(self, mock_process):
+    def test_process_message_project_skipped(self, mock_process):
         """Test that projects in the skip list are not processed."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-        service._service_config = ServiceConfig(
+        service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io", projects_to_skip=["skip-project-1", "skip-project-2"]
         )
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Create a payload for a project that should be skipped
         payload: PreprodArtifactEvents = {
@@ -173,8 +162,8 @@ class TestLaunchpadService:
             "requested_features": ["size_analysis", "build_distribution"],
         }
 
-        # handle_kafka_message should return early and not process
-        service.handle_kafka_message(payload)
+        # process_message should return early and not process
+        ArtifactProcessor.process_message(payload, service_config, artifact_processor, fake_statsd)
 
         # Verify process_artifact was NOT called
         mock_process.assert_not_called()
@@ -184,15 +173,11 @@ class TestLaunchpadService:
         assert len(calls) == 0
 
     @patch.object(ArtifactProcessor, "process_artifact")
-    def test_handle_kafka_message_project_not_skipped(self, mock_process):
+    def test_process_message_project_not_skipped(self, mock_process):
         """Test that projects not in the skip list are processed normally."""
         fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-        service._service_config = ServiceConfig(
-            sentry_base_url="http://test.sentry.io", projects_to_skip=["other-project"]
-        )
-        service._sentry_client = None  # Will be mocked
-        service._artifact_processor = ArtifactProcessor(None, fake_statsd)
+        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=["other-project"])
+        artifact_processor = ArtifactProcessor(None, fake_statsd)
 
         # Create a payload for a project that should NOT be skipped
         payload: PreprodArtifactEvents = {
@@ -202,8 +187,8 @@ class TestLaunchpadService:
             "requested_features": ["size_analysis", "build_distribution"],
         }
 
-        # handle_kafka_message should process normally
-        service.handle_kafka_message(payload)
+        # process_message should process normally
+        ArtifactProcessor.process_message(payload, service_config, artifact_processor, fake_statsd)
 
         # Verify process_artifact was called
         mock_process.assert_called_once_with(

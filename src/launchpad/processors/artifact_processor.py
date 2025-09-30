@@ -11,6 +11,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, cast
 
+import sentry_sdk
+
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
 from launchpad.api.update_api_models import PutSizeFailed, UpdateData
 from launchpad.artifacts.android.aab import AAB
@@ -34,8 +38,9 @@ from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
+from launchpad.tracing import request_context
 from launchpad.utils.logging import get_logger
-from launchpad.utils.statsd import StatsdInterface
+from launchpad.utils.statsd import StatsdInterface, get_statsd
 
 logger = get_logger(__name__)
 
@@ -62,6 +67,66 @@ class ArtifactProcessor:
     def __init__(self, sentry_client: SentryClient, statsd: StatsdInterface) -> None:
         self._sentry_client = sentry_client
         self._statsd = statsd
+
+    @staticmethod
+    def process_message(payload: PreprodArtifactEvents, service_config=None, artifact_processor=None, statsd=None):
+        """Process an artifact message with proper context and metrics.
+
+        This function can be used both by the service and by Kafka workers.
+        If components are not provided, they will be created.
+        """
+        if service_config is None:
+            from launchpad.service import get_service_config
+
+            service_config = get_service_config()
+        if statsd is None:
+            statsd = get_statsd()
+        if artifact_processor is None:
+            sentry_client = SentryClient(base_url=service_config.sentry_base_url)
+            artifact_processor = ArtifactProcessor(sentry_client, statsd)
+
+        organization_id = payload["organization_id"]
+        project_id = payload["project_id"]
+        artifact_id = payload["artifact_id"]
+
+        requested_features = []
+        for feature in payload.get("requested_features", []):
+            try:
+                requested_features.append(PreprodFeature(feature))
+            except ValueError:
+                logger.exception(f"Unknown feature {feature}")
+
+        if service_config and project_id in service_config.projects_to_skip:
+            logger.info(f"Skipping processing for project {project_id}")
+            return
+
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(request_context())
+            stack.enter_context(
+                statsd.timed(
+                    "artifact.processing.duration",
+                    tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"],
+                )
+            )
+            scope = stack.enter_context(sentry_sdk.new_scope())
+            scope.set_tag("launchpad.project_id", project_id)
+            scope.set_tag("launchpad.organization_id", organization_id)
+            scope.set_tag("launchpad.artifact_id", artifact_id)
+
+            statsd.increment("artifact.processing.started")
+            logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
+            try:
+                artifact_processor.process_artifact(organization_id, project_id, artifact_id, requested_features)
+            except Exception:
+                statsd.increment("artifact.processing.failed")
+                logger.exception(
+                    f"Processing failed for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
+                )
+            else:
+                statsd.increment("artifact.processing.completed")
+                logger.info(
+                    f"Processing complete for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
+                )
 
     def process_artifact(
         self, organization_id: str, project_id: str, artifact_id: str, requested_features: list[PreprodFeature]

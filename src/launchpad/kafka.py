@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+import signal
 import time
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping
 
 from arroyo import Message, Topic, configure_metrics
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
@@ -16,19 +18,22 @@ from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
 from arroyo.processing.strategies.healthcheck import Healthcheck
-from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
+from arroyo.processing.strategies.run_task_with_multiprocessing import (
+    ChildProcessTerminated,
+    MultiprocessingPool,
+    RunTaskWithMultiprocessing,
+)
 from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
 
 from launchpad.constants import (
     HEALTHCHECK_MAX_AGE_SECONDS,
     PREPROD_ARTIFACT_EVENTS_TOPIC,
 )
+from launchpad.processors.artifact_processor import ArtifactProcessor
+from launchpad.server import get_server_config
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
-from launchpad.utils.logging import get_logger
+from launchpad.utils.logging import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -36,9 +41,30 @@ logger = get_logger(__name__)
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
-def create_kafka_consumer(
-    message_handler: Callable[[PreprodArtifactEvents], None],
-) -> LaunchpadKafkaConsumer:
+def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
+    """Process a Kafka message using the actual service logic in a worker process."""
+
+    def worker_signal_handler(signum: int, frame) -> None:
+        logger.info(f"Worker process {os.getpid()} received signal {signum}, exiting...")
+        os._exit(0)
+
+    signal.signal(signal.SIGTERM, worker_signal_handler)
+    signal.signal(signal.SIGINT, worker_signal_handler)
+
+    if not logging.getLogger().handlers:
+        server_config = get_server_config()
+        setup_logging(verbose=server_config.debug, quiet=not server_config.debug)
+
+    try:
+        decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
+        ArtifactProcessor.process_message(decoded)
+        return decoded  # type: ignore[no-any-return]
+    except Exception as e:
+        logger.error(f"Failed to process message in worker: {e}", exc_info=True)
+        raise
+
+
+def create_kafka_consumer() -> LaunchpadKafkaConsumer:
     """Create and configure a Kafka consumer using environment variables."""
 
     healthcheck_path = os.getenv("KAFKA_HEALTHCHECK_FILE")
@@ -78,7 +104,6 @@ def create_kafka_consumer(
     healthcheck_path = config.healthcheck_file
 
     strategy_factory = LaunchpadStrategyFactory(
-        message_handler=message_handler,
         concurrency=config.concurrency,
         max_pending_futures=config.max_pending_futures,
         healthcheck_file=healthcheck_path,
@@ -91,18 +116,20 @@ def create_kafka_consumer(
         topic=topic,
         processor_factory=strategy_factory,
     )
-    return LaunchpadKafkaConsumer(processor, healthcheck_path)
+    return LaunchpadKafkaConsumer(processor, healthcheck_path, strategy_factory)
 
 
 class LaunchpadKafkaConsumer:
     processor: StreamProcessor[KafkaPayload]
     healthcheck_path: str
+    strategy_factory: LaunchpadStrategyFactory
     _future: asyncio.Future
     _running: bool
 
-    def __init__(self, processor, healthcheck_path):
+    def __init__(self, processor, healthcheck_path, strategy_factory):
         self.processor = processor
         self.healthcheck_path = healthcheck_path
+        self.strategy_factory = strategy_factory
         loop = asyncio.get_event_loop()
         self._future = loop.create_future()
         self._future.set_result(None)
@@ -110,9 +137,7 @@ class LaunchpadKafkaConsumer:
 
     async def start(self):
         logger.info(f"{self} start commanded")
-        loop = asyncio.get_event_loop()
-        # run() is blocking so we need to run in another thread:
-        self._future = loop.run_in_executor(None, self.run)
+        self._future = asyncio.create_task(self._run_with_yielding())
 
     def run(self):
         assert not self._running, "Already running"
@@ -128,16 +153,57 @@ class LaunchpadKafkaConsumer:
         finally:
             self._running = False
 
+    async def _run_with_yielding(self):
+        """Run processor in main thread with periodic yielding to event loop."""
+        assert not self._running, "Already running"
+        logger.info(f"{self} running async in main thread")
+        try:
+            self._running = True
+            while not self.processor._StreamProcessor__shutdown_requested:
+                self.processor._run_once()
+                await asyncio.sleep(0.01)  # Yield to event loop for signal handling
+
+            self.processor._shutdown()
+            try:
+                os.remove(self.healthcheck_path)
+            except FileNotFoundError:
+                pass
+        except asyncio.CancelledError:
+            logger.info("Kafka processor cancelled")
+            self.processor._shutdown()
+            raise
+        except ChildProcessTerminated as e:
+            logger.info(f"Child process terminated during shutdown (signal {e})")
+        except Exception as e:
+            # Handle other expected multiprocessing shutdown errors gracefully
+            if any(x in str(e).lower() for x in ["pickle", "eof", "bad file descriptor"]):
+                logger.info(f"Expected shutdown error during processor run: {e}")
+            else:
+                logger.exception("Unexpected error during processor run")
+                raise
+        finally:
+            self._running = False
+
     async def stop(self, timeout_s=10):
         logger.info(f"{self} stop commanded")
         self.processor.signal_shutdown()
-        try:
-            logger.info(f"Waiting for Kafka processor shutdown ({timeout_s}s)...")
-            await asyncio.wait_for(self._future, timeout=timeout_s)
-            logger.info("...Kafka processor shutdown complete")
-        except asyncio.TimeoutError:
-            logger.warning(f"{self} did not stop within timeout {timeout_s}s")
-            self._future.cancel()
+
+        if self._future and not self._future.done():
+            try:
+                await asyncio.wait_for(self._future, timeout=timeout_s)
+            except asyncio.TimeoutError:
+                logger.warning("Timeout, cancelling task...")
+                self._future.cancel()
+                try:
+                    await self._future
+                except asyncio.CancelledError:
+                    pass
+            except ChildProcessTerminated as e:
+                logger.info(f"Child process terminated during shutdown (signal {e})")
+                # Expected during shutdown
+            except Exception as e:
+                logger.warning(f"Error during processor shutdown: {e}")
+        logger.info("Kafka consumer shutdown complete")
 
     def is_healthy(self) -> bool:
         try:
@@ -154,12 +220,11 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
     def __init__(
         self,
-        message_handler: Callable[[PreprodArtifactEvents], None],
-        concurrency: int = 4,
-        max_pending_futures: int = 100,
+        concurrency: int,
+        max_pending_futures: int,
         healthcheck_file: str | None = None,
     ) -> None:
-        self.message_handler = message_handler
+        self.__pool = MultiprocessingPool(num_processes=concurrency)
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
@@ -174,20 +239,14 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
-        def process_message(msg: Message[KafkaPayload]) -> None:
-            try:
-                decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
-            except Exception:
-                logger.exception("Failed to decode message")
-                raise  # Re-raise the exception to prevent processing invalid messages
-            else:
-                self.message_handler(decoded)
-
-        strategy = RunTaskInThreads(
-            processing_function=process_message,
-            concurrency=self.concurrency,
-            max_pending_futures=self.max_pending_futures,
+        strategy = RunTaskWithMultiprocessing(
+            process_kafka_message_with_service,
             next_step=next_step,
+            max_batch_size=1,  # Process immediately, subject to be re-tuned
+            max_batch_time=1,  # Process after 1 second max, subject to be re-tuned
+            pool=self.__pool,
+            input_block_size=None,
+            output_block_size=None,
         )
 
         return strategy
@@ -234,7 +293,7 @@ def get_kafka_config() -> KafkaConfig:
         bootstrap_servers=bootstrap_servers,
         group_id=group_id,
         topics=topics_env.split(","),
-        concurrency=int(os.getenv("KAFKA_CONCURRENCY", "4")),
+        concurrency=int(os.getenv("KAFKA_CONCURRENCY", "2")),
         max_pending_futures=int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
         healthcheck_file=os.getenv("KAFKA_HEALTHCHECK_FILE"),
         auto_offset_reset=os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
