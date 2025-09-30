@@ -7,7 +7,7 @@ import os
 import time
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping
 
 from arroyo import Message, Topic, configure_metrics
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
@@ -19,9 +19,6 @@ from arroyo.processing.strategies.healthcheck import Healthcheck
 from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
 from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
 
 from launchpad.constants import (
     HEALTHCHECK_MAX_AGE_SECONDS,
@@ -36,9 +33,7 @@ logger = get_logger(__name__)
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
-def create_kafka_consumer(
-    message_handler: Callable[[PreprodArtifactEvents], None],
-) -> LaunchpadKafkaConsumer:
+def create_kafka_consumer() -> LaunchpadKafkaConsumer:
     """Create and configure a Kafka consumer using environment variables."""
 
     healthcheck_path = os.getenv("KAFKA_HEALTHCHECK_FILE")
@@ -78,7 +73,6 @@ def create_kafka_consumer(
     healthcheck_path = config.healthcheck_file
 
     strategy_factory = LaunchpadStrategyFactory(
-        message_handler=message_handler,
         concurrency=config.concurrency,
         max_pending_futures=config.max_pending_futures,
         healthcheck_file=healthcheck_path,
@@ -154,12 +148,10 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
     def __init__(
         self,
-        message_handler: Callable[[PreprodArtifactEvents], None],
         concurrency: int = 4,
         max_pending_futures: int = 100,
         healthcheck_file: str | None = None,
     ) -> None:
-        self.message_handler = message_handler
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
@@ -181,7 +173,9 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
                 logger.exception("Failed to decode message")
                 raise  # Re-raise the exception to prevent processing invalid messages
             else:
-                self.message_handler(decoded)
+                from launchpad.artifact_processor import ArtifactProcessor
+
+                ArtifactProcessor.process_message(decoded)
 
         strategy = RunTaskInThreads(
             processing_function=process_message,

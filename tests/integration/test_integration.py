@@ -2,132 +2,90 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
-
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService, PreprodFeature, ServiceConfig
+from launchpad.service import LaunchpadService
 from launchpad.utils.statsd import FakeStatsd
 
 
 class TestServiceIntegration:
-    """Integration tests for the full service."""
+    """Integration tests for the full service orchestration."""
 
     @pytest.mark.asyncio
-    async def test_kafka_message_processing(self):
-        """Test processing of different Kafka message types."""
+    async def test_service_setup_integration(self):
+        """Test that service setup initializes all components correctly."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
 
-        # Mock service config to make the service appear initialized
-        service._service_config = ServiceConfig(
-            sentry_base_url="https://sentry.example.com",
-            projects_to_skip=[],
-        )
+        # Mock external dependencies
+        with (
+            patch("launchpad.service.initialize_sentry_sdk"),
+            patch("launchpad.service.SentryClient") as mock_sentry_client,
+            patch("launchpad.service.LaunchpadServer") as mock_server,
+            patch("launchpad.service.create_kafka_consumer") as mock_kafka,
+        ):
+            await service.setup()
 
-        # Mock process_artifact to avoid actual processing
-        with patch.object(service, "process_artifact") as mock_process:
-            # Test artifact analysis message with iOS artifact
-            ios_payload: PreprodArtifactEvents = {
-                "artifact_id": "ios-test-123",
-                "project_id": "test-project-ios",
-                "organization_id": "test-org-123",
-                "requested_features": ["size_analysis"],
-            }
+            # Verify all components were initialized
+            assert service._service_config is not None
+            assert service._sentry_client is not None
+            assert service.server is not None
+            assert service.kafka is not None
 
-            # handle_kafka_message is synchronous
-            service.handle_kafka_message(ios_payload)
-
-            # Verify the processing method was called
-            mock_process.assert_called_once_with(
-                "test-org-123", "test-project-ios", "ios-test-123", [PreprodFeature.SIZE_ANALYSIS]
-            )
-
-            # Verify statsd metrics were sent
-            calls = fake_statsd.calls
-            assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
-            assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
-
-            # Reset mocks for next test
-            mock_process.reset_mock()
-            fake_statsd.calls.clear()
-
-            # Test artifact analysis message with Android artifact
-            android_payload: PreprodArtifactEvents = {
-                "artifact_id": "android-test-456",
-                "project_id": "test-project-android",
-                "organization_id": "test-org-456",
-                "requested_features": ["build_distribution"],
-            }
-
-            # handle_kafka_message is synchronous
-            service.handle_kafka_message(android_payload)
-
-            # Verify the processing method was called
-            mock_process.assert_called_once_with(
-                "test-org-456", "test-project-android", "android-test-456", [PreprodFeature.BUILD_DISTRIBUTION]
-            )
+            # Verify components were created with correct parameters
+            mock_sentry_client.assert_called_once()
+            mock_server.assert_called_once()
+            mock_kafka.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_error_handling_in_message_processing(self):
-        """Test that errors in message processing are handled properly."""
+    async def test_service_health_check_integration(self):
+        """Test service health check with mocked components."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
 
-        # Create a valid payload
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "test-123",
-            "project_id": "test-project",
-            "organization_id": "test-org",
-            "requested_features": [],
-        }
+        # Mock server and kafka components
+        mock_server = Mock()
+        mock_kafka = Mock()
 
-        # Mock process_artifact to raise an exception
-        with patch.object(service, "process_artifact") as mock_process:
-            mock_process.side_effect = Exception("Processing failed")
+        mock_server.is_healthy.return_value = True
+        mock_kafka.is_healthy.return_value = True
 
-            # This should handle the exception gracefully
-            service.handle_kafka_message(payload)
+        service.server = mock_server
+        service.kafka = mock_kafka
 
-            # Verify the processing method was called
-            mock_process.assert_called_once_with("test-org", "test-project", "test-123", [])
+        # Test healthy state
+        assert service.is_healthy() is True
 
-            # Verify statsd metrics were sent including failure metric
-            calls = fake_statsd.calls
-            increment_calls = [call for call in calls if call[0] == "increment"]
-            assert len(increment_calls) == 2  # started and failed
-            assert increment_calls[0][1]["metric"] == "artifact.processing.started"
-            assert increment_calls[1][1]["metric"] == "artifact.processing.failed"
+        # Test unhealthy server
+        mock_server.is_healthy.return_value = False
+        assert service.is_healthy() is False
 
-    @pytest.mark.asyncio
-    async def test_concurrent_message_processing(self):
-        """Test that multiple messages can be processed concurrently."""
-        fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
+        # Test unhealthy kafka
+        mock_server.is_healthy.return_value = True
+        mock_kafka.is_healthy.return_value = False
+        assert service.is_healthy() is False
 
-        messages = [
-            {
-                "artifact_id": f"test-artifact-{i}",
-                "project_id": f"test-project-{i}",
-                "organization_id": f"test-org-{i}",
-                "requested_features": ["size_analysis", "build_distribution"],
-            }
-            for i in range(10)
-        ]
+    def test_service_config_integration(self):
+        """Test service configuration loading from environment."""
+        from launchpad.service import get_service_config
 
-        with patch.object(service, "process_artifact"):
-            for msg in messages:
-                service.handle_kafka_message(msg)  # type: ignore
+        # Test with default values
+        with patch.dict("os.environ", {}, clear=True):
+            config = get_service_config()
+            assert config.sentry_base_url == "http://getsentry.default"
+            assert config.projects_to_skip == []
 
-        # Verify all messages were processed (2 increment calls per message: started + completed)
-        calls = fake_statsd.calls
-        increment_calls = [call for call in calls if call[0] == "increment"]
-        assert len(increment_calls) == 20
+        # Test with environment variables
+        with patch.dict(
+            "os.environ",
+            {"SENTRY_BASE_URL": "https://custom.sentry.io", "PROJECT_IDS_TO_SKIP": "project1,project2,project3"},
+        ):
+            config = get_service_config()
+            assert config.sentry_base_url == "https://custom.sentry.io"
+            assert config.projects_to_skip == ["project1", "project2", "project3"]
 
 
 @pytest.mark.integration

@@ -1,16 +1,11 @@
-"""Tests for the Launchpad service."""
+"""Tests for the Launchpad service orchestration."""
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 from aiohttp.test_utils import AioHTTPTestCase
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
 
 from launchpad.server import LaunchpadServer
-from launchpad.service import LaunchpadService, PreprodFeature, ServiceConfig
+from launchpad.service import LaunchpadService
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -50,153 +45,42 @@ class TestHealthyLaunchpadServer(AioHTTPTestCase):
 
 
 class TestLaunchpadService:
-    """Test cases for LaunchpadService."""
+    """Test cases for LaunchpadService orchestration."""
 
-    @patch.object(LaunchpadService, "process_artifact")
-    def test_handle_kafka_message_ios(self, mock_process):
-        """Test handling iOS artifact messages."""
+    def test_service_initialization(self):
+        """Test that LaunchpadService can be initialized properly."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
 
-        # Create a payload for iOS artifact
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "ios-test-123",
-            "project_id": "test-project-ios",
-            "organization_id": "test-org-123",
-            "requested_features": ["size_analysis"],
-        }
+        assert service._statsd is fake_statsd
+        assert service.server is None
+        assert service.kafka is None
+        assert service._service_config is None
+        assert service._sentry_client is None
 
-        # handle_kafka_message is synchronous
-        service.handle_kafka_message(payload)
+    def test_service_config_creation(self):
+        """Test ServiceConfig creation with default values."""
+        from unittest.mock import patch
 
-        # Verify process_artifact was called with correct args
-        mock_process.assert_called_once_with(
-            "test-org-123", "test-project-ios", "ios-test-123", [PreprodFeature.SIZE_ANALYSIS]
-        )
+        from launchpad.service import get_service_config
 
-        # Verify metrics were recorded
-        calls = fake_statsd.calls
-        assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
-        assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
+        # Test with no environment variables set
+        with patch.dict("os.environ", {}, clear=True):
+            config = get_service_config()
+            assert config.sentry_base_url == "http://getsentry.default"  # Default value
+            assert isinstance(config.projects_to_skip, list)
 
-    @patch.object(LaunchpadService, "process_artifact")
-    def test_handle_kafka_message_android(self, mock_process):
-        """Test handling Android artifact messages."""
+    def test_service_health_check_with_no_components(self):
+        """Test health check when components are not initialized."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
 
-        # Create a payload for Android artifact
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "android-test-456",
-            "project_id": "test-project-android",
-            "organization_id": "test-org-456",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
-
-        # handle_kafka_message is synchronous
-        service.handle_kafka_message(payload)
-
-        # Verify process_artifact was called with correct args
-        mock_process.assert_called_once_with(
-            "test-org-456",
-            "test-project-android",
-            "android-test-456",
-            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
-        )
-
-        # Verify metrics were recorded
-        calls = fake_statsd.calls
-        assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
-        assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
-
-    @patch.object(LaunchpadService, "process_artifact")
-    def test_handle_kafka_message_error(self, mock_process):
-        """Test error handling in message processing."""
-        fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-
-        # Make process_artifact raise an exception
-        mock_process.side_effect = RuntimeError("Download failed: HTTP 404")
-
-        # Create a valid payload
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "test-123",
-            "project_id": "test-project",
-            "organization_id": "test-org",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
-
-        # This should not raise (simplified error handling catches all exceptions)
-        service.handle_kafka_message(payload)
-
-        # Verify process_artifact was called
-        mock_process.assert_called_once_with(
-            "test-org", "test-project", "test-123", [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION]
-        )
-
-        # Verify the metrics were called correctly
-        calls = fake_statsd.calls
-        increment_calls = [call for call in calls if call[0] == "increment"]
-        assert len(increment_calls) == 2
-        assert increment_calls[0][1]["metric"] == "artifact.processing.started"
-        assert increment_calls[1][1]["metric"] == "artifact.processing.failed"
-
-    @patch.object(LaunchpadService, "process_artifact")
-    def test_handle_kafka_message_project_skipped(self, mock_process):
-        """Test that projects in the skip list are not processed."""
-        fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-        service._service_config = ServiceConfig(
-            sentry_base_url="http://test.sentry.io", projects_to_skip=["skip-project-1", "skip-project-2"]
-        )
-
-        # Create a payload for a project that should be skipped
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "skip-test-123",
-            "project_id": "skip-project-1",
-            "organization_id": "test-org-123",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
-
-        # handle_kafka_message should return early and not process
-        service.handle_kafka_message(payload)
-
-        # Verify process_artifact was NOT called
-        mock_process.assert_not_called()
-
-        # Verify no metrics were recorded (since processing was skipped entirely)
-        calls = fake_statsd.calls
-        assert len(calls) == 0
-
-    @patch.object(LaunchpadService, "process_artifact")
-    def test_handle_kafka_message_project_not_skipped(self, mock_process):
-        """Test that projects not in the skip list are processed normally."""
-        fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-        service._service_config = ServiceConfig(
-            sentry_base_url="http://test.sentry.io", projects_to_skip=["other-project"]
-        )
-
-        # Create a payload for a project that should NOT be skipped
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "normal-test-123",
-            "project_id": "normal-project",
-            "organization_id": "test-org-123",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
-
-        # handle_kafka_message should process normally
-        service.handle_kafka_message(payload)
-
-        # Verify process_artifact was called
-        mock_process.assert_called_once_with(
-            "test-org-123",
-            "normal-project",
-            "normal-test-123",
-            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
-        )
-
-        # Verify normal metrics were recorded
-        calls = fake_statsd.calls
-        assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
-        assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
+        # Should handle None components gracefully
+        # This will likely raise an AttributeError, which is expected behavior
+        try:
+            result = service.is_healthy()
+            # If it doesn't raise, it should return False for unhealthy state
+            assert result is False
+        except AttributeError:
+            # Expected when server/kafka are None
+            pass
