@@ -121,10 +121,6 @@ class LaunchpadKafkaConsumer:
         self._running = False
 
     def run(self):
-        """Run the Kafka consumer (blocking call).
-
-        This should be called from the main thread to allow signal handlers to work.
-        """
         assert not self._running, "Already running"
         logger.info(f"{self} running")
         self._running = True
@@ -170,7 +166,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         max_pending_futures: int,
         healthcheck_file: str | None = None,
     ) -> None:
-        self.__pool = MultiprocessingPool(num_processes=concurrency)
+        self._pool = MultiprocessingPool(num_processes=concurrency)
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
@@ -190,7 +186,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
             next_step=next_step,
             max_batch_size=1,  # Process immediately, subject to be re-tuned
             max_batch_time=1,  # Process after 1 second max, subject to be re-tuned
-            pool=self.__pool,
+            pool=self._pool,
             input_block_size=None,
             output_block_size=None,
         )
@@ -199,7 +195,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
     def close(self) -> None:
         """Clean up the multiprocessing pool."""
-        self.__pool.close()
+        self._pool.close()
 
 
 @dataclass

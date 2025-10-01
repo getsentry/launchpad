@@ -75,7 +75,7 @@ class LaunchpadService:
 
         # Start HTTP server in background thread
         self._server_thread = threading.Thread(
-            target=self._run_server_thread,
+            target=self._run_http_server_thread,
             name="launchpad-http-server",
             daemon=True,
         )
@@ -97,7 +97,7 @@ class LaunchpadService:
         is_kafka_healthy = self.kafka.is_healthy()
         return is_server_healthy and is_kafka_healthy
 
-    def _run_server_thread(self) -> None:
+    def _run_http_server_thread(self) -> None:
         self._server_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._server_loop)
 
