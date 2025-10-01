@@ -36,9 +36,11 @@ PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
     """Process a Kafka message using the actual service logic in a worker process."""
 
-    if not logging.getLogger().handlers:
-        server_config = get_server_config()
-        setup_logging(verbose=server_config.debug, quiet=not server_config.debug)
+    # Reconfigure logging in subprocess - inherited handlers from parent process
+    # aren't properly connected to stdout/stderr in the subprocess
+    logging.getLogger().handlers.clear()
+    server_config = get_server_config()
+    setup_logging(verbose=server_config.debug, quiet=not server_config.debug)
 
     try:
         decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
