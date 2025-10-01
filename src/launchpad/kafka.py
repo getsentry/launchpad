@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
-import signal
 import time
 
 from dataclasses import dataclass
@@ -18,19 +16,12 @@ from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
 from arroyo.processing.strategies.healthcheck import Healthcheck
-from arroyo.processing.strategies.run_task_with_multiprocessing import (
-    ChildProcessTerminated,
-    MultiprocessingPool,
-    RunTaskWithMultiprocessing,
-)
+from arroyo.processing.strategies.run_task_with_multiprocessing import MultiprocessingPool, RunTaskWithMultiprocessing
 from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
-from launchpad.constants import (
-    HEALTHCHECK_MAX_AGE_SECONDS,
-    PREPROD_ARTIFACT_EVENTS_TOPIC,
-)
+from launchpad.constants import HEALTHCHECK_MAX_AGE_SECONDS, PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.server import get_server_config
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
 from launchpad.utils.logging import get_logger, setup_logging
@@ -43,13 +34,6 @@ PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
     """Process a Kafka message using the actual service logic in a worker process."""
-
-    def worker_signal_handler(signum: int, frame) -> None:
-        logger.info(f"Worker process {os.getpid()} received signal {signum}, exiting...")
-        os._exit(0)
-
-    signal.signal(signal.SIGTERM, worker_signal_handler)
-    signal.signal(signal.SIGINT, worker_signal_handler)
 
     if not logging.getLogger().handlers:
         server_config = get_server_config()
@@ -116,93 +100,56 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         topic=topic,
         processor_factory=strategy_factory,
     )
-    return LaunchpadKafkaConsumer(processor, healthcheck_path)
+    return LaunchpadKafkaConsumer(processor, healthcheck_path, strategy_factory)
 
 
 class LaunchpadKafkaConsumer:
     processor: StreamProcessor[KafkaPayload]
     healthcheck_path: str
     strategy_factory: LaunchpadStrategyFactory
-    _future: asyncio.Future
     _running: bool
 
-    def __init__(self, processor, healthcheck_path):
+    def __init__(
+        self,
+        processor: StreamProcessor[KafkaPayload],
+        healthcheck_path: str,
+        strategy_factory: LaunchpadStrategyFactory,
+    ):
         self.processor = processor
         self.healthcheck_path = healthcheck_path
-        loop = asyncio.get_event_loop()
-        self._future = loop.create_future()
-        self._future.set_result(None)
+        self.strategy_factory = strategy_factory
         self._running = False
 
-    async def start(self):
-        logger.info(f"{self} start commanded")
-        self._future = asyncio.create_task(self._run_with_yielding())
-
     def run(self):
+        """Run the Kafka consumer (blocking call).
+
+        This should be called from the main thread to allow signal handlers to work.
+        """
         assert not self._running, "Already running"
         logger.info(f"{self} running")
+        self._running = True
+
         try:
-            self._running = True
             self.processor.run()
+        finally:
+            self._running = False
             try:
                 os.remove(self.healthcheck_path)
                 logger.info(f"Removed healthcheck file: {self.healthcheck_path}")
             except FileNotFoundError:
                 pass
-        finally:
-            self._running = False
 
-    async def _run_with_yielding(self):
-        """Run processor in main thread with periodic yielding to event loop."""
-        assert not self._running, "Already running"
-        logger.info(f"{self} running async in main thread")
-        try:
-            self._running = True
-            while not self.processor._StreamProcessor__shutdown_requested:
-                self.processor._run_once()
-                await asyncio.sleep(0.01)  # Yield to event loop for signal handling
-
-            self.processor._shutdown()
+            # Clean up multiprocessing pool
             try:
-                os.remove(self.healthcheck_path)
-            except FileNotFoundError:
-                pass
-        except asyncio.CancelledError:
-            logger.info("Kafka processor cancelled")
-            self.processor._shutdown()
-            raise
-        except ChildProcessTerminated as e:
-            logger.info(f"Child process terminated during shutdown (signal {e})")
-        except Exception as e:
-            # Handle other expected multiprocessing shutdown errors gracefully
-            if any(x in str(e).lower() for x in ["pickle", "eof", "bad file descriptor"]):
-                logger.info(f"Expected shutdown error during processor run: {e}")
-            else:
-                logger.exception("Unexpected error during processor run")
-                raise
-        finally:
-            self._running = False
+                self.strategy_factory.close()
+                logger.debug("Closed multiprocessing pool")
+            except Exception:
+                logger.exception("Error closing multiprocessing pool")
 
-    async def stop(self, timeout_s=10):
+    def stop(self):
+        """Signal shutdown to the processor."""
         logger.info(f"{self} stop commanded")
         self.processor.signal_shutdown()
-
-        if self._future and not self._future.done():
-            try:
-                await asyncio.wait_for(self._future, timeout=timeout_s)
-            except asyncio.TimeoutError:
-                logger.warning("Timeout, cancelling task...")
-                self._future.cancel()
-                try:
-                    await self._future
-                except asyncio.CancelledError:
-                    pass
-            except ChildProcessTerminated as e:
-                logger.info(f"Child process terminated during shutdown (signal {e})")
-                # Expected during shutdown
-            except Exception as e:
-                logger.warning(f"Error during processor shutdown: {e}")
-        logger.info("Kafka consumer shutdown complete")
 
     def is_healthy(self) -> bool:
         try:
@@ -249,6 +196,10 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         )
 
         return strategy
+
+    def close(self) -> None:
+        """Clean up the multiprocessing pool."""
+        self.__pool.close()
 
 
 @dataclass

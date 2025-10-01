@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 
@@ -73,7 +72,7 @@ def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
     console.print()
 
     try:
-        asyncio.run(run_service())
+        run_service()
     except KeyboardInterrupt:
         console.print("\n[yellow]Server stopped by user[/yellow]")
     except Exception as e:
