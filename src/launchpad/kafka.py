@@ -148,9 +148,9 @@ class LaunchpadKafkaConsumer:
         logger.info(f"{self} stop commanded")
         self.processor.signal_shutdown()
 
-        # Kill all multiprocessing worker children (non-production only)
+        # Kill all multiprocessing worker children (development only)
         environment = os.getenv("LAUNCHPAD_ENV", "development").lower()
-        if environment != "production":
+        if environment == "development":
             for child in multiprocessing.active_children():
                 child.terminate()
 
