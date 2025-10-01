@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import multiprocessing
 import os
 import time
 
@@ -146,6 +147,12 @@ class LaunchpadKafkaConsumer:
         """Signal shutdown to the processor."""
         logger.info(f"{self} stop commanded")
         self.processor.signal_shutdown()
+
+        # Kill all multiprocessing worker children (non-production only)
+        environment = os.getenv("LAUNCHPAD_ENV", "development").lower()
+        if environment != "production":
+            for child in multiprocessing.active_children():
+                child.terminate()
 
     def is_healthy(self) -> bool:
         try:
