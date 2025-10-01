@@ -106,14 +106,14 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
 
 class LaunchpadKafkaConsumer:
     processor: StreamProcessor[KafkaPayload]
-    healthcheck_path: str
+    healthcheck_path: str | None
     strategy_factory: LaunchpadStrategyFactory
     _running: bool
 
     def __init__(
         self,
         processor: StreamProcessor[KafkaPayload],
-        healthcheck_path: str,
+        healthcheck_path: str | None,
         strategy_factory: LaunchpadStrategyFactory,
     ):
         self.processor = processor
