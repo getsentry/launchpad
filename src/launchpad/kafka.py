@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import multiprocessing
 import os
 import signal
+import sys
 import time
 
 from dataclasses import dataclass
@@ -205,7 +207,20 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
     @staticmethod
     def _initialize_worker_logging() -> None:
-        """Initialize logging in worker process."""
+        """Initialize logging in worker process.
+
+        With multiprocessing spawn context, subprocesses don't inherit
+        parent's stdout/stderr. We need to explicitly configure logging
+        to write to stdout for Docker/GCP log collection.
+        """
+        logging.getLogger().handlers.clear()
+
+        # Ensure stdout/stderr are unbuffered for immediate log visibility
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
+
         server_config = get_server_config()
         setup_logging(verbose=server_config.debug, quiet=not server_config.debug)
 
