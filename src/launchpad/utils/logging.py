@@ -142,6 +142,8 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     # Set levels for third-party libraries
     logging.getLogger("datadog.dogstatsd").setLevel(logging.ERROR)
     logging.getLogger("arroyo.processing.processor").setLevel(logging.ERROR)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
