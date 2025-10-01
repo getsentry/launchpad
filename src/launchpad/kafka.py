@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import multiprocessing
 import os
 import signal
@@ -77,13 +76,6 @@ class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPa
 
 def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
     """Process a Kafka message using the actual service logic in a worker process."""
-
-    # Reconfigure logging in subprocess - inherited handlers from parent process
-    # aren't properly connected to stdout/stderr in the subprocess
-    logging.getLogger().handlers.clear()
-    server_config = get_server_config()
-    setup_logging(verbose=server_config.debug, quiet=not server_config.debug)
-
     try:
         decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
         ArtifactProcessor.process_message(decoded)
@@ -211,13 +203,22 @@ class LaunchpadKafkaConsumer:
 class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     """Factory for creating the processing strategy chain."""
 
+    @staticmethod
+    def _initialize_worker_logging() -> None:
+        """Initialize logging in worker process."""
+        server_config = get_server_config()
+        setup_logging(verbose=server_config.debug, quiet=not server_config.debug)
+
     def __init__(
         self,
         concurrency: int,
         max_pending_futures: int,
         healthcheck_file: str | None = None,
     ) -> None:
-        self._pool = LaunchpadMultiProcessingPool(num_processes=concurrency)
+        self._pool = LaunchpadMultiProcessingPool(
+            num_processes=concurrency,
+            initializer=self._initialize_worker_logging,
+        )
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
