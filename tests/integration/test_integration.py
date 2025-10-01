@@ -14,8 +14,7 @@ from launchpad.utils.statsd import FakeStatsd
 class TestServiceIntegration:
     """Integration tests for the full service orchestration."""
 
-    @pytest.mark.asyncio
-    async def test_service_setup_integration(self):
+    def test_service_setup_integration(self):
         """Test that service setup initializes all components correctly."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
@@ -27,7 +26,7 @@ class TestServiceIntegration:
             patch("launchpad.service.LaunchpadServer") as mock_server,
             patch("launchpad.service.create_kafka_consumer") as mock_kafka,
         ):
-            await service.setup()
+            service.setup()
 
             # Verify all components were initialized
             assert service._service_config is not None
