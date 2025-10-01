@@ -5,10 +5,13 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
+import signal
 import time
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from functools import partial
+from multiprocessing.pool import Pool
+from typing import Any, Callable, Mapping
 
 from arroyo import Message, Topic, configure_metrics
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
@@ -17,8 +20,12 @@ from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
 from arroyo.processing.strategies.healthcheck import Healthcheck
-from arroyo.processing.strategies.run_task_with_multiprocessing import MultiprocessingPool, RunTaskWithMultiprocessing
-from arroyo.types import Commit, Partition
+from arroyo.processing.strategies.run_task_with_multiprocessing import (
+    MultiprocessingPool,
+    RunTaskWithMultiprocessing,
+    parallel_worker_initializer,
+)
+from arroyo.types import Commit, FilteredPayload, Partition, TStrategyPayload
 from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
@@ -31,6 +38,41 @@ logger = get_logger(__name__)
 
 # Schema codec for preprod artifact events
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
+
+
+class LaunchpadMultiProcessingPool(MultiprocessingPool):
+    """Extended MultiprocessingPool with maxtasksperchild=1 to ensure clean worker state."""
+
+    def maybe_create_pool(self) -> None:
+        if self._MultiprocessingPool__pool is None:
+            self._MultiprocessingPool__metrics.increment("arroyo.strategies.run_task_with_multiprocessing.pool.create")
+            self._MultiprocessingPool__pool = Pool(
+                self._MultiprocessingPool__num_processes,
+                initializer=partial(parallel_worker_initializer, self._MultiprocessingPool__initializer),
+                context=multiprocessing.get_context("spawn"),
+                maxtasksperchild=1,  # why we have this subclass
+            )
+
+
+class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPayload, Any]):
+    """Tolerates child process exits from maxtasksperchild=1 by ignoring SIGCHLD."""
+
+    def __init__(
+        self,
+        function: Callable[[Message[TStrategyPayload]], Any],
+        next_step: ProcessingStrategy[FilteredPayload | Any],
+        max_batch_size: int,
+        max_batch_time: float,
+        pool: MultiprocessingPool,
+        input_block_size: int | None = None,
+        output_block_size: int | None = None,
+    ) -> None:
+        super().__init__(function, next_step, max_batch_size, max_batch_time, pool, input_block_size, output_block_size)
+        # Override SIGCHLD handler - child exits are expected with maxtasksperchild=1
+        signal.signal(
+            signal.SIGCHLD,
+            lambda signum, frame: logger.debug(f"Worker process exited normally (SIGCHLD {signum})"),
+        )
 
 
 def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
@@ -175,7 +217,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         max_pending_futures: int,
         healthcheck_file: str | None = None,
     ) -> None:
-        self._pool = MultiprocessingPool(num_processes=concurrency)
+        self._pool = LaunchpadMultiProcessingPool(num_processes=concurrency)
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
@@ -190,7 +232,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
-        strategy = RunTaskWithMultiprocessing(
+        strategy = LaunchpadRunTaskWithMultiprocessing(
             process_kafka_message_with_service,
             next_step=next_step,
             max_batch_size=1,  # Process immediately, subject to be re-tuned
