@@ -51,6 +51,7 @@ def initialize_sentry_sdk() -> None:
         # Convention is to set the Sentry environment to the region (us, de, etc).
         enable_logs=True,
         environment=config.region,
+        traces_sample_rate=1.0,  # Low volume service, sample all traces
     )
 
     logger.info(f"Sentry SDK initialized for environment: {config.region}")

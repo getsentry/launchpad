@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
 import lief
+import sentry_sdk
 
 from cryptography import x509
 
@@ -41,7 +42,6 @@ from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
-from launchpad.utils.performance import trace, trace_ctx
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -91,7 +91,7 @@ class AppleAppAnalyzer:
         self.skip_insights = skip_insights
         self.app_info: AppleAppInfo | None = None
 
-    @trace("apple.preprocess")
+    @sentry_sdk.trace
     def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
@@ -99,7 +99,7 @@ class AppleAppAnalyzer:
         self.app_info = self._extract_app_info(artifact)
         return self.app_info
 
-    @trace("apple.analyze")
+    @sentry_sdk.trace
     def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
         """Analyze an Apple app bundle.
 
@@ -253,7 +253,7 @@ class AppleAppAnalyzer:
 
         return results
 
-    @trace("apple.extract_app_info")
+    @sentry_sdk.trace
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
         """Extract basic app information.
 
@@ -382,10 +382,10 @@ class AppleAppAnalyzer:
     def _generate_insight_with_tracing(
         self, insight_class: type, insights_input: InsightsInput, insight_name: str
     ) -> Any:
-        with trace_ctx(f"apple.insights.{insight_name}"):
+        with sentry_sdk.start_span(op="insight", description=f"apple.insights.{insight_name}"):
             return insight_class().generate(insights_input)
 
-    @trace("apple.analyze_binary")
+    @sentry_sdk.trace
     def _analyze_binary(
         self,
         binary_info: BinaryInfo,
@@ -484,15 +484,15 @@ class AppleAppAnalyzer:
             dyld_info=dyld_info,
         )
 
-    @trace("apple.test_strip_symbols_removal")
+    @sentry_sdk.trace
     def _check_strip_symbols_removal(self, binary_path: Path, binary: lief.MachO.Binary) -> int:
         """Test actual symbol removal using AppleStrip to get real size savings."""
         try:
-            with trace_ctx("strip_symbols.get_original_size"):
+            with sentry_sdk.start_span(op="measure", description="strip_symbols.get_original_size"):
                 original_size = binary_path.stat().st_size
 
             # Create a temporary file for the stripped output
-            with trace_ctx("strip_symbols.create_temp_output"):
+            with sentry_sdk.start_span(op="measure", description="strip_symbols.create_temp_output"):
                 temp_file = tempfile.NamedTemporaryFile(suffix=".stripped", delete=False)
                 temp_output_path = Path(temp_file.name)
                 temp_file.close()
@@ -505,7 +505,7 @@ class AppleAppAnalyzer:
                 else:
                     strip_flags = ["-S", "-T", "-x"]
 
-                with trace_ctx("strip_symbols.strip_binary"):
+                with sentry_sdk.start_span(op="process", description="strip_symbols.strip_binary"):
                     apple_strip = AppleStrip()
                     result = apple_strip.strip(
                         input_file=binary_path,
@@ -517,7 +517,7 @@ class AppleAppAnalyzer:
                     logger.error(f"Strip command failed for {binary_path.name} with return code {result.returncode}")
                     actual_savings = 0
                 else:
-                    with trace_ctx("strip_symbols.calculate_savings"):
+                    with sentry_sdk.start_span(op="measure", description="strip_symbols.calculate_savings"):
                         stripped_size = temp_output_path.stat().st_size
                         actual_savings = max(0, original_size - stripped_size)
 
