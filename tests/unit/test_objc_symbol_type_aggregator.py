@@ -1,16 +1,5 @@
-from typing import cast
-
-import lief
-
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator, ObjCSymbolTypeGroup
-
-
-class MockSymbol:
-    """Mock symbol class for testing purposes."""
-
-    def __init__(self, name: str = "mock_symbol"):
-        self.name = name
 
 
 class TestObjCSymbolTypeAggregator:
@@ -28,16 +17,16 @@ class TestObjCSymbolTypeAggregator:
 
         swift_symbols = [
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_$s6Sentry0A14OnDemandReplayC",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x1000,
                 size=100,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_$s6Sentry0A18UserFeedbackWidgetC",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x2000,
                 size=200,
             ),
@@ -52,16 +41,16 @@ class TestObjCSymbolTypeAggregator:
 
         cpp_symbols = [
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_ZNKSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4sizeEv",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x1000,
                 size=100,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEC1ERKS5_",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x2000,
                 size=200,
             ),
@@ -77,45 +66,45 @@ class TestObjCSymbolTypeAggregator:
         mixed_symbols = [
             # Swift symbols (should be filtered out)
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_$s6Sentry0A14OnDemandReplayC",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x1000,
                 size=100,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_$s6Sentry0A18UserFeedbackWidgetC",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x2000,
                 size=200,
             ),
             # Objective-C symbols
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="-[NSString stringByAppendingString:]",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x3000,
                 size=150,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="-[NSString stringByAppendingPathComponent:]",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x4000,
                 size=180,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="+[NSArray arrayWithObject:]",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x5000,
                 size=120,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="_OBJC_CLASS_$_NSString",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x6000,
                 size=300,
             ),
@@ -172,23 +161,23 @@ class TestObjCSymbolTypeAggregator:
 
         symbols = [
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="-[NSString(MyCategory) customMethod]",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x1000,
                 size=100,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="-[NSString stringByAppendingString:]",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x2000,
                 size=150,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="-[NSString(AnotherCategory) anotherMethod]",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x3000,
                 size=120,
             ),
@@ -232,23 +221,23 @@ class TestObjCSymbolTypeAggregator:
         """Test ObjCSymbolTypeGroup total_size property."""
         symbols = [
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="test1",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x1000,
                 size=100,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="test2",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x2000,
                 size=200,
             ),
             SymbolSize(
-                symbol=cast(lief.MachO.Symbol, MockSymbol()),
                 mangled_name="test3",
-                section=None,
+                section_name=None,
+                segment_name=None,
                 address=0x3000,
                 size=300,
             ),

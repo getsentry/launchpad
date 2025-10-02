@@ -180,7 +180,7 @@ class SymbolInfo:
 
         for group in self.swift_type_groups:
             for symbol in group.symbols:
-                section_name = str(symbol.section.name) if symbol.section else "unknown"
+                section_name = symbol.section_name or "unknown"
                 if section_name not in symbols_by_section:
                     symbols_by_section[section_name] = []
 
@@ -188,7 +188,7 @@ class SymbolInfo:
 
         for group in self.objc_type_groups:
             for symbol in group.symbols:
-                section_name = str(symbol.section.name) if symbol.section else "unknown"
+                section_name = symbol.section_name or "unknown"
                 if section_name not in symbols_by_section:
                     symbols_by_section[section_name] = []
 

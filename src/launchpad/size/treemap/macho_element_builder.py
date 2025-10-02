@@ -97,13 +97,13 @@ class MachOElementBuilder(TreemapElementBuilder):
 
                 # While we have the symbol handy, start tracking section usage
                 for sym in grp.symbols:
-                    if sym.section:
+                    if sym.section_name and sym.segment_name:
                         # Use unique section name to avoid conflicts since the same section name can be used in multiple segments
-                        segment_name = str(sym.section.segment.name) if sym.section.segment else "unknown"
-                        section_name = str(sym.section.name)
-                        unique_sec = f"{segment_name}.{section_name}"
+                        unique_sec = f"{sym.segment_name}.{sym.section_name}"
                         section_subtractions[unique_sec] = section_subtractions.get(unique_sec, 0) + sym.size
-                        segment_subtractions[segment_name] = segment_subtractions.get(segment_name, 0) + sym.size
+                        segment_subtractions[sym.segment_name] = (
+                            segment_subtractions.get(sym.segment_name, 0) + sym.size
+                        )
 
             # ---- 1b.  For every module build a nested tree --------------- #
             for module_name, type_groups in swift_modules.items():
@@ -209,13 +209,13 @@ class MachOElementBuilder(TreemapElementBuilder):
             for grp in symbol_info.objc_type_groups:
                 objc_classes.setdefault(grp.class_name, []).append((grp.method_name or "class", grp.total_size))
                 for sym in grp.symbols:
-                    if sym.section:
+                    if sym.section_name and sym.segment_name:
                         # Use unique section name to avoid conflicts
-                        segment_name = str(sym.section.segment.name) if sym.section.segment else "unknown"
-                        section_name = str(sym.section.name)
-                        unique_sec = f"{segment_name}.{section_name}"
+                        unique_sec = f"{sym.segment_name}.{sym.section_name}"
                         section_subtractions[unique_sec] = section_subtractions.get(unique_sec, 0) + sym.size
-                        segment_subtractions[segment_name] = segment_subtractions.get(segment_name, 0) + sym.size
+                        segment_subtractions[sym.segment_name] = (
+                            segment_subtractions.get(sym.segment_name, 0) + sym.size
+                        )
 
             for cls_name, meths in objc_classes.items():
                 meth_elems: List[TreemapElement] = [

@@ -10,9 +10,9 @@ logger = get_logger(__name__)
 
 @dataclass
 class SymbolSize:
-    symbol: lief.MachO.Symbol
     mangled_name: str
-    section: lief.MachO.Section | None
+    section_name: str | None
+    segment_name: str | None
     address: int
     size: int
 
@@ -28,12 +28,12 @@ class MachOSymbolSizes:
         symbol_tuples = list(self._symbol_sizes(self.binary))
 
         symbol_sizes: list[SymbolSize] = []
-        for sym, mangled_name, section, address, size in symbol_tuples:
+        for mangled_name, section_name, segment_name, address, size in symbol_tuples:
             symbol_sizes.append(
                 SymbolSize(
-                    symbol=sym,
                     mangled_name=mangled_name,
-                    section=section,
+                    section_name=section_name,
+                    segment_name=segment_name,
                     address=address,
                     size=size,
                 )
@@ -51,10 +51,8 @@ class MachOSymbolSizes:
             and sym.value > 0
         )
 
-    def _symbol_sizes(
-        self, bin: lief.MachO.Binary
-    ) -> Generator[tuple[lief.MachO.Symbol, str, lief.MachO.Section | None, int, int]]:
-        """Yield (name, addr, size) via the distance-to-next-symbol heuristic."""
+    def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[tuple[str, str | None, str | None, int, int]]:
+        """Yield (name, section_name, segment_name, addr, size) via the distance-to-next-symbol heuristic."""
 
         # sort symbols by their address so we can calculate the distance between them
         syms = sorted((s for s in bin.symbols if self._is_measurable(s)), key=lambda s: s.value)
@@ -65,8 +63,24 @@ class MachOSymbolSizes:
             section = bin.section_from_virtual_address(start)
             if section:
                 max_section_addr = section.virtual_address + section.size
+                raw_name = section.name
+                section_name = (
+                    raw_name.decode("utf-8", errors="replace") if isinstance(raw_name, bytes) else str(raw_name)
+                )
+
+                if section.segment:
+                    raw_seg_name = section.segment.name
+                    segment_name = (
+                        raw_seg_name.decode("utf-8", errors="replace")
+                        if isinstance(raw_seg_name, bytes)
+                        else str(raw_seg_name)
+                    )
+                else:
+                    segment_name = None
             else:
                 max_section_addr = None
+                section_name = None
+                segment_name = None
                 logger.warning("size.macho.symbol_not_found_in_section", extra={"symbol": sym.name})
                 continue
 
@@ -75,7 +89,11 @@ class MachOSymbolSizes:
                 if idx + 1 < len(syms):
                     next_sym = syms[idx + 1]
                     next_sym_section = bin.section_from_virtual_address(next_sym.value)
-                    end = next_sym.value if next_sym_section.name == section.name else max_section_addr
+                    end = (
+                        next_sym.value
+                        if next_sym_section and next_sym_section.name == section.name
+                        else max_section_addr
+                    )
                 else:
                     end = max_section_addr
             else:
@@ -90,4 +108,4 @@ class MachOSymbolSizes:
             else:
                 logger.warning(f"Failed to calculate size for symbol {sym.name}")
 
-            yield (sym, str(sym.name), section, start, size)
+            yield (str(sym.name), section_name, segment_name, start, size)
