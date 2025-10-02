@@ -6,11 +6,11 @@ import logging
 import multiprocessing
 import os
 import signal
-import sys
 import time
 
 from dataclasses import dataclass
 from functools import partial
+from logging.handlers import QueueHandler, QueueListener
 from multiprocessing.pool import Pool
 from typing import Any, Callable, Mapping
 
@@ -31,9 +31,8 @@ from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import HEALTHCHECK_MAX_AGE_SECONDS, PREPROD_ARTIFACT_EVENTS_TOPIC
-from launchpad.server import get_server_config
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
-from launchpad.utils.logging import get_logger, setup_logging
+from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -205,38 +204,47 @@ class LaunchpadKafkaConsumer:
 class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     """Factory for creating the processing strategy chain."""
 
-    @staticmethod
-    def _initialize_worker_logging() -> None:
-        """Initialize logging in worker process.
-
-        With multiprocessing spawn context, subprocesses don't inherit
-        parent's stdout/stderr. We need to explicitly configure logging
-        to write to stdout for Docker/GCP log collection.
-        """
-        logging.getLogger().handlers.clear()
-
-        # Ensure stdout/stderr are unbuffered for immediate log visibility
-        if hasattr(sys.stdout, "reconfigure"):
-            sys.stdout.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
-        if hasattr(sys.stderr, "reconfigure"):
-            sys.stderr.reconfigure(line_buffering=True)  # type: ignore[attr-defined]
-
-        server_config = get_server_config()
-        setup_logging(verbose=server_config.debug, quiet=not server_config.debug)
-
     def __init__(
         self,
         concurrency: int,
         max_pending_futures: int,
         healthcheck_file: str | None = None,
     ) -> None:
+        self._log_queue: multiprocessing.Queue[Any] = multiprocessing.Manager().Queue(-1)
+        self._queue_listener = self._setup_queue_listener()
+        self._queue_listener.start()
+
+        initializer_with_queue = partial(self._initialize_worker_logging, self._log_queue)
+
         self._pool = LaunchpadMultiProcessingPool(
             num_processes=concurrency,
-            initializer=self._initialize_worker_logging,
+            initializer=initializer_with_queue,
         )
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
+
+    def _setup_queue_listener(self) -> QueueListener:
+        """Set up listener in main process to handle logs from workers."""
+        root_logger = logging.getLogger()
+        handlers = list(root_logger.handlers) if root_logger.handlers else []
+
+        return QueueListener(self._log_queue, *handlers, respect_handler_level=True)
+
+    @staticmethod
+    def _initialize_worker_logging(log_queue: multiprocessing.Queue[Any]) -> None:
+        """Initialize logging in worker process to send logs to queue.
+
+        With multiprocessing spawn context, subprocesses don't inherit
+        parent's stdout/stderr. We use a queue to send log records to
+        the main process which writes them to stdout for Docker/GCP.
+        """
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+
+        queue_handler = QueueHandler(log_queue)
+        root_logger.addHandler(queue_handler)
+        root_logger.setLevel(logging.DEBUG)
 
     def create_with_partitions(
         self,
@@ -261,8 +269,9 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         return strategy
 
     def close(self) -> None:
-        """Clean up the multiprocessing pool."""
+        """Clean up the multiprocessing pool and logging queue."""
         self._pool.close()
+        self._queue_listener.stop()
 
 
 @dataclass
