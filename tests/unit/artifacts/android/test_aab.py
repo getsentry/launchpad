@@ -6,13 +6,8 @@ from launchpad.artifacts.android.aab import AAB
 
 
 @pytest.fixture
-def test_aab_path() -> Path:
-    return Path("tests/_fixtures/android/hn.aab")
-
-
-@pytest.fixture
-def test_aab(test_aab_path: Path) -> AAB:
-    return AAB(test_aab_path)
+def test_aab(hn_aab: Path) -> AAB:
+    return AAB(hn_aab)
 
 
 class TestAAB:

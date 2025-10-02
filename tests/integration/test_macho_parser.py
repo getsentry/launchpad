@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.macho_parser import MachOParser
 
@@ -26,13 +24,9 @@ def create_macho_parser_from_xcarchive(xcarchive_path: Path) -> MachOParser:
 class TestMachOParser:
     """Test Mach-O parser against real binaries."""
 
-    @pytest.fixture
-    def sample_app_path(self) -> Path:
-        return Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
-
-    def test_hackernews_parsing(self, sample_app_path: Path) -> None:
+    def test_hackernews_parsing(self, hackernews_xcarchive: Path) -> None:
         """Test parsing Swift protocol conformances from the HackerNews app."""
-        macho_parser = create_macho_parser_from_xcarchive(sample_app_path)
+        macho_parser = create_macho_parser_from_xcarchive(hackernews_xcarchive)
 
         architectures = macho_parser.extract_architectures()
         assert architectures == ["CPU_TYPE.ARM64"]

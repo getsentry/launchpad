@@ -7,11 +7,10 @@ from launchpad.size.analyzers.apple import AppleAppAnalyzer
 class TestAppleBasicInfo:
     """Test Apple analyzer basic info extraction."""
 
-    def test_basic_info(self) -> None:
+    def test_basic_info(self, hackernews_xcarchive: Path) -> None:
         """Test that range mapping is enabled by default."""
         analyzer = AppleAppAnalyzer()
-        path = Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
-        archive = ZippedXCArchive(path)
+        archive = ZippedXCArchive(hackernews_xcarchive)
 
         basic_info = analyzer.preprocess(archive)
         assert basic_info.name == "HackerNews"

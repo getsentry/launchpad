@@ -3,8 +3,6 @@
 from pathlib import Path
 from typing import List
 
-import pytest
-
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
@@ -44,18 +42,14 @@ def create_symbol_sizes_from_xcarchive(xcarchive_path: Path) -> List[SymbolSize]
 class TestSymbolTypeAggregator:
     """Integration test cases for the SymbolTypeAggregator class using real binaries."""
 
-    @pytest.fixture
-    def sample_app_path(self) -> Path:
-        return Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
-
     def test_init(self):
         """Test SymbolTypeAggregator initialization."""
         aggregator = SwiftSymbolTypeAggregator()
         assert aggregator.demangler is not None
 
-    def test_aggregate_symbols_with_real_binary(self, sample_app_path: Path) -> None:
+    def test_aggregate_symbols_with_real_binary(self, hackernews_xcarchive: Path) -> None:
         """Test aggregation of symbols using real HackerNews app binary."""
-        symbol_sizes = create_symbol_sizes_from_xcarchive(sample_app_path)
+        symbol_sizes = create_symbol_sizes_from_xcarchive(hackernews_xcarchive)
         assert len(symbol_sizes) == 24465
 
         aggregator = SwiftSymbolTypeAggregator()

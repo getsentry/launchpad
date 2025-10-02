@@ -11,19 +11,14 @@ from launchpad.size.analyzers.android import AndroidAnalyzer
 
 
 @pytest.fixture
-def test_apk_path() -> Path:
-    return Path("tests/_fixtures/android/hn.apk")
-
-
-@pytest.fixture
 def android_analyzer() -> AndroidAnalyzer:
     return AndroidAnalyzer()
 
 
 class TestAndroidAnalyzer:
-    def test_analyze_with_duplicate_detection(self, test_apk_path: Path, android_analyzer: AndroidAnalyzer) -> None:
+    def test_analyze_with_duplicate_detection(self, hn_apk: Path, android_analyzer: AndroidAnalyzer) -> None:
         """Test that Android analyzer includes duplicate file detection."""
-        artifact = ArtifactFactory.from_path(test_apk_path)
+        artifact = ArtifactFactory.from_path(hn_apk)
         android_artifact = cast(AndroidArtifact, artifact)
         results = android_analyzer.analyze(android_artifact)
 
@@ -41,9 +36,9 @@ class TestAndroidAnalyzer:
         assert isinstance(duplicate_insight.total_savings, int)
         assert duplicate_insight.total_savings == 51709
 
-    def test_duplicate_files_have_hashes(self, test_apk_path: Path, android_analyzer: AndroidAnalyzer) -> None:
+    def test_duplicate_files_have_hashes(self, hn_apk: Path, android_analyzer: AndroidAnalyzer) -> None:
         """Test that all files have MD5 hashes for duplicate detection."""
-        artifact = ArtifactFactory.from_path(test_apk_path)
+        artifact = ArtifactFactory.from_path(hn_apk)
         android_artifact = cast(AndroidArtifact, artifact)
         results = android_analyzer.analyze(android_artifact)
 

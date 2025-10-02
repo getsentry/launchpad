@@ -11,17 +11,12 @@ from launchpad.size.utils.android_bundle_size import (
 )
 
 
-@pytest.fixture
-def test_apk_path() -> Path:
-    return Path("tests/_fixtures/android/hn.apk")
-
-
 class TestAndroidBundleSize:
-    def test_calculate_apk_download_size_with_fixture(self, test_apk_path: Path) -> None:
-        assert test_apk_path.exists(), f"Test APK not found at {test_apk_path}"
+    def test_calculate_apk_download_size_with_fixture(self, hn_apk: Path) -> None:
+        assert hn_apk.exists(), f"Test APK not found at {hn_apk}"
 
-        download_size = calculate_apk_download_size(test_apk_path)
-        original_size = test_apk_path.stat().st_size
+        download_size = calculate_apk_download_size(hn_apk)
+        original_size = hn_apk.stat().st_size
 
         assert download_size == 3670839
         assert original_size - download_size == 4288082

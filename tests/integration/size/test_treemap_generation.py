@@ -18,26 +18,11 @@ from launchpad.size.models.treemap import TreemapElement
 class TestTreemapGeneration:
     """Test treemap generation functionality."""
 
-    @pytest.fixture
-    def sample_ios_app_path(self) -> Path:
-        """Path to sample iOS app for testing."""
-        return Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
-
-    @pytest.fixture
-    def sample_android_apk_path(self) -> Path:
-        """Path to sample Android APK for testing."""
-        return Path("tests/_fixtures/android/hn.apk")
-
-    @pytest.fixture
-    def sample_android_aab_path(self) -> Path:
-        """Path to sample Android AAB for testing."""
-        return Path("tests/_fixtures/android/hn.aab")
-
-    def test_android_apk_treemap_matches_reference(self, sample_android_apk_path: Path) -> None:
+    def test_android_apk_treemap_matches_reference(self, hn_apk: Path) -> None:
         """Test Android APK treemap generation functionality."""
 
         analyzer = AndroidAnalyzer()
-        artifact = ArtifactFactory.from_path(sample_android_apk_path)
+        artifact = ArtifactFactory.from_path(hn_apk)
 
         results = analyzer.analyze(cast(AndroidArtifact, artifact))
 
@@ -120,11 +105,11 @@ class TestTreemapGeneration:
         assert "resources" in category_breakdown
         assert "manifests" in category_breakdown
 
-    def test_android_aab_treemap_matches_reference(self, sample_android_aab_path: Path) -> None:
+    def test_android_aab_treemap_matches_reference(self, hn_aab: Path) -> None:
         """Test Android AAB treemap generation functionality."""
 
         analyzer = AndroidAnalyzer()
-        artifact = ArtifactFactory.from_path(sample_android_aab_path)
+        artifact = ArtifactFactory.from_path(hn_aab)
 
         results = analyzer.analyze(cast(AndroidArtifact, artifact))
 
@@ -203,11 +188,11 @@ class TestTreemapGeneration:
         assert "resources" in category_breakdown
         assert "manifests" in category_breakdown
 
-    def test_apple_treemap_json_serialization(self, sample_ios_app_path: Path) -> None:
+    def test_apple_treemap_json_serialization(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap can be serialized to JSON."""
 
         analyzer = AppleAppAnalyzer(skip_treemap=False)
-        artifact = ArtifactFactory.from_path(sample_ios_app_path)
+        artifact = ArtifactFactory.from_path(hackernews_xcarchive)
 
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 
@@ -250,11 +235,11 @@ class TestTreemapGeneration:
         parsed = json.loads(json_str)
         assert parsed == treemap_dict
 
-    def test_android_treemap_json_serialization(self, sample_android_apk_path: Path) -> None:
+    def test_android_treemap_json_serialization(self, hn_apk: Path) -> None:
         """Test that Android treemap can be serialized to JSON."""
 
         analyzer = AndroidAnalyzer()
-        artifact = ArtifactFactory.from_path(sample_android_apk_path)
+        artifact = ArtifactFactory.from_path(hn_apk)
 
         results = analyzer.analyze(cast(AndroidArtifact, artifact))
 
@@ -299,11 +284,11 @@ class TestTreemapGeneration:
         parsed = json.loads(json_str)
         assert parsed == treemap_dict
 
-    def test_apple_treemap_generation_basic(self, sample_ios_app_path: Path) -> None:
+    def test_apple_treemap_generation_basic(self, hackernews_xcarchive: Path) -> None:
         """Test basic treemap generation functionality."""
 
         analyzer = AppleAppAnalyzer(skip_treemap=False)
-        artifact = ArtifactFactory.from_path(sample_ios_app_path)
+        artifact = ArtifactFactory.from_path(hackernews_xcarchive)
 
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 
@@ -325,11 +310,11 @@ class TestTreemapGeneration:
         root_size = root.size
         assert root_size > 0
 
-    def test_apple_treemap_matches_reference(self, sample_ios_app_path: Path) -> None:
+    def test_apple_treemap_matches_reference(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap structure matches reference report."""
 
         analyzer = AppleAppAnalyzer(skip_treemap=False)
-        artifact = ArtifactFactory.from_path(sample_ios_app_path)
+        artifact = ArtifactFactory.from_path(hackernews_xcarchive)
 
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 
@@ -485,11 +470,11 @@ class TestTreemapGeneration:
         assert treemap.platform == "ios"
 
     @pytest.mark.skipif(platform.system() != "Darwin", reason="CwlDemangle tool only available on macOS")
-    def test_apple_treemap_swift_symbols_darwin_only(self, sample_ios_app_path: Path) -> None:
+    def test_apple_treemap_swift_symbols_darwin_only(self, hackernews_xcarchive: Path) -> None:
         """Test Swift symbol demangling functionality (Darwin only due to CwlDemangle dependency)."""
 
         analyzer = AppleAppAnalyzer(skip_treemap=False)
-        artifact = ArtifactFactory.from_path(sample_ios_app_path)
+        artifact = ArtifactFactory.from_path(hackernews_xcarchive)
 
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 

@@ -7,8 +7,8 @@ from launchpad.artifacts.artifact_factory import ArtifactFactory
 
 
 class TestIPA:
-    def test_ipa_generation(self):
-        artifact = ArtifactFactory.from_path(Path("tests/_fixtures/ios/HackerNews.xcarchive.zip"))
+    def test_ipa_generation(self, hackernews_xcarchive: Path):
+        artifact = ArtifactFactory.from_path(hackernews_xcarchive)
         temp_dir = Path(tempfile.mkdtemp())
         ipa_path = temp_dir / "HackerNews.ipa"
 

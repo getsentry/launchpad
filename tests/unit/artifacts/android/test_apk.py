@@ -6,13 +6,8 @@ from launchpad.artifacts.android.apk import APK
 
 
 @pytest.fixture
-def test_apk_path() -> Path:
-    return Path("tests/_fixtures/android/hn.apk")
-
-
-@pytest.fixture
-def test_apk(test_apk_path: Path) -> APK:
-    return APK(test_apk_path)
+def test_apk(hn_apk: Path) -> APK:
+    return APK(hn_apk)
 
 
 class TestAPK:

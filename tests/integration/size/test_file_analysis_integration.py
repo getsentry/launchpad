@@ -2,8 +2,6 @@
 
 import time
 
-from pathlib import Path
-
 import pytest
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
@@ -16,23 +14,15 @@ class TestFileAnalysisIntegration:
     """Integration tests using real xcarchive fixtures."""
 
     @pytest.fixture
-    def hackernews_xcarchive_path(self):
-        """Path to the HackerNews xcarchive fixture."""
-        fixture_path = Path(__file__).parent.parent.parent / "_fixtures" / "ios" / "HackerNews.xcarchive.zip"
-        if not fixture_path.exists():
-            pytest.skip(f"Fixture not found: {fixture_path}")
-        return fixture_path
-
-    @pytest.fixture
-    def hackernews_xcarchive(self, hackernews_xcarchive_path):
+    def hackernews_xcarchive_obj(self, hackernews_xcarchive):
         """Create ZippedXCArchive from HackerNews fixture."""
-        return ZippedXCArchive(hackernews_xcarchive_path)
+        return ZippedXCArchive(hackernews_xcarchive)
 
-    def test_analyze_hackernews(self, hackernews_xcarchive):
+    def test_analyze_hackernews(self, hackernews_xcarchive_obj):
         """Test analysis of a real xcarchive produces expected structure."""
 
         start = time.time()
-        result = analyze_apple_files(hackernews_xcarchive)
+        result = analyze_apple_files(hackernews_xcarchive_obj)
         duration = time.time() - start
 
         assert duration < 1
@@ -99,10 +89,10 @@ class TestFileAnalysisIntegration:
             for binary_path in framework_binaries:
                 assert ".framework/" in binary_path, f"Framework binary should contain .framework/: {binary_path}"
 
-    def test_analyze_with_max_depth_keeps_sizes(self, hackernews_xcarchive):
+    def test_analyze_with_max_depth_keeps_sizes(self, hackernews_xcarchive_obj):
         """Depth limiting should omit deep children but preserve parent sizes."""
-        baseline = analyze_apple_files(hackernews_xcarchive)
-        limited = analyze_apple_files(hackernews_xcarchive, max_depth=2)
+        baseline = analyze_apple_files(hackernews_xcarchive_obj)
+        limited = analyze_apple_files(hackernews_xcarchive_obj, max_depth=2)
 
         omitted_files = [f for f in limited.files if f.file_type == "directory_omitted"]
         assert omitted_files, "Expected synthetic omitted nodes when max_depth is set"
@@ -111,10 +101,10 @@ class TestFileAnalysisIntegration:
         lim_root = next(d for d in limited.directories if d.path == "")
         assert lim_root.size == base_root.size, "Root size must be preserved with max_depth pruning"
 
-    def test_root_dir_hash_deterministic(self, hackernews_xcarchive):
+    def test_root_dir_hash_deterministic(self, hackernews_xcarchive_obj):
         """Directory hashing should be stable for the same inputs."""
-        r1 = analyze_apple_files(hackernews_xcarchive)
-        r2 = analyze_apple_files(hackernews_xcarchive)
+        r1 = analyze_apple_files(hackernews_xcarchive_obj)
+        r2 = analyze_apple_files(hackernews_xcarchive_obj)
         d1 = next(d for d in r1.directories if d.path == "")
         d2 = next(d for d in r2.directories if d.path == "")
         assert d1.hash == d2.hash

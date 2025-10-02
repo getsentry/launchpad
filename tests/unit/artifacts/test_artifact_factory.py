@@ -10,57 +10,33 @@ from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 
 
-@pytest.fixture
-def fixtures_dir() -> Path:
-    return Path("tests/_fixtures/")
-
-
-@pytest.fixture
-def android_fixtures(fixtures_dir: Path) -> dict[str, Path]:
-    android_dir = fixtures_dir / "android"
-    return {
-        "aab": android_dir / "hn.aab",
-        "zipped_aab": android_dir / "zipped_aab.zip",
-        "apk": android_dir / "hn.apk",
-        "zipped_apk": android_dir / "zipped_apk.zip",
-    }
-
-
-@pytest.fixture
-def ios_fixtures(fixtures_dir: Path) -> dict[str, Path]:
-    ios_dir = fixtures_dir / "ios"
-    return {
-        "xcarchive": ios_dir / "HackerNews.xcarchive.zip",
-    }
-
-
-def test_factory_creates_aab(android_fixtures: dict[str, Path]) -> None:
+def test_factory_creates_aab(hn_aab: Path) -> None:
     """Test that factory creates AAB for .aab files."""
-    artifact = ArtifactFactory.from_path(android_fixtures["aab"])
+    artifact = ArtifactFactory.from_path(hn_aab)
     assert isinstance(artifact, AAB)
 
 
-def test_factory_creates_zipped_aab(android_fixtures: dict[str, Path]) -> None:
+def test_factory_creates_zipped_aab(zipped_aab: Path) -> None:
     """Test that factory creates ZippedAAB for zipped .aab files."""
-    artifact = ArtifactFactory.from_path(android_fixtures["zipped_aab"])
+    artifact = ArtifactFactory.from_path(zipped_aab)
     assert isinstance(artifact, ZippedAAB)
 
 
-def test_factory_creates_apk(android_fixtures: dict[str, Path]) -> None:
+def test_factory_creates_apk(hn_apk: Path) -> None:
     """Test that factory creates APK for .apk files."""
-    artifact = ArtifactFactory.from_path(android_fixtures["apk"])
+    artifact = ArtifactFactory.from_path(hn_apk)
     assert isinstance(artifact, APK)
 
 
-def test_factory_creates_zipped_apk(android_fixtures: dict[str, Path]) -> None:
+def test_factory_creates_zipped_apk(zipped_apk: Path) -> None:
     """Test that factory creates ZippedAPK for zipped .apk files."""
-    artifact = ArtifactFactory.from_path(android_fixtures["zipped_apk"])
+    artifact = ArtifactFactory.from_path(zipped_apk)
     assert isinstance(artifact, ZippedAPK)
 
 
-def test_factory_creates_xcarchive(ios_fixtures: dict[str, Path]) -> None:
+def test_factory_creates_xcarchive(hackernews_xcarchive: Path) -> None:
     """Test that factory creates ZippedXCArchive for .xcarchive.zip files."""
-    artifact = ArtifactFactory.from_path(ios_fixtures["xcarchive"])
+    artifact = ArtifactFactory.from_path(hackernews_xcarchive)
     assert isinstance(artifact, ZippedXCArchive)
 
 

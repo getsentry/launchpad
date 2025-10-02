@@ -14,16 +14,6 @@ from launchpad.artifacts.providers.zip_provider import (
 )
 
 
-@pytest.fixture
-def sample_ios_zip() -> Path:
-    return Path("tests/_fixtures/ios/HackerNews.xcarchive.zip")
-
-
-@pytest.fixture
-def sample_android_zip() -> Path:
-    return Path("tests/_fixtures/android/zipped_apk.zip")
-
-
 class TestZipProvider:
     @pytest.fixture
     def malicious_zip(self) -> Path:
@@ -36,12 +26,12 @@ class TestZipProvider:
 
             yield temp_path
 
-    def test_init(self, sample_ios_zip: Path) -> None:
-        provider = ZipProvider(sample_ios_zip)
-        assert provider.path == sample_ios_zip
+    def test_init(self, hackernews_xcarchive: Path) -> None:
+        provider = ZipProvider(hackernews_xcarchive)
+        assert provider.path == hackernews_xcarchive
 
-    def test_extract_to_temp_directory_ios(self, sample_ios_zip: Path) -> None:
-        provider = ZipProvider(sample_ios_zip)
+    def test_extract_to_temp_directory_ios(self, hackernews_xcarchive: Path) -> None:
+        provider = ZipProvider(hackernews_xcarchive)
         temp_dir = provider.extract_to_temp_directory()
 
         assert temp_dir.exists()
@@ -51,8 +41,8 @@ class TestZipProvider:
         extracted_files = list(temp_dir.rglob("*"))
         assert len(extracted_files) > 0
 
-    def test_extract_to_temp_directory_android(self, sample_android_zip: Path) -> None:
-        provider = ZipProvider(sample_android_zip)
+    def test_extract_to_temp_directory_android(self, zipped_apk: Path) -> None:
+        provider = ZipProvider(zipped_apk)
         temp_dir = provider.extract_to_temp_directory()
 
         assert temp_dir.exists()
@@ -62,8 +52,8 @@ class TestZipProvider:
         extracted_files = list(temp_dir.rglob("*"))
         assert len(extracted_files) > 0
 
-    def test_multiple_extractions(self, sample_ios_zip: Path) -> None:
-        provider = ZipProvider(sample_ios_zip)
+    def test_multiple_extractions(self, hackernews_xcarchive: Path) -> None:
+        provider = ZipProvider(hackernews_xcarchive)
 
         temp_dir1 = provider.extract_to_temp_directory()
         temp_dir2 = provider.extract_to_temp_directory()
@@ -120,18 +110,18 @@ class TestIsSafePath:
 
 
 class TestCheckReasonableZip:
-    def test_reasonable_zip_passes(self, sample_ios_zip: Path) -> None:
-        with zipfile.ZipFile(sample_ios_zip, "r") as zf:
+    def test_reasonable_zip_passes(self, hackernews_xcarchive: Path) -> None:
+        with zipfile.ZipFile(hackernews_xcarchive, "r") as zf:
             check_reasonable_zip(zf)
 
-    def test_max_file_count(self, sample_ios_zip: Path) -> None:
-        with zipfile.ZipFile(sample_ios_zip, "r") as zf:
+    def test_max_file_count(self, hackernews_xcarchive: Path) -> None:
+        with zipfile.ZipFile(hackernews_xcarchive, "r") as zf:
             # iOS fixture has 113 files, so limit of 50 should fail
             with pytest.raises(UnreasonableZipError, match="exceeding the limit of 50"):
                 check_reasonable_zip(zf, max_file_count=50)
 
-    def test_max_file_size(self, sample_ios_zip: Path) -> None:
-        with zipfile.ZipFile(sample_ios_zip, "r") as zf:
+    def test_max_file_size(self, hackernews_xcarchive: Path) -> None:
+        with zipfile.ZipFile(hackernews_xcarchive, "r") as zf:
             # iOS fixture is ~32MB uncompressed, so limit of 10MB should fail
             with pytest.raises(UnreasonableZipError, match="exceeding the limit of 10.0MB"):
                 check_reasonable_zip(zf, max_uncompressed_size=10 * 1024 * 1024)

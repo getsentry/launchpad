@@ -14,17 +14,12 @@ from launchpad.utils.apple.apple_strip import AppleStrip
 class TestAppleStrip:
     """Test AppleStrip against real binaries."""
 
-    @pytest.fixture
-    def sentry_zip_path(self) -> Path:
-        """Path to the Sentry iOS binary zip file."""
-        return Path("tests/_fixtures/ios/Sentry-ios-arm64_arm64e.zip")
-
-    def test_strip_sentry_binary(self, sentry_zip_path: Path) -> None:
+    def test_strip_sentry_binary(self, sentry_ios_archive: Path) -> None:
         """Test stripping the main Sentry binary from the iOS framework."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            with zipfile.ZipFile(sentry_zip_path, "r") as zip_ref:
+            with zipfile.ZipFile(sentry_ios_archive, "r") as zip_ref:
                 zip_ref.extractall(temp_path)
 
             sentry_binary_path = temp_path / "Sentry-ios-arm64_arm64e" / "Sentry.framework" / "Sentry"
@@ -57,12 +52,12 @@ class TestAppleStrip:
                 f"Stripped binary ({stripped_size} bytes) should be smaller than original ({original_size} bytes)"
             )
 
-    def test_strip_with_output_file(self, sentry_zip_path: Path) -> None:
+    def test_strip_with_output_file(self, sentry_ios_archive: Path) -> None:
         """Test stripping with explicit output file."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            with zipfile.ZipFile(sentry_zip_path, "r") as zip_ref:
+            with zipfile.ZipFile(sentry_ios_archive, "r") as zip_ref:
                 zip_ref.extractall(temp_path)
 
             sentry_binary_path = temp_path / "Sentry-ios-arm64_arm64e" / "Sentry.framework" / "Sentry"

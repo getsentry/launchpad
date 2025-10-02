@@ -6,13 +6,8 @@ from launchpad.artifacts.android.zipped_aab import ZippedAAB
 
 
 @pytest.fixture
-def test_zipped_aab_path() -> Path:
-    return Path("tests/_fixtures/android/zipped_aab.zip")
-
-
-@pytest.fixture
-def test_zipped_aab(test_zipped_aab_path: Path) -> ZippedAAB:
-    return ZippedAAB(test_zipped_aab_path)
+def test_zipped_aab(zipped_aab: Path) -> ZippedAAB:
+    return ZippedAAB(zipped_aab)
 
 
 class TestZippedAAB:
