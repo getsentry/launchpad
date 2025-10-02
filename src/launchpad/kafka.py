@@ -31,6 +31,7 @@ from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import HEALTHCHECK_MAX_AGE_SECONDS, PREPROD_ARTIFACT_EVENTS_TOPIC
+from launchpad.tracing import RequestLogFilter
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
 from launchpad.utils.logging import get_logger
 
@@ -243,6 +244,8 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         root_logger.handlers.clear()
 
         queue_handler = QueueHandler(log_queue)
+        queue_handler.addFilter(RequestLogFilter())
+
         root_logger.addHandler(queue_handler)
         root_logger.setLevel(logging.DEBUG)
 
