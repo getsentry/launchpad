@@ -33,10 +33,14 @@ FROM python:3.12-slim-bookworm
 ARG TEST_BUILD=false
 
 # Set environment variables
-ENV PYTHONUNBUFFERED=1 \
+ENV PATH="/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    UV_PROJECT_ENVIRONMENT=/.venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_NO_CACHE=1
 
 # Create app user and group
 RUN groupadd --gid 1000 app && \
@@ -64,18 +68,24 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+RUN python3 -m pip install \
+  --index-url 'https://pypi.devinfra.sentry.io/simple' 'uv==0.8.2'
+
+RUN python3 -m venv "$UV_PROJECT_ENVIRONMENT"
 
 # Copy source code, tests, and scripts
 COPY src/ ./src/
 COPY tests/ ./tests/
 COPY scripts/ ./scripts/
 COPY devservices/ ./devservices/
-COPY pyproject.toml .
-COPY README.md .
-COPY LICENSE .
+COPY README.md LICENSE pyproject.toml uv.lock ./
+
+RUN : && \
+  if [ "$TEST_BUILD" = "true" ]; then \
+    uv sync --frozen; \
+  else \
+    uv sync --frozen --no-dev; \
+  fi
 
 # Copy libdispatch from the build stage
 COPY --from=libdispatch-build /usr/lib/x86_64-linux-gnu/libdispatch.so* /usr/lib/x86_64-linux-gnu/
@@ -96,9 +106,7 @@ RUN if [ "$TEST_BUILD" = "true" ]; then \
     rm -rf tests/_fixtures; \
     fi
 
-RUN pip install -e .
-
-RUN python scripts/deps --install --local-architecture=x86_64 --local-system=linux
+RUN python3 scripts/deps --install --local-architecture=x86_64 --local-system=linux
 
 # Change ownership to app user
 RUN chown -R app:app /app
