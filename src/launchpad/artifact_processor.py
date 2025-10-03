@@ -34,6 +34,7 @@ from launchpad.constants import (
     ProcessingErrorMessage,
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
+from launchpad.sentry_sdk_init import initialize_sentry_sdk
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.apple import AppleAppInfo
@@ -55,14 +56,16 @@ class ArtifactProcessor:
     @staticmethod
     def process_message(payload: PreprodArtifactEvents, service_config=None, artifact_processor=None, statsd=None):
         """Process an artifact message with proper context and metrics.
-
-        This function can be used both by the service and by Kafka workers.
+        This is used by the Kafka workers and so has to set up the context from scratch.
         If components are not provided, they will be created.
         """
         if service_config is None:
             from launchpad.service import get_service_config
 
             service_config = get_service_config()
+
+        initialize_sentry_sdk()
+
         if statsd is None:
             statsd = get_statsd()
         if artifact_processor is None:
@@ -96,7 +99,7 @@ class ArtifactProcessor:
             scope.set_tag("launchpad.project_id", project_id)
             scope.set_tag("launchpad.organization_id", organization_id)
             scope.set_tag("launchpad.artifact_id", artifact_id)
-
+            stack.enter_context(scope.start_transaction(op="subprocess", name="process_message"))
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
