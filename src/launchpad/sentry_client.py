@@ -322,6 +322,8 @@ class SentryClient:
                 logger.warning(f"Assembly attempt {attempt + 1}", exc_info=True)
                 continue
 
+            logger.debug("Assemble result %s", result)
+
             if result.state in ["ok", "created"]:
                 return
 

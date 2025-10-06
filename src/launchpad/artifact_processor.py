@@ -264,7 +264,7 @@ class ArtifactProcessor:
         artifact: Artifact,
         analyzer: AndroidAnalyzer | AppleAppAnalyzer,
     ):
-        logger.info(f"SIZE_ANALYSIS for {artifact_id} (project: {project_id}, org: {organization_id})")
+        logger.info(f"SIZE_ANALYSIS for {artifact_id} (project: {project_id}, org: {organization_id}) started")
         try:
             results = self._retry_operation(
                 lambda: analyzer.analyze(cast(Any, artifact)),
@@ -272,7 +272,9 @@ class ArtifactProcessor:
             )
             self._upload_results(organization_id, project_id, artifact_id, results)
         except Exception as e:
-            logger.exception(f"SIZE_ANALYSIS failed artifact:{artifact_id} project:{project_id} org:{organization_id}")
+            logger.exception(
+                f"SIZE_ANALYSIS for artifact:{artifact_id} project:{project_id} org:{organization_id} failed"
+            )
             self._update_size_error_from_exception(
                 organization_id,
                 project_id,
@@ -281,6 +283,8 @@ class ArtifactProcessor:
                 error_code=ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                 error_message=ProcessingErrorMessage.SIZE_ANALYSIS_FAILED,
             )
+        else:
+            logger.info(f"SIZE_ANALYSIS for {artifact_id} (project: {project_id}, org: {organization_id}) succeeded")
 
     def _retry_operation(self, operation, operation_name: OperationName):
         """Retry an operation up to MAX_RETRY_ATTEMPTS times."""
