@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from datetime import datetime, timezone
 
 from launchpad.artifacts.android.aab import AAB
@@ -69,6 +71,7 @@ class AndroidAnalyzer:
         return self.app_info
 
     def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
+        start_time = time.time()
         # Use preprocessed app info if available, otherwise extract it
         if not self.app_info:
             self.app_info = self.preprocess(artifact)
@@ -126,6 +129,7 @@ class AndroidAnalyzer:
                 hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
             )
 
+        analysis_duration = time.time() - start_time
         return AndroidAnalysisResults(
             generated_at=datetime.now(timezone.utc),
             app_info=app_info,
@@ -134,7 +138,7 @@ class AndroidAnalyzer:
             insights=insights,
             download_size=download_size,
             install_size=install_size,
-            analysis_duration=None,
+            analysis_duration=analysis_duration,
             use_si_units=False,
         )
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import tempfile
+import time
 
 from datetime import datetime
 from pathlib import Path
@@ -109,6 +110,7 @@ class AppleAppAnalyzer:
         Returns:
             Analysis results including file sizes, binary analysis, and treemap
         """
+        start_time = time.time()
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
 
@@ -234,13 +236,14 @@ class AppleAppAnalyzer:
                 # ),
             )
 
+        analysis_duration = time.time() - start_time
         results = AppleAnalysisResults(
             app_info=app_info,
             file_analysis=file_analysis,
             binary_analysis=binary_analysis,
             treemap=treemap,
             insights=insights,
-            analysis_duration=None,
+            analysis_duration=analysis_duration,
             use_si_units=True,
             download_size=download_size,
             install_size=install_size,

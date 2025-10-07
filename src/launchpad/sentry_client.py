@@ -294,6 +294,9 @@ class SentryClient:
 
         chunk_size = options.chunk_size
 
+        file.flush()
+
+        file.seek(0)
         checksum = hashlib.file_digest(file, "sha1").hexdigest()
         size = file.tell()
         file.seek(0)
