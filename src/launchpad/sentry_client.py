@@ -297,7 +297,7 @@ class SentryClient:
         file.flush()
 
         file.seek(0)
-        checksum = hashlib.file_digest(file, "sha1").hexdigest()
+        total_checksum = hashlib.file_digest(file, "sha1").hexdigest()
         size = file.tell()
         file.seek(0)
 
@@ -308,12 +308,12 @@ class SentryClient:
                 break
             chunks.append(hashlib.sha1(chunk_bytes).hexdigest())
         file.seek(0)
-        logger.info(f"File prepared: SHA1={checksum} size={size} chunks={len(chunks)}")
+        logger.info(f"File prepared: SHA1={total_checksum} size={size} chunks={len(chunks)}")
 
         for attempt in range(max_retries + 1):
             logger.debug(f"Assembly attempt {attempt}/{max_retries + 1}")
             data = {
-                "checksum": checksum,
+                "checksum": total_checksum,
                 "chunks": chunks,
                 "assemble_type": assemble_type,
             }
@@ -330,8 +330,8 @@ class SentryClient:
             if result.state in ["ok", "created"]:
                 return
 
-            for index, checksum in enumerate(chunks):
-                if checksum in result.missing_chunks:
+            for index, chunk_checksum in enumerate(chunks):
+                if chunk_checksum in result.missing_chunks:
                     file.seek(chunk_size * index)
                     chunk_data = read_exactly(file, chunk_size)
                     self.upload_chunk(org, chunk_data)

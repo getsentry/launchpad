@@ -7,7 +7,7 @@ import pytest
 import responses
 
 from requests.exceptions import ConnectionError
-from responses.matchers import multipart_matcher
+from responses.matchers import json_params_matcher, multipart_matcher
 
 from launchpad.sentry_client import (
     RETRY_ATTEMPTS,
@@ -195,14 +195,25 @@ class TestSentryClientRetry:
     def test_upload_installable_app_multiple_chunks(self):
         first_chunk = b"A" * 8 * 1024 * 1024
         second_chunk = b"B"
+        data = first_chunk + second_chunk
+
         first_chunk_sha1 = hashlib.sha1(first_chunk).hexdigest()
         second_chunk_sha1 = hashlib.sha1(second_chunk).hexdigest()
-        data = first_chunk + second_chunk
+        total_sha1 = hashlib.sha1(data).hexdigest()
 
         mock_chunk_options("some_org")
         responses.add(
             responses.POST,
             "https://example.com/api/0/internal/some_org/some_project/files/preprodartifacts/some_artifact_id/assemble-generic/",
+            match=[
+                json_params_matcher(
+                    {
+                        "checksum": total_sha1,
+                        "chunks": [first_chunk_sha1, second_chunk_sha1],
+                        "assemble_type": "installable_app",
+                    }
+                ),
+            ],
             json={
                 "missingChunks": [first_chunk_sha1, second_chunk_sha1],
                 "state": "not_found",
@@ -211,6 +222,15 @@ class TestSentryClientRetry:
         responses.add(
             responses.POST,
             "https://example.com/api/0/internal/some_org/some_project/files/preprodartifacts/some_artifact_id/assemble-generic/",
+            match=[
+                json_params_matcher(
+                    {
+                        "checksum": total_sha1,
+                        "chunks": [first_chunk_sha1, second_chunk_sha1],
+                        "assemble_type": "installable_app",
+                    }
+                ),
+            ],
             json={
                 "missingChunks": [],
                 "state": "created",
