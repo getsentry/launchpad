@@ -36,3 +36,58 @@ def test_read_leb128(data, expected):
     assert result == expected
     # Cursor should be at the end
     assert buf.cursor == len(data)
+
+
+def test_read_u8(benchmark):
+    buffer = b"\x42"
+    wrapper = BufferWrapper(buffer)
+    assert wrapper.read_u8() == 0x42
+
+
+def test_benchmark_read_u8(benchmark):
+    buffer = b"\x42"
+    wrapper = BufferWrapper(buffer)
+
+    def parse():
+        wrapper.seek(0)
+        return wrapper.read_u8()
+
+    final = benchmark(parse)
+    assert final == 0x42
+
+
+def test_benchmark_read_u32(benchmark):
+    buffer = b"\x01\x02\x04\x08"
+    wrapper = BufferWrapper(buffer)
+
+    def parse():
+        wrapper.seek(0)
+        return wrapper.read_u32()
+
+    final = benchmark(parse)
+    assert final == (0x01) + (0x02 << 8) + (0x04 << 16) + (0x08 << 24)
+
+
+def test_benchmark_read_uleb128(benchmark):
+    pairs = [
+        (b"\x00", 0),
+        (b"\x01", 1),
+        (b"\xe5\x8e\x26", 624485),
+        (b"\xff\x00", 127),
+        (b"\x80\x01", 128),
+        (b"\xff\xff\xff\xff\x07", 2147483647),
+    ]
+
+    buffer = b"".join([buf for buf, _ in pairs])
+    expected_total = sum([value for _, value in pairs])
+    wrapper = BufferWrapper(buffer)
+
+    def parse():
+        wrapper.seek(0)
+        total = 0
+        for _ in range(len(pairs)):
+            total += wrapper.read_uleb128()
+        return total
+
+    final = benchmark(parse)
+    assert final == expected_total

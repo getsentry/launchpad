@@ -106,9 +106,10 @@ class DexClassParser:
             size += 16  # 4 * 4 bytes (uint) for fields in directory
 
             annotations = annotations_directory.class_annotations
-            if annotations.__len__() > 0:
+            annotations_length = len(annotations)
+            if annotations_length > 0:
                 # 4 bytes (uint) for size + 4 bytes (uint) per annotation
-                size += 4 + annotations.__len__() * 4
+                size += 4 + annotations_length * 4
 
         # Class data item overhead
         # actual class data size is calculated with methods & fields below
