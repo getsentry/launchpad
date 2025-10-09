@@ -35,10 +35,7 @@ class DatadogMetricsBackend(Metrics):
 
     def timing(self, name: MetricName, value: Union[int, float], tags: Optional[Tags] = None) -> None:
         """Records a timing metric."""
-        # DataDog StatsD expects timing values in milliseconds but
-        # Arroyo uses seconds Python style.
-        # https://github.com/getsentry/arroyo/blob/a8f1bee346acfd6704625065c80674c2bf3bffd3/arroyo/processing/strategies/commit.py#L31
-        self._statsd.timing(name, value * 1000, tags=self._format_tags(tags))
+        self._statsd.timing(name, value, tags=self._format_tags(tags))
 
     def _format_tags(self, tags: Optional[Tags]) -> Optional[list[str]]:
         """Convert Arroyo tags format to DataDog tags format, merging with constant tags."""
