@@ -24,7 +24,7 @@ from aiohttp.web import (
 )
 
 from .utils.logging import get_logger
-from .utils.statsd import OK, NullStatsd, StatsdInterface
+from .utils.statsd import CRITICAL, OK, NullStatsd, StatsdInterface
 
 logger = get_logger(__name__)
 
@@ -122,15 +122,15 @@ class LaunchpadServer:
         return True
 
     def health_check(self, request: Request) -> Response:
-        # is_healthy = self.health_check_callback()
-        # if is_healthy:
-        json_status = "ok"
-        statsd_status = OK
-        http_status = 200
-        # else:
-        #     json_status = "error"
-        #     statsd_status = CRITICAL
-        #     http_status = 500
+        is_healthy = self.health_check_callback()
+        if is_healthy:
+            json_status = "ok"
+            statsd_status = OK
+            http_status = 200
+        else:
+            json_status = "error"
+            statsd_status = CRITICAL
+            http_status = 500
 
         sentry_region = self.config.sentry_region
 
