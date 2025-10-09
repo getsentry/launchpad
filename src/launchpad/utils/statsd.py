@@ -140,8 +140,8 @@ class DogStatsdWrapper(StatsdInterface):
 _namespace_to_statsd: dict[str, StatsdInterface] = {}
 
 
-def get_statsd(custom_namespace: Literal[None, "sentry.consumer"] = None) -> StatsdInterface:
-    namespace = custom_namespace or "launchpad"
+def get_statsd(namespace_suffix: Literal[None, "consumer"] = None) -> StatsdInterface:
+    namespace = f"launchpad.{namespace_suffix}" if namespace_suffix else "launchpad"
 
     if namespace in _namespace_to_statsd:
         return _namespace_to_statsd[namespace]

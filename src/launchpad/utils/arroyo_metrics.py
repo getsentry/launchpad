@@ -17,7 +17,7 @@ class DatadogMetricsBackend(Metrics):
     """
 
     def __init__(self, group_id: str) -> None:
-        self._statsd = get_statsd("sentry.consumer")
+        self._statsd = get_statsd("consumer")
         self._constant_tags = {"consumer_group": group_id}
 
     def increment(
