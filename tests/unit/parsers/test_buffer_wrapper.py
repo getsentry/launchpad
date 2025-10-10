@@ -38,7 +38,7 @@ def test_read_leb128(data, expected):
     assert buf.cursor == len(data)
 
 
-def test_read_u8(benchmark):
+def test_read_u8():
     buffer = b"\x42"
     wrapper = BufferWrapper(buffer)
     assert wrapper.read_u8() == 0x42
