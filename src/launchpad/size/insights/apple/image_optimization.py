@@ -79,9 +79,8 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                     result = future.result()
                     if result and result.potential_savings >= self.MIN_SAVINGS_THRESHOLD:
                         results.append(result)
-                except Exception as exc:  # pragma: no cover
-                    file_info = future_to_file[future]
-                    logger.error("Failed to analyse %s: %s", file_info.path, exc)
+                except Exception:  # pragma: no cover
+                    logger.exception("Failed to analyze image in thread pool")
 
         if not results:
             return None
@@ -138,8 +137,8 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                     conversion_savings=total_conversion,
                     heic_size=heic_size,
                 )
-        except Exception as exc:
-            logger.error("Failed to process %s: %s", file_info.path, exc)
+        except Exception:
+            logger.exception("Failed to open or process image file")
             return None
 
     def _check_minification(self, img: Image.Image, file_size: int, fmt: str) -> _OptimizationResult | None:
@@ -156,8 +155,8 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                         img.save(buf, format="JPEG", quality=self.TARGET_JPEG_QUALITY, **save_params)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
-        except Exception as exc:
-            logger.error("Minification check failed: %s", exc)
+        except Exception:
+            logger.exception("Image minification optimization failed")
             return None
 
     def _check_heic_conversion(self, img: Image.Image, file_size: int) -> _OptimizationResult | None:
@@ -166,8 +165,8 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                 img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
-        except Exception as exc:
-            logger.error("HEIC conversion check failed: %s", exc)
+        except Exception:
+            logger.exception("Image HEIC conversion optimization failed")
             return None
 
     def _check_heic_minification(self, img: Image.Image, file_size: int) -> _OptimizationResult | None:
@@ -176,8 +175,8 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                 img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
-        except Exception as exc:
-            logger.error("HEIC minification check failed: %s", exc)
+        except Exception:
+            logger.exception("HEIC image minification failed")
             return None
 
 
