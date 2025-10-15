@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import List
 
 import pillow_heif  # type: ignore
 
@@ -47,16 +47,27 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
     _MAX_WORKERS = 4
 
     @abstractmethod
-    def _iter_files_to_analyze(self, input: InsightsInput) -> Iterable[FileInfo]:
-        """Return files to analyze. Must be implemented by subclasses."""
+    def _find_images(self, input: InsightsInput) -> List[FileInfo]:
+        """Find and return list of images to analyze. Should include deduplication if needed."""
         pass
 
-    def _deduplicate_results(self, results: List[OptimizableImageFile]) -> List[OptimizableImageFile]:
-        """Deduplicate and sort results. Can be overridden by subclasses."""
-        return results
+    def _preprocess_image(self, img: Image.Image, file_info: FileInfo) -> tuple[Image.Image, int, int]:
+        """Preprocess image before optimization analysis.
+
+        Args:
+            img: The loaded PIL Image
+            file_info: File metadata
+
+        Returns:
+            Tuple of (processed_image, baseline_size, baseline_savings):
+            - processed_image: The image to analyze for optimization
+            - baseline_size: Size of the processed image before optimization
+            - baseline_savings: Savings from preprocessing alone (original - baseline)
+        """
+        return img, file_info.size, 0
 
     def generate(self, input: InsightsInput) -> ImageOptimizationInsightResult | None:  # noqa: D401
-        files = list(self._iter_files_to_analyze(input))
+        files = self._find_images(input)
         if not files:
             return None
 
@@ -75,7 +86,6 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
         if not results:
             return None
 
-        results = self._deduplicate_results(results)
         results.sort(key=lambda x: x.potential_savings, reverse=True)
         total_savings = sum(f.potential_savings for f in results)
 
@@ -88,48 +98,49 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
         self,
         file_info: FileInfo,
     ) -> OptimizableImageFile | None:
-        minify_savings = 0
-        conversion_savings = 0
-        minified_size: int | None = None
-        heic_size: int | None = None
-
-        full_path = file_info.full_path
-        file_size = file_info.size
-        file_type = file_info.file_type
-        display_path = file_info.path
-
-        if full_path is None:
-            logger.info("Skipping %s because it has no full path", display_path)
+        if file_info.full_path is None:
+            logger.info("Skipping %s because it has no full path", file_info.path)
             return None
 
         try:
-            with Image.open(full_path) as img:
+            with Image.open(file_info.full_path) as img:
                 img.load()  # type: ignore
-                fmt = (img.format or file_type).lower()
+
+                processed_img, baseline_size, baseline_savings = self._preprocess_image(img, file_info)
+
+                minify_savings = 0
+                conversion_savings = 0
+                minified_size: int | None = None
+                heic_size: int | None = None
+
+                fmt = (processed_img.format or file_info.file_type).lower()
 
                 if fmt in {"png", "jpg", "jpeg"}:
-                    if res := self._check_minification(img, file_size, fmt):
+                    if res := self._check_minification(processed_img, baseline_size, fmt):
                         minify_savings, minified_size = res.savings, res.optimized_size
-                    if res := self._check_heic_conversion(img, file_size):
+                    if res := self._check_heic_conversion(processed_img, baseline_size):
                         conversion_savings, heic_size = res.savings, res.optimized_size
                 elif fmt in {"heif", "heic"}:
-                    if res := self._check_heic_minification(img, file_size):
+                    if res := self._check_heic_minification(processed_img, baseline_size):
                         minify_savings, minified_size = res.savings, res.optimized_size
+
+                total_minify = baseline_savings + minify_savings
+                total_conversion = baseline_savings + conversion_savings
+
+                if max(total_minify, total_conversion) < self.MIN_SAVINGS_THRESHOLD:
+                    return None
+
+                return OptimizableImageFile(
+                    file_path=file_info.path,
+                    current_size=file_info.size,
+                    minify_savings=total_minify,
+                    minified_size=minified_size,
+                    conversion_savings=total_conversion,
+                    heic_size=heic_size,
+                )
         except Exception as exc:
-            logger.error("Failed to process %s: %s", display_path, exc)
+            logger.error("Failed to process %s: %s", file_info.path, exc)
             return None
-
-        if max(minify_savings, conversion_savings) < self.MIN_SAVINGS_THRESHOLD:
-            return None
-
-        return OptimizableImageFile(
-            file_path=display_path,
-            current_size=file_size,
-            minify_savings=minify_savings,
-            minified_size=minified_size,
-            conversion_savings=conversion_savings,
-            heic_size=heic_size,
-        )
 
     def _check_minification(self, img: Image.Image, file_size: int, fmt: str) -> _OptimizationResult | None:
         try:
@@ -173,12 +184,14 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
 class ImageOptimizationInsight(BaseImageOptimizationInsight):
     """Analyse image optimisation opportunities in iOS apps."""
 
-    def _iter_files_to_analyze(self, input: InsightsInput) -> Iterable[FileInfo]:
+    def _find_images(self, input: InsightsInput) -> List[FileInfo]:
+        images: List[FileInfo] = []
         for fi in input.file_analysis.files:
             if fi.file_type == "car":
-                yield from (c for c in fi.children if self._is_optimizable_image_file(c))
+                images.extend(c for c in fi.children if self._is_optimizable_image_file(c))
             elif self._is_optimizable_image_file(fi):
-                yield fi
+                images.append(fi)
+        return images
 
     def _is_optimizable_image_file(self, file_info: FileInfo) -> bool:
         if file_info.file_type.lower() not in self.OPTIMIZABLE_FORMATS:
