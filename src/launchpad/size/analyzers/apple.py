@@ -23,6 +23,7 @@ from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAg
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
+from launchpad.size.insights.apple.alternate_icons_optimization import AlternateIconsOptimizationInsight
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings import LocalizedStringsInsight
 from launchpad.size.insights.apple.localized_strings_minify import MinifyLocalizedStringsInsight
@@ -227,6 +228,9 @@ class AppleAppAnalyzer:
                 unnecessary_files=self._generate_insight_with_tracing(
                     UnnecessaryFilesInsight, insights_input, "unnecessary_files"
                 ),
+                alternate_icons_optimization=self._generate_insight_with_tracing(
+                    AlternateIconsOptimizationInsight, insights_input, "alternate_icons_optimization"
+                ),
                 # TODO: enable audio/video compression insights once we handle ffmpeg
                 # audio_compression=self._generate_insight_with_tracing(
                 #     AudioCompressionInsight, insights_input, "audio_compression"
@@ -293,6 +297,8 @@ class AppleAppAnalyzer:
             is_code_signature_valid = False
             code_signature_errors = [str(e)]
 
+        primary_icon_name, alternate_icon_names = xcarchive.get_icon_info()
+
         return AppleAppInfo(
             name=plist.get("CFBundleName", "Unknown"),
             app_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
@@ -310,6 +316,8 @@ class AppleAppAnalyzer:
             is_code_signature_valid=is_code_signature_valid,
             code_signature_errors=code_signature_errors,
             main_binary_uuid=xcarchive.get_main_binary_uuid(),
+            primary_icon_name=primary_icon_name,
+            alternate_icon_names=alternate_icon_names,
         )
 
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:

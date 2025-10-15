@@ -3,10 +3,11 @@ from __future__ import annotations
 import io
 import logging
 
+from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Iterable, List
 
 import pillow_heif  # type: ignore
 
@@ -36,8 +37,8 @@ class _OptimizationResult:
     optimized_size: int
 
 
-class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
-    """Analyse image optimisation opportunities in iOS apps."""
+class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC):
+    """Base class for image optimization insights with shared analysis logic."""
 
     OPTIMIZABLE_FORMATS = {"png", "jpg", "jpeg", "heif", "heic"}
     MIN_SAVINGS_THRESHOLD = 4096
@@ -45,8 +46,17 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
     TARGET_HEIC_QUALITY = 85
     _MAX_WORKERS = 4
 
+    @abstractmethod
+    def _iter_files_to_analyze(self, input: InsightsInput) -> Iterable[FileInfo]:
+        """Return files to analyze. Must be implemented by subclasses."""
+        pass
+
+    def _deduplicate_results(self, results: List[OptimizableImageFile]) -> List[OptimizableImageFile]:
+        """Deduplicate and sort results. Can be overridden by subclasses."""
+        return results
+
     def generate(self, input: InsightsInput) -> ImageOptimizationInsightResult | None:  # noqa: D401
-        files = list(self._iter_optimizable_files(input.file_analysis.files))
+        files = list(self._iter_files_to_analyze(input))
         if not files:
             return None
 
@@ -65,6 +75,7 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
         if not results:
             return None
 
+        results = self._deduplicate_results(results)
         results.sort(key=lambda x: x.potential_savings, reverse=True)
         total_savings = sum(f.potential_savings for f in results)
 
@@ -158,8 +169,12 @@ class ImageOptimizationInsight(Insight[ImageOptimizationInsightResult]):
             logger.error("HEIC minification check failed: %s", exc)
             return None
 
-    def _iter_optimizable_files(self, files: Sequence[FileInfo]) -> Iterable[FileInfo]:
-        for fi in files:
+
+class ImageOptimizationInsight(BaseImageOptimizationInsight):
+    """Analyse image optimisation opportunities in iOS apps."""
+
+    def _iter_files_to_analyze(self, input: InsightsInput) -> Iterable[FileInfo]:
+        for fi in input.file_analysis.files:
             if fi.file_type == "car":
                 yield from (c for c in fi.children if self._is_optimizable_image_file(c))
             elif self._is_optimizable_image_file(fi):

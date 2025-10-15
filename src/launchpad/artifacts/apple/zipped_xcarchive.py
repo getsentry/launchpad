@@ -68,6 +68,32 @@ class ZippedXCArchive(AppleArtifact):
         except Exception as e:
             raise RuntimeError("Failed to parse Info.plist") from e
 
+    def get_icon_info(self) -> tuple[str | None, list[str]]:
+        """Extract primary and alternate icon names from Info.plist.
+
+        Returns:
+            Tuple of (primary_icon_name, alternate_icon_names list)
+        """
+        plist = self.get_plist()
+        bundle_icons = plist.get("CFBundleIcons", {})
+
+        primary_icon_name: str | None = None
+        alternate_icon_names: list[str] = []
+
+        primary_icon = bundle_icons.get("CFBundlePrimaryIcon", {})
+        if isinstance(primary_icon, dict):
+            primary_icon_name = primary_icon.get("CFBundleIconName")
+
+        alternate_icons = bundle_icons.get("CFBundleAlternateIcons", {})
+        if isinstance(alternate_icons, dict):
+            for icon_key, icon_data in alternate_icons.items():
+                if isinstance(icon_data, dict):
+                    icon_name = icon_data.get("CFBundleIconName")
+                    if icon_name:
+                        alternate_icon_names.append(icon_name)
+
+        return primary_icon_name, alternate_icon_names
+
     def generate_ipa(self, output_path: Path):
         """Generate an IPA file
 

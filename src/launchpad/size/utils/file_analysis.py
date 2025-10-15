@@ -274,12 +274,13 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
         else:
             file_hash = element.image_id
 
+        file_type = Path(element.full_path or element.name).suffix.lstrip(".") or "other"
         result.append(
             FileInfo(
                 full_path=element.full_path,
                 path=str(relative_path / element.name),
                 size=element.size,
-                file_type=(Path(element.full_path).suffix.lstrip(".") if element.full_path else "other"),
+                file_type=file_type,
                 hash=file_hash,
                 treemap_type=TreemapType.ASSETS,
                 is_dir=False,

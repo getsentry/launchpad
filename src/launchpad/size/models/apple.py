@@ -70,6 +70,10 @@ class AppleAppInfo(BaseAppInfo):
         default_factory=list, description="List of code signature validation errors"
     )
     main_binary_uuid: str | None = Field(None, description="UUID of the main binary")
+    primary_icon_name: str | None = Field(None, description="Primary app icon name from Info.plist")
+    alternate_icon_names: List[str] = Field(
+        default_factory=list, description="Alternate app icon names from Info.plist"
+    )
 
 
 @dataclass
@@ -160,6 +164,9 @@ class AppleInsightResults(BaseModel):
     unnecessary_files: UnnecessaryFilesInsightResult | None = Field(None, description="Unnecessary files analysis")
     audio_compression: AudioCompressionInsightResult | None = Field(None, description="Audio compression analysis")
     video_compression: VideoCompressionInsightResult | None = Field(None, description="Video compression analysis")
+    alternate_icons_optimization: ImageOptimizationInsightResult | None = Field(
+        None, description="Alternate app icons optimization analysis"
+    )
 
 
 @dataclass
