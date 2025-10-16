@@ -46,7 +46,7 @@ class AppleAppInfo(BaseModel):
     main_binary_uuid: Optional[str] = None
     profile_expiration_date: Optional[str] = None
     certificate_expiration_date: Optional[str] = None
-    # TODO: add "date_built" field once exposed in 'AppleAppInfo'
+    # TODO(EME-423): add "date_built" field once exposed in 'AppleAppInfo'
 
 
 class UpdateData(BaseModel):
@@ -63,4 +63,4 @@ class UpdateData(BaseModel):
         """Serialize datetime objects to ISO format strings for JSON compatibility."""
         return dt.isoformat() if dt is not None else None
 
-    # TODO: add "date_built" and custom android fields
+    # TODO(EME-423): add "date_built" and custom android fields

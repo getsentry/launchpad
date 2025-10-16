@@ -39,7 +39,6 @@ class TreemapBuilder:
         filesystem_block_size: int | None = None,
         # Optional presentation tweak: collapse one-child directory chains (off by default)
         compress_paths: bool = False,
-        # TODO: Move iOS-specific logic out of constructor
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
         hermes_reports: Dict[str, HermesReport] | None = None,

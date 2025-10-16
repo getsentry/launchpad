@@ -50,7 +50,7 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
         total_savings = 0
 
         for file_info in input.file_analysis.files:
-            # TODO: look into InfoPlist.strings
+            # TODO(EME-431): look into InfoPlist.strings
             if not file_info.path.endswith(".strings") or file_info.path.endswith("InfoPlist.strings"):
                 continue
 

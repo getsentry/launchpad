@@ -125,8 +125,7 @@ class MachOBinaryAnalysis:
     segments: List[SegmentInfo]
     load_commands: List[LoadCommandInfo]
     swift_metadata: SwiftMetadata | None = None
-    # TODO(telkins): try to remove the lief types from this model
-    # it's only working by coincidence right now
+    # TODO(EME-432): remove lief types from this model so it's safe to use after the binary is closed
     symbol_info: SymbolInfo | None = None
     header_size: int = 0
     dyld_info: DyldInfo | None = None

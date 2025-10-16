@@ -1,11 +1,5 @@
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
-from launchpad.parsers.android.dex.types import (
-    AccessFlag,
-    Annotation,
-    DexFileHeader,
-    Method,
-    Prototype,
-)
+from launchpad.parsers.android.dex.types import AccessFlag, Annotation, DexFileHeader, Method, Prototype
 from launchpad.parsers.buffer_wrapper import BufferWrapper
 
 
@@ -59,7 +53,7 @@ class DexMethodParser:
             prototype=self._prototype,
             access_flags=self._access_flags,
             annotations=self._annotations,
-            parameters=[],  # TODO: Implement when needed in future
+            parameters=[],  # TODO(EME-424): Implement when needed in future
         )
 
     def get_size(self) -> int:

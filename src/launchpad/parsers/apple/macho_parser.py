@@ -72,7 +72,7 @@ class MachOParser:
         # Mach-O header is typically at the beginning
         # Size varies by architecture but 32 bytes is common for 64-bit
         header_size = 32
-        # TODO: implement proper header size, seems hard to do with LIEF
+        # TODO(EME-425): implement proper header size, seems hard to do with LIEF
         return header_size
 
     @sentry_sdk.trace
@@ -290,7 +290,7 @@ class MachOParser:
             if sym:
                 symbols.append(sym)
             else:
-                # TODO: there are some addresses that are not in the symbols list
+                # TODO(EME-426): there are some addresses that are not in the symbols list
                 # but are present in the FUNCTION_STARTS section. for now we can just
                 # add a placeholder symbol name.
                 symbols.append(f"__mod_init_func_{count}")

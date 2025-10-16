@@ -186,5 +186,5 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
 def _get_extra_code_signature_size(bundle_url: Path) -> int:
     """Calculate additional space needed for code signature."""
 
-    # TODO: Implement actual code signature size calculation
+    # TODO(EME-433): Implement actual code signature size calculation
     return 0

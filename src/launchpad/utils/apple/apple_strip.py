@@ -43,7 +43,7 @@ class AppleStrip:
         return result
 
     def _get_strip_path(self) -> str:
-        # TODO: eventually remove this and wire this up to our deps tool
+        # TODO(EME-434): eventually remove this and wire this up to our deps tool
         system = platform.system()
 
         if system == "Darwin":

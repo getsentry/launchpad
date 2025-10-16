@@ -252,7 +252,7 @@ class ArtifactProcessor:
             with apk.raw_file() as f:
                 self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         else:
-            # TODO: Should call _update_artifact_error here once we
+            # TODO(EME-422): Should call _update_artifact_error here once we
             # support setting errors just for build.
             logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id} (project: {project_id}, org: {organization_id})")
 
@@ -429,7 +429,7 @@ class ArtifactProcessor:
 
         apple_app_info = None
         if isinstance(app_info, AppleAppInfo):
-            # TODO: add "date_built" field once exposed in 'AppleAppInfo'
+            # TODO(EME-423): add "date_built" field once exposed in 'AppleAppInfo'
             apple_app_info = AppleAppInfoModel(
                 is_simulator=app_info.is_simulator,
                 codesigning_type=app_info.codesigning_type,
@@ -440,7 +440,7 @@ class ArtifactProcessor:
                 profile_expiration_date=app_info.profile_expiration_date,
                 certificate_expiration_date=app_info.certificate_expiration_date,
             )
-        # TODO: add "date_built" and custom android fields
+        # TODO(EME-423): add "date_built" and custom android fields
 
         update_data = UpdateData(
             app_name=app_info.name,

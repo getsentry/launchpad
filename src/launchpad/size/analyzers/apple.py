@@ -231,7 +231,7 @@ class AppleAppAnalyzer:
                 alternate_icons_optimization=self._generate_insight_with_tracing(
                     AlternateIconsOptimizationInsight, insights_input, "alternate_icons_optimization"
                 ),
-                # TODO: enable audio/video compression insights once we handle ffmpeg
+                # TODO(EME-427): enable audio/video compression insights once we handle ffmpeg
                 # audio_compression=self._generate_insight_with_tracing(
                 #     AudioCompressionInsight, insights_input, "audio_compression"
                 # ),
@@ -349,7 +349,7 @@ class AppleAppAnalyzer:
             # Check certificate type
             developer_certs = profile_data.get("DeveloperCertificates", [])
             if developer_certs:
-                # TODO: Parse DER certificate to check if it's a development certificate
+                # TODO(EME-428): Parse DER certificate to check if it's a development certificate
                 # For now, default to development if we have a certificate
                 return "development", profile_name
 
