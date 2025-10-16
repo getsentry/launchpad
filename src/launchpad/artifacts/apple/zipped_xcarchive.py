@@ -341,11 +341,11 @@ class ZippedXCArchive(AppleArtifact):
         is_vector = item.get("vector", False)
         filename = item.get("filename", "")
 
-        full_path = (
-            parent_path / f"{image_id}.png"
-            if filename and Path(filename).suffix.lower() in {".png", ".jpg", ".jpeg", ".heic", ".heif"}
-            else None
-        )
+        if filename and Path(filename).suffix.lower() in {".png", ".jpg", ".jpeg", ".heic", ".heif"}:
+            potential_path = parent_path / f"{image_id}.png"
+            full_path = potential_path if potential_path.exists() else None
+        else:
+            full_path = None
 
         return AssetCatalogElement(
             name=name,

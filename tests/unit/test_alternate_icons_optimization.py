@@ -129,7 +129,7 @@ class TestAlternateIconsOptimizationInsight:
                         # Primary icon - should be excluded
                         FileInfo(
                             full_path=primary_icon_path,
-                            path="Assets.car/AppIcon-60@2x",
+                            path="Assets.car/AppIcon.png",
                             size=primary_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -139,7 +139,7 @@ class TestAlternateIconsOptimizationInsight:
                         # Alternate icons - should be included
                         FileInfo(
                             full_path=alt_icon1_path,
-                            path="Assets.car/DarkIcon-60@2x",
+                            path="Assets.car/DarkIcon.png",
                             size=alt_icon1_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -148,7 +148,7 @@ class TestAlternateIconsOptimizationInsight:
                         ),
                         FileInfo(
                             full_path=alt_icon2_path,
-                            path="Assets.car/LightIcon-60@2x",
+                            path="Assets.car/LightIcon.png",
                             size=alt_icon2_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -215,7 +215,7 @@ class TestAlternateIconsOptimizationInsight:
                     children=[
                         FileInfo(
                             full_path=primary_icon_path,
-                            path="Assets.car/PrimaryIcon-60@2x",
+                            path="Assets.car/PrimaryIcon.png",
                             size=primary_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -224,7 +224,7 @@ class TestAlternateIconsOptimizationInsight:
                         ),
                         FileInfo(
                             full_path=alt_icon_path,
-                            path="Assets.car/AlternateIcon-60@2x",
+                            path="Assets.car/AlternateIcon.png",
                             size=alt_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -321,7 +321,7 @@ class TestAlternateIconsOptimizationInsight:
                     children=[
                         FileInfo(
                             full_path=small_icon_path,
-                            path="Assets.car/TinyIcon-16",
+                            path="Assets.car/TinyIcon.png",
                             size=small_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -376,30 +376,20 @@ class TestAlternateIconsOptimizationInsight:
                     hash="hash_car",
                     is_dir=False,
                     children=[
-                        # Should match - starts with CustomIcon
+                        # Should match - CustomIcon
                         FileInfo(
                             full_path=icon1_path,
-                            path="Assets.car/CustomIcon-60",
+                            path="Assets.car/CustomIcon.png",
                             size=icon1_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
                             hash="hash1",
                             is_dir=False,
                         ),
-                        # Should match - starts with CustomIcon
-                        FileInfo(
-                            full_path=icon2_path,
-                            path="Assets.car/CustomIcon-60@2x",
-                            size=icon2_path.stat().st_size,
-                            file_type="png",
-                            treemap_type=TreemapType.ASSETS,
-                            hash="hash2",
-                            is_dir=False,
-                        ),
                         # Should not match - different name
                         FileInfo(
                             full_path=icon3_path,
-                            path="Assets.car/OtherIcon-60",
+                            path="Assets.car/OtherIcon.png",
                             size=icon3_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
