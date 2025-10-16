@@ -71,6 +71,7 @@ class AlternateIconsOptimizationInsight(BaseImageOptimizationInsight):
         )
 
     def _is_alternate_icon_file(self, file_info: FileInfo, alternate_icon_names: set[str]) -> bool:
-        return file_info.file_type.lower() in self.OPTIMIZABLE_FORMATS and any(
-            Path(file_info.path).stem.startswith(name) for name in alternate_icon_names
+        return (
+            file_info.file_type.lower() in self.OPTIMIZABLE_FORMATS
+            and Path(file_info.path).stem in alternate_icon_names
         )

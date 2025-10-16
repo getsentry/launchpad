@@ -14,6 +14,7 @@ import pillow_heif  # type: ignore
 from PIL import Image, ImageFile
 
 from launchpad.size.insights.insight import Insight, InsightsInput
+from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.insights import (
     ImageOptimizationInsightResult,
@@ -184,18 +185,42 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
     """Analyse image optimisation opportunities in iOS apps."""
 
     def _find_images(self, input: InsightsInput) -> List[FileInfo]:
+        alternate_icon_names = (
+            set(input.app_info.alternate_icon_names)
+            if isinstance(input.app_info, AppleAppInfo) and input.app_info.alternate_icon_names
+            else set()
+        )
+        primary_icon_name = input.app_info.primary_icon_name if isinstance(input.app_info, AppleAppInfo) else None
+
         images: List[FileInfo] = []
         for fi in input.file_analysis.files:
             if fi.file_type == "car":
-                images.extend(c for c in fi.children if self._is_optimizable_image_file(c))
-            elif self._is_optimizable_image_file(fi):
+                images.extend(
+                    c
+                    for c in fi.children
+                    if self._is_optimizable_image_file(
+                        c, alternate_icon_names, primary_icon_name, from_asset_catalog=True
+                    )
+                )
+            elif self._is_optimizable_image_file(fi, alternate_icon_names, primary_icon_name, from_asset_catalog=False):
                 images.append(fi)
         return images
 
-    def _is_optimizable_image_file(self, file_info: FileInfo) -> bool:
+    def _is_optimizable_image_file(
+        self,
+        file_info: FileInfo,
+        alternate_icon_names: set[str],
+        primary_icon_name: str | None,
+        from_asset_catalog: bool,
+    ) -> bool:
         if file_info.file_type.lower() not in self.OPTIMIZABLE_FORMATS:
             return False
-        name = Path(file_info.path).name
-        if name.startswith(("AppIcon", "iMessage App Icon")):
+
+        if any(part.endswith(".stickerpack") for part in file_info.path.split("/")):
             return False
-        return not any(part.endswith(".stickerpack") for part in file_info.path.split("/"))
+
+        if not from_asset_catalog:
+            return not Path(file_info.path).name.startswith(("AppIcon", "iMessage App Icon"))
+
+        stem = Path(file_info.path).stem
+        return stem != primary_icon_name and stem not in alternate_icon_names

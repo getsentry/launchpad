@@ -137,15 +137,106 @@ class TestImageOptimizationInsightIntegration:
         assert any("large_unoptimized.png" in path for path in optimizable_paths)
         assert any("large_photo.jpg" in path for path in optimizable_paths)
 
-    def test_excludes_app_icons_and_sticker_packs(
+    def test_excludes_loose_app_icons_and_sticker_packs(
         self, insight: ImageOptimizationInsight, insights_input: InsightsInput
     ) -> None:
-        """Test that App Icons and sticker pack images are excluded from optimization."""
+        """Test that loose AppIcon files and sticker pack images are excluded from optimization."""
         result = insight.generate(insights_input)
         assert result is not None
         optimizable_paths = {f.file_path for f in result.optimizable_files}
+        # Loose AppIcon files should be excluded
         assert not any("AppIcon" in path for path in optimizable_paths)
         assert not any("stickerpack" in path for path in optimizable_paths)
+
+    def test_includes_appicon_display_variants_from_asset_catalogs(
+        self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any]
+    ) -> None:
+        """Test that AppIcon display variants inside asset catalogs ARE included."""
+        # Create an asset catalog with an AppIcon display variant
+        car_path = temp_images["temp_dir"] / "Assets.car"
+
+        # Create an alternate icon display variant (should be included)
+        alternate_icon_display = temp_images["temp_dir"] / "AppIconFuzz_display.png"
+        icon_img = Image.new("RGB", (1024, 1024), (255, 0, 0))
+        icon_img.save(alternate_icon_display, format="PNG", optimize=False, compress_level=0)
+
+        # Create an actual alternate icon (should be excluded)
+        actual_icon = temp_images["temp_dir"] / "AppIconFuzz.png"
+        actual_icon_img = Image.new("RGB", (1024, 1024), (0, 255, 0))
+        actual_icon_img.save(actual_icon, format="PNG", optimize=False, compress_level=0)
+
+        # Create a mock asset catalog file entry
+        car_file_info = FileInfo(
+            path="Assets.car",
+            full_path=car_path,
+            size=1024,
+            file_type="car",
+            hash="test_hash",
+            treemap_type=TreemapType.ASSETS,
+            is_dir=False,
+            children=[
+                FileInfo(
+                    path="Assets.car/AppIconFuzz_display/AppIconFuzz_display.png",
+                    full_path=alternate_icon_display,
+                    size=alternate_icon_display.stat().st_size,
+                    file_type="png",
+                    hash=calculate_file_hash(alternate_icon_display),
+                    treemap_type=TreemapType.ASSETS,
+                    is_dir=False,
+                    children=[],
+                ),
+                FileInfo(
+                    path="Assets.car/AppIconFuzz/AppIconFuzz.png",
+                    full_path=actual_icon,
+                    size=actual_icon.stat().st_size,
+                    file_type="png",
+                    hash=calculate_file_hash(actual_icon),
+                    treemap_type=TreemapType.ASSETS,
+                    is_dir=False,
+                    children=[],
+                ),
+            ],
+        )
+
+        file_analysis = FileAnalysis(files=[car_file_info], directories=[])
+
+        test_input = InsightsInput(
+            app_info=AppleAppInfo(
+                name="TestApp",
+                app_id="com.test.app",
+                version="1.0",
+                build="1",
+                executable="TestApp",
+                minimum_os_version="15.0",
+                supported_platforms=["iphoneos"],
+                sdk_version=None,
+                is_simulator=False,
+                codesigning_type=None,
+                profile_name=None,
+                profile_expiration_date=None,
+                certificate_expiration_date=None,
+                main_binary_uuid=None,
+                is_code_signature_valid=True,
+                code_signature_errors=[],
+                primary_icon_name=None,
+                alternate_icon_names=["AppIconFuzz"],  # This is the actual icon
+            ),
+            file_analysis=file_analysis,
+            binary_analysis=[],
+            treemap=None,
+            hermes_reports={},
+        )
+
+        result = insight.generate(test_input)
+        assert result is not None
+        assert len(result.optimizable_files) > 0
+
+        # The display variant should be included, but not the actual icon
+        optimizable_paths = {f.file_path for f in result.optimizable_files}
+        assert any("AppIconFuzz_display" in path for path in optimizable_paths), "Display variant should be included"
+        assert not any(path.endswith("AppIconFuzz/AppIconFuzz.png") for path in optimizable_paths), (
+            "Actual icon should be excluded"
+        )
 
     def test_respects_minimum_savings_threshold(
         self, insight: ImageOptimizationInsight, insights_input: InsightsInput
