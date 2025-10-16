@@ -112,7 +112,7 @@ class TestAlternateIconsOptimizationInsight:
                 executable="TestApp",
                 minimum_os_version="14.0",
                 primary_icon_name="AppIcon",
-                alternate_icon_names=["DarkIcon", "LightIcon"],
+                alternate_icon_names=["DarkIcon-60@2x", "LightIcon-60@2x"],
             )
 
             # Simulate asset catalog with primary and alternate icons
@@ -129,7 +129,7 @@ class TestAlternateIconsOptimizationInsight:
                         # Primary icon - should be excluded
                         FileInfo(
                             full_path=primary_icon_path,
-                            path="Assets.car/AppIcon.png",
+                            path="Assets.car/AppIcon-60@2x.png",
                             size=primary_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -139,7 +139,7 @@ class TestAlternateIconsOptimizationInsight:
                         # Alternate icons - should be included
                         FileInfo(
                             full_path=alt_icon1_path,
-                            path="Assets.car/DarkIcon.png",
+                            path="Assets.car/DarkIcon-60@2x.png",
                             size=alt_icon1_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -148,7 +148,7 @@ class TestAlternateIconsOptimizationInsight:
                         ),
                         FileInfo(
                             full_path=alt_icon2_path,
-                            path="Assets.car/LightIcon.png",
+                            path="Assets.car/LightIcon-60@2x.png",
                             size=alt_icon2_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -176,9 +176,9 @@ class TestAlternateIconsOptimizationInsight:
 
             # Verify correct icons are included
             paths = [f.file_path for f in result.optimizable_files]
-            assert any("DarkIcon" in p for p in paths)
-            assert any("LightIcon" in p for p in paths)
-            assert not any("AppIcon" in p for p in paths)
+            assert any("DarkIcon-60@2x" in p for p in paths)
+            assert any("LightIcon-60@2x" in p for p in paths)
+            assert not any("PrimaryIcon-60@2x" in p for p in paths)
 
         finally:
             # Clean up test files
@@ -199,8 +199,8 @@ class TestAlternateIconsOptimizationInsight:
                 app_id="com.test.app",
                 executable="TestApp",
                 minimum_os_version="14.0",
-                primary_icon_name="PrimaryIcon",
-                alternate_icon_names=["AlternateIcon"],
+                primary_icon_name="PrimaryIcon-60@2x",
+                alternate_icon_names=["AlternateIcon-60@2x"],
             )
 
             files = [
@@ -215,7 +215,7 @@ class TestAlternateIconsOptimizationInsight:
                     children=[
                         FileInfo(
                             full_path=primary_icon_path,
-                            path="Assets.car/PrimaryIcon.png",
+                            path="Assets.car/PrimaryIcon-60@2x.png",
                             size=primary_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -224,7 +224,7 @@ class TestAlternateIconsOptimizationInsight:
                         ),
                         FileInfo(
                             full_path=alt_icon_path,
-                            path="Assets.car/AlternateIcon.png",
+                            path="Assets.car/AlternateIcon-60@2x.png",
                             size=alt_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -306,7 +306,7 @@ class TestAlternateIconsOptimizationInsight:
                 executable="TestApp",
                 minimum_os_version="14.0",
                 primary_icon_name="AppIcon",
-                alternate_icon_names=["TinyIcon"],
+                alternate_icon_names=["TinyIcon-16"],
             )
 
             files = [
@@ -321,7 +321,7 @@ class TestAlternateIconsOptimizationInsight:
                     children=[
                         FileInfo(
                             full_path=small_icon_path,
-                            path="Assets.car/TinyIcon.png",
+                            path="Assets.car/TinyIcon-16.png",
                             size=small_icon_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -363,7 +363,7 @@ class TestAlternateIconsOptimizationInsight:
                 executable="TestApp",
                 minimum_os_version="14.0",
                 primary_icon_name="AppIcon",
-                alternate_icon_names=["CustomIcon"],
+                alternate_icon_names=["CustomIcon-60"],
             )
 
             files = [
@@ -379,7 +379,7 @@ class TestAlternateIconsOptimizationInsight:
                         # Should match - CustomIcon
                         FileInfo(
                             full_path=icon1_path,
-                            path="Assets.car/CustomIcon.png",
+                            path="Assets.car/CustomIcon-60.png",
                             size=icon1_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,
@@ -389,7 +389,7 @@ class TestAlternateIconsOptimizationInsight:
                         # Should not match - different name
                         FileInfo(
                             full_path=icon3_path,
-                            path="Assets.car/OtherIcon.png",
+                            path="Assets.car/OtherIcon-60.png",
                             size=icon3_path.stat().st_size,
                             file_type="png",
                             treemap_type=TreemapType.ASSETS,

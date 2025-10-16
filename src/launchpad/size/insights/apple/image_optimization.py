@@ -185,12 +185,11 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
     """Analyse image optimisation opportunities in iOS apps."""
 
     def _find_images(self, input: InsightsInput) -> List[FileInfo]:
+        app_info = input.app_info if isinstance(input.app_info, AppleAppInfo) else None
         alternate_icon_names = (
-            set(input.app_info.alternate_icon_names)
-            if isinstance(input.app_info, AppleAppInfo) and input.app_info.alternate_icon_names
-            else set()
+            set(app_info.alternate_icon_names) if app_info and app_info.alternate_icon_names else set()
         )
-        primary_icon_name = input.app_info.primary_icon_name if isinstance(input.app_info, AppleAppInfo) else None
+        primary_icon_name = app_info.primary_icon_name if app_info else None
 
         images: List[FileInfo] = []
         for fi in input.file_analysis.files:
@@ -198,11 +197,9 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
                 images.extend(
                     c
                     for c in fi.children
-                    if self._is_optimizable_image_file(
-                        c, alternate_icon_names, primary_icon_name, from_asset_catalog=True
-                    )
+                    if self._is_optimizable_image_file(c, alternate_icon_names, primary_icon_name)
                 )
-            elif self._is_optimizable_image_file(fi, alternate_icon_names, primary_icon_name, from_asset_catalog=False):
+            elif self._is_optimizable_image_file(fi, alternate_icon_names, primary_icon_name):
                 images.append(fi)
         return images
 
@@ -211,7 +208,6 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
         file_info: FileInfo,
         alternate_icon_names: set[str],
         primary_icon_name: str | None,
-        from_asset_catalog: bool,
     ) -> bool:
         if file_info.file_type.lower() not in self.OPTIMIZABLE_FORMATS:
             return False
@@ -219,8 +215,9 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
         if any(part.endswith(".stickerpack") for part in file_info.path.split("/")):
             return False
 
-        if not from_asset_catalog:
-            return not Path(file_info.path).name.startswith(("AppIcon", "iMessage App Icon"))
+        # We can't guarantee that iMessage app's will have their icons specified in the Info.plist, so be conservative here
+        if Path(file_info.path).name.startswith("iMessage App Icon"):
+            return False
 
         stem = Path(file_info.path).stem
         return stem != primary_icon_name and stem not in alternate_icon_names
