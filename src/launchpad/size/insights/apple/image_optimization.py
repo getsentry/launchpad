@@ -197,9 +197,11 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
                 images.extend(
                     c
                     for c in fi.children
-                    if self._is_optimizable_image_file(c, alternate_icon_names, primary_icon_name)
+                    if self._is_optimizable_image_file(
+                        c, alternate_icon_names, primary_icon_name, from_asset_catalog=True
+                    )
                 )
-            elif self._is_optimizable_image_file(fi, alternate_icon_names, primary_icon_name):
+            elif self._is_optimizable_image_file(fi, alternate_icon_names, primary_icon_name, from_asset_catalog=False):
                 images.append(fi)
         return images
 
@@ -208,6 +210,7 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
         file_info: FileInfo,
         alternate_icon_names: set[str],
         primary_icon_name: str | None,
+        from_asset_catalog: bool,
     ) -> bool:
         if file_info.file_type.lower() not in self.OPTIMIZABLE_FORMATS:
             return False
@@ -216,8 +219,8 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
             return False
 
         # We can't guarantee that iMessage app's will have their icons specified in the Info.plist, so be conservative here
-        if Path(file_info.path).name.startswith("iMessage App Icon"):
-            return False
+        if not from_asset_catalog:
+            return not Path(file_info.path).name.startswith(("AppIcon", "iMessage App Icon"))
 
         stem = Path(file_info.path).stem
         return stem != primary_icon_name and stem not in alternate_icon_names
