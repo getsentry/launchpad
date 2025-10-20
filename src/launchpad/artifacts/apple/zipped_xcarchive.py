@@ -341,9 +341,13 @@ class ZippedXCArchive(AppleArtifact):
         is_vector = item.get("vector", False)
         filename = item.get("filename", "")
 
-        if filename and Path(filename).suffix.lower() in {".png", ".jpg", ".jpeg", ".heic", ".heif"}:
-            potential_path = parent_path / f"{image_id}.png"
-            full_path = potential_path if potential_path.exists() else None
+        file_extension = Path(filename).suffix.lower()
+        if filename and file_extension in {".png", ".jpg", ".jpeg", ".heic", ".heif"}:
+            potential_path = parent_path / f"{image_id}{file_extension}"
+            if potential_path.exists():
+                full_path = potential_path
+            else:
+                full_path = None
         else:
             full_path = None
 
