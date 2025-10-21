@@ -32,11 +32,21 @@ class AssetCatalogElement:
 
 
 @dataclass
+class DsymInfo:
+    """Information about a dSYM bundle for a binary."""
+
+    dwarf_file: Path
+    dsym_bundle: Path
+    relocations_file: Path | None = None
+
+
+@dataclass
 class BinaryInfo:
     name: str
     path: Path
     dsym_path: Path | None
     is_main_binary: bool
+    relocations_path: Path | None = None
 
 
 class ZippedXCArchive(AppleArtifact):
@@ -47,7 +57,7 @@ class ZippedXCArchive(AppleArtifact):
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
-        self._dsym_files: dict[str, Path] | None = None
+        self._dsym_info: dict[str, DsymInfo] | None = None
 
     def get_extract_dir(self) -> Path:
         return self._extract_dir
@@ -201,7 +211,7 @@ class ZippedXCArchive(AppleArtifact):
         """
 
         binaries: List[BinaryInfo] = []
-        dsym_files = self._find_dsym_files()
+        dsym_info = self._find_dsym_files()
 
         app_bundle_path = self.get_app_bundle_path()
 
@@ -213,9 +223,17 @@ class ZippedXCArchive(AppleArtifact):
 
         # Find corresponding dSYM for main executable
         main_uuid = self._extract_binary_uuid(main_binary_path)
-        main_dsym_path = dsym_files.get(main_uuid) if main_uuid else None
+        main_dsym_info = dsym_info.get(main_uuid) if main_uuid else None
 
-        binaries.append(BinaryInfo(main_executable, main_binary_path, main_dsym_path, is_main_binary=True))
+        binaries.append(
+            BinaryInfo(
+                main_executable,
+                main_binary_path,
+                main_dsym_info.dwarf_file if main_dsym_info else None,
+                is_main_binary=True,
+                relocations_path=main_dsym_info.relocations_file if main_dsym_info else None,
+            )
+        )
 
         # Find framework binaries
         for framework_path in app_bundle_path.rglob("*.framework"):
@@ -225,14 +243,15 @@ class ZippedXCArchive(AppleArtifact):
 
                 # Find corresponding dSYM for framework
                 framework_uuid = self._extract_binary_uuid(framework_binary_path)
-                framework_dsym_path = dsym_files.get(framework_uuid) if framework_uuid else None
+                framework_dsym_info = dsym_info.get(framework_uuid) if framework_uuid else None
 
                 binaries.append(
                     BinaryInfo(
                         framework_name,
                         framework_binary_path,
-                        framework_dsym_path,
+                        framework_dsym_info.dwarf_file if framework_dsym_info else None,
                         is_main_binary=False,
+                        relocations_path=framework_dsym_info.relocations_file if framework_dsym_info else None,
                     )
                 )
 
@@ -254,14 +273,17 @@ class ZippedXCArchive(AppleArtifact):
 
                             # Find corresponding dSYM for extension
                             extension_uuid = self._extract_binary_uuid(extension_binary_path)
-                            extension_dsym_path = dsym_files.get(extension_uuid) if extension_uuid else None
+                            extension_dsym_info = dsym_info.get(extension_uuid) if extension_uuid else None
 
                             binaries.append(
                                 BinaryInfo(
                                     extension_name,
                                     extension_binary_path,
-                                    extension_dsym_path,
+                                    extension_dsym_info.dwarf_file if extension_dsym_info else None,
                                     is_main_binary=True,  # App extension main executables are main binaries
+                                    relocations_path=extension_dsym_info.relocations_file
+                                    if extension_dsym_info
+                                    else None,
                                 )
                             )
                     except Exception:
@@ -283,14 +305,15 @@ class ZippedXCArchive(AppleArtifact):
                             watch_name = f"Watch/{watch_path.stem}/{watch_executable}"
 
                             watch_uuid = self._extract_binary_uuid(watch_binary_path)
-                            watch_dsym_path = dsym_files.get(watch_uuid) if watch_uuid else None
+                            watch_dsym_info = dsym_info.get(watch_uuid) if watch_uuid else None
 
                             binaries.append(
                                 BinaryInfo(
                                     watch_name,
                                     watch_binary_path,
-                                    watch_dsym_path,
+                                    watch_dsym_info.dwarf_file if watch_dsym_info else None,
                                     is_main_binary=True,  # Watch app main executables are main binaries
+                                    relocations_path=watch_dsym_info.relocations_file if watch_dsym_info else None,
                                 )
                             )
                     except Exception:
@@ -388,11 +411,16 @@ class ZippedXCArchive(AppleArtifact):
             logger.exception(f"Failed to extract UUID from binary {binary_path}")
             return None
 
-    def _find_dsym_files(self) -> dict[str, Path]:
-        if self._dsym_files is not None:
-            return self._dsym_files
+    def _find_dsym_files(self) -> dict[str, DsymInfo]:
+        """Find all dSYM bundles and map them by binary UUID.
 
-        dsym_files: dict[str, Path] = {}
+        Returns:
+            Dictionary mapping UUID to DsymInfo containing dwarf file, bundle, and relocations
+        """
+        if self._dsym_info is not None:
+            return self._dsym_info
+
+        dsym_info: dict[str, DsymInfo] = {}
 
         dsyms_dir = None
         for path in self._extract_dir.rglob("dSYMs"):
@@ -402,17 +430,44 @@ class ZippedXCArchive(AppleArtifact):
 
         if dsyms_dir is None:
             logger.debug("No dSYMs directory found in XCArchive")
-            self._dsym_files = dsym_files
-            return dsym_files
+            self._dsym_info = dsym_info
+            return dsym_info
 
-        for dsym_path in dsyms_dir.rglob("DWARF"):
-            if dsym_path.is_dir():
-                for dwarf_file in dsym_path.iterdir():
+        for dwarf_dir in dsyms_dir.rglob("DWARF"):
+            if dwarf_dir.is_dir():
+                # Get the dSYM bundle root (should be 3 levels up: DWARF -> Resources -> Contents -> .dSYM)
+                dsym_bundle = dwarf_dir.parent.parent.parent
+
+                for dwarf_file in dwarf_dir.iterdir():
                     if dwarf_file.is_file():
-                        dsym_uuid = self._extract_binary_uuid(dwarf_file)
-                        if dsym_uuid:
-                            dsym_files[dsym_uuid] = dwarf_file
-                            logger.debug(f"Found dSYM file {dwarf_file} with UUID {dsym_uuid}")
+                        binary_uuid = self._extract_binary_uuid(dwarf_file)
+                        if binary_uuid:
+                            binary_name = dwarf_file.name
 
-        self._dsym_files = dsym_files
-        return dsym_files
+                            # Find relocations file
+                            relocations_file = self._find_relocations_file_in_bundle(dsym_bundle, binary_name)
+
+                            dsym_info[binary_uuid] = DsymInfo(
+                                dwarf_file=dwarf_file,
+                                dsym_bundle=dsym_bundle,
+                                relocations_file=relocations_file,
+                            )
+                            logger.debug(f"Found dSYM file {dwarf_file} with UUID {binary_uuid}")
+
+        self._dsym_info = dsym_info
+        return dsym_info
+
+    def _find_relocations_file_in_bundle(self, dsym_bundle: Path, binary_name: str) -> Path | None:
+        # Standard location: dSYM/Contents/Resources/Relocations/<arch>/<binary>.yml
+        relocations_dir = dsym_bundle / "Contents" / "Resources" / "Relocations"
+
+        if not relocations_dir.exists():
+            return None
+
+        # Search for the binary's relocations file in any architecture subdirectory
+        for extension in ("yml", "yaml"):
+            for relocations_file in relocations_dir.rglob(f"{binary_name}.{extension}"):
+                logger.debug(f"Found relocations file: {relocations_file}")
+                return relocations_file
+
+        return None

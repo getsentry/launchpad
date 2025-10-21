@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+import os
 import tempfile
 import time
 
@@ -17,6 +18,7 @@ from cryptography import x509
 
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
+from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsParser
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeAggregator
@@ -433,6 +435,7 @@ class AppleAppAnalyzer:
         dyld_info = parser.extract_dyld_info()
 
         symbol_info = None
+        dwarf_relocations = None
 
         # Always test symbol removal on the main app binary (not dSYM)
         strippable_symbols_size = self._check_strip_symbols_removal(binary_path, binary)
@@ -457,6 +460,13 @@ class AppleAppAnalyzer:
                         "binary_name": binary_info.name,
                     },
                 )
+
+            if binary_info.relocations_path and os.getenv("LAUNCHPAD_ENV") == "development":
+                dwarf_relocations = DwarfRelocationsParser.parse(binary_info.relocations_path)
+                if dwarf_relocations:
+                    logger.debug(
+                        f"Parsed {len(dwarf_relocations.relocations)} DWARF relocations for {binary_info.name}"
+                    )
         else:
             if strippable_symbols_size > 0:
                 symbol_info = SymbolInfo(
@@ -493,6 +503,7 @@ class AppleAppAnalyzer:
             load_commands=load_commands,
             header_size=parser.get_header_size(),
             dyld_info=dyld_info,
+            dwarf_relocations=dwarf_relocations,
         )
 
     @sentry_sdk.trace

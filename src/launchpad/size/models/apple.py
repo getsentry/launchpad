@@ -10,6 +10,7 @@ import lief
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsData
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
 from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
@@ -130,6 +131,7 @@ class MachOBinaryAnalysis:
     symbol_info: SymbolInfo | None = None
     header_size: int = 0
     dyld_info: DyldInfo | None = None
+    dwarf_relocations: DwarfRelocationsData | None = None
 
 
 @dataclass
