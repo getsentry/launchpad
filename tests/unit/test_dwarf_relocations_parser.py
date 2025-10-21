@@ -20,11 +20,11 @@ def sample_relocations_yaml() -> str:
     """Sample DWARF relocations YAML content."""
     return """---
 triple:          'arm64-apple-darwin'
-binary-path:     '/Applications/Pinterest.app/Pinterest'
+binary-path:     '/Applications/TestApp.app/TestApp'
 relocations:
   - { offset: 0x669BB6, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100004000, symSize: 0x18 }
   - { offset: 0x669C63, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100004000, symSize: 0x18 }
-  - { offset: 0x669CA2, size: 0x8, addend: 0x0, symName: '_$s9Pinterest4MainV4mainyyFZTf4d_n', symObjAddr: 0x18, symBinAddr: 0x100004018, symSize: 0x100 }
+  - { offset: 0x669CA2, size: 0x8, addend: 0x0, symName: '_$s7TestApp4MainV4mainyyFZTf4d_n', symObjAddr: 0x18, symBinAddr: 0x100004018, symSize: 0x100 }
   - { offset: 0x669DBC, size: 0x8, addend: 0x0, symName: ___swift_noop_void_return, symObjAddr: 0x0, symBinAddr: 0x100004FD0, symSize: 0x4 }
   - { offset: 0x669DD0, size: 0x8, addend: 0x0, symName: ___swift_memcpy32_8, symObjAddr: 0x4, symBinAddr: 0x100004FD4, symSize: 0xC }
 """
@@ -139,7 +139,7 @@ class TestDwarfRelocationsParser:
 
             assert result is not None
             assert result.triple == "arm64-apple-darwin"
-            assert result.binary_path == "/Applications/Pinterest.app/Pinterest"
+            assert result.binary_path == "/Applications/TestApp.app/TestApp"
             assert len(result.relocations) == 5
 
             # Check first relocation
@@ -151,7 +151,7 @@ class TestDwarfRelocationsParser:
 
             # Check Swift symbol
             swift_reloc = result.relocations[2]
-            assert swift_reloc.sym_name == "_$s9Pinterest4MainV4mainyyFZTf4d_n"
+            assert swift_reloc.sym_name == "_$s7TestApp4MainV4mainyyFZTf4d_n"
             assert swift_reloc.sym_size == 0x100
         finally:
             temp_path.unlink()
