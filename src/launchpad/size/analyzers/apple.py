@@ -462,7 +462,8 @@ class AppleAppAnalyzer:
                 )
 
             if binary_info.relocations_path and os.getenv("LAUNCHPAD_ENV") == "development":
-                dwarf_relocations = DwarfRelocationsParser.parse(binary_info.relocations_path)
+                with sentry_sdk.start_span(op="parse", description="dwarf_relocations.parse"):
+                    dwarf_relocations = DwarfRelocationsParser.parse(binary_info.relocations_path)
                 if dwarf_relocations:
                     logger.debug(
                         f"Parsed {len(dwarf_relocations.relocations)} DWARF relocations for {binary_info.name}"
