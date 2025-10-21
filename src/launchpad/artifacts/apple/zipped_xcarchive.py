@@ -435,8 +435,10 @@ class ZippedXCArchive(AppleArtifact):
 
         for dwarf_dir in dsyms_dir.rglob("DWARF"):
             if dwarf_dir.is_dir():
-                # Get the dSYM bundle root (should be 3 levels up: DWARF -> Resources -> Contents -> .dSYM)
-                dsym_bundle = dwarf_dir.parent.parent.parent
+                # Find the dSYM bundle root by walking up until we find a .dSYM directory
+                dsym_bundle = self._find_dsym_bundle_root(dwarf_dir)
+                if not dsym_bundle:
+                    continue
 
                 for dwarf_file in dwarf_dir.iterdir():
                     if dwarf_file.is_file():
@@ -456,6 +458,16 @@ class ZippedXCArchive(AppleArtifact):
 
         self._dsym_info = dsym_info
         return dsym_info
+
+    def _find_dsym_bundle_root(self, dwarf_dir: Path) -> Path | None:
+        current = dwarf_dir
+        while current != current.parent:
+            if current.suffix == ".dSYM":
+                return current
+            current = current.parent
+
+        logger.warning(f"Could not find .dSYM bundle for DWARF directory: {dwarf_dir}")
+        return None
 
     def _find_relocations_file_in_bundle(self, dsym_bundle: Path, binary_name: str) -> Path | None:
         # Standard location: dSYM/Contents/Resources/Relocations/<arch>/<binary>.yml
