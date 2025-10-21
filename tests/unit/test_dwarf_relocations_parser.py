@@ -15,42 +15,6 @@ from launchpad.parsers.apple.dwarf_relocations_parser import (
 )
 
 
-@pytest.fixture
-def sample_relocations_yaml() -> str:
-    """Sample DWARF relocations YAML content."""
-    return """---
-triple:          'arm64-apple-darwin'
-binary-path:     '/Applications/TestApp.app/TestApp'
-relocations:
-  - { offset: 0x669BB6, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100004000, symSize: 0x18 }
-  - { offset: 0x669C63, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100004000, symSize: 0x18 }
-  - { offset: 0x669CA2, size: 0x8, addend: 0x0, symName: '_$s7TestApp4MainV4mainyyFZTf4d_n', symObjAddr: 0x18, symBinAddr: 0x100004018, symSize: 0x100 }
-  - { offset: 0x669DBC, size: 0x8, addend: 0x0, symName: ___swift_noop_void_return, symObjAddr: 0x0, symBinAddr: 0x100004FD0, symSize: 0x4 }
-  - { offset: 0x669DD0, size: 0x8, addend: 0x0, symName: ___swift_memcpy32_8, symObjAddr: 0x4, symBinAddr: 0x100004FD4, symSize: 0xC }
-"""
-
-
-@pytest.fixture
-def empty_relocations_yaml() -> str:
-    """YAML with no relocations."""
-    return """---
-triple:          'arm64-apple-darwin'
-binary-path:     '/Applications/Test.app/Test'
-relocations: []
-"""
-
-
-@pytest.fixture
-def malformed_yaml() -> str:
-    """Malformed YAML content."""
-    return """---
-triple: 'arm64-apple-darwin'
-relocations:
-  - { offset: 0x669BB6, size: 0x8, addend: 0x0, symName: _main }
-  - { offset: invalid, size: 0x8 }
-"""
-
-
 class TestDwarfRelocation:
     """Tests for DwarfRelocation dataclass."""
 
@@ -128,10 +92,21 @@ class TestDwarfRelocationsData:
 class TestDwarfRelocationsParser:
     """Tests for DwarfRelocationsParser."""
 
-    def test_parse_valid_yaml(self, sample_relocations_yaml):
+    def test_parse_valid_yaml(self):
         """Test parsing valid relocations YAML."""
+        yaml_content = """---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Applications/TestApp.app/TestApp'
+relocations:
+  - { offset: 0x669BB6, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100004000, symSize: 0x18 }
+  - { offset: 0x669C63, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x0, symBinAddr: 0x100004000, symSize: 0x18 }
+  - { offset: 0x669CA2, size: 0x8, addend: 0x0, symName: '_$s7TestApp4MainV4mainyyFZTf4d_n', symObjAddr: 0x18, symBinAddr: 0x100004018, symSize: 0x100 }
+  - { offset: 0x669DBC, size: 0x8, addend: 0x0, symName: ___swift_noop_void_return, symObjAddr: 0x0, symBinAddr: 0x100004FD0, symSize: 0x4 }
+  - { offset: 0x669DD0, size: 0x8, addend: 0x0, symName: ___swift_memcpy32_8, symObjAddr: 0x4, symBinAddr: 0x100004FD4, symSize: 0xC }
+"""
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write(sample_relocations_yaml)
+            f.write(yaml_content)
             temp_path = Path(f.name)
 
         try:
@@ -156,10 +131,16 @@ class TestDwarfRelocationsParser:
         finally:
             temp_path.unlink()
 
-    def test_parse_empty_relocations(self, empty_relocations_yaml):
+    def test_parse_empty_relocations(self):
         """Test parsing YAML with empty relocations array."""
+        yaml_content = """---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Applications/Test.app/Test'
+relocations: []
+"""
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write(empty_relocations_yaml)
+            f.write(yaml_content)
             temp_path = Path(f.name)
 
         try:
@@ -176,10 +157,17 @@ class TestDwarfRelocationsParser:
         result = DwarfRelocationsParser.parse(Path("/nonexistent/file.yml"))
         assert result is None
 
-    def test_parse_malformed_yaml(self, malformed_yaml):
+    def test_parse_malformed_yaml(self):
         """Test parsing malformed YAML handles errors gracefully."""
+        yaml_content = """---
+triple: 'arm64-apple-darwin'
+relocations:
+  - { offset: 0x669BB6, size: 0x8, addend: 0x0, symName: _main }
+  - { offset: invalid, size: 0x8 }
+"""
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            f.write(malformed_yaml)
+            f.write(yaml_content)
             temp_path = Path(f.name)
 
         try:
