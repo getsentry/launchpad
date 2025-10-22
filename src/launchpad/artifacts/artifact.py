@@ -20,6 +20,10 @@ class Artifact:
         if cleanup:
             cleanup()
 
+    def get_app_icon(self) -> bytes | None:
+        """Get the app icon from the artifact."""
+        raise NotImplementedError("Not implemented")
+
 
 class AndroidArtifact(Artifact):
     """Protocol defining the interface for Android artifacts."""

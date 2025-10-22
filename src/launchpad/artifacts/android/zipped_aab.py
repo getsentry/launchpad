@@ -37,3 +37,6 @@ class ZippedAAB(AndroidArtifact):
 
     def get_primary_apks(self) -> list[APK]:
         return self.get_aab().get_primary_apks()
+
+    def get_app_icon(self) -> bytes | None:
+        return self.get_aab().get_app_icon()

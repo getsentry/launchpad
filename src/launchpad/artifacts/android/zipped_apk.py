@@ -33,3 +33,6 @@ class ZippedAPK(AndroidArtifact):
                 return self._primary_apk
 
         raise FileNotFoundError(f"No primary APK found in {self._extract_dir}")
+
+    def get_app_icon(self) -> bytes | None:
+        return self.get_primary_apk().get_app_icon()

@@ -84,7 +84,13 @@ class AAB(AndroidArtifact):
                 tmp_dir = Path(tempfile.mkdtemp())
                 new_apk_path = tmp_dir / apk_path.name
                 shutil.copyfile(apk_path, new_apk_path)
-                apks.append(APK(new_apk_path, self.get_dex_mapping(), cleanup=lambda: shutil.rmtree(tmp_dir)))
+                apks.append(
+                    APK(
+                        new_apk_path,
+                        self.get_dex_mapping(),
+                        cleanup=lambda: shutil.rmtree(tmp_dir),
+                    )
+                )
 
             self._primary_apks = apks
             return apks
@@ -128,3 +134,22 @@ class AAB(AndroidArtifact):
         with open(dex_mapping_file, "rb") as f:
             dex_mapping_buffer = f.read()
         return DexMapping(dex_mapping_buffer)
+
+    def get_app_icon(self) -> bytes | None:
+        manifest = self.get_manifest()
+        icon_path = manifest.application.icon_path
+        if not icon_path:
+            logger.info("No icon path found in manifest")
+            return None
+
+        icon_path = self._extract_dir / "base" / icon_path
+
+        if not icon_path.exists():
+            return None
+
+        if icon_path.suffix == ".xml":
+            logger.info(f"Icon path {icon_path} is a XML file, which is not yet supported. Skipping.")
+            return None
+
+        with open(icon_path, "rb") as f:
+            return f.read()

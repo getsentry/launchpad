@@ -23,7 +23,10 @@ logger = get_logger(__name__)
 
 class APK(AndroidArtifact):
     def __init__(
-        self, path: Path, dex_mapping: DexMapping | None = None, cleanup: None | Callable[[], None] = None
+        self,
+        path: Path,
+        dex_mapping: DexMapping | None = None,
+        cleanup: None | Callable[[], None] = None,
     ) -> None:
         super().__init__(path, cleanup=cleanup)
         self._dex_mapping = dex_mapping
@@ -104,3 +107,22 @@ class APK(AndroidArtifact):
     def get_apksigner_certs(self) -> str:
         apksigner = Apksigner()
         return apksigner.get_certs(self.path)
+
+    def get_app_icon(self) -> bytes | None:
+        manifest = self.get_manifest()
+        icon_path = manifest.application.icon_path
+        if not icon_path:
+            logger.info("No icon path found in manifest")
+            return None
+
+        icon_path = self._extract_dir / icon_path
+
+        if not icon_path.exists():
+            return None
+
+        if icon_path.suffix == ".xml":
+            logger.info(f"Icon path {icon_path} is an XML file, which is not yet supported. Skipping.")
+            return None
+
+        with open(icon_path, "rb") as f:
+            return f.read()

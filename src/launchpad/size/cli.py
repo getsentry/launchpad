@@ -5,6 +5,7 @@ import click
 
 from rich.table import Table
 
+from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.models.android import AndroidAnalysisResults
 from launchpad.size.models.apple import AppleAnalysisResults
 from launchpad.size.models.common import BaseAnalysisResults, FileAnalysis
@@ -98,6 +99,45 @@ def size_command(
 
     except Exception:
         console.print_exception()
+        raise click.Abort()
+
+
+@click.command(name="app-icon")
+@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="INPUT_PATH")
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(path_type=Path),
+    help="Output path for the icon.",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress all output except errors.")
+def app_icon_command(
+    input_path: Path,
+    output: Path,
+    verbose: bool,
+    quiet: bool,
+) -> None:
+    """Extract app icon from provided artifact."""
+    setup_logging(verbose=verbose, quiet=quiet)
+
+    if verbose and quiet:
+        raise click.UsageError("Cannot specify both --verbose and --quiet")
+
+    if not quiet:
+        console.print("[bold blue]App Icon[/bold blue]")
+        console.print(f"Extracting app icon from: [cyan]{input_path}[/cyan]")
+        console.print(f"Output: [cyan]{output}[/cyan]")
+        console.print()
+
+    artifact = ArtifactFactory.from_path(input_path)
+    app_icon = artifact.get_app_icon()
+    if app_icon:
+        with open(output, "wb") as f:
+            f.write(app_icon)
+        console.print(f"App icon extracted to: [cyan]{output}[/cyan]")
+    else:
+        console.print("No app icon found")
         raise click.Abort()
 
 
