@@ -40,9 +40,7 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
                     if section.name in self.DEBUG_SECTIONS:
                         debug_section_size += section.size
 
-            symbol_savings = 0
-            if binary_analysis.symbol_info:
-                symbol_savings = binary_analysis.symbol_info.strippable_symbols_size
+            symbol_savings = binary_analysis.strippable_symbols_size
 
             strippable_size = debug_section_size + symbol_savings
             if strippable_size > 0:

@@ -45,11 +45,24 @@ class MachOSymbolSizes:
 
     def _is_measurable(self, sym: lief.MachO.Symbol) -> bool:
         """Keep symbols that are actually defined inside a section."""
-        return (
+        is_measurable = (
             sym.origin == lief.MachO.Symbol.ORIGIN.LC_SYMTAB
             and sym.type == lief.MachO.Symbol.TYPE.SECTION
             and sym.value > 0
         )
+
+        if not is_measurable:
+            logger.debug(
+                "Symbol marked as not measurable",
+                extra={
+                    "symbol": sym.name,
+                    "origin": str(sym.origin),
+                    "type": str(sym.type),
+                    "value": sym.value,
+                },
+            )
+
+        return is_measurable
 
     def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[tuple[str, str | None, str | None, int, int]]:
         """Yield (name, section_name, segment_name, addr, size) via the distance-to-next-symbol heuristic."""

@@ -1,30 +1,20 @@
-from dataclasses import dataclass
-from typing import List
+"""Aggregator for Swift symbols by module/type."""
+
+from __future__ import annotations
+
+from typing import NamedTuple
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
+from launchpad.size.symbols.types import SwiftSymbolTypeGroup
 from launchpad.utils.apple.cwl_demangle import CwlDemangler
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-@dataclass
-class SwiftSymbolTypeGroup:
-    """Represents a group of symbols with the same module/type."""
-
-    # E.g. HackerNews
+class SwiftModuleType(NamedTuple):
     module: str
-    # E.g. AppViewModel
     type_name: str
-    # E.g. ['HackerNews', 'AppViewModel']
-    components: List[str]
-    symbol_count: int
-    symbols: list[SymbolSize]
-
-    @property
-    def total_size(self) -> int:
-        """Calculate the total size of all symbols in this group."""
-        return sum(symbol.size for symbol in self.symbols)
 
 
 class SwiftSymbolTypeAggregator:
@@ -33,35 +23,33 @@ class SwiftSymbolTypeAggregator:
     def __init__(self) -> None:
         self.demangler = CwlDemangler()
 
+    @staticmethod
+    def is_swift_symbol(mangled_name: str) -> bool:
+        """Check if a symbol is a Swift symbol based on its mangled name.
+
+        Includes:
+        - _$s: Modern Swift mangling
+        - _Tt: Older Swift mangling
+        - __IVARS__Tt: ObjC runtime metadata for Swift classes
+        - __DATA__Tt: Data section symbols for Swift types
+        """
+        if mangled_name.startswith("_$s") or mangled_name.startswith("_Tt"):
+            return True
+        # Swift classes exposed to ObjC have metadata with Swift mangling
+        if "__Tt" in mangled_name or "__TtC" in mangled_name:
+            return True
+        return False
+
     def aggregate_symbols(self, symbol_sizes: list[SymbolSize]) -> list[SwiftSymbolTypeGroup]:
-        """
-        Group symbols by their module/type and calculate total sizes.
-        Only processes Swift symbols (those starting with '_$s').
-
-        Args:
-            symbol_sizes: List of SymbolSize objects from MachOSymbolSizes
-
-        Returns:
-            List of SymbolTypeGroup objects with aggregated sizes
-        """
-        # Filter to only Swift symbols
-        swift_symbols = [
-            symbol
-            for symbol in symbol_sizes
-            if symbol.mangled_name.startswith("_$s") or symbol.mangled_name.startswith("_Tt")
-        ]
-        logger.debug(f"Found {len(swift_symbols)} Swift symbols out of {len(symbol_sizes)} total symbols")
-
-        mangled_names = [symbol.mangled_name for symbol in swift_symbols]
-
-        for name in mangled_names:
-            self.demangler.add_name(name)
+        # Demangle all Swift symbols
+        for symbol in symbol_sizes:
+            self.demangler.add_name(symbol.mangled_name)
         demangled_results = self.demangler.demangle_all()
 
         # Group symbols by module/type
-        type_groups: dict[tuple[str, str], list[SymbolSize]] = {}
+        type_groups: dict[SwiftModuleType, list[SymbolSize]] = {}
 
-        for symbol in swift_symbols:
+        for symbol in symbol_sizes:
             demangled_result = demangled_results.get(symbol.mangled_name)
 
             if demangled_result:
@@ -73,13 +61,13 @@ class SwiftSymbolTypeAggregator:
                 module = "Unattributed"
                 type_name = "Unattributed"
 
-            key = (module, type_name)
+            key = SwiftModuleType(module=module, type_name=type_name)
             if key not in type_groups:
                 type_groups[key] = []
             type_groups[key].append(symbol)
 
         result: list[SwiftSymbolTypeGroup] = []
-        for (module, type_name), symbols in type_groups.items():
+        for key, symbols in type_groups.items():
             symbols.sort(key=lambda x: x.size, reverse=True)
             demangled_result = demangled_results.get(symbols[0].mangled_name)
             if demangled_result:
@@ -88,8 +76,8 @@ class SwiftSymbolTypeAggregator:
                 components = []
             result.append(
                 SwiftSymbolTypeGroup(
-                    module=module,
-                    type_name=type_name,
+                    module=key.module,
+                    type_name=key.type_name,
                     components=components,
                     symbol_count=len(symbols),
                     symbols=symbols,
@@ -99,5 +87,5 @@ class SwiftSymbolTypeAggregator:
         # Sort by total size (descending)
         result.sort(key=lambda x: x.total_size, reverse=True)
 
-        logger.debug(f"Aggregated {len(swift_symbols)} Swift symbols into {len(result)} type groups")
+        logger.debug(f"Aggregated {len(symbol_sizes)} Swift symbols into {len(result)} type groups")
         return result

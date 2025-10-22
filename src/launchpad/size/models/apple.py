@@ -11,9 +11,7 @@ import lief
 from pydantic import BaseModel, ConfigDict, Field
 
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsData
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
-from launchpad.parsers.apple.objc_symbol_type_aggregator import ObjCSymbolTypeGroup
-from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
+from launchpad.size.symbols import SymbolInfo
 
 from .common import BaseAnalysisResults, BaseAppInfo
 from .insights import (
@@ -131,6 +129,8 @@ class MachOBinaryAnalysis:
     header_size: int = 0
     dyld_info: DyldInfo | None = None
     dwarf_relocations: DwarfRelocationsData | None = None
+    static_inits: List[lief.Symbol | str] | None = None
+    strippable_symbols_size: int = 0
 
 
 @dataclass
@@ -168,39 +168,3 @@ class AppleInsightResults(BaseModel):
     alternate_icons_optimization: ImageOptimizationInsightResult | None = Field(
         None, description="Alternate app icons optimization analysis"
     )
-
-
-@dataclass
-class SymbolInfo:
-    symbol_sizes: List[SymbolSize]
-    swift_type_groups: List[SwiftSymbolTypeGroup]
-    objc_type_groups: List[ObjCSymbolTypeGroup]
-    static_inits: List[lief.Symbol | str]
-    strippable_symbols_size: int = 0
-
-    def get_symbols_by_section(self) -> dict[str, list[tuple[str, str, int, int]]]:
-        """Group symbols by their section name.
-
-        Returns:
-            Dictionary mapping section names to lists of (module, name, address, size) tuples
-        """
-        symbols_by_section: dict[str, list[tuple[str, str, int, int]]] = {}
-
-        for group in self.swift_type_groups:
-            for symbol in group.symbols:
-                section_name = symbol.section_name or "unknown"
-                if section_name not in symbols_by_section:
-                    symbols_by_section[section_name] = []
-
-                symbols_by_section[section_name].append((group.module, group.type_name, symbol.address, symbol.size))
-
-        for group in self.objc_type_groups:
-            for symbol in group.symbols:
-                section_name = symbol.section_name or "unknown"
-                if section_name not in symbols_by_section:
-                    symbols_by_section[section_name] = []
-
-                method_name = group.method_name or "class"
-                symbols_by_section[section_name].append((group.class_name, method_name, symbol.address, symbol.size))
-
-        return symbols_by_section

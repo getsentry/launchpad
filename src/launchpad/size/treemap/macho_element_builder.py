@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Dict, List, TypedDict
 
-from launchpad.parsers.apple.swift_symbol_type_aggregator import SwiftSymbolTypeGroup
 from launchpad.size.models.apple import MachOBinaryAnalysis
 from launchpad.size.models.binary_component import BinaryTag
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
+from launchpad.size.symbols import SwiftSymbolTypeGroup
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
 from launchpad.utils.logging import get_logger
 
@@ -209,6 +209,10 @@ class MachOElementBuilder(TreemapElementBuilder):
                 objc_classes.setdefault(grp.class_name, []).append((grp.method_name or "class", grp.total_size))
                 for sym in grp.symbols:
                     if sym.section_name:
+                        if not sym.segment_name:
+                            logger.warning("Symbol %s has no segment name", sym.mangled_name)
+                            continue
+
                         segment_name = sym.segment_name or "unknown"
                         # Use unique section name to avoid conflicts
                         unique_sec = f"{segment_name}.{sym.section_name}"
@@ -235,6 +239,47 @@ class MachOElementBuilder(TreemapElementBuilder):
                         path=None,
                         is_dir=False,
                         children=meth_elems,
+                    )
+                )
+
+        # ------------------------------------------------------------------ #
+        # 2.5 Other symbols (C functions, etc. not in Swift/ObjC groups)     #
+        # ------------------------------------------------------------------ #
+        if symbol_info and symbol_info.other_symbols:
+            other_symbols_with_size = [sym for sym in symbol_info.other_symbols if sym.size > 0]
+
+            if other_symbols_with_size:
+                # Track section usage for other symbols
+                for sym in other_symbols_with_size:
+                    if sym.section_name:
+                        segment_name = sym.segment_name or "unknown"
+                        unique_sec = f"{segment_name}.{sym.section_name}"
+                        section_subtractions[unique_sec] = section_subtractions.get(unique_sec, 0) + sym.size
+                        segment_subtractions[segment_name] = segment_subtractions.get(segment_name, 0) + sym.size
+
+                # Sort by size descending and limit to top 50 to avoid overwhelming display
+                other_symbols_with_size.sort(key=lambda s: s.size, reverse=True)
+                top_other_symbols = other_symbols_with_size[:50]
+                other_symbol_children: List[TreemapElement] = [
+                    TreemapElement(
+                        name=sym.mangled_name,
+                        size=sym.size,
+                        type=TreemapType.MODULES,
+                        path=None,
+                        is_dir=False,
+                        children=[],
+                    )
+                    for sym in top_other_symbols
+                ]
+
+                binary_children.append(
+                    TreemapElement(
+                        name="Other Symbols",
+                        size=sum(sym.size for sym in other_symbols_with_size),
+                        type=TreemapType.MODULES,
+                        path=None,
+                        is_dir=False,
+                        children=other_symbol_children,
                     )
                 )
 
