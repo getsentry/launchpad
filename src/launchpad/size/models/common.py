@@ -78,6 +78,9 @@ class FileInfo(BaseModel):
     is_dir: bool = Field(..., description="True if this is a directory, False if it's a file")
     # Some files can be further broken down, even though it's children are not files
     children: List[FileInfo] = Field(default_factory=list, description="Children of the file")
+    # Asset catalog specific fields
+    idiom: str | None = Field(default=None, description="Device idiom for asset catalog images")
+    colorspace: str | None = Field(default=None, description="Color space for asset catalog images")
 
 
 class BaseAnalysisResults(BaseModel):

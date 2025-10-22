@@ -29,6 +29,8 @@ class AssetCatalogElement:
     vector: bool
     filename: str
     full_path: Path | None
+    idiom: str | None = None
+    colorspace: str | None = None
 
 
 @dataclass
@@ -363,6 +365,8 @@ class ZippedXCArchive(AppleArtifact):
         asset_type = item.get("type", 0)
         is_vector = item.get("vector", False)
         filename = item.get("filename", "")
+        idiom = item.get("idiom")
+        colorspace = item.get("colorspace")
 
         file_extension = Path(filename).suffix.lower()
         if filename and file_extension in {".png", ".jpg", ".jpeg", ".heic", ".heif"}:
@@ -382,6 +386,8 @@ class ZippedXCArchive(AppleArtifact):
             vector=is_vector,
             filename=filename,
             full_path=full_path,
+            idiom=idiom,
+            colorspace=colorspace,
         )
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:

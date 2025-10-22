@@ -137,6 +137,8 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                     minified_size=minified_size,
                     conversion_savings=total_conversion,
                     heic_size=heic_size,
+                    idiom=file_info.idiom,
+                    colorspace=file_info.colorspace,
                 )
         except Exception:
             logger.exception("Failed to open or process image file")

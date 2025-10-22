@@ -284,6 +284,8 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
                 treemap_type=TreemapType.ASSETS,
                 is_dir=False,
                 children=[],
+                idiom=element.idiom,
+                colorspace=element.colorspace,
             )
         )
     return result

@@ -167,6 +167,10 @@ class OptimizableImageFile(BaseModel):
     conversion_savings: int = Field(default=0, ge=0, description="Potential savings from HEIC conversion")
     heic_size: int | None = Field(default=None, description="Size after HEIC conversion")
 
+    # Asset catalog specific fields
+    idiom: str | None = Field(default=None, description="Device idiom for asset catalog images")
+    colorspace: str | None = Field(default=None, description="Color space for asset catalog images")
+
     @property
     def potential_savings(self) -> int:
         """Calculate total potential savings from the best optimization."""
