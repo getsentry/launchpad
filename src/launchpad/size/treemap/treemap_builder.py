@@ -250,7 +250,7 @@ class TreemapBuilder:
         elif ".framework" in name_lower:
             return TreemapType.FRAMEWORKS
         elif ".lproj" in name_lower:
-            return TreemapType.RESOURCES
+            return TreemapType.LOCALIZATIONS
         elif name_lower == "frameworks":
             return TreemapType.FRAMEWORKS
         elif name_lower == "plugins":

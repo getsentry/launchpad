@@ -19,6 +19,7 @@ class TreemapType(str, Enum):
     MANIFESTS = "manifests"
     SIGNATURES = "signatures"
     FONTS = "fonts"
+    LOCALIZATIONS = "localizations"
 
     # Apple-specific categories
     FRAMEWORKS = "frameworks"
@@ -69,9 +70,10 @@ FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
     # Resource types
     "nib": TreemapType.RESOURCES,
     "storyboard": TreemapType.RESOURCES,
-    "strings": TreemapType.RESOURCES,
-    "lproj": TreemapType.RESOURCES,
-    "arsc": TreemapType.RESOURCES,
+    "strings": TreemapType.LOCALIZATIONS,  # iOS localization files
+    "stringsdict": TreemapType.LOCALIZATIONS,  # iOS pluralization files
+    "lproj": TreemapType.LOCALIZATIONS,  # iOS localization directories
+    "arsc": TreemapType.RESOURCES,  # Android compiled resources
     "xml": TreemapType.RESOURCES,
     # Font types
     "ttf": TreemapType.FONTS,
