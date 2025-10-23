@@ -6,6 +6,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Callable, List, NamedTuple
 
+import sentry_sdk
+
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.cpp_aggregator import CppSymbolTypeAggregator
 from launchpad.size.symbols.objc_aggregator import ObjCSymbolTypeAggregator
@@ -77,27 +79,26 @@ class SymbolInfo:
         return False
 
     @classmethod
+    @sentry_sdk.trace
     def from_symbol_sizes(cls, symbol_sizes: List[SymbolSize]) -> "SymbolInfo":
-        swift_symbols: List[SymbolSize] = []
-        objc_symbols: List[SymbolSize] = []
-        cpp_symbols: List[SymbolSize] = []
-        other_symbols: List[SymbolSize] = []
-        compiler_generated_symbols: List[SymbolSize] = []
+        with sentry_sdk.start_span(op="partition_symbols", description="Partition symbols by language"):
+            swift_symbols: List[SymbolSize] = []
+            objc_symbols: List[SymbolSize] = []
+            cpp_symbols: List[SymbolSize] = []
+            other_symbols: List[SymbolSize] = []
+            compiler_generated_symbols: List[SymbolSize] = []
 
-        for symbol in symbol_sizes:
-            # Track compiler-generated symbols separately
-            if cls._is_compiler_generated(symbol.mangled_name):
-                compiler_generated_symbols.append(symbol)
-                continue
-
-            if SwiftSymbolTypeAggregator.is_swift_symbol(symbol.mangled_name):
-                swift_symbols.append(symbol)
-            elif ObjCSymbolTypeAggregator.is_objc_symbol(symbol.mangled_name):
-                objc_symbols.append(symbol)
-            elif CppSymbolTypeAggregator.is_cpp_symbol(symbol.mangled_name):
-                cpp_symbols.append(symbol)
-            else:
-                other_symbols.append(symbol)
+            for symbol in symbol_sizes:
+                if cls._is_compiler_generated(symbol.mangled_name):
+                    compiler_generated_symbols.append(symbol)
+                elif SwiftSymbolTypeAggregator.is_swift_symbol(symbol.mangled_name):
+                    swift_symbols.append(symbol)
+                elif ObjCSymbolTypeAggregator.is_objc_symbol(symbol.mangled_name):
+                    objc_symbols.append(symbol)
+                elif CppSymbolTypeAggregator.is_cpp_symbol(symbol.mangled_name):
+                    cpp_symbols.append(symbol)
+                else:
+                    other_symbols.append(symbol)
 
         # Aggregate each partition
         swift_aggregator = SwiftSymbolTypeAggregator()

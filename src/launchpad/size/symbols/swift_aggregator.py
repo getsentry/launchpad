@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
+import sentry_sdk
+
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import SwiftSymbolTypeGroup
 from launchpad.utils.apple.cwl_demangle import CwlDemangler
@@ -40,6 +42,7 @@ class SwiftSymbolTypeAggregator:
             return True
         return False
 
+    @sentry_sdk.trace
     def aggregate_symbols(self, symbol_sizes: list[SymbolSize]) -> list[SwiftSymbolTypeGroup]:
         # Demangle all Swift symbols
         for symbol in symbol_sizes:

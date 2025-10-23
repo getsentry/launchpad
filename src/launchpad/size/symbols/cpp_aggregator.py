@@ -7,6 +7,8 @@ import re
 from collections import defaultdict
 from typing import List, NamedTuple, Tuple
 
+import sentry_sdk
+
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import CppSymbolTypeGroup
 from launchpad.utils.logging import get_logger
@@ -102,6 +104,7 @@ class CppSymbolTypeAggregator:
 
         return (namespace, function_name)
 
+    @sentry_sdk.trace
     def aggregate_symbols(self, symbol_sizes: List[SymbolSize]) -> List[CppSymbolTypeGroup]:
         """
         Aggregate C++ symbols from DWARF symbol sizes.
