@@ -1,5 +1,6 @@
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols import ObjCSymbolTypeAggregator, ObjCSymbolTypeGroup
+from launchpad.size.symbols.types import ObjCSymbolList
 
 
 class TestObjCSymbolTypeAggregator:
@@ -8,7 +9,7 @@ class TestObjCSymbolTypeAggregator:
     def test_aggregate_symbols_empty(self):
         """Test aggregating empty symbol list."""
         aggregator = ObjCSymbolTypeAggregator()
-        result = aggregator.aggregate_symbols([])
+        result = aggregator.aggregate_symbols(ObjCSymbolList())
         assert result == []
 
     def test_aggregate_symbols_only_swift(self):
@@ -32,7 +33,7 @@ class TestObjCSymbolTypeAggregator:
             ),
         ]
 
-        result = aggregator.aggregate_symbols(swift_symbols)
+        result = aggregator.aggregate_symbols(ObjCSymbolList(swift_symbols))
         assert result == []
 
     def test_aggregate_symbols_only_cpp(self):
@@ -56,7 +57,7 @@ class TestObjCSymbolTypeAggregator:
             ),
         ]
 
-        result = aggregator.aggregate_symbols(cpp_symbols)
+        result = aggregator.aggregate_symbols(ObjCSymbolList(cpp_symbols))
         assert result == []
 
     def test_aggregate_symbols_mixed(self):
@@ -110,7 +111,7 @@ class TestObjCSymbolTypeAggregator:
             ),
         ]
 
-        result = aggregator.aggregate_symbols(mixed_symbols)
+        result = aggregator.aggregate_symbols(ObjCSymbolList(mixed_symbols))
 
         # Should have 4 groups: NSString methods (2 separate), NSArray methods, NSString metadata
         assert len(result) == 4
@@ -183,7 +184,7 @@ class TestObjCSymbolTypeAggregator:
             ),
         ]
 
-        result = aggregator.aggregate_symbols(symbols)
+        result = aggregator.aggregate_symbols(ObjCSymbolList(symbols))
 
         # Should group each method separately (categories are stripped from class names)
         assert len(result) == 3
