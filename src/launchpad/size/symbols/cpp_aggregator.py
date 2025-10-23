@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from collections import defaultdict
-from typing import List, NamedTuple, Tuple
+from typing import List, NamedTuple
 
 import sentry_sdk
 
@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 
 class CppNamespaceFunction(NamedTuple):
     namespace: str
-    function_name: str | None  # None for namespace-level symbols
+    function_name: str
 
 
 class CppSymbolTypeAggregator:
@@ -43,18 +43,12 @@ class CppSymbolTypeAggregator:
         return mangled_name.startswith("_Z") or mangled_name.startswith("__Z")
 
     @staticmethod
-    def _extract_namespace_and_function(mangled_name: str) -> Tuple[str, str]:
-        """
-        Extract simplified namespace and function name from C++ mangled name.
-
-        Returns:
-            Tuple of (namespace, function_name)
-        """
+    def _extract_namespace_and_function(mangled_name: str) -> CppNamespaceFunction:
         # Try to extract nested name components
         # Format: __ZN<length><name><length><name>...<length><function>E...
         if not (mangled_name.startswith("_ZN") or mangled_name.startswith("__ZN")):
             # Not a nested name, treat as global namespace
-            return ("(global)", mangled_name)
+            return CppNamespaceFunction(namespace="(global)", function_name=mangled_name)
 
         # Skip the __ZN or _ZN prefix
         rest = mangled_name[4:] if mangled_name.startswith("__ZN") else mangled_name[3:]
@@ -86,11 +80,11 @@ class CppSymbolTypeAggregator:
                 break
 
         if not components:
-            return ("(unknown)", mangled_name)
+            return CppNamespaceFunction(namespace="(unknown)", function_name=mangled_name)
 
         # Last component is usually the function name
         if len(components) == 1:
-            return ("(global)", components[0])
+            return CppNamespaceFunction(namespace="(global)", function_name=components[0])
 
         # Build namespace from all but last component
         namespace = "::".join(components[:-1])
@@ -100,7 +94,7 @@ class CppSymbolTypeAggregator:
         if "_GLOBAL__N_" in namespace:
             namespace = namespace.replace("_GLOBAL__N_1", "(anonymous)")
 
-        return (namespace, function_name)
+        return CppNamespaceFunction(namespace=namespace, function_name=function_name)
 
     @sentry_sdk.trace
     def aggregate_symbols(self, symbol_sizes: CppSymbolList) -> List[CppSymbolTypeGroup]:

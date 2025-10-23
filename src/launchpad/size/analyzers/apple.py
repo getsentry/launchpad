@@ -460,12 +460,6 @@ class AppleAppAnalyzer:
                     logger.debug(
                         f"Parsed {len(dwarf_relocations.relocations)} DWARF relocations for {binary_info.name}"
                     )
-                    # Validate symbol sizes if we have both symbol_sizes and relocations
-                    # if symbol_sizes:
-                    #     with sentry_sdk.start_span(op="validate", description="symbol_sizes_vs_relocations"):
-                    #         self._validate_symbol_sizes_against_relocations(
-                    #             binary_info.name, symbol_sizes, dwarf_relocations
-                    #         )
         else:
             logger.info(
                 "size.apple.skip_symbol_analysis.no_dwarf_binary",

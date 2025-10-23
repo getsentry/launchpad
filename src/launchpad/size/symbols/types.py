@@ -58,7 +58,7 @@ class CppSymbolTypeGroup:
     """Represents a group of C++ symbols in the same namespace."""
 
     namespace: str  # e.g., "sentry::profiling"
-    function_name: str | None  # None for namespace-level symbols
+    function_name: str
     symbol_count: int
     symbols: List[SymbolSize]
 

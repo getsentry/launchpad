@@ -38,7 +38,7 @@ class SwiftSymbolTypeAggregator:
         if mangled_name.startswith("_$s") or mangled_name.startswith("_Tt"):
             return True
         # Swift classes exposed to ObjC have metadata with Swift mangling
-        if "__Tt" in mangled_name or "__TtC" in mangled_name:
+        if "__Tt" in mangled_name:
             return True
         return False
 
@@ -71,7 +71,6 @@ class SwiftSymbolTypeAggregator:
 
         result: list[SwiftSymbolTypeGroup] = []
         for key, symbols in type_groups.items():
-            symbols.sort(key=lambda x: x.size, reverse=True)
             demangled_result = demangled_results.get(symbols[0].mangled_name)
             if demangled_result:
                 components = demangled_result.testName
@@ -86,9 +85,6 @@ class SwiftSymbolTypeAggregator:
                     symbols=symbols,
                 )
             )
-
-        # Sort by total size (descending)
         result.sort(key=lambda x: x.total_size, reverse=True)
 
-        logger.debug(f"Aggregated {len(symbol_sizes)} Swift symbols into {len(result)} type groups")
         return result
