@@ -19,11 +19,12 @@ class TestStripSymbolsInsight:
     def test_generate_with_debug_sections_and_symbols(self):
         """Test that insight is generated when binaries have both debug sections and strippable symbols."""
         symbol_info = SymbolInfo(
-            symbol_sizes=[],  # Not needed for this test
+            symbol_sizes=[],
             swift_type_groups=[],
             objc_type_groups=[],
-            static_inits=[],
-            strippable_symbols_size=5000,  # 5KB of strippable symbols
+            cpp_type_groups=[],
+            other_symbols=[],
+            compiler_generated_symbols=[],
         )
 
         binary_analysis = MachOBinaryAnalysis(
@@ -51,6 +52,7 @@ class TestStripSymbolsInsight:
             swift_metadata=None,
             is_main_binary=False,
             header_size=32,
+            strippable_symbols_size=5000,
         )
 
         insights_input = InsightsInput(
@@ -129,11 +131,12 @@ class TestStripSymbolsInsight:
     def test_generate_with_symbols_only(self):
         """Test that insight is generated when binaries have only strippable symbols."""
         symbol_info = SymbolInfo(
-            symbol_sizes=[],  # Not needed for this test
+            symbol_sizes=[],
             swift_type_groups=[],
             objc_type_groups=[],
-            strippable_symbols_size=15000,  # 15KB of strippable symbols
-            static_inits=[],
+            cpp_type_groups=[],
+            other_symbols=[],
+            compiler_generated_symbols=[],
         )
 
         binary_analysis = MachOBinaryAnalysis(
@@ -157,6 +160,7 @@ class TestStripSymbolsInsight:
             swift_metadata=None,
             is_main_binary=False,
             header_size=32,
+            strippable_symbols_size=15000,
         )
 
         insights_input = InsightsInput(
@@ -185,11 +189,12 @@ class TestStripSymbolsInsight:
         """Test that insight correctly aggregates multiple binaries."""
         # Binary 1: Both debug sections and symbols
         symbol_info_1 = SymbolInfo(
-            symbol_sizes=[],  # Not needed for this test
+            symbol_sizes=[],
             swift_type_groups=[],
             objc_type_groups=[],
-            strippable_symbols_size=3000,
-            static_inits=[],
+            cpp_type_groups=[],
+            other_symbols=[],
+            compiler_generated_symbols=[],
         )
 
         binary_analysis_1 = MachOBinaryAnalysis(
@@ -213,6 +218,7 @@ class TestStripSymbolsInsight:
             swift_metadata=None,
             is_main_binary=False,
             header_size=32,
+            strippable_symbols_size=3000,
         )
 
         # Binary 2: Only debug sections
@@ -241,11 +247,12 @@ class TestStripSymbolsInsight:
 
         # Binary 3: Only symbols
         symbol_info_3 = SymbolInfo(
-            symbol_sizes=[],  # Not needed for this test
+            symbol_sizes=[],
             swift_type_groups=[],
             objc_type_groups=[],
-            strippable_symbols_size=8000,
-            static_inits=[],
+            cpp_type_groups=[],
+            other_symbols=[],
+            compiler_generated_symbols=[],
         )
 
         binary_analysis_3 = MachOBinaryAnalysis(
@@ -265,6 +272,7 @@ class TestStripSymbolsInsight:
             swift_metadata=None,
             is_main_binary=False,
             header_size=32,
+            strippable_symbols_size=8000,
         )
 
         insights_input = InsightsInput(
@@ -344,11 +352,12 @@ class TestStripSymbolsInsight:
     def test_generate_with_zero_size_strippable_symbols(self):
         """Test that binaries with zero-size strippable symbols are ignored."""
         symbol_info = SymbolInfo(
-            symbol_sizes=[],  # Not needed for this test
+            symbol_sizes=[],
             swift_type_groups=[],
             objc_type_groups=[],
-            strippable_symbols_size=0,  # No strippable symbols
-            static_inits=[],
+            cpp_type_groups=[],
+            other_symbols=[],
+            compiler_generated_symbols=[],
         )
 
         binary_analysis = MachOBinaryAnalysis(
@@ -370,6 +379,7 @@ class TestStripSymbolsInsight:
             load_commands=[],
             symbol_info=symbol_info,
             swift_metadata=None,
+            strippable_symbols_size=0,
             is_main_binary=False,
             header_size=32,
         )
