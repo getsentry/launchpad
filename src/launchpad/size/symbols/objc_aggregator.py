@@ -16,7 +16,7 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class ObjCClassMethod(NamedTuple):
+class ObjCSymbol(NamedTuple):
     class_name: str
     method_name: str | None  # None for class-level / ivar symbols
 
@@ -95,7 +95,7 @@ class ObjCSymbolTypeAggregator:
 
     @sentry_sdk.trace
     def aggregate_symbols(self, symbol_sizes: ObjCSymbolList) -> List[ObjCSymbolTypeGroup]:
-        buckets: dict[ObjCClassMethod, list[SymbolSize]] = defaultdict(list)
+        buckets: dict[ObjCSymbol, list[SymbolSize]] = defaultdict(list)
 
         for sym in symbol_sizes:
             mname = sym.mangled_name
@@ -105,21 +105,21 @@ class ObjCSymbolTypeAggregator:
             if m:
                 class_name = m.group(2).lstrip("_")  # remove any leading _
                 selector = m.group(4)
-                key = ObjCClassMethod(class_name=class_name, method_name=selector)
+                key = ObjCSymbol(class_name=class_name, method_name=selector)
                 buckets[key].append(sym)
                 continue
 
             # objc metadata (class object, metaclass, ivar, etc.)
             if self._is_objc_metadata(mname):
                 class_name = self._class_from_metadata(mname)
-                key = ObjCClassMethod(class_name=class_name, method_name=None)
+                key = ObjCSymbol(class_name=class_name, method_name=None)
                 buckets[key].append(sym)
                 continue
 
             # objc runtime functions (_objc_msgSend, _objc_retain, etc.)
             if mname.startswith("_objc_") or mname.startswith("__objc_"):
                 # Group all runtime functions under "ObjC Runtime"
-                key = ObjCClassMethod(class_name="ObjC Runtime", method_name=None)
+                key = ObjCSymbol(class_name="ObjC Runtime", method_name=None)
                 buckets[key].append(sym)
 
         logger.debug(

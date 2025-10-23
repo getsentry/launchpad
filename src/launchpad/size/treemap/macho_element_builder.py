@@ -268,9 +268,9 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         # C++ symbols
         if symbol_info.cpp_type_groups:
-            cpp_namespaces: Dict[str, List[tuple[str, int]]] = {}
+            cpp_symbols_with_size = []
             for grp in symbol_info.cpp_type_groups:
-                cpp_namespaces.setdefault(grp.namespace, []).append((grp.function_name or "namespace", grp.total_size))
+                cpp_symbols_with_size.extend([sym for sym in grp.symbols if sym.size > 0])
                 # Track section usage
                 for sym in grp.symbols:
                     if sym.section_name:
@@ -278,28 +278,31 @@ class MachOElementBuilder(TreemapElementBuilder):
                         unique_sec = f"{segment_name}.{sym.section_name}"
                         section_subtractions[unique_sec] = section_subtractions.get(unique_sec, 0) + sym.size
 
-            for ns_name, funcs in cpp_namespaces.items():
-                func_elems: List[TreemapElement] = [
+            if cpp_symbols_with_size:
+                cpp_size = sum(sym.size for sym in cpp_symbols_with_size)
+                total_other_symbols_size += cpp_size
+                # Limit to top 50 to avoid overwhelming display
+                cpp_symbols_with_size.sort(key=lambda s: s.size, reverse=True)
+                top_cpp_symbols = cpp_symbols_with_size[:50]
+                cpp_symbol_children: List[TreemapElement] = [
                     TreemapElement(
-                        name=func_name,
-                        size=size,
+                        name=sym.mangled_name,
+                        size=sym.size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
                         children=[],
                     )
-                    for func_name, size in funcs
+                    for sym in top_cpp_symbols
                 ]
-                ns_size = sum(f.size for f in func_elems)
-                total_other_symbols_size += ns_size
                 other_symbols_children.append(
                     TreemapElement(
-                        name=f"C++::{ns_name}",
-                        size=ns_size,
+                        name="C++",
+                        size=cpp_size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
-                        children=func_elems,
+                        children=cpp_symbol_children,
                     )
                 )
 
