@@ -10,7 +10,7 @@ from typing import List, NamedTuple
 import sentry_sdk
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
-from launchpad.size.symbols.types import ObjCSymbolTypeGroup
+from launchpad.size.symbols.types import ObjCSymbolList, ObjCSymbolTypeGroup
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -94,7 +94,7 @@ class ObjCSymbolTypeAggregator:
         return name.strip("_") or "Unknown"
 
     @sentry_sdk.trace
-    def aggregate_symbols(self, symbol_sizes: List[SymbolSize]) -> List[ObjCSymbolTypeGroup]:
+    def aggregate_symbols(self, symbol_sizes: ObjCSymbolList) -> List[ObjCSymbolTypeGroup]:
         buckets: dict[ObjCClassMethod, list[SymbolSize]] = defaultdict(list)
 
         for sym in symbol_sizes:

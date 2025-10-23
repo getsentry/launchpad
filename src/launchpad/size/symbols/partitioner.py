@@ -12,7 +12,14 @@ from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.cpp_aggregator import CppSymbolTypeAggregator
 from launchpad.size.symbols.objc_aggregator import ObjCSymbolTypeAggregator
 from launchpad.size.symbols.swift_aggregator import SwiftSymbolTypeAggregator
-from launchpad.size.symbols.types import CppSymbolTypeGroup, ObjCSymbolTypeGroup, SwiftSymbolTypeGroup
+from launchpad.size.symbols.types import (
+    CppSymbolList,
+    CppSymbolTypeGroup,
+    ObjCSymbolList,
+    ObjCSymbolTypeGroup,
+    SwiftSymbolList,
+    SwiftSymbolTypeGroup,
+)
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -82,9 +89,9 @@ class SymbolInfo:
     @sentry_sdk.trace
     def from_symbol_sizes(cls, symbol_sizes: List[SymbolSize]) -> "SymbolInfo":
         with sentry_sdk.start_span(op="partition_symbols", description="Partition symbols by language"):
-            swift_symbols: List[SymbolSize] = []
-            objc_symbols: List[SymbolSize] = []
-            cpp_symbols: List[SymbolSize] = []
+            swift_symbols = SwiftSymbolList()
+            objc_symbols = ObjCSymbolList()
+            cpp_symbols = CppSymbolList()
             other_symbols: List[SymbolSize] = []
             compiler_generated_symbols: List[SymbolSize] = []
 
@@ -101,13 +108,9 @@ class SymbolInfo:
                     other_symbols.append(symbol)
 
         # Aggregate each partition
-        swift_aggregator = SwiftSymbolTypeAggregator()
-        objc_aggregator = ObjCSymbolTypeAggregator()
-        cpp_aggregator = CppSymbolTypeAggregator()
-
-        swift_type_groups = swift_aggregator.aggregate_symbols(swift_symbols)
-        objc_type_groups = objc_aggregator.aggregate_symbols(objc_symbols)
-        cpp_type_groups = cpp_aggregator.aggregate_symbols(cpp_symbols)
+        swift_type_groups = SwiftSymbolTypeAggregator().aggregate_symbols(swift_symbols)
+        objc_type_groups = ObjCSymbolTypeAggregator().aggregate_symbols(objc_symbols)
+        cpp_type_groups = CppSymbolTypeAggregator().aggregate_symbols(cpp_symbols)
 
         logger.debug(
             f"Partitioned {len(symbol_sizes)} symbols in single pass: "
@@ -152,59 +155,3 @@ class SymbolInfo:
             )
 
         return symbols_by_section
-
-    def validate_partitioning(self) -> dict[str, int]:
-        """Validate that all symbols are accounted for and not double-counted.
-
-        Returns:
-            Dictionary with statistics about the partitioning
-        """
-        swift_symbol_names = set()
-        for group in self.swift_type_groups:
-            for sym in group.symbols:
-                swift_symbol_names.add(sym.mangled_name)
-
-        objc_symbol_names = set()
-        for group in self.objc_type_groups:
-            for sym in group.symbols:
-                objc_symbol_names.add(sym.mangled_name)
-
-        cpp_symbol_names = set()
-        for group in self.cpp_type_groups:
-            for sym in group.symbols:
-                cpp_symbol_names.add(sym.mangled_name)
-
-        other_symbol_names = {sym.mangled_name for sym in self.other_symbols}
-        compiler_generated_names = {sym.mangled_name for sym in self.compiler_generated_symbols}
-
-        # Check for overlaps between all categories
-        swift_objc_overlap = swift_symbol_names & objc_symbol_names
-        swift_cpp_overlap = swift_symbol_names & cpp_symbol_names
-        swift_other_overlap = swift_symbol_names & other_symbol_names
-        objc_cpp_overlap = objc_symbol_names & cpp_symbol_names
-        objc_other_overlap = objc_symbol_names & other_symbol_names
-        cpp_other_overlap = cpp_symbol_names & other_symbol_names
-
-        all_categorized = (
-            swift_symbol_names | objc_symbol_names | cpp_symbol_names | other_symbol_names | compiler_generated_names
-        )
-        all_original = {sym.mangled_name for sym in self.symbol_sizes}
-        missing = all_original - all_categorized
-        extra = all_categorized - all_original
-
-        return {
-            "total_symbols": len(self.symbol_sizes),
-            "swift_count": len(swift_symbol_names),
-            "objc_count": len(objc_symbol_names),
-            "cpp_count": len(cpp_symbol_names),
-            "other_count": len(other_symbol_names),
-            "compiler_generated_count": len(compiler_generated_names),
-            "swift_objc_overlap": len(swift_objc_overlap),
-            "swift_cpp_overlap": len(swift_cpp_overlap),
-            "swift_other_overlap": len(swift_other_overlap),
-            "objc_cpp_overlap": len(objc_cpp_overlap),
-            "objc_other_overlap": len(objc_other_overlap),
-            "cpp_other_overlap": len(cpp_other_overlap),
-            "missing_symbols": len(missing),
-            "extra_symbols": len(extra),
-        }

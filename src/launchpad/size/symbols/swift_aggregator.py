@@ -7,7 +7,7 @@ from typing import NamedTuple
 import sentry_sdk
 
 from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
-from launchpad.size.symbols.types import SwiftSymbolTypeGroup
+from launchpad.size.symbols.types import SwiftSymbolList, SwiftSymbolTypeGroup
 from launchpad.utils.apple.cwl_demangle import CwlDemangler
 from launchpad.utils.logging import get_logger
 
@@ -43,7 +43,7 @@ class SwiftSymbolTypeAggregator:
         return False
 
     @sentry_sdk.trace
-    def aggregate_symbols(self, symbol_sizes: list[SymbolSize]) -> list[SwiftSymbolTypeGroup]:
+    def aggregate_symbols(self, symbol_sizes: SwiftSymbolList) -> list[SwiftSymbolTypeGroup]:
         # Demangle all Swift symbols
         for symbol in symbol_sizes:
             self.demangler.add_name(symbol.mangled_name)
