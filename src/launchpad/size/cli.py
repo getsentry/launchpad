@@ -114,7 +114,7 @@ def size_command(
 @click.option("--quiet", "-q", is_flag=True, help="Suppress all output except errors.")
 def app_icon_command(
     input_path: Path,
-    output: Path,
+    output: Path | None,
     verbose: bool,
     quiet: bool,
 ) -> None:
@@ -123,6 +123,9 @@ def app_icon_command(
 
     if verbose and quiet:
         raise click.UsageError("Cannot specify both --verbose and --quiet")
+
+    if output is None:
+        raise click.UsageError("Missing required option '--output' / '-o'")
 
     if not quiet:
         console.print("[bold blue]App Icon[/bold blue]")

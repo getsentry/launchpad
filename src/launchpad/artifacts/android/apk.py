@@ -110,6 +110,10 @@ class APK(AndroidArtifact):
 
     def get_app_icon(self) -> bytes | None:
         manifest = self.get_manifest()
+        if manifest.application is None:
+            logger.info("No application element found in manifest")
+            return None
+
         icon_path = manifest.application.icon_path
         if not icon_path:
             logger.info("No icon path found in manifest")
@@ -120,6 +124,7 @@ class APK(AndroidArtifact):
         if not icon_path.exists():
             return None
 
+        # TODO(EME-461): Support XML icon paths
         if icon_path.suffix == ".xml":
             logger.info(f"Icon path {icon_path} is an XML file, which is not yet supported. Skipping.")
             return None
