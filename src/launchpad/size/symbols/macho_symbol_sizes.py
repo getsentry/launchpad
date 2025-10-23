@@ -1,11 +1,20 @@
 from collections.abc import Generator
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import lief
 
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class _SymbolSizeData(NamedTuple):
+    name: str
+    section_name: str | None
+    segment_name: str | None
+    address: int
+    size: int
 
 
 @dataclass
@@ -25,17 +34,17 @@ class MachOSymbolSizes:
 
     def get_symbol_sizes(self) -> list[SymbolSize]:
         """Get the symbol sizes."""
-        symbol_tuples = list(self._symbol_sizes(self.binary))
+        symbol_data = list(self._symbol_sizes(self.binary))
 
         symbol_sizes: list[SymbolSize] = []
-        for mangled_name, section_name, segment_name, address, size in symbol_tuples:
+        for data in symbol_data:
             symbol_sizes.append(
                 SymbolSize(
-                    mangled_name=mangled_name,
-                    section_name=section_name,
-                    segment_name=segment_name,
-                    address=address,
-                    size=size,
+                    mangled_name=data.name,
+                    section_name=data.section_name,
+                    segment_name=data.segment_name,
+                    address=data.address,
+                    size=data.size,
                 )
             )
 
@@ -64,8 +73,8 @@ class MachOSymbolSizes:
 
         return is_measurable
 
-    def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[tuple[str, str | None, str | None, int, int]]:
-        """Yield (name, section_name, segment_name, addr, size) via the distance-to-next-symbol heuristic."""
+    def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[_SymbolSizeData]:
+        """Yield symbol size data via the distance-to-next-symbol heuristic."""
 
         # sort symbols by their address so we can calculate the distance between them
         syms = sorted((s for s in bin.symbols if self._is_measurable(s)), key=lambda s: s.value)
@@ -121,4 +130,10 @@ class MachOSymbolSizes:
             else:
                 logger.warning(f"Failed to calculate size for symbol {sym.name}")
 
-            yield (str(sym.name), section_name, segment_name, start, size)
+            yield _SymbolSizeData(
+                name=str(sym.name),
+                section_name=section_name,
+                segment_name=segment_name,
+                address=start,
+                size=size,
+            )

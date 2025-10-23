@@ -9,20 +9,14 @@ from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 
 
 class SwiftSymbolList(list[SymbolSize]):
-    """Type-safe wrapper for Swift symbols."""
-
     pass
 
 
 class ObjCSymbolList(list[SymbolSize]):
-    """Type-safe wrapper for Objective-C symbols."""
-
     pass
 
 
 class CppSymbolList(list[SymbolSize]):
-    """Type-safe wrapper for C++ symbols."""
-
     pass
 
 

@@ -1,5 +1,5 @@
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.cpp_aggregator import CppSymbolTypeAggregator
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import CppSymbolList
 
 

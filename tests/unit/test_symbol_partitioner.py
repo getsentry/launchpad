@@ -1,4 +1,4 @@
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.partitioner import SymbolInfo
 
 

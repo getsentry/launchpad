@@ -1,4 +1,4 @@
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.objc_aggregator import ObjCSymbolTypeAggregator
 from launchpad.size.symbols.types import ObjCSymbolList, ObjCSymbolTypeGroup
 
