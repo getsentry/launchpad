@@ -9,7 +9,7 @@ from typing import List, NamedTuple
 
 import sentry_sdk
 
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import ObjCSymbolList, ObjCSymbolTypeGroup
 from launchpad.utils.logging import get_logger
 

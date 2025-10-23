@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 
 
 class SwiftSymbolList(list[SymbolSize]):

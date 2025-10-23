@@ -6,7 +6,7 @@ from typing import NamedTuple
 
 import sentry_sdk
 
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import SwiftSymbolList, SwiftSymbolTypeGroup
 from launchpad.utils.apple.cwl_demangle import CwlDemangler
 from launchpad.utils.logging import get_logger

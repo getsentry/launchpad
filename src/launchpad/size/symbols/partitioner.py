@@ -8,8 +8,8 @@ from typing import Callable, List, NamedTuple
 
 import sentry_sdk
 
-from launchpad.parsers.apple.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.cpp_aggregator import CppSymbolTypeAggregator
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.objc_aggregator import ObjCSymbolTypeAggregator
 from launchpad.size.symbols.swift_aggregator import SwiftSymbolTypeAggregator
 from launchpad.size.symbols.types import (
@@ -113,7 +113,7 @@ class SymbolInfo:
         cpp_type_groups = CppSymbolTypeAggregator().aggregate_symbols(cpp_symbols)
 
         logger.debug(
-            f"Partitioned {len(symbol_sizes)} symbols in single pass: "
+            f"Partitioned {len(symbol_sizes)} symbols: "
             f"Swift={len(swift_symbols)}, ObjC={len(objc_symbols)}, C++={len(cpp_symbols)}, "
             f"Other={len(other_symbols)}, Compiler-generated={len(compiler_generated_symbols)}"
         )

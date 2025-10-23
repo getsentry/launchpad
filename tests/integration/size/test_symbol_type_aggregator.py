@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
-from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
+from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
 from launchpad.size.symbols.swift_aggregator import SwiftSymbolTypeAggregator
 
 

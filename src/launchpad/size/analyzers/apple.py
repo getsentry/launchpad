@@ -20,7 +20,6 @@ from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchi
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsParser
 from launchpad.parsers.apple.macho_parser import MachOParser
-from launchpad.parsers.apple.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.alternate_icons_optimization import AlternateIconsOptimizationInsight
@@ -37,6 +36,7 @@ from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsi
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
+from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
