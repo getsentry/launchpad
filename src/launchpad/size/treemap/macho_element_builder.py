@@ -65,16 +65,22 @@ class MachOElementBuilder(TreemapElementBuilder):
         size_diff_abs = abs(size_diff)
         size_diff_percent = (size_diff_abs / file_info.size) * 100 if file_info.size > 0 else 0
 
-        logger.debug(f"Size validation for {display_name}:")
-        logger.debug(f"  File size: {file_info.size:,} bytes")
-        logger.debug(f"  Treemap total: {total_child_size:,} bytes")
+        if size_diff != 0:
+            logger.warning(f"Size mismatch for {display_name}:")
+            logger.warning(f"  File size: {file_info.size:,} bytes")
+            logger.warning(f"  Treemap total: {total_child_size:,} bytes")
 
-        if size_diff > 0:
-            logger.debug(f"  Difference: {size_diff_abs:,} bytes MISSING from treemap ({size_diff_percent:.2f}%)")
-        elif size_diff < 0:
-            logger.debug(f"  Difference: {size_diff_abs:,} bytes OVER-COUNTED in treemap ({size_diff_percent:.2f}%)")
-        else:
-            logger.debug("  Difference: 0 bytes - perfect match!")
+            if children:
+                logger.warning(f"  Treemap breakdown ({len(children)} top-level elements):")
+                for child in children:
+                    logger.warning(f"    {child.name}: {child.size:,} bytes ({child.type})")
+
+            if size_diff > 0:
+                logger.warning(f"  Difference: {size_diff_abs:,} bytes MISSING from treemap ({size_diff_percent:.2f}%)")
+            else:
+                logger.warning(
+                    f"  Difference: {size_diff_abs:,} bytes OVER-COUNTED in treemap ({size_diff_percent:.2f}%)"
+                )
 
     def _build_binary_treemap(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement] | None:
         binary_children: List[TreemapElement] = []

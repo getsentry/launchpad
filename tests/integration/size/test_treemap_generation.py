@@ -364,6 +364,12 @@ class TestTreemapGeneration:
         linkedit_size = main_exe_sections["__LINKEDIT"].size
         assert linkedit_size > 0
 
+        # Verify Unmapped section (track size changes)
+        has_unmapped = "Unmapped" in main_exe_sections
+        assert has_unmapped
+        unmapped_size = main_exe_sections["Unmapped"].size
+        assert unmapped_size == 36271
+
         # Verify Swift module is present
         has_hackernews = "HackerNews" in main_exe_sections
         assert has_hackernews
