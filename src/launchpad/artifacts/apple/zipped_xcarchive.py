@@ -337,8 +337,8 @@ class ZippedXCArchive(AppleArtifact):
             xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
             app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
 
-            parent_path = xcarchive_dir / "ParsedAssets" / app_bundle_path
-            file_path = parent_path / json_name
+            parent_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / relative_path.parent
+            file_path = parent_path / json_name.name
 
             if not file_path.exists():
                 logger.warning(
