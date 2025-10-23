@@ -11,7 +11,7 @@ import lief
 from pydantic import BaseModel, ConfigDict, Field
 
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsData
-from launchpad.size.symbols import SymbolInfo
+from launchpad.size.symbols.partitioner import SymbolInfo
 
 from .common import BaseAnalysisResults, BaseAppInfo
 from .insights import (

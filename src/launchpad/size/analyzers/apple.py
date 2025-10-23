@@ -444,8 +444,6 @@ class AppleAppAnalyzer:
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
-
-                # Create SymbolInfo with single-pass partitioning
                 symbol_info = SymbolInfo.from_symbol_sizes(symbol_sizes=symbol_sizes)
             else:
                 logger.error(

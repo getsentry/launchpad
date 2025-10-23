@@ -17,8 +17,6 @@ logger = get_logger(__name__)
 
 
 class CppNamespaceFunction(NamedTuple):
-    """Key for grouping C++ symbols by namespace and function."""
-
     namespace: str
     function_name: str | None  # None for namespace-level symbols
 

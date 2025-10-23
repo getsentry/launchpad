@@ -6,7 +6,7 @@ from launchpad.size.models.apple import MachOBinaryAnalysis
 from launchpad.size.models.binary_component import BinaryTag
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
-from launchpad.size.symbols import SwiftSymbolTypeGroup
+from launchpad.size.symbols.types import SwiftSymbolTypeGroup
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
 from launchpad.utils.logging import get_logger
 
