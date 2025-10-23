@@ -335,7 +335,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                     section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if comp_syms:
-                comp_syms.sort(key=lambda s: s.size, reverse=True)
                 comp_size = sum(s.size for s in comp_syms)
                 total_other_symbols_size += comp_size
                 other_symbols_children.append(
@@ -345,17 +344,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
-                        children=[
-                            TreemapElement(
-                                name=s.mangled_name,
-                                size=s.size,
-                                type=TreemapType.MODULES,
-                                path=None,
-                                is_dir=False,
-                                children=[],
-                            )
-                            for s in comp_syms[:50]
-                        ],
+                        children=[],  # Don't show the children because it can make diffs noisy
                     )
                 )
 
