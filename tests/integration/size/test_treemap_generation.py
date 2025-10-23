@@ -362,7 +362,7 @@ class TestTreemapGeneration:
         has_linkedit = "__LINKEDIT" in main_exe_sections
         assert has_linkedit
         linkedit_size = main_exe_sections["__LINKEDIT"].size
-        assert linkedit_size > 0
+        assert linkedit_size == 269360
 
         # Verify Unmapped section (track size changes)
         has_unmapped = "Unmapped" in main_exe_sections
@@ -374,7 +374,7 @@ class TestTreemapGeneration:
         has_hackernews = "HackerNews" in main_exe_sections
         assert has_hackernews
         hackernews_module = main_exe_sections["HackerNews"]
-        assert hackernews_module.size > 0
+        assert hackernews_module.size == 257340
         assert hackernews_module.type == "modules"
 
         # Verify Frameworks directory

@@ -80,7 +80,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 section_remaining[key] = sec.size
                 section_by_name[sec.name] = seg.name
 
-        def canon_key(seg_name: str | None, sec_name: str | None) -> str | None:
+        def canonical_key(seg_name: str | None, sec_name: str | None) -> str | None:
             if not sec_name:
                 return None
             seg = seg_name or section_by_name.get(sec_name)
@@ -89,7 +89,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         def debit_section(seg_name: str | None, sec_name: str | None, sz: int) -> int:
             if sz <= 0:
                 return 0
-            key = canon_key(seg_name, sec_name)
+            key = canonical_key(seg_name, sec_name)
             if not key or key not in section_remaining:
                 return 0
             take = min(sz, section_remaining[key])
@@ -101,13 +101,13 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         if binary_analysis.symbol_info:
             self._add_swift_symbols(
-                binary_analysis.symbol_info, binary_children, section_subtractions, debit_section, canon_key
+                binary_analysis.symbol_info, binary_children, section_subtractions, debit_section, canonical_key
             )
             self._add_objc_symbols(
-                binary_analysis.symbol_info, binary_children, section_subtractions, debit_section, canon_key
+                binary_analysis.symbol_info, binary_children, section_subtractions, debit_section, canonical_key
             )
             self._add_other_symbols(
-                binary_analysis.symbol_info, binary_children, section_subtractions, debit_section, canon_key
+                binary_analysis.symbol_info, binary_children, section_subtractions, debit_section, canonical_key
             )
 
         # Metadata
@@ -154,7 +154,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         binary_children: List[TreemapElement],
         section_subtractions: Dict[str, int],
         debit_section: DebitFn,
-        canon_key: CanonKeyFn,
+        canonical_key: CanonKeyFn,
     ) -> None:
         if not symbol_info.swift_type_groups:
             return
@@ -165,7 +165,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             for sym in grp.symbols:
                 taken = debit_section(sym.segment_name, sym.section_name, sym.size)
                 if taken:
-                    key = canon_key(sym.segment_name, sym.section_name)
+                    key = canonical_key(sym.segment_name, sym.section_name)
                     section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
         def _ensure(node_map: Dict[str, _SwiftTypeNode], name: str) -> _SwiftTypeNode:
@@ -206,8 +206,8 @@ class MachOElementBuilder(TreemapElementBuilder):
         for module_name, type_groups in swift_modules.items():
             type_tree: Dict[str, _SwiftTypeNode] = {}
 
-            for grp in type_groups:
-                comps = grp.components
+            for group in type_groups:
+                comps = group.components
                 if comps and comps[0] == module_name:
                     comps = comps[1:]
                 comps = [c for c in comps if c and c[0].isupper()]
@@ -218,7 +218,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 for i, comp in enumerate(comps):
                     node = _ensure(cur, comp)
                     if i == len(comps) - 1:
-                        node["self_size"] += grp.total_size
+                        node["self_size"] += group.total_size
                     cur = node["children"]
 
             module_children = _tree_to_treemap(type_tree)
@@ -240,7 +240,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         binary_children: List[TreemapElement],
         section_subtractions: Dict[str, int],
         debit_section: DebitFn,
-        canon_key: CanonKeyFn,
+        canonical_key: CanonKeyFn,
     ) -> None:
         if not symbol_info.objc_type_groups:
             return
@@ -251,7 +251,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             for sym in grp.symbols:
                 taken = debit_section(sym.segment_name, sym.section_name, sym.size)
                 if taken:
-                    key = canon_key(sym.segment_name, sym.section_name)
+                    key = canonical_key(sym.segment_name, sym.section_name)
                     section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
         for cls_name, meths in objc_classes.items():
@@ -283,7 +283,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         binary_children: List[TreemapElement],
         section_subtractions: Dict[str, int],
         debit_section: DebitFn,
-        canon_key: CanonKeyFn,
+        canonical_key: CanonKeyFn,
     ) -> None:
         other_symbols_children: List[TreemapElement] = []
         total_other_symbols_size = 0
@@ -297,7 +297,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                         cpp_syms_with_size.append(sym)
                     taken = debit_section(sym.segment_name, sym.section_name, sym.size)
                     if taken:
-                        key = canon_key(sym.segment_name, sym.section_name)
+                        key = canonical_key(sym.segment_name, sym.section_name)
                         section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if cpp_syms_with_size:
@@ -331,7 +331,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             for sym in comp_syms:
                 taken = debit_section(sym.segment_name, sym.section_name, sym.size)
                 if taken:
-                    key = canon_key(sym.segment_name, sym.section_name)
+                    key = canonical_key(sym.segment_name, sym.section_name)
                     section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if comp_syms:
@@ -365,7 +365,7 @@ class MachOElementBuilder(TreemapElementBuilder):
             for sym in other_syms:
                 taken = debit_section(sym.segment_name, sym.section_name, sym.size)
                 if taken:
-                    key = canon_key(sym.segment_name, sym.section_name)
+                    key = canonical_key(sym.segment_name, sym.section_name)
                     section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if other_syms:
