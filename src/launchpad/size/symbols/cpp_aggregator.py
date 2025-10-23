@@ -104,15 +104,6 @@ class CppSymbolTypeAggregator:
 
     @sentry_sdk.trace
     def aggregate_symbols(self, symbol_sizes: CppSymbolList) -> List[CppSymbolTypeGroup]:
-        """
-        Aggregate C++ symbols from DWARF symbol sizes.
-
-        Args:
-            symbol_sizes: List of SymbolSize objects from MachOSymbolSizes
-
-        Returns:
-            List of CppSymbolTypeGroup objects with aggregated sizes
-        """
         buckets: dict[CppNamespaceFunction, list[SymbolSize]] = defaultdict(list)
 
         for sym in symbol_sizes:
