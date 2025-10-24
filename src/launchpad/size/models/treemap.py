@@ -20,6 +20,7 @@ class TreemapType(str, Enum):
     SIGNATURES = "signatures"
     FONTS = "fonts"
     LOCALIZATIONS = "localizations"
+    AUDIO = "audio"
 
     # Apple-specific categories
     FRAMEWORKS = "frameworks"
@@ -82,6 +83,15 @@ FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
     "plist": TreemapType.PLISTS,
     "framework": TreemapType.FRAMEWORKS,
     "appex": TreemapType.EXTENSIONS,
+    # Audio
+    "mp3": TreemapType.AUDIO,
+    "wav": TreemapType.AUDIO,
+    "flac": TreemapType.AUDIO,
+    "aac": TreemapType.AUDIO,
+    "m4a": TreemapType.AUDIO,
+    "aiff": TreemapType.AUDIO,
+    "alac": TreemapType.AUDIO,
+    "ogg": TreemapType.AUDIO,
 }
 
 
