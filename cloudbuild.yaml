@@ -26,19 +26,19 @@ steps:
             --push \
             --platform linux/amd64 \
             --build-arg LAUNCHPAD_VERSION_SHA=$COMMIT_SHA \
-            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$COMMIT_SHA \
-            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$SHORT_SHA \
-            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:nightly \
-            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME-mr/image:$COMMIT_SHA \
-            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME-mr/image:$SHORT_SHA \
-            -t $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME-mr/image:nightly \
+            -t us-central1-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$COMMIT_SHA \
+            -t us-central1-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:$SHORT_SHA \
+            -t us-central1-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:nightly \
+            -t us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME-mr/image:$COMMIT_SHA \
+            -t us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME-mr/image:$SHORT_SHA \
+            -t us-docker.pkg.dev/$PROJECT_ID/$REPO_NAME-mr/image:nightly \
             --label org.opencontainers.image.revision=$COMMIT_SHA \
             --label org.opencontainers.image.version=$COMMIT_SHA \
             --label org.opencontainers.image.title=$REPO_NAME \
             --label org.opencontainers.image.source="https://github.com/$REPO_FULL_NAME" \
             --label org.opencontainers.vendor="Sentry" \
             --label org.opencontainers.image.url=$REPO_FULL_NAME \
-            --cache-from $LOCATION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:latest \
+            --cache-from us-central1-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/image:latest \
             --sbom true \
             --provenance="mode=max" \
             .
