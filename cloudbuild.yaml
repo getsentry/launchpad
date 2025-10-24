@@ -41,7 +41,7 @@ steps:
             .
 
   - name: "gcr.io/cloud-builders/docker-mr"
-    id: "build-image"
+    id: "build-image-mr"
     waitFor: ["create-builder"]
     entrypoint: "bash"
     args:
