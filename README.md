@@ -1,16 +1,18 @@
 # Launchpad
 
-A microservice for analyzing iOS and Android apps.
+A service for analyzing iOS and Android apps.
 
 [![codecov](https://codecov.io/gh/getsentry/launchpad/graph/badge.svg?token=iF5K92yaUu)](https://codecov.io/gh/getsentry/launchpad)
 
 ## Installation
 
-### Development Setup
+### Environment setup
 
 ```bash
 git clone https://github.com/getsentry/launchpad.git
 cd launchpad
+
+# Installs our local dependencies
 devenv sync
 ```
 
@@ -18,49 +20,33 @@ If you don't have devenv installed, [follow these instructions](https://github.c
 
 ### Using devservices
 
-[devservices](https://github.com/getsentry/devservices) provides shared Kafka infrastructure used by multiple Sentry services:
+[devservices](https://github.com/getsentry/devservices) manages the dependencies used by Launchpad:
 
 ```bash
-# Start shared dependencies (Kafka)
+# Start dependency containers (e.g. Kafka)
 devservices up
 
-# In another terminal, start the service
+# Begin listening for messages
 launchpad serve
 
-# Or run integration tests
-make test-service-integration
-
-# Stop shared dependencies
+# Stop containers
 devservices down
 ```
 
 ## Usage
 
-### Testing Kafka Integration
+Launchpad is primarily designed to run as a Kafka consumer alongside the [Sentry monolith](https://github.com/getsentry/sentry) codebase. It can also be manually invoked with our various subcommands for one-off analysis.
 
-- `GET /health` - Basic health check
-- `GET /ready` - Readiness check
-
-### Testing Kafka Integration
+### Size command
 
 ```bash
-# Send a test message to Kafka
-make test-kafka-message
-
-# Send multiple test messages
-make test-kafka-multiple
-```
-
-### CLI Analysis (Development)
-
-```bash
-# Direct iOS analysis
+# iOS analysis
 launchpad size path/to/app.xcarchive.zip
 
-# Analyze an APK, AAB or Zip containing a single APK or AAB
-launchpad size path/to/app.apk
+# Android analysis (AAB preferred)
 launchpad size path/to/app.aab
 launchpad size path/to/zipped_aab.zip
+launchpad size path/to/app.apk
 
 # Skip time-consuming analysis for faster results
 launchpad size path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
@@ -70,7 +56,7 @@ launchpad size path/to/app.xcarchive.zip -o my-report.json
 launchpad size app.apk -o detailed-report.json
 ```
 
-### Usage
+See `launchpad size --help` for all options:
 
 ```
 $ launchpad size --help
@@ -98,10 +84,30 @@ Options:
 
 ### Service Development
 
+For full end-to-end development alongside the Sentry monolith, first run `sentry` in one terminal:
+
 ```bash
-# Development with shared infrastructure
-devservices up                  # Start Kafka via devservices
+devenv sync
+devservices up --mode ingest
+devservices serve --workers
+```
+
+Next run `launchpad` in another terminal:
+
+```bash
+devservices up
 launchpad serve
+```
+
+And finally use the `sentry-cli` to upload to your local machine:
+
+```bash
+sentry-cli --log-level DEBUG \
+  --url http://dev.getsentry.net:8000/ \
+  --auth-token $SENTRY_TOKEN \
+  build upload YourBuild.xcarchive \
+  --org sentry \
+  --project internal
 ```
 
 ### Testing
