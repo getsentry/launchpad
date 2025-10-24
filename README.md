@@ -35,7 +35,9 @@ devservices down
 
 ## Usage
 
-Launchpad is primarily designed to run as a Kafka consumer alongside the [Sentry monolith](https://github.com/getsentry/sentry) codebase. It can also be manually invoked with our various subcommands for one-off analysis.
+Launchpad is primarily designed to run as a Kafka consumer alongside the [Sentry monolith](https://github.com/getsentry/sentry) codebase via `launchpad serve`.
+
+Alternatively for a one-off analysis, such as a local size analysis, you can invoke our various CLI subcommands.
 
 ### Size command
 
