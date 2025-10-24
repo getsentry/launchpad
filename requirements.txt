@@ -19,3 +19,4 @@ sentry-kafka-schemas==2.1.2
 sentry-sdk>=2.36.0
 sortedcontainers>=2.4.0
 typing-extensions>=4.15.0
+zstandard>=0.18.0

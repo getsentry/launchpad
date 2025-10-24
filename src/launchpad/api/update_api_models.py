@@ -63,6 +63,7 @@ class UpdateData(BaseModel):
     apple_app_info: Optional[AppleAppInfo] = None
     android_app_info: Optional[AndroidAppInfo] = None
     dequeued_at: Optional[datetime] = Field(None, description="Timestamp when message was dequeued from Kafka")
+    app_icon_id: Optional[str] = None
 
     @field_serializer("dequeued_at")
     def serialize_datetime(self, dt: datetime | None) -> str | None:

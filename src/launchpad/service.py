@@ -127,6 +127,7 @@ class ServiceConfig:
 
     sentry_base_url: str
     projects_to_skip: list[str]
+    objectstore_base_url: str
 
 
 def get_service_config() -> ServiceConfig:
@@ -134,6 +135,7 @@ def get_service_config() -> ServiceConfig:
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
     projects_to_skip_str = os.getenv("PROJECT_IDS_TO_SKIP")
     projects_to_skip = projects_to_skip_str.split(",") if projects_to_skip_str else []
+    objectstore_base_url = os.getenv("OBJECTSTORE_BASE_URL")
 
     if sentry_base_url is None:
         sentry_base_url = "http://getsentry.default"
@@ -141,6 +143,7 @@ def get_service_config() -> ServiceConfig:
     return ServiceConfig(
         sentry_base_url=sentry_base_url,
         projects_to_skip=projects_to_skip,
+        objectstore_base_url=objectstore_base_url,
     )
 
 

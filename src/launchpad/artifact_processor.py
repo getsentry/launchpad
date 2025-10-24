@@ -13,7 +13,9 @@ from typing import Any, Dict, Iterator, cast
 
 import sentry_sdk
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
+    PreprodArtifactEvents,
+)
 
 from launchpad.api.update_api_models import AndroidAppInfo as AndroidAppInfoModel
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
@@ -40,6 +42,12 @@ from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
 from launchpad.tracing import request_context
 from launchpad.utils.logging import get_logger
+from launchpad.utils.objectstore.service import (
+    Client as ObjectstoreClient,
+)
+from launchpad.utils.objectstore.service import (
+    ClientBuilder as ObjectstoreClientBuilder,
+)
 from launchpad.utils.statsd import StatsdInterface, get_statsd
 
 logger = get_logger(__name__)
@@ -48,9 +56,15 @@ logger = get_logger(__name__)
 class ArtifactProcessor:
     """Handles the processing of artifacts including download, analysis, and upload."""
 
-    def __init__(self, sentry_client: SentryClient, statsd: StatsdInterface) -> None:
+    def __init__(
+        self,
+        sentry_client: SentryClient,
+        statsd: StatsdInterface,
+        objectstore_client: ObjectstoreClient,
+    ) -> None:
         self._sentry_client = sentry_client
         self._statsd = statsd
+        self._objectstore_client = objectstore_client
 
     @staticmethod
     def process_message(
@@ -72,15 +86,18 @@ class ArtifactProcessor:
 
         initialize_sentry_sdk()
 
+        organization_id = payload["organization_id"]
+        project_id = payload["project_id"]
+        artifact_id = payload["artifact_id"]
+
         if statsd is None:
             statsd = get_statsd()
         if artifact_processor is None:
             sentry_client = SentryClient(base_url=service_config.sentry_base_url)
-            artifact_processor = ArtifactProcessor(sentry_client, statsd)
-
-        organization_id = payload["organization_id"]
-        project_id = payload["project_id"]
-        artifact_id = payload["artifact_id"]
+            objectstore_client = ObjectstoreClientBuilder(
+                usecase="app-icons", options={"base_url": "http://localhost:8888/"}
+            ).for_project(organization_id, project_id)
+            artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
         requested_features = []
         for feature in payload.get("requested_features", []):
@@ -140,7 +157,7 @@ class ArtifactProcessor:
             path = stack.enter_context(self._download_artifact(organization_id, project_id, artifact_id))
             artifact = self._parse_artifact(organization_id, project_id, artifact_id, path)
             analyzer = self._create_analyzer(artifact)
-
+            app_icon_object_id = self._process_app_icon(organization_id, project_id, artifact_id, artifact)
             info = self._preprocess_artifact(
                 organization_id,
                 project_id,
@@ -148,6 +165,7 @@ class ArtifactProcessor:
                 artifact,
                 analyzer,
                 dequeued_at,
+                app_icon_object_id,
             )
 
             if PreprodFeature.SIZE_ANALYSIS in requested_features:
@@ -212,11 +230,12 @@ class ArtifactProcessor:
         artifact: Artifact,
         analyzer: AndroidAnalyzer | AppleAppAnalyzer,
         dequeued_at: datetime,
+        app_icon_id: str | None,
     ) -> AppleAppInfo | BaseAppInfo:
         logger.info(f"Preprocessing for {artifact_id} (project: {project_id}, org: {organization_id})")
         try:
             info = analyzer.preprocess(cast(Any, artifact))
-            update_data = self._prepare_update_data(info, artifact, dequeued_at)
+            update_data = self._prepare_update_data(info, artifact, dequeued_at, app_icon_id)
             self._sentry_client.update_artifact(
                 org=organization_id,
                 project=project_id,
@@ -236,6 +255,22 @@ class ArtifactProcessor:
             raise
         else:
             return info
+
+    def _process_app_icon(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        artifact: Artifact,
+    ) -> str | None:
+        logger.info(f"Processing app icon for {artifact_id} (project: {project_id}, org: {organization_id})")
+        app_icon = artifact.get_app_icon()
+        if app_icon is None:
+            logger.info(f"No app icon found for {artifact_id} (project: {project_id}, org: {organization_id})")
+            return None
+
+        app_icon_id = self._objectstore_client.put(app_icon, compression="none")
+        return app_icon_id
 
     def _do_distribution(
         self,
@@ -416,6 +451,7 @@ class ArtifactProcessor:
         app_info: AppleAppInfo | BaseAppInfo,
         artifact: Artifact,
         dequeued_at: datetime,
+        app_icon_id: str | None,
     ) -> Dict[str, Any]:
         def _get_artifact_type(artifact: Artifact) -> ArtifactType:
             if isinstance(artifact, ZippedXCArchive):
@@ -459,6 +495,7 @@ class ArtifactProcessor:
             apple_app_info=apple_app_info,
             android_app_info=android_app_info,
             dequeued_at=dequeued_at,
+            app_icon_id=app_icon_id,
         )
 
         return update_data.model_dump(exclude_none=True)
