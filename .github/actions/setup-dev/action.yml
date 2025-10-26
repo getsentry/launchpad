@@ -1,0 +1,32 @@
+name: 'Setup Launchpad dev'
+description: 'Sets up Python, uv, and dev dependencies'
+inputs:
+  python-version:
+    description: 'Python version'
+    required: false
+    default: '3.12'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: false
+        cache-dependency-glob: pyproject.toml
+
+    - name: Set up venv
+      uses: getsentry/action-setup-venv@v2.2.0
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache-dependency-path: uv.lock
+        install-cmd: uv sync --frozen --active
+
+    - name: Install dependencies
+      shell: bash
+      run: make install-dev-for-ci
