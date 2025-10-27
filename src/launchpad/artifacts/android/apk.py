@@ -6,6 +6,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Callable, Iterator
 
+from launchpad.parsers.android.binary.binary_xml_drawable_utils import (
+    BinaryXmlDrawableUtils,
+)
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.apksigner import Apksigner
 
@@ -114,20 +117,40 @@ class APK(AndroidArtifact):
             logger.info("No application element found in manifest")
             return None
 
-        icon_path = manifest.application.icon_path
-        if not icon_path:
+        icon_path_str = manifest.application.icon_path
+        if not icon_path_str:
             logger.info("No icon path found in manifest")
             return None
 
-        icon_path = self._extract_dir / icon_path
+        icon_path = self._extract_dir / icon_path_str
 
         if not icon_path.exists():
+            logger.info(f"Icon not found in APK: {icon_path_str}")
             return None
 
-        # TODO(EME-461): Support XML icon paths
+        # Handle XML drawables (adaptive icons, vector drawables, shapes)
         if icon_path.suffix == ".xml":
-            logger.info(f"Icon path {icon_path} is an XML file, which is not yet supported. Skipping.")
-            return None
+            try:
+                binary_res_tables = self.get_resource_tables()
 
+                icon = BinaryXmlDrawableUtils.binary_xml_to_adaptive_icon_from_path(
+                    icon_path, self._extract_dir, binary_res_tables
+                )
+                if icon:
+                    return icon
+
+                icon = BinaryXmlDrawableUtils.handle_xml_drawable_from_path(
+                    icon_path, self._extract_dir, binary_res_tables
+                )
+                if icon:
+                    return icon
+
+                logger.info(f"Could not process XML drawable for icon: {icon_path_str}")
+                return None
+            except Exception:
+                logger.exception(f"Error processing XML drawable for icon: {icon_path_str}")
+                return None
+
+        # Handle regular image files (PNG, JPEG, etc.)
         with open(icon_path, "rb") as f:
             return f.read()
