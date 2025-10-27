@@ -6,10 +6,10 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Callable, Iterator
 
-from launchpad.parsers.android.binary.binary_xml_drawable_utils import (
-    BinaryXmlDrawableUtils,
-)
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
+from launchpad.parsers.android.icon.binary_xml_drawable_parser import (
+    BinaryXmlDrawableParser,
+)
 from launchpad.utils.android.apksigner import Apksigner
 
 from ...parsers.android.dex.dex_file_parser import DexFileParser
@@ -133,15 +133,9 @@ class APK(AndroidArtifact):
             try:
                 binary_res_tables = self.get_resource_tables()
 
-                icon = BinaryXmlDrawableUtils.binary_xml_to_adaptive_icon_from_path(
-                    icon_path, self._extract_dir, binary_res_tables
-                )
-                if icon:
-                    return icon
+                binary_xml_drawable_utils = BinaryXmlDrawableParser(self._extract_dir, binary_res_tables)
 
-                icon = BinaryXmlDrawableUtils.handle_xml_drawable_from_path(
-                    icon_path, self._extract_dir, binary_res_tables
-                )
+                icon = binary_xml_drawable_utils.render_from_path(icon_path)
                 if icon:
                     return icon
 
