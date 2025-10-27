@@ -308,6 +308,9 @@ class AppleAppAnalyzer:
             or "Unknown"
         )
 
+        binaries = xcarchive.get_all_binary_paths()
+        missing_dsym_binaries = [b.name for b in binaries if b.dsym_path is None]
+
         return AppleAppInfo(
             name=app_name,
             app_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
@@ -327,6 +330,7 @@ class AppleAppAnalyzer:
             main_binary_uuid=xcarchive.get_main_binary_uuid(),
             primary_icon_name=primary_icon_name,
             alternate_icon_names=alternate_icon_names,
+            missing_dsym_binaries=missing_dsym_binaries,
         )
 
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:
