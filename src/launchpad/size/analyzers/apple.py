@@ -297,7 +297,9 @@ class AppleAppAnalyzer:
             is_code_signature_valid = False
             code_signature_errors = [str(e)]
 
-        primary_icon_name, alternate_icon_names = xcarchive.get_icon_info()
+        icon_info = xcarchive.get_icon_info()
+        primary_icon_name = icon_info.primary_icon_name
+        alternate_icon_names = icon_info.alternate_icon_names
 
         return AppleAppInfo(
             name=plist.get("CFBundleName", "Unknown"),

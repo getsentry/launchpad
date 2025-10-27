@@ -8,10 +8,11 @@ import uuid
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, NamedTuple
 
 import lief
 
+from launchpad.parsers.apple.crushed_png import decode_crushed_png
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AppleArtifact
@@ -51,6 +52,12 @@ class BinaryInfo:
     relocations_path: Path | None = None
 
 
+class AppIconInfo(NamedTuple):
+    primary_icon_name: str | None
+    primary_icon_files: list[str]
+    alternate_icon_names: list[str]
+
+
 class ZippedXCArchive(AppleArtifact):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
@@ -81,25 +88,82 @@ class ZippedXCArchive(AppleArtifact):
             raise RuntimeError("Failed to parse Info.plist") from e
 
     def get_app_icon(self) -> bytes | None:
-        # TODO(EME-462): Implement app icon extraction for Apple artifacts
-        logger.info("App icon not yet implemented for Apple artifacts")
-        return None
-
-    def get_icon_info(self) -> tuple[str | None, list[str]]:
-        """Extract primary and alternate icon names from Info.plist.
+        """Get the primary app icon, decoded from crushed PNG format.
 
         Returns:
-            Tuple of (primary_icon_name, alternate_icon_names list)
+            Decoded PNG bytes, or None if no icon found
+        """
+        icon_info = self.get_icon_info()
+
+        if not icon_info.primary_icon_files:
+            logger.warning("No icon files found in CFBundleIconFiles")
+            return None
+
+        app_bundle_path = self.get_app_bundle_path()
+
+        for icon_name in icon_info.primary_icon_files:
+            # iOS lists base names without extensions or resolution modifiers (@2x, @3x, ~ipad)
+            # Search for files matching the base name with any suffix
+            # e.g., "AppIcon60x60" matches "AppIcon60x60@2x.png" or "AppIcon60x60.png"
+            matching_files = list(app_bundle_path.glob(f"{icon_name}*.png"))
+
+            if not matching_files:
+                continue
+
+            # Prioritize: @3x > @2x > no suffix, and iPhone over iPad
+            def icon_priority(path: Path) -> tuple[int, int]:
+                name = path.stem
+                if "@3x" in name:
+                    res_priority = 3
+                elif "@2x" in name:
+                    res_priority = 2
+                else:
+                    res_priority = 1
+
+                device_priority = 0 if "~ipad" in name else 1
+
+                return (device_priority, res_priority)
+
+            best_icon = max(matching_files, key=icon_priority)
+            logger.debug(f"Found app icon: {best_icon.name} (from {len(matching_files)} candidates)")
+
+            if not best_icon.exists():
+                logger.warning(f"Icon file {best_icon} does not exist")
+                continue
+
+            icon_data = best_icon.read_bytes()
+            decoded_icon = decode_crushed_png(icon_data)
+
+            if decoded_icon is None:
+                logger.warning(f"Failed to decode icon: {best_icon.name}")
+                continue
+
+            return decoded_icon
+
+        logger.warning(f"No icon files found for CFBundleIconFiles: {icon_info.primary_icon_files}")
+        return None
+
+    def get_icon_info(self) -> AppIconInfo:
+        """Extract icon information from Info.plist.
+
+        Returns:
+            AppIconInfo with primary icon name, icon files, and alternate icon names
         """
         plist = self.get_plist()
         bundle_icons = plist.get("CFBundleIcons", {})
 
         primary_icon_name: str | None = None
+        primary_icon_files: list[str] = []
         alternate_icon_names: list[str] = []
 
         primary_icon = bundle_icons.get("CFBundlePrimaryIcon", {})
         if isinstance(primary_icon, dict):
             primary_icon_name = primary_icon.get("CFBundleIconName")
+
+        # CFBundleIconFiles lists the base names of icon files (without extensions or resolution modifiers)
+        icon_files = primary_icon.get("CFBundleIconFiles", [])
+        if isinstance(icon_files, list):
+            primary_icon_files = icon_files
 
         alternate_icons = bundle_icons.get("CFBundleAlternateIcons", {})
         if isinstance(alternate_icons, dict):
@@ -109,7 +173,7 @@ class ZippedXCArchive(AppleArtifact):
                     if icon_name:
                         alternate_icon_names.append(icon_name)
 
-        return primary_icon_name, alternate_icon_names
+        return AppIconInfo(primary_icon_name, primary_icon_files, alternate_icon_names)
 
     def generate_ipa(self, output_path: Path):
         """Generate an IPA file
