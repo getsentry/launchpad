@@ -12,6 +12,7 @@ class LargeImageFileInsight(Insight[LargeImageFileInsightResult]):
         # Apple supported image types: https://developer.apple.com/library/archive/documentation/2DDrawing/Conceptual/DrawingPrintingiOS/LoadingImages/LoadingImages.html#//apple_ref/doc/uid/TP40010156-CH17-SW7
         image_types = [
             "png",
+            "pdf",
             "jpg",
             "jpeg",
             "webp",
