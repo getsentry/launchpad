@@ -14,16 +14,7 @@ from launchpad.parsers.buffer_wrapper import BufferWrapper
 
 
 def decode_crushed_png(data: bytes, debug: bool = False) -> bytes | None:
-    """
-    Convenience function to decode a crushed PNG.
-
-    Args:
-        data: PNG file data
-        debug: Enable debug logging
-
-    Returns:
-        Normalized PNG bytes, or None if invalid
-    """
+    """Decode a crushed PNG and return the normalized PNG data."""
     parser = CrushedPNGParser(data, debug=debug)
     return parser.decode()
 
@@ -47,12 +38,6 @@ class CrushedPNGParser:
         self.idat_chunks: list[bytes] = []
 
     def decode(self) -> bytes | None:
-        """
-        Decode a crushed PNG and return the normalized PNG data.
-
-        Returns:
-            Normalized PNG bytes, or None if invalid/not a PNG
-        """
         # Validate PNG header
         if not self._validate_header():
             return None
@@ -93,7 +78,6 @@ class CrushedPNGParser:
         return b"".join(self.chunks)
 
     def _read_chunk(self) -> PNGChunk | None:
-        """Read a PNG chunk from the buffer."""
         if self.buffer_wrapper.cursor >= len(self.buffer_wrapper.buffer):
             return None
 
@@ -105,7 +89,6 @@ class CrushedPNGParser:
         return PNGChunk(length=length, type=chunk_type, data=data, crc=crc)
 
     def _validate_header(self) -> bool:
-        """Validate PNG header."""
         header = self.buffer_wrapper.buffer[: len(PNG_HEADER)]
         return header == PNG_HEADER
 
@@ -131,8 +114,13 @@ class CrushedPNGParser:
 
         return bytes(result)
 
+    def _calculate_chunk_crc(self, chunk_type: bytes, data: bytes) -> bytes:
+        crc_value = self._calculate_crc32(chunk_type)
+        crc_value = self._calculate_crc32(data, crc_value)
+
+        return struct.pack(">I", crc_value & 0xFFFFFFFF)
+
     def _calculate_crc32(self, buf: bytes, previous: int | None = None) -> int:
-        """Calculate CRC32 checksum for PNG chunks."""
         crc = 0 if previous is None else previous ^ 0xFFFFFFFF
 
         for byte in buf:
@@ -140,15 +128,7 @@ class CrushedPNGParser:
 
         return crc ^ 0xFFFFFFFF
 
-    def _calculate_chunk_crc(self, chunk_type: bytes, data: bytes) -> bytes:
-        """Calculate CRC for a PNG chunk."""
-        crc_value = self._calculate_crc32(chunk_type)
-        crc_value = self._calculate_crc32(data, crc_value)
-
-        return struct.pack(">I", crc_value & 0xFFFFFFFF)
-
     def _add_chunk_to_result(self, chunk: PNGChunk) -> None:
-        """Add a chunk to the output buffer."""
         self.chunks.append(struct.pack(">I", chunk.length))
         self.chunks.append(chunk.type.encode("ascii"))
 

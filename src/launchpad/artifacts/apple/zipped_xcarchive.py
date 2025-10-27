@@ -88,11 +88,7 @@ class ZippedXCArchive(AppleArtifact):
             raise RuntimeError("Failed to parse Info.plist") from e
 
     def get_app_icon(self) -> bytes | None:
-        """Get the primary app icon, decoded from crushed PNG format.
-
-        Returns:
-            Decoded PNG bytes, or None if no icon found
-        """
+        """Get the primary app icon, decoded from crushed PNG format."""
         icon_info = self.get_icon_info()
 
         if not icon_info.primary_icon_files:
@@ -144,11 +140,7 @@ class ZippedXCArchive(AppleArtifact):
         return None
 
     def get_icon_info(self) -> AppIconInfo:
-        """Extract icon information from Info.plist.
-
-        Returns:
-            AppIconInfo with primary icon name, icon files, and alternate icon names
-        """
+        """Extract icon information from Info.plist."""
         plist = self.get_plist()
         bundle_icons = plist.get("CFBundleIcons", {})
 
