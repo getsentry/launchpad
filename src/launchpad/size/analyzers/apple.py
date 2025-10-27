@@ -301,8 +301,15 @@ class AppleAppAnalyzer:
         primary_icon_name = icon_info.primary_icon_name
         alternate_icon_names = icon_info.alternate_icon_names
 
+        app_name = (
+            plist.get("CFBundleName", None)
+            or plist.get("CFBundleDisplayName", None)
+            or plist.get("Name", None)
+            or "Unknown"
+        )
+
         return AppleAppInfo(
-            name=plist.get("CFBundleName", "Unknown"),
+            name=app_name,
             app_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
             version=plist.get("CFBundleShortVersionString", "Unknown"),
             build=plist.get("CFBundleVersion", "Unknown"),
