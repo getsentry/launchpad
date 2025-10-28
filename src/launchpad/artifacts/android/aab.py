@@ -8,6 +8,8 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
+import sentry_sdk
+
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
@@ -34,6 +36,7 @@ class AAB(AndroidArtifact):
         self._dex_mapping: DexMapping | None = None
         self._universal_apk: APK | None = None
 
+    @sentry_sdk.trace
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
             return self._manifest
@@ -53,6 +56,7 @@ class AAB(AndroidArtifact):
         self._manifest = ProtoXmlUtils.proto_xml_to_android_manifest(manifest_buffer, proto_res_tables)
         return self._manifest
 
+    @sentry_sdk.trace
     def get_resource_tables(self) -> list[ProtobufResourceTable]:  # type: ignore[override]
         if self._resource_table is not None:
             return [self._resource_table]
@@ -70,6 +74,7 @@ class AAB(AndroidArtifact):
         self._resource_table = ProtobufResourceTable(arsc_buffer)
         return [self._resource_table]
 
+    @sentry_sdk.trace
     def get_primary_apks(self, device_spec: DeviceSpec = DeviceSpec()) -> list[APK]:
         if self._primary_apks is not None:
             return self._primary_apks
@@ -97,6 +102,7 @@ class AAB(AndroidArtifact):
         finally:
             cleanup_directory(apks_dir)
 
+    @sentry_sdk.trace
     def get_universal_apk(self, apk_dir: Path, device_spec: DeviceSpec = DeviceSpec()) -> APK:
         if self._universal_apk is not None:
             return self._universal_apk
@@ -135,6 +141,7 @@ class AAB(AndroidArtifact):
             dex_mapping_buffer = f.read()
         return DexMapping(dex_mapping_buffer)
 
+    @sentry_sdk.trace
     def get_app_icon(self) -> bytes | None:
         manifest = self.get_manifest()
         if manifest.application is None:

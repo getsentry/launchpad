@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
+import sentry_sdk
+
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .aab import AAB
@@ -21,6 +23,7 @@ class ZippedAAB(AndroidArtifact):
     def get_manifest(self) -> AndroidManifest:
         return self.get_aab().get_manifest()
 
+    @sentry_sdk.trace
     def get_aab(self) -> AAB:
         if self._aab is not None:
             return self._aab

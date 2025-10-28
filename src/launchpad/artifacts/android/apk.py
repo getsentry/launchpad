@@ -6,6 +6,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Callable, Iterator
 
+import sentry_sdk
+
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.utils.android.apksigner import Apksigner
 
@@ -44,6 +46,7 @@ class APK(AndroidArtifact):
         finally:
             f.close()
 
+    @sentry_sdk.trace
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
             return self._manifest
@@ -63,6 +66,7 @@ class APK(AndroidArtifact):
         self._manifest = AxmlUtils.binary_xml_to_android_manifest(manifest_buffer, binary_res_tables)
         return self._manifest
 
+    @sentry_sdk.trace
     def get_resource_tables(self) -> list[BinaryResourceTable]:  # type: ignore[override]
         if self._resource_table is not None:
             return [self._resource_table]
@@ -82,6 +86,7 @@ class APK(AndroidArtifact):
         self._resource_table = BinaryResourceTable(arsc_buffer)
         return [self._resource_table]
 
+    @sentry_sdk.trace
     def get_class_definitions(self) -> list[ClassDefinition]:
         if self._class_definitions is not None:
             return self._class_definitions
@@ -108,6 +113,7 @@ class APK(AndroidArtifact):
         apksigner = Apksigner()
         return apksigner.get_certs(self.path)
 
+    @sentry_sdk.trace
     def get_app_icon(self) -> bytes | None:
         manifest = self.get_manifest()
         if manifest.application is None:

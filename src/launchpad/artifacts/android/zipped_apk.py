@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
+import sentry_sdk
+
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .apk import APK
@@ -20,6 +22,7 @@ class ZippedAPK(AndroidArtifact):
     def get_manifest(self) -> AndroidManifest:
         return self.get_primary_apk().get_manifest()
 
+    @sentry_sdk.trace
     def get_primary_apk(self) -> APK:
         if self._primary_apk is not None:
             return self._primary_apk
