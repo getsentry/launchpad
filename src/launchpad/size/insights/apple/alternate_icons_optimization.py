@@ -71,7 +71,6 @@ class AlternateIconsOptimizationInsight(BaseImageOptimizationInsight):
         )
 
     def _is_alternate_icon_file(self, file_info: FileInfo, alternate_icon_names: set[str]) -> bool:
-        return (
-            file_info.file_type.lower() in self.OPTIMIZABLE_FORMATS
-            and Path(file_info.path).stem in alternate_icon_names
-        )
+        # Some asset catalog entries have no extension, so we include "other" in the OPTIMIZABLE_FORMATS
+        file_type_match = file_info.file_type.lower() in (self.OPTIMIZABLE_FORMATS | {"other"})
+        return file_type_match and Path(file_info.path).stem in alternate_icon_names

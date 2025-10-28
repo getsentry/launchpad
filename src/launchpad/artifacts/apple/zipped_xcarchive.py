@@ -374,14 +374,18 @@ class ZippedXCArchive(AppleArtifact):
         colorspace = item.get("colorspace")
 
         file_extension = Path(filename).suffix.lower()
-        if filename and file_extension in {".png", ".jpg", ".jpeg", ".heic", ".heif"}:
-            potential_path = parent_path / f"{image_id}{file_extension}"
-            if potential_path.exists():
-                full_path = potential_path
-            else:
-                full_path = None
-        else:
-            full_path = None
+        full_path = None
+
+        if filename:
+            if file_extension in {".png", ".jpg", ".jpeg", ".heic", ".heif"}:
+                potential_path = parent_path / f"{image_id}{file_extension}"
+                if potential_path.exists():
+                    full_path = potential_path
+            elif not file_extension:
+                # No extension, try .png as default (for some asset catalog entries)
+                potential_path = parent_path / f"{image_id}.png"
+                if potential_path.exists():
+                    full_path = potential_path
 
         return AssetCatalogElement(
             name=name,
