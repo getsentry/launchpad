@@ -24,3 +24,11 @@ class TestAAB:
 
     def test_universal_apk(self, test_aab: AAB, tmpdir) -> None:
         assert test_aab.get_universal_apk(Path(tmpdir)) is not None
+
+    def test_get_app_icon(self, test_aab: AAB) -> None:
+        icon = test_aab.get_app_icon()
+
+        assert icon is not None
+        assert len(icon) > 0
+        assert icon.startswith(b"\x89PNG")
+        assert icon.endswith(b"IEND\xae\x42\x60\x82")

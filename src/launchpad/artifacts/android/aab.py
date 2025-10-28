@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Callable
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
+from launchpad.parsers.android.icon.proto_xml_drawable_parser import (
+    ProtoXmlDrawableParser,
+)
 from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
@@ -141,20 +144,34 @@ class AAB(AndroidArtifact):
             logger.info("No application element found in manifest")
             return None
 
-        icon_path = manifest.application.icon_path
-        if not icon_path:
+        icon_path_str = manifest.application.icon_path
+        if not icon_path_str:
             logger.info("No icon path found in manifest")
             return None
 
-        icon_path = self._extract_dir / "base" / icon_path
+        icon_path = self._extract_dir / "base" / icon_path_str
 
         if not icon_path.exists():
+            logger.info(f"Icon not found in AAB: {icon_path_str}")
             return None
 
-        # TODO(EME-461): Support XML icon paths
+        # Handle XML drawables (adaptive icons, vector drawables, shapes)
         if icon_path.suffix == ".xml":
-            logger.info(f"Icon path {icon_path} is a XML file, which is not yet supported. Skipping.")
-            return None
+            try:
+                proto_res_tables = self.get_resource_tables()
 
+                proto_xml_drawable_parser = ProtoXmlDrawableParser(self._extract_dir / "base", proto_res_tables)
+
+                icon = proto_xml_drawable_parser.render_from_path(icon_path)
+                if icon:
+                    return icon
+
+                logger.info(f"Could not process XML drawable for icon: {icon_path_str}")
+                return None
+            except Exception:
+                logger.exception(f"Error processing XML drawable for icon: {icon_path_str}")
+                return None
+
+        # Handle regular image files (PNG, JPEG, etc.)
         with open(icon_path, "rb") as f:
             return f.read()
