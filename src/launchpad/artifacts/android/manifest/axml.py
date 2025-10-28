@@ -1,29 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 from launchpad.parsers.android.binary.android_binary_parser import AndroidBinaryParser
+from launchpad.parsers.android.binary.types import XmlAttribute, XmlNode
 from launchpad.utils.logging import get_logger
 
 from ..resources.binary import BinaryResourceTable
 from .manifest import AndroidApplication, AndroidManifest
 
 logger = get_logger(__name__)
-
-
-@dataclass
-class XmlAttribute:
-    name: str
-    value: str | None
-    typed_value: Any | None = None
-
-
-@dataclass
-class XmlNode:
-    node_name: str
-    attributes: list[XmlAttribute]
-    child_nodes: list[XmlNode]
 
 
 class BinaryXmlParser:
@@ -66,12 +52,23 @@ class BinaryXmlParser:
                             float_view = struct.unpack("<f", struct.pack("<I", typed_value.value))[0]
                             value = str(float_view)
 
-                    attributes.append(XmlAttribute(name=attr.name, value=value, typed_value=typed_value))
+                    attributes.append(
+                        XmlAttribute(
+                            namespace_uri=attr.namespace_uri,
+                            name=attr.name,
+                            node_name=attr.node_name,
+                            node_type=attr.node_type,
+                            value=value,
+                            typed_value=typed_value,
+                        )
+                    )
 
                 # Recursively convert child nodes
                 child_nodes = [convert_node(child) for child in node.child_nodes]
 
                 return XmlNode(
+                    namespace_uri=node.namespace_uri,
+                    node_type=node.node_type,
                     node_name=node.node_name,
                     attributes=attributes,
                     child_nodes=child_nodes,
