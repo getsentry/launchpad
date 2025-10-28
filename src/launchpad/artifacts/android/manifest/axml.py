@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Sequence
+from typing import Any
 
 from launchpad.parsers.android.binary.android_binary_parser import AndroidBinaryParser
 from launchpad.utils.logging import get_logger
@@ -22,8 +22,8 @@ class XmlAttribute:
 @dataclass
 class XmlNode:
     node_name: str
-    attributes: Sequence[XmlAttribute]
-    child_nodes: Sequence[XmlNode]
+    attributes: list[XmlAttribute]
+    child_nodes: list[XmlNode]
 
 
 class BinaryXmlParser:
@@ -41,7 +41,7 @@ class BinaryXmlParser:
 
             # Convert the parser's XmlNode to our model's XmlNode
             def convert_node(node: Any) -> XmlNode:  # type: ignore[no-untyped-def]
-                attributes: List[XmlAttribute] = []
+                attributes: list[XmlAttribute] = []
                 for attr in node.attributes:
                     value = attr.value
                     typed_value = attr.typed_value
@@ -89,7 +89,7 @@ class AxmlUtils:
 
     @staticmethod
     def binary_xml_to_android_manifest(
-        buffer: bytes, binary_resource_tables: List[BinaryResourceTable]
+        buffer: bytes, binary_resource_tables: list[BinaryResourceTable]
     ) -> AndroidManifest:
         xml_node = BinaryXmlParser(buffer).parse_xml()
         if not xml_node:
@@ -172,9 +172,9 @@ class AxmlUtils:
 
     @staticmethod
     def get_optional_attr_value(
-        attributes: Sequence[XmlAttribute],
+        attributes: list[XmlAttribute],
         name: str,
-        binary_res_tables: List[BinaryResourceTable],
+        binary_res_tables: list[BinaryResourceTable],
     ) -> str | None:
         attribute = next((attr for attr in attributes if attr.name == name), None)
 
@@ -222,9 +222,9 @@ class AxmlUtils:
 
     @staticmethod
     def get_required_attr_value(
-        attributes: Sequence[XmlAttribute],
+        attributes: list[XmlAttribute],
         name: str,
-        binary_res_tables: List[BinaryResourceTable],
+        binary_res_tables: list[BinaryResourceTable],
     ) -> str:
         value = AxmlUtils.get_optional_attr_value(attributes, name, binary_res_tables)
         if value is None:
@@ -232,7 +232,7 @@ class AxmlUtils:
         return value
 
     @staticmethod
-    def get_resource_from_binary_resource_files(value: str, binary_res_tables: List[BinaryResourceTable]) -> str | None:
+    def get_resource_from_binary_resource_files(value: str, binary_res_tables: list[BinaryResourceTable]) -> str | None:
         # Try each table until we find a value
         for table in binary_res_tables:
             try:
