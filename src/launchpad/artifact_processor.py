@@ -439,7 +439,9 @@ class ArtifactProcessor:
                 main_binary_uuid=app_info.main_binary_uuid,
                 profile_expiration_date=app_info.profile_expiration_date,
                 certificate_expiration_date=app_info.certificate_expiration_date,
+                missing_dsym_binaries=app_info.missing_dsym_binaries,
             )
+
         # TODO(EME-423): add "date_built" and custom android fields
 
         update_data = UpdateData(
