@@ -23,7 +23,7 @@ This is a Python CLI tool for analyzing iOS and Android app bundle sizes, simila
 
 ### Python
 
-- Use modern Python 3.11+ with type hints
+- Use modern Python 3.13+ with type hints
 - Follow PEP 8 and ruff formatting (line length 120)
 - Use `pytest` for testing
 - Use `click` for CLI interface

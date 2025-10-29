@@ -43,7 +43,7 @@
 
 ### Technology Stack
 
-#### Backend (Python 3.11+)
+#### Backend (Python 3.13+)
 - **LIEF**: Binary analysis library for Mach-O/ELF parsing
 - **Pillow**: Image processing and optimization
 - **Kafka**: Event streaming via confluent-kafka and sentry-arroyo

@@ -55,7 +55,7 @@ RUN ./configure --prefix=/out
 RUN make -j"$(nproc)" && make install-strip
 
 # Verify the binary is working
-FROM --platform=linux/amd64 python:3.12-slim-bookworm AS verify
+FROM --platform=linux/amd64 python:3.13-slim-bookworm AS verify
 # Install runtime dependencies needed by the strip binaries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libbsd0 \

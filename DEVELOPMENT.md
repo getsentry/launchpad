@@ -42,10 +42,9 @@ Run `make help` to see all available commands.
 
 ## Requirements
 
-- Python 3.11 or 3.12
+- Python 3.13
 - Make
 
 ## Style
 
 - Prefer empty `__init__.py` files. See https://github.com/getsentry/launchpad/pull/56.
-
