@@ -172,7 +172,7 @@ jobs:
           test-venv/bin/launchpad --help
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: python-package-distributions
           path: dist/
