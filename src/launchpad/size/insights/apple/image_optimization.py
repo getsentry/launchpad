@@ -182,6 +182,24 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             logger.exception("HEIC image minification failed")
             return None
 
+    def _is_alternate_icon_file(self, file_info: FileInfo, alternate_icon_names: set[str]) -> bool:
+        file_type_match = file_info.file_type.lower() in self.OPTIMIZABLE_FORMATS
+
+        if not file_type_match:
+            return False
+
+        stem = Path(file_info.path).stem
+        parent_str = str(Path(file_info.path).parent)
+
+        if stem in alternate_icon_names:
+            return True
+
+        for name in alternate_icon_names:
+            if parent_str == f"Assets.car/{name}":
+                return True
+
+        return False
+
 
 class ImageOptimizationInsight(BaseImageOptimizationInsight):
     """Analyse image optimisation opportunities in iOS apps."""
@@ -225,4 +243,14 @@ class ImageOptimizationInsight(BaseImageOptimizationInsight):
             return not Path(file_info.path).name.startswith(("AppIcon", "iMessage App Icon"))
 
         stem = Path(file_info.path).stem
-        return stem != primary_icon_name and stem not in alternate_icon_names
+        parent_str = str(Path(file_info.path).parent)
+
+        # Exclude primary icon
+        if stem == primary_icon_name or parent_str == f"Assets.car/{primary_icon_name}":
+            return False
+
+        # Exclude alternate icons (they have their own insight)
+        if self._is_alternate_icon_file(file_info, alternate_icon_names):
+            return False
+
+        return True

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 
-from pathlib import Path
 from typing import List
 
 from PIL import Image
@@ -69,8 +68,3 @@ class AlternateIconsOptimizationInsight(BaseImageOptimizationInsight):
         return img.resize((self.IPHONE_3X_ICON_SIZE, self.IPHONE_3X_ICON_SIZE), Image.Resampling.LANCZOS).resize(
             (self.APP_STORE_ICON_SIZE, self.APP_STORE_ICON_SIZE), Image.Resampling.LANCZOS
         )
-
-    def _is_alternate_icon_file(self, file_info: FileInfo, alternate_icon_names: set[str]) -> bool:
-        # Some asset catalog entries have no extension, so we include "other" in the OPTIMIZABLE_FORMATS
-        file_type_match = file_info.file_type.lower() in (self.OPTIMIZABLE_FORMATS | {"other"})
-        return file_type_match and Path(file_info.path).stem in alternate_icon_names
