@@ -56,9 +56,15 @@ class AlternateIconsOptimizationInsight(BaseImageOptimizationInsight):
     def _preprocess_image(self, img: Image.Image, file_info: FileInfo) -> tuple[Image.Image, int, int]:
         resized = self._resize_icon_for_analysis(img)
 
+        # Specify quality=85 for HEICs to avoid inflating already-optimized files.
+        # Without it, PIL uses a higher default quality (~95), which would incorrectly
+        # show savings for files that are already at our target quality.
         fmt = img.format or "PNG"
         with io.BytesIO() as buf:
-            resized.save(buf, format=fmt)
+            if fmt.upper() in {"HEIF", "HEIC"}:
+                resized.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
+            else:
+                resized.save(buf, format=fmt)
             resized_size = buf.tell()
 
         baseline_savings = max(0, file_info.size - resized_size)
