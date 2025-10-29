@@ -22,7 +22,6 @@ from .insights import (
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
     LocalizedStringCommentsInsightResult,
-    LocalizedStringInsightResult,
     LooseImagesInsightResult,
     MainBinaryExportMetadataResult,
     SmallFilesInsightResult,
@@ -152,7 +151,6 @@ class AppleInsightResults(BaseModel):
     large_images: LargeImageFileInsightResult | None = Field(None, description="Large image files analysis")
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large video files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
-    localized_strings: LocalizedStringInsightResult | None = Field(None, description="Localized strings analysis")
     localized_strings_minify: LocalizedStringCommentsInsightResult | None = Field(
         None, description="Localized strings comments analysis"
     )
