@@ -38,7 +38,7 @@ class AndroidArtifact(Artifact):
         """Get the resource tables from the artifact."""
         raise NotImplementedError("Not implemented")
 
-    def get_proguard_mapping(self) -> DexMapping | None:
+    def get_dex_mapping(self) -> DexMapping | None:
         """Get the Dex mapping from the artifact."""
         raise NotImplementedError("Not implemented")
 
