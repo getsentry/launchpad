@@ -43,5 +43,5 @@ class ZippedAPK(AndroidArtifact):
         return self.get_primary_apk().get_app_icon()
 
     def get_dex_mapping(self) -> DexMapping | None:
-        # Dex mapping is not supported for Zipped APKs
+        # TODO(EME-562): Support dex mapping for Zipped APKs
         return None
