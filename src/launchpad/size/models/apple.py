@@ -149,6 +149,7 @@ class AppleInsightResults(BaseModel):
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
     large_images: LargeImageFileInsightResult | None = Field(None, description="Large image files analysis")
+    large_audios: LargeImageFileInsightResult | None = Field(None, description="Large audio files analysis")
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large video files analysis")
     strip_binary: StripBinaryInsightResult | None = Field(None, description="Strip binary analysis")
     localized_strings_minify: LocalizedStringCommentsInsightResult | None = Field(

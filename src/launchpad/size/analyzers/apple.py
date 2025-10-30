@@ -32,6 +32,7 @@ from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.apple.unnecessary_files import UnnecessaryFilesInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
 from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsight
+from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
@@ -201,6 +202,7 @@ class AppleAppAnalyzer:
                     DuplicateFilesInsight, insights_input, "duplicate_files"
                 ),
                 large_images=self._generate_insight_with_tracing(LargeImageFileInsight, insights_input, "large_images"),
+                large_audios=self._generate_insight_with_tracing(LargeAudioFileInsight, insights_input, "large_audios"),
                 large_videos=self._generate_insight_with_tracing(LargeVideoFileInsight, insights_input, "large_videos"),
                 strip_binary=self._generate_insight_with_tracing(StripSymbolsInsight, insights_input, "strip_binary"),
                 localized_strings_minify=self._generate_insight_with_tracing(
