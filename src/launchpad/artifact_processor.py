@@ -13,9 +13,16 @@ from typing import Any, Dict, Iterator, cast
 
 import sentry_sdk
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
+    PreprodArtifactEvents,
+)
 
-from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
+from launchpad.api.update_api_models import (
+    AndroidAppInfo as AndroidAppInfoModel,
+)
+from launchpad.api.update_api_models import (
+    AppleAppInfo as AppleAppInfoModel,
+)
 from launchpad.api.update_api_models import PutSizeFailed, UpdateData
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
@@ -37,6 +44,7 @@ from launchpad.sentry_client import SentryClient, SentryClientError
 from launchpad.sentry_sdk_init import initialize_sentry_sdk
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
+from launchpad.size.models.android import AndroidAppInfo
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
 from launchpad.tracing import request_context
@@ -54,7 +62,12 @@ class ArtifactProcessor:
         self._statsd = statsd
 
     @staticmethod
-    def process_message(payload: PreprodArtifactEvents, service_config=None, artifact_processor=None, statsd=None):
+    def process_message(
+        payload: PreprodArtifactEvents,
+        service_config=None,
+        artifact_processor=None,
+        statsd=None,
+    ):
         """Process an artifact message with proper context and metrics.
         This is used by the Kafka workers and so has to set up the context from scratch.
         If components are not provided, they will be created.
@@ -92,7 +105,10 @@ class ArtifactProcessor:
             stack.enter_context(
                 statsd.timed(
                     "artifact.processing.duration",
-                    tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"],
+                    tags=[
+                        f"project_id:{project_id}",
+                        f"organization_id:{organization_id}",
+                    ],
                 )
             )
             scope = stack.enter_context(sentry_sdk.new_scope())
@@ -116,7 +132,11 @@ class ArtifactProcessor:
                 )
 
     def process_artifact(
-        self, organization_id: str, project_id: str, artifact_id: str, requested_features: list[PreprodFeature]
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        requested_features: list[PreprodFeature],
     ) -> None:
         """Process an artifact with the requested features."""
         dequeued_at = datetime.now()
@@ -126,7 +146,14 @@ class ArtifactProcessor:
             artifact = self._parse_artifact(organization_id, project_id, artifact_id, path)
             analyzer = self._create_analyzer(artifact)
 
-            info = self._preprocess_artifact(organization_id, project_id, artifact_id, artifact, analyzer, dequeued_at)
+            info = self._preprocess_artifact(
+                organization_id,
+                project_id,
+                artifact_id,
+                artifact,
+                analyzer,
+                dequeued_at,
+            )
 
             if PreprodFeature.SIZE_ANALYSIS in requested_features:
                 self._do_size(organization_id, project_id, artifact_id, artifact, analyzer)
@@ -145,7 +172,8 @@ class ArtifactProcessor:
 
         with tempfile.NamedTemporaryFile(suffix=".zip") as tf:
             with self._statsd.timed(
-                "artifact.download.duration", tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"]
+                "artifact.download.duration",
+                tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"],
             ):
                 size = self._sentry_client.download_artifact(
                     org=organization_id,
@@ -376,7 +404,13 @@ class ArtifactProcessor:
         if error_message == ProcessingErrorMessage.UNKNOWN_ERROR:
             error_message = _guess_message(error_code, e)
         self._update_size_error(
-            organization_id, project_id, artifact_id, error_code, error_message, str(e), identifier=identifier
+            organization_id,
+            project_id,
+            artifact_id,
+            error_code,
+            error_message,
+            str(e),
+            identifier=identifier,
         )
 
     def _update_size_error(
@@ -413,7 +447,10 @@ class ArtifactProcessor:
             logger.exception(f"Failed to update artifact with error {message}")
 
     def _prepare_update_data(
-        self, app_info: AppleAppInfo | BaseAppInfo, artifact: Artifact, dequeued_at: datetime
+        self,
+        app_info: AppleAppInfo | BaseAppInfo,
+        artifact: Artifact,
+        dequeued_at: datetime,
     ) -> Dict[str, Any]:
         def _get_artifact_type(artifact: Artifact) -> ArtifactType:
             if isinstance(artifact, ZippedXCArchive):
@@ -442,7 +479,11 @@ class ArtifactProcessor:
                 missing_dsym_binaries=app_info.missing_dsym_binaries,
             )
 
-        # TODO(EME-423): add "date_built" and custom android fields
+        android_app_info = None
+        if isinstance(app_info, AndroidAppInfo):
+            android_app_info = AndroidAppInfoModel(
+                has_proguard_mapping=app_info.has_proguard_mapping,
+            )
 
         update_data = UpdateData(
             app_name=app_info.name,
@@ -451,6 +492,7 @@ class ArtifactProcessor:
             build_number=build_number,
             artifact_type=_get_artifact_type(artifact).value,
             apple_app_info=apple_app_info,
+            android_app_info=android_app_info,
             dequeued_at=dequeued_at,
         )
 
