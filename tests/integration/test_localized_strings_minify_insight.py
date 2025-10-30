@@ -1,10 +1,11 @@
+import plistlib
 import tempfile
 
 from pathlib import Path
 
 from launchpad.size.insights.apple.localized_strings_minify import (
+    LocalizedStringsProcessor,
     MinifyLocalizedStringsInsight,
-    MinifyLocalizedStringsProcessor,
 )
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
@@ -13,11 +14,11 @@ from launchpad.size.models.treemap import TreemapType
 
 
 class TestLocalizedStringsProcessor:
-    """Test the LocalizedStringsProcessor class directly."""
+    """Test the strip_string_comments_and_whitespace method directly."""
 
     def test_strip_comments_only(self):
         """Test stripping comments without whitespace changes."""
-        processor = MinifyLocalizedStringsProcessor()
+        processor = LocalizedStringsProcessor()
 
         content_with_comments = """
 /* This is a block comment */
@@ -31,21 +32,23 @@ class TestLocalizedStringsProcessor:
 "welcome"="Welcome";
 """
 
-        stripped = processor.strip_comments_and_normalize(content_with_comments)
+        stripped = processor.strip_string_comments_and_whitespace(content_with_comments)
 
-        # Should only contain the key-value pairs
-        assert '"hello"="Hello"' in stripped
-        assert '"goodbye"="Goodbye"' in stripped
-        assert '"welcome"="Welcome"' in stripped
-
-        # Should not contain comments
-        assert "/* This is a block comment */" not in stripped
-        assert "// This is a line comment" not in stripped
-        assert "/* Multi-line" not in stripped
+        expected = (
+            "\n".join(
+                [
+                    '"hello"="Hello";',
+                    '"goodbye"="Goodbye";',
+                    '"welcome"="Welcome";',
+                ]
+            )
+            + "\n"
+        )
+        assert stripped == expected
 
     def test_normalize_whitespace_only(self):
         """Test normalizing whitespace around = without comments."""
-        processor = MinifyLocalizedStringsProcessor()
+        processor = LocalizedStringsProcessor()
 
         content_with_spaces = """
 "key1" = "value1";
@@ -53,20 +56,23 @@ class TestLocalizedStringsProcessor:
 "key3"   =   "value3";
 """
 
-        normalized = processor.strip_comments_and_normalize(content_with_spaces)
+        normalized = processor.strip_string_comments_and_whitespace(content_with_spaces)
 
-        # Should normalize all spacing around =
-        assert '"key1"="value1"' in normalized
-        assert '"key2"="value2"' in normalized
-        assert '"key3"="value3"' in normalized
+        expected = (
+            "\n".join(
+                [
+                    '"key1"="value1";',
+                    '"key2"="value2";',
+                    '"key3"="value3";',
+                ]
+            )
+            + "\n"
+        )
+        assert normalized == expected
 
-        # Should not contain spaces around =
-        assert '" = "' not in normalized
-        assert '"  =  "' not in normalized
-
-    def test_strip_comments_and_normalize_whitespace(self):
+    def test_strip_string_comments_and_whitespace_whitespace(self):
         """Test both comment stripping and whitespace normalization together."""
-        processor = MinifyLocalizedStringsProcessor()
+        processor = LocalizedStringsProcessor()
 
         content = """
 /* Header comment */
@@ -80,21 +86,23 @@ class TestLocalizedStringsProcessor:
 "welcome"   = "Welcome!";
 """
 
-        result = processor.strip_comments_and_normalize(content)
+        result = processor.strip_string_comments_and_whitespace(content)
 
-        # Should strip comments AND normalize whitespace
-        assert '"hello"="Hello World"' in result
-        assert '"goodbye"="Goodbye"' in result
-        assert '"welcome"="Welcome!"' in result
-
-        # Should not contain comments or extra spaces
-        assert "/* Header comment */" not in result
-        assert "// Comment before key" not in result
-        assert '" = "' not in result
+        expected = (
+            "\n".join(
+                [
+                    '"hello"="Hello World";',
+                    '"goodbye"="Goodbye";',
+                    '"welcome"="Welcome!";',
+                ]
+            )
+            + "\n"
+        )
+        assert result == expected
 
     def test_tamil_unicode_content(self):
         """Test processing Tamil Unicode content."""
-        processor = MinifyLocalizedStringsProcessor()
+        processor = LocalizedStringsProcessor()
 
         tamil_content = """
 /* Tamil strings */
@@ -103,50 +111,64 @@ class TestLocalizedStringsProcessor:
 "LoginButton.LogIn" = "உள்நுழைவு";
 """
 
-        result = processor.strip_comments_and_normalize(tamil_content)
+        result = processor.strip_string_comments_and_whitespace(tamil_content)
 
-        # Should preserve Tamil characters exactly
-        assert "என்பதற்குச் சென்று" in result
-        assert "சரி" in result
-        assert "உள்நுழைவு" in result
+        expected = (
+            "\n".join(
+                [
+                    '"DeviceLogin.LogInPrompt"="%@ என்பதற்குச் சென்று மேலே தெரியும் குறியீட்டை உள்ளிடவும்.";',
+                    '"ErrorRecovery.Alert.OK"="சரி";',
+                    '"LoginButton.LogIn"="உள்நுழைவு";',
+                ]
+            )
+            + "\n"
+        )
+        assert result == expected
 
-        # Should normalize whitespace
-        assert '"DeviceLogin.LogInPrompt"=' in result
-        assert '"ErrorRecovery.Alert.OK"=' in result
+    def test_empty_content(self):
+        """Test that empty content returns empty string."""
+        processor = LocalizedStringsProcessor()
+        assert processor.strip_string_comments_and_whitespace("") == ""
 
-        # Should remove comments
-        assert "/* Tamil strings */" not in result
+    def test_content_with_only_comments(self):
+        """Test that content with only comments and no key-value pairs returns empty string."""
+        processor = LocalizedStringsProcessor()
 
-    def test_edge_cases(self):
-        """Test edge cases and malformed input."""
-        processor = MinifyLocalizedStringsProcessor()
-
-        # Empty content
-        assert processor.strip_comments_and_normalize("") == ""
-
-        # Only comments
         only_comments = "/* Just a comment */\n// Another comment"
-        assert processor.strip_comments_and_normalize(only_comments) == ""
+        assert processor.strip_string_comments_and_whitespace(only_comments) == ""
 
-        # Malformed strings (no quotes) - should be filtered out
+    def test_malformed_strings_without_quotes(self):
+        """Test that malformed strings without quotes are filtered out."""
+        processor = LocalizedStringsProcessor()
+
         malformed = "hello = world;\nkey = value;"
-        result = processor.strip_comments_and_normalize(malformed)
+        result = processor.strip_string_comments_and_whitespace(malformed)
         assert result == ""  # Should filter out malformed entries
 
-        # Mixed valid and invalid
+    def test_mixed_valid_and_invalid_entries(self):
+        """Test that valid entries are kept while invalid entries are filtered out."""
+        processor = LocalizedStringsProcessor()
+
         mixed = """
         "valid" = "entry";
         invalid = entry;
         "another_valid" = "entry2";
         """
-        result = processor.strip_comments_and_normalize(mixed)
-        assert '"valid"="entry"' in result
-        assert '"another_valid"="entry2"' in result
-        assert "invalid = entry" not in result
+        result = processor.strip_string_comments_and_whitespace(mixed)
+        expected = (
+            "\n".join(
+                [
+                    '"valid"="entry";',
+                    '"another_valid"="entry2";',
+                ]
+            )
+            + "\n"
+        )
+        assert result == expected
 
     def test_equals_in_string_values(self):
         """Test handling of equals signs within string values."""
-        processor = MinifyLocalizedStringsProcessor()
+        processor = LocalizedStringsProcessor()
 
         content_with_equals_in_values = """
 /* Math equations */
@@ -158,25 +180,24 @@ class TestLocalizedStringsProcessor:
 "assignment.example"   =   "Set variable: foo = bar";
 """
 
-        result = processor.strip_comments_and_normalize(content_with_equals_in_values)
+        result = processor.strip_string_comments_and_whitespace(content_with_equals_in_values)
 
-        # Should preserve equals signs in the values while normalizing whitespace around assignment
-        assert '"math.simple"="2 + 2 = 4"' in result
-        assert '"math.complex"="x = y + z"' in result
-        assert '"format.description"="Use format: key = value"' in result
-        assert '"assignment.example"="Set variable: foo = bar"' in result
-
-        # Should remove comments
-        assert "/* Math equations */" not in result
-        assert "// Format descriptions" not in result
-
-        # Should not have extra spaces around the main assignment =
-        assert '" = "2 + 2 = 4"' not in result  # No spaces around main assignment
-        assert '"math.simple" = ' not in result  # No spaces around main assignment
+        expected = (
+            "\n".join(
+                [
+                    '"math.simple"="2 + 2 = 4";',
+                    '"math.complex"="x = y + z";',
+                    '"format.description"="Use format: key = value";',
+                    '"assignment.example"="Set variable: foo = bar";',
+                ]
+            )
+            + "\n"
+        )
+        assert result == expected
 
     def test_escaped_quotes_in_string_values(self):
         """Test handling of escaped quotes within string values."""
-        processor = MinifyLocalizedStringsProcessor()
+        processor = LocalizedStringsProcessor()
 
         content_with_escaped_quotes = """
 "PROLOGUE" = "<p>Drag &amp; drop files on this window or use the \\"Upload Files&hellip;\\" button to upload new files.</p>";
@@ -186,7 +207,7 @@ class TestLocalizedStringsProcessor:
 "BACKSLASH_TEST"  =  "Path: C:\\\\Users\\\\file.txt";
 """
 
-        result = processor.strip_comments_and_normalize(content_with_escaped_quotes)
+        result = processor.strip_string_comments_and_whitespace(content_with_escaped_quotes)
 
         expected = (
             '"PROLOGUE"="<p>Drag &amp; drop files on this window or use the \\"Upload Files&hellip;\\" button to upload new files.</p>";\n'
@@ -196,6 +217,36 @@ class TestLocalizedStringsProcessor:
             '"BACKSLASH_TEST"="Path: C:\\\\Users\\\\file.txt";\n'
         )
         assert result == expected
+
+    def test_strip_xml_comments(self):
+        """Test stripping XML comments."""
+        processor = LocalizedStringsProcessor()
+
+        # Test single line XML comment
+        content = "<!-- This is a comment --><key>test</key>"
+        result = processor.strip_xml_comments(content)
+        assert result == "<key>test</key>"
+
+        # Test multiline XML comment
+        content = """<!-- This is a
+        multiline
+        comment -->
+<dict>
+    <key>test</key>
+</dict>"""
+        result = processor.strip_xml_comments(content)
+        assert "<!--" not in result
+        assert "<dict>" in result
+        assert "<key>test</key>" in result
+
+        # Test multiple XML comments
+        content = """<!-- Comment 1 --><key>key1</key>
+<!-- Comment 2 --><string>value1</string>
+<!-- Comment 3 -->"""
+        result = processor.strip_xml_comments(content)
+        assert "<!--" not in result
+        assert "<key>key1</key>" in result
+        assert "<string>value1</string>" in result
 
 
 class TestMinifyLocalizedStringsInsight:
@@ -442,3 +493,242 @@ class TestMinifyLocalizedStringsInsight:
             assert result is not None
             assert len(result.files) == 3
             assert result.total_savings > 0
+
+    def test_binary_plist_strings_file(self):
+        """Test that insight skips binary plist files (they don't support comments)."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create a binary plist strings file
+            strings_file = temp_path / "en.lproj" / "BinaryPlist.strings"
+            strings_file.parent.mkdir(parents=True)
+
+            # Create a plist dict and save as binary
+            plist_dict = {
+                "key1": "Value 1",
+                "key2": "Value 2",
+                "key3": "Value 3",
+            }
+            binary_plist = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
+            strings_file.write_bytes(binary_plist)
+
+            insight = MinifyLocalizedStringsInsight()
+
+            input_data = InsightsInput(
+                app_info=self._create_test_app_info(),
+                file_analysis=FileAnalysis(
+                    files=[
+                        FileInfo(
+                            full_path=strings_file,
+                            path="en.lproj/BinaryPlist.strings",
+                            size=len(binary_plist),
+                            file_type="strings",
+                            hash="binary_hash",
+                            treemap_type=TreemapType.FILES,
+                            is_dir=False,
+                            children=[],
+                        )
+                    ],
+                    directories=[],
+                ),
+                binary_analysis=[],
+                treemap=None,
+                hermes_reports={},
+            )
+
+            result = insight.generate(input_data)
+            # Should skip binary plists (no savings possible)
+            assert result is None
+
+    def test_xml_plist_strings_file_with_formatting(self):
+        """Test that insight handles XML plist-format .strings files with extra formatting."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            strings_file = temp_path / "en.lproj" / "WidgetIntents.strings"
+            strings_file.parent.mkdir(parents=True)
+
+            # Create a plist dict with sample content
+            plist_dict = {
+                "2GqvPe": "Go to Copied Link",
+                "PzSrmZ-2GqvPe": "Just to confirm, you wanted 'Go to Copied Link'?",
+                "PzSrmZ-eHmH1H": "Just to confirm, you wanted 'Clear Private Tabs'?",
+                "PzSrmZ-scEmjs": "Just to confirm, you wanted 'New Private Search'?",
+                "ctDNmu": "Quick access to various Firefox actions",
+                "eHmH1H": "Clear Private Tabs",
+                "eV8mOT": "Quick Action Type",
+                "fi3W24-2GqvPe": "There are ${count} options matching 'Go to Copied Link'.",
+            }
+
+            # Add more entries to ensure we have enough content to cross filesystem blocks
+            for i in range(50):
+                plist_dict[f"extra_key_{i}"] = f"Extra value with substantial content for key {i}"
+
+            # Serialize with extra formatting (indent, etc.) to simulate real-world plist
+            # We'll write it manually to ensure it has extra whitespace that can be compressed
+            plist_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+\t<key>2GqvPe</key>
+\t<string>Go to Copied Link</string>
+\t<key>PzSrmZ-2GqvPe</key>
+\t<string>Just to confirm, you wanted 'Go to Copied Link'?</string>
+\t<key>PzSrmZ-eHmH1H</key>
+\t<string>Just to confirm, you wanted 'Clear Private Tabs'?</string>
+\t<key>PzSrmZ-scEmjs</key>
+\t<string>Just to confirm, you wanted 'New Private Search'?</string>
+\t<key>ctDNmu</key>
+\t<string>Quick access to various Firefox actions</string>
+\t<key>eHmH1H</key>
+\t<string>Clear Private Tabs</string>
+\t<key>eV8mOT</key>
+\t<string>Quick Action Type</string>
+\t<key>fi3W24-2GqvPe</key>
+\t<string>There are ${count} options matching 'Go to Copied Link'.</string>
+"""
+            # Add the extra entries with lots of formatting
+            for i in range(50):
+                plist_xml += f"\t<key>extra_key_{i}</key>\n"
+                plist_xml += f"\t<string>Extra value with substantial content for key {i}</string>\n"
+
+            plist_xml += "</dict>\n</plist>\n"
+            strings_file.write_text(plist_xml)
+
+            insight = MinifyLocalizedStringsInsight()
+
+            input_data = InsightsInput(
+                app_info=self._create_test_app_info(),
+                file_analysis=FileAnalysis(
+                    files=[
+                        FileInfo(
+                            full_path=strings_file,
+                            path="en.lproj/WidgetIntents.strings",
+                            size=len(plist_xml.encode("utf-8")),
+                            file_type="strings",
+                            hash="plist_hash",
+                            treemap_type=TreemapType.FILES,
+                            is_dir=False,
+                            children=[],
+                        )
+                    ],
+                    directories=[],
+                ),
+                binary_analysis=[],
+                treemap=None,
+                hermes_reports={},
+            )
+
+            result = insight.generate(input_data)
+            # Should be able to parse and find savings from XML formatting
+            if result:
+                assert len(result.files) == 1
+                assert result.files[0].file_path == "en.lproj/WidgetIntents.strings"
+                assert result.files[0].total_savings > 0
+
+    def test_xml_plist_strings_file_already_compact(self):
+        """Test that insight handles compact XML plist files with minimal savings."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            strings_file = temp_path / "en.lproj" / "Compact.strings"
+            strings_file.parent.mkdir(parents=True)
+
+            # Create a small, already compact plist
+            plist_dict = {
+                "key1": "value1",
+                "key2": "value2",
+            }
+
+            # Write as compact XML (plistlib default)
+            plist_xml = plistlib.dumps(plist_dict, fmt=plistlib.FMT_XML)
+            strings_file.write_bytes(plist_xml)
+
+            insight = MinifyLocalizedStringsInsight()
+
+            input_data = InsightsInput(
+                app_info=self._create_test_app_info(),
+                file_analysis=FileAnalysis(
+                    files=[
+                        FileInfo(
+                            full_path=strings_file,
+                            path="en.lproj/Compact.strings",
+                            size=len(plist_xml),
+                            file_type="strings",
+                            hash="compact_hash",
+                            treemap_type=TreemapType.FILES,
+                            is_dir=False,
+                            children=[],
+                        )
+                    ],
+                    directories=[],
+                ),
+                binary_analysis=[],
+                treemap=None,
+                hermes_reports={},
+            )
+
+            result = insight.generate(input_data)
+            # Small, already compact file should not yield savings
+            assert result is None
+
+    def test_xml_plist_with_xml_comments(self):
+        """Test that insight strips XML comments from XML plist files."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            strings_file = temp_path / "en.lproj" / "CommentedPlist.strings"
+            strings_file.parent.mkdir(parents=True)
+
+            # Create a plist with substantial XML comments and extra formatting to ensure
+            # we exceed the 1024 byte threshold when comments are stripped
+            plist_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- This is a lengthy comment about the plist file that provides documentation
+     and context for developers. It spans multiple lines to add substantial size.
+     More text here to ensure we have enough content to cross block boundaries. -->
+<plist version="1.0">
+<dict>
+"""
+            # Add entries with substantial comments to ensure we cross filesystem block boundaries
+            for i in range(100):
+                plist_xml += f"\t<!-- This is a detailed comment for key{i} that explains what this key is used for.\n"
+                plist_xml += "\t     It provides context and documentation for developers working with this file.\n"
+                plist_xml += "\t     Additional information and explanatory text to increase the comment size. -->\n"
+                plist_xml += f"\t<key>extra_key_{i}</key>\n"
+                plist_xml += f"\t<string>Extra value with substantial content for key {i}</string>\n\n"
+
+            plist_xml += "</dict>\n</plist>\n"
+            strings_file.write_text(plist_xml)
+
+            insight = MinifyLocalizedStringsInsight()
+
+            input_data = InsightsInput(
+                app_info=self._create_test_app_info(),
+                file_analysis=FileAnalysis(
+                    files=[
+                        FileInfo(
+                            full_path=strings_file,
+                            path="en.lproj/CommentedPlist.strings",
+                            size=len(plist_xml.encode("utf-8")),
+                            file_type="strings",
+                            hash="commented_hash",
+                            treemap_type=TreemapType.FILES,
+                            is_dir=False,
+                            children=[],
+                        )
+                    ],
+                    directories=[],
+                ),
+                binary_analysis=[],
+                treemap=None,
+                hermes_reports={},
+            )
+
+            result = insight.generate(input_data)
+            # Should definitely find savings from stripping XML comments and formatting
+            assert result is not None
+            assert len(result.files) == 1
+            assert result.files[0].file_path == "en.lproj/CommentedPlist.strings"
+            assert result.files[0].total_savings > 0
+            assert result.total_savings > insight.THRESHOLD_BYTES
