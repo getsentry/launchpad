@@ -17,8 +17,8 @@ class MinifyLocalizedStringsProcessor:
 
     # Match /* ... */ block comments or // line comments
     _COMMENT_RE = re.compile(r"/\*.*?\*/|//.*?$", re.S | re.M)
-    # Lines that look like:  "key" = "value";
-    _KV_RE = re.compile(r'^\s*"[^"]+"\s*=\s*"[^"]*"\s*;?\s*$', re.M)
+    # Lines that look like:  "key" = "value"; (handles escaped quotes inside strings)
+    _KV_RE = re.compile(r'^\s*"(?:[^"\\]|\\.)+"\s*=\s*"(?:[^"\\]|\\.)*"\s*;?\s*$', re.M)
 
     def strip_comments_and_normalize(self, content: str) -> str:
         """
