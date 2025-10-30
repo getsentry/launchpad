@@ -53,7 +53,7 @@ class AndroidAnalyzer:
 
     def preprocess(self, artifact: AndroidArtifact) -> AndroidAppInfo:
         manifest_dict = artifact.get_manifest().model_dump()
-        has_proguard_mapping = artifact.get_proguard_mapping() is not None
+        has_proguard_mapping = artifact.get_dex_mapping() is not None
 
         self.app_info = AndroidAppInfo(
             name=manifest_dict["application"]["label"] or "Unknown",
