@@ -1,8 +1,8 @@
-"""Tests for ArtifactProcessor including error handling, retry logic, and message processing."""
-
 from unittest.mock import Mock, patch
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
+    PreprodArtifactEvents,
+)
 
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import (
@@ -12,17 +12,17 @@ from launchpad.constants import (
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
 from launchpad.service import ServiceConfig
+from launchpad.utils.objectstore.service import Client as ObjectstoreClient
 from launchpad.utils.statsd import FakeStatsd
 
 
 class TestArtifactProcessorErrorHandling:
-    """Test error handling and retry logic in ArtifactProcessor."""
-
     def setup_method(self):
         """Set up test fixtures."""
         mock_sentry_client = Mock(spec=SentryClient)
         mock_statsd = Mock()
-        self.processor = ArtifactProcessor(mock_sentry_client, mock_statsd)
+        mock_objectstore_client = Mock(spec=ObjectstoreClient)
+        self.processor = ArtifactProcessor(mock_sentry_client, mock_statsd, mock_objectstore_client)
 
     def test_update_artifact_error_success(self):
         """Test that _update_artifact_error successfully updates artifact with error."""
@@ -147,7 +147,11 @@ class TestArtifactProcessorMessageHandling:
     def test_process_message_ios(self, mock_process, mock_sentry_client):
         """Test processing iOS artifact messages."""
         fake_statsd = FakeStatsd()
-        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
+        service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=[],
+            objectstore_base_url="http://test.objectstore.io",
+        )
 
         # Create a payload for iOS artifact
         payload: PreprodArtifactEvents = {
@@ -162,20 +166,33 @@ class TestArtifactProcessorMessageHandling:
 
         # Verify process_artifact was called with correct args
         mock_process.assert_called_once_with(
-            "test-org-123", "test-project-ios", "ios-test-123", [PreprodFeature.SIZE_ANALYSIS]
+            "test-org-123",
+            "test-project-ios",
+            "ios-test-123",
+            [PreprodFeature.SIZE_ANALYSIS],
         )
 
         # Verify metrics were recorded
         calls = fake_statsd.calls
-        assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
-        assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
+        assert (
+            "increment",
+            {"metric": "artifact.processing.started", "value": 1, "tags": None},
+        ) in calls
+        assert (
+            "increment",
+            {"metric": "artifact.processing.completed", "value": 1, "tags": None},
+        ) in calls
 
     @patch("launchpad.artifact_processor.SentryClient")
     @patch.object(ArtifactProcessor, "process_artifact")
     def test_process_message_android(self, mock_process, mock_sentry_client):
         """Test processing Android artifact messages."""
         fake_statsd = FakeStatsd()
-        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
+        service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=[],
+            objectstore_base_url="http://test.objectstore.io",
+        )
 
         # Create a payload for Android artifact
         payload: PreprodArtifactEvents = {
@@ -198,15 +215,25 @@ class TestArtifactProcessorMessageHandling:
 
         # Verify metrics were recorded
         calls = fake_statsd.calls
-        assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
-        assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
+        assert (
+            "increment",
+            {"metric": "artifact.processing.started", "value": 1, "tags": None},
+        ) in calls
+        assert (
+            "increment",
+            {"metric": "artifact.processing.completed", "value": 1, "tags": None},
+        ) in calls
 
     @patch("launchpad.artifact_processor.SentryClient")
     @patch.object(ArtifactProcessor, "process_artifact")
     def test_process_message_error(self, mock_process, mock_sentry_client):
         """Test error handling in message processing."""
         fake_statsd = FakeStatsd()
-        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=[])
+        service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=[],
+            objectstore_base_url="http://test.objectstore.io",
+        )
 
         # Make process_artifact raise an exception
         mock_process.side_effect = RuntimeError("Download failed: HTTP 404")
@@ -224,7 +251,10 @@ class TestArtifactProcessorMessageHandling:
 
         # Verify process_artifact was called
         mock_process.assert_called_once_with(
-            "test-org", "test-project", "test-123", [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION]
+            "test-org",
+            "test-project",
+            "test-123",
+            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
         )
 
         # Verify the metrics were called correctly
@@ -240,7 +270,9 @@ class TestArtifactProcessorMessageHandling:
         """Test that projects in the skip list are not processed."""
         fake_statsd = FakeStatsd()
         service_config = ServiceConfig(
-            sentry_base_url="http://test.sentry.io", projects_to_skip=["skip-project-1", "skip-project-2"]
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=["skip-project-1", "skip-project-2"],
+            objectstore_base_url="http://test.objectstore.io",
         )
 
         # Create a payload for a project that should be skipped
@@ -266,7 +298,11 @@ class TestArtifactProcessorMessageHandling:
     def test_process_message_project_not_skipped(self, mock_process, mock_sentry_client):
         """Test that projects not in the skip list are processed normally."""
         fake_statsd = FakeStatsd()
-        service_config = ServiceConfig(sentry_base_url="http://test.sentry.io", projects_to_skip=["other-project"])
+        service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=["other-project"],
+            objectstore_base_url="http://test.objectstore.io",
+        )
 
         # Create a payload for a project that should NOT be skipped
         payload: PreprodArtifactEvents = {
@@ -289,5 +325,11 @@ class TestArtifactProcessorMessageHandling:
 
         # Verify normal metrics were recorded
         calls = fake_statsd.calls
-        assert ("increment", {"metric": "artifact.processing.started", "value": 1, "tags": None}) in calls
-        assert ("increment", {"metric": "artifact.processing.completed", "value": 1, "tags": None}) in calls
+        assert (
+            "increment",
+            {"metric": "artifact.processing.started", "value": 1, "tags": None},
+        ) in calls
+        assert (
+            "increment",
+            {"metric": "artifact.processing.completed", "value": 1, "tags": None},
+        ) in calls

@@ -1,5 +1,3 @@
-"""Artifact processing logic extracted from LaunchpadService."""
-
 from __future__ import annotations
 
 import contextlib
@@ -41,6 +39,7 @@ from launchpad.size.models.android import AndroidAppInfo
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
 from launchpad.tracing import request_context
+from launchpad.utils.file_utils import IdPrefix, id_from_bytes
 from launchpad.utils.logging import get_logger
 from launchpad.utils.objectstore.service import (
     Client as ObjectstoreClient,
@@ -54,8 +53,6 @@ logger = get_logger(__name__)
 
 
 class ArtifactProcessor:
-    """Handles the processing of artifacts including download, analysis, and upload."""
-
     def __init__(
         self,
         sentry_client: SentryClient,
@@ -95,7 +92,7 @@ class ArtifactProcessor:
         if artifact_processor is None:
             sentry_client = SentryClient(base_url=service_config.sentry_base_url)
             objectstore_client = ObjectstoreClientBuilder(
-                usecase="app-icons", options={"base_url": "http://localhost:8888/"}
+                usecase="preprod", options={"base_url": "http://localhost:8888/"}
             ).for_project(organization_id, project_id)
             artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
@@ -269,8 +266,11 @@ class ArtifactProcessor:
             logger.info(f"No app icon found for {artifact_id} (project: {project_id}, org: {organization_id})")
             return None
 
-        app_icon_id = self._objectstore_client.put(app_icon, compression="none")
-        return app_icon_id
+        image_id = id_from_bytes(app_icon, IdPrefix.ICON)
+        icon_key = f"{organization_id}/{project_id}/{image_id}"
+        logger.info(f"Uploading app icon to object store: {icon_key}")
+        self._objectstore_client.put(app_icon, compression="none", id=icon_key)
+        return image_id
 
     def _do_distribution(
         self,
