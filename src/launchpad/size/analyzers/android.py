@@ -23,9 +23,10 @@ from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.android import (
     AndroidAnalysisResults,
+    AndroidAppInfo,
     AndroidInsightResults,
 )
-from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
+from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.android_bundle_size import calculate_apk_download_size, calculate_apk_install_size
@@ -48,24 +49,18 @@ class AndroidAnalyzer:
         **kwargs,
     ) -> None:
         self.skip_insights = skip_insights
-        self.app_info: BaseAppInfo | None = None
+        self.app_info: AndroidAppInfo | None = None
 
-    def preprocess(self, artifact: AndroidArtifact) -> BaseAppInfo:
-        """Extract basic app information from the manifest.
-
-        Args:
-            artifact: Android artifact to preprocess
-
-        Returns:
-            Basic app information extracted from manifest
-        """
+    def preprocess(self, artifact: AndroidArtifact) -> AndroidAppInfo:
         manifest_dict = artifact.get_manifest().model_dump()
+        has_proguard_mapping = artifact.get_proguard_mapping() is not None
 
-        self.app_info = BaseAppInfo(
+        self.app_info = AndroidAppInfo(
             name=manifest_dict["application"]["label"] or "Unknown",
             version=manifest_dict["version_name"] or "Unknown",
             build=manifest_dict["version_code"] or "Unknown",
             app_id=manifest_dict["package_name"],
+            has_proguard_mapping=has_proguard_mapping,
         )
 
         return self.app_info

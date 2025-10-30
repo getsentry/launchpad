@@ -6,6 +6,8 @@ from typing import Callable
 
 import sentry_sdk
 
+from launchpad.parsers.android.dex.dex_mapping import DexMapping
+
 from ..artifact import AndroidArtifact
 from ..providers.zip_provider import ZipProvider
 from .apk import APK
@@ -39,3 +41,7 @@ class ZippedAPK(AndroidArtifact):
 
     def get_app_icon(self) -> bytes | None:
         return self.get_primary_apk().get_app_icon()
+
+    def get_dex_mapping(self) -> DexMapping | None:
+        # Dex mapping is not supported for Zipped APKs
+        return None

@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any, Callable
 
+from launchpad.parsers.android.dex.dex_mapping import DexMapping
+
 from .android.manifest.manifest import AndroidManifest
 from .android.resources.resource_table import ResourceTable
 
@@ -34,6 +36,10 @@ class AndroidArtifact(Artifact):
 
     def get_resource_tables(self) -> list[ResourceTable]:
         """Get the resource tables from the artifact."""
+        raise NotImplementedError("Not implemented")
+
+    def get_proguard_mapping(self) -> DexMapping | None:
+        """Get the Dex mapping from the artifact."""
         raise NotImplementedError("Not implemented")
 
 

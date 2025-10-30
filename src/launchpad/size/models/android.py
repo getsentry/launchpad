@@ -22,9 +22,15 @@ class AndroidInsightResults(BaseModel):
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
 
 
+class AndroidAppInfo(BaseAppInfo):
+    model_config = ConfigDict(frozen=True)
+
+    has_proguard_mapping: bool = Field(default=False, description="Whether the app has a proguard mapping file")
+
+
 class AndroidAnalysisResults(BaseAnalysisResults):
     model_config = ConfigDict(frozen=True)
-    app_info: BaseAppInfo = Field(..., description="Android app information")
+    app_info: AndroidAppInfo = Field(..., description="Android app information")
     insights: AndroidInsightResults | None = Field(
         description="Generated insights from the analysis",
     )

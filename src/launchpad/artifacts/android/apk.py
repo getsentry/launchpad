@@ -154,3 +154,6 @@ class APK(AndroidArtifact):
         # Handle regular image files (PNG, JPEG, etc.)
         with open(icon_path, "rb") as f:
             return f.read()
+
+    def get_dex_mapping(self) -> DexMapping | None:
+        return self._dex_mapping
