@@ -4,8 +4,8 @@ import tempfile
 from pathlib import Path
 
 from launchpad.size.insights.apple.localized_strings_minify import (
-    LocalizedStringsProcessor,
     MinifyLocalizedStringsInsight,
+    MinifyLocalizedStringsProcessor,
 )
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
@@ -13,12 +13,12 @@ from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import TreemapType
 
 
-class TestLocalizedStringsProcessor:
+class TestMinifyLocalizedStringsProcessor:
     """Test the strip_string_comments_and_whitespace method directly."""
 
     def test_strip_comments_only(self):
         """Test stripping comments without whitespace changes."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         content_with_comments = """
 /* This is a block comment */
@@ -48,7 +48,7 @@ class TestLocalizedStringsProcessor:
 
     def test_normalize_whitespace_only(self):
         """Test normalizing whitespace around = without comments."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         content_with_spaces = """
 "key1" = "value1";
@@ -72,7 +72,7 @@ class TestLocalizedStringsProcessor:
 
     def test_strip_string_comments_and_whitespace_whitespace(self):
         """Test both comment stripping and whitespace normalization together."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         content = """
 /* Header comment */
@@ -102,7 +102,7 @@ class TestLocalizedStringsProcessor:
 
     def test_tamil_unicode_content(self):
         """Test processing Tamil Unicode content."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         tamil_content = """
 /* Tamil strings */
@@ -127,19 +127,19 @@ class TestLocalizedStringsProcessor:
 
     def test_empty_content(self):
         """Test that empty content returns empty string."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
         assert processor.strip_string_comments_and_whitespace("") == ""
 
     def test_content_with_only_comments(self):
         """Test that content with only comments and no key-value pairs returns empty string."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         only_comments = "/* Just a comment */\n// Another comment"
         assert processor.strip_string_comments_and_whitespace(only_comments) == ""
 
     def test_malformed_strings_without_quotes(self):
         """Test that malformed strings without quotes are filtered out."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         malformed = "hello = world;\nkey = value;"
         result = processor.strip_string_comments_and_whitespace(malformed)
@@ -147,7 +147,7 @@ class TestLocalizedStringsProcessor:
 
     def test_mixed_valid_and_invalid_entries(self):
         """Test that valid entries are kept while invalid entries are filtered out."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         mixed = """
         "valid" = "entry";
@@ -168,7 +168,7 @@ class TestLocalizedStringsProcessor:
 
     def test_equals_in_string_values(self):
         """Test handling of equals signs within string values."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         content_with_equals_in_values = """
 /* Math equations */
@@ -197,7 +197,7 @@ class TestLocalizedStringsProcessor:
 
     def test_escaped_quotes_in_string_values(self):
         """Test handling of escaped quotes within string values."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         content_with_escaped_quotes = """
 "PROLOGUE" = "<p>Drag &amp; drop files on this window or use the \\"Upload Files&hellip;\\" button to upload new files.</p>";
@@ -220,7 +220,7 @@ class TestLocalizedStringsProcessor:
 
     def test_strip_xml_comments(self):
         """Test stripping XML comments."""
-        processor = LocalizedStringsProcessor()
+        processor = MinifyLocalizedStringsProcessor()
 
         # Test single line XML comment
         content = "<!-- This is a comment --><key>test</key>"

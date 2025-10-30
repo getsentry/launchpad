@@ -17,7 +17,7 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
     THRESHOLD_BYTES = 1024
 
     def __init__(self):
-        self._processor = LocalizedStringsProcessor()
+        self._processor = MinifyLocalizedStringsProcessor()
 
     def generate(self, input: InsightsInput) -> LocalizedStringCommentsInsightResult | None:
         results: list[FileSavingsResult] = []
@@ -98,7 +98,7 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
         return max(0, original_size - stripped_size)
 
 
-class LocalizedStringsProcessor:
+class MinifyLocalizedStringsProcessor:
     """Processes localized strings files by stripping comments and normalizing whitespace."""
 
     # Match /* ... */ block comments or // line comments
