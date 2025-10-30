@@ -174,6 +174,33 @@ class TestLocalizedStringsProcessor:
         assert '" = "2 + 2 = 4"' not in result  # No spaces around main assignment
         assert '"math.simple" = ' not in result  # No spaces around main assignment
 
+    def test_escaped_quotes_in_string_values(self):
+        """Test handling of escaped quotes within string values."""
+        processor = MinifyLocalizedStringsProcessor()
+
+        content_with_escaped_quotes = """
+"PROLOGUE" = "<p>Drag &amp; drop files on this window or use the \\"Upload Files&hellip;\\" button to upload new files.</p>";
+"EPILOGUE" = "";
+"FOOTER_FORMAT" = "%@ %@";
+"QUOTED_TEXT" = "She said \\"Hello\\" and left";
+"BACKSLASH_TEST"  =  "Path: C:\\\\Users\\\\file.txt";
+"""
+
+        result = processor.strip_comments_and_normalize(content_with_escaped_quotes)
+
+        # Should preserve escaped quotes in values
+        assert (
+            '"PROLOGUE"="<p>Drag &amp; drop files on this window or use the \\"Upload Files&hellip;\\" button to upload new files.</p>"'
+            in result
+        )
+        assert '"EPILOGUE"=""' in result
+        assert '"FOOTER_FORMAT"="%@ %@"' in result
+        assert '"QUOTED_TEXT"="She said \\"Hello\\" and left"' in result
+        assert '"BACKSLASH_TEST"="Path: C:\\\\Users\\\\file.txt"' in result
+
+        # All lines should be present
+        assert result.count("\n") >= 5  # At least 5 lines (one for each entry)
+
 
 class TestMinifyLocalizedStringsInsight:
     """Test the MinifyLocalizedStringsInsight functionality."""
