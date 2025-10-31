@@ -318,29 +318,23 @@ class MachOParser:
         ]
         entry_size = 16 if is_64bit else 12
 
-        # Extract from load commands
         for cmd in self.binary.commands:
             if isinstance(cmd, lief.MachO.SymbolCommand):
-                # LC_SYMTAB: symbol table + string table
                 symbol_table_size = cmd.numberof_symbols * entry_size
                 string_table_size = cmd.strings_size
             elif isinstance(cmd, lief.MachO.FunctionStarts):
-                # LC_FUNCTION_STARTS
                 function_starts_size = cmd.data_size
 
-        # Extract DYLD info
         dyld_chained_fixups = self.binary.dyld_chained_fixups
         dyld_exports_trie = self.binary.dyld_exports_trie
         chained_fixups_size = dyld_chained_fixups.data_size if dyld_chained_fixups else 0
         export_trie_size = dyld_exports_trie.data_size if dyld_exports_trie else 0
 
-        # Extract code signature
         if self.binary.has_code_signature:
             cs = self.binary.code_signature
             code_signature_size = cs.data_size
             code_signature_offset = cs.data_offset
 
-        # Get __LINKEDIT segment size
         for segment in self.binary.segments:
             if segment.name == "__LINKEDIT":
                 segment_size = segment.file_size
