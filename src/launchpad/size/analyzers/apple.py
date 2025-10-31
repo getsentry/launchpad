@@ -242,7 +242,6 @@ class AppleAppAnalyzer:
         results = AppleAnalysisResults(
             app_info=app_info,
             file_analysis=file_analysis,
-            binary_analysis=binary_analysis,
             treemap=treemap,
             insights=insights,
             analysis_duration=analysis_duration,

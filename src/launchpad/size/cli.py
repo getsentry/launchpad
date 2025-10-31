@@ -94,9 +94,6 @@ def size_command(
         else:
             _print_results_as_table(results)
 
-        if isinstance(results, AppleAnalysisResults) and not quiet:
-            _print_apple_summary(results)
-
     except Exception:
         console.print_exception()
         raise click.Abort()
@@ -219,24 +216,6 @@ def _print_file_analysis_table(file_analysis: FileAnalysis) -> None:
 
     console.print(file_table)
     console.print()
-
-
-def _print_apple_summary(results: AppleAnalysisResults) -> None:
-    """Print a brief summary of the analysis."""
-    file_analysis = results.file_analysis
-    insights = results.insights
-
-    console.print("\n[bold]Summary:[/bold]")
-    console.print(f"• Duration: {results.analysis_duration:.2f} seconds")
-    console.print(f"• App name: [cyan]{results.app_info.name}[/cyan]")
-    console.print(f"• Total app size: [cyan]{_format_bytes(file_analysis.total_size)}[/cyan]")
-    console.print(f"• File count: [cyan]{file_analysis.file_count:,}[/cyan]")
-
-    if insights and insights.duplicate_files and insights.duplicate_files.total_savings > 0:
-        console.print(
-            f"• Potential savings from duplicates: "
-            f"[yellow]{_format_bytes(insights.duplicate_files.total_savings)}[/yellow]"
-        )
 
 
 def _format_bytes(size: int) -> str:
