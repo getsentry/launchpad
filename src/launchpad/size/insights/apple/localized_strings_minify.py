@@ -2,6 +2,8 @@ import logging
 import plistlib
 import re
 
+from pathlib import Path
+
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.common import FileInfo
@@ -56,33 +58,15 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
 
             content_bytes = file_path.read_bytes()
 
-            # Binary plist files don't support comments, so we can skip them
+            # Binary plists and regular plists have significant overhead
+            # Calculate the savings from converting to standard strings format
             if content_bytes.startswith(b"bplist"):
-                logger.debug("Skipping strings minification for binary plist: %s", file_info.path)
-                return 0
+                return self._calculate_plist_to_strings_savings(content_bytes, file_path, "binary plist")
 
-            # Try to parse as plist (XML format) if it looks like XML
             if content_bytes.startswith(b"<?xml "):
-                try:
-                    # Strip XML comments before parsing
-                    content_str = content_bytes.decode("utf-8", errors="ignore")
-                    content_no_comments = self._processor.strip_xml_comments(content_str)
-                    stripped_content_bytes = content_no_comments.encode("utf-8")
+                return self._calculate_plist_to_strings_savings(content_bytes, file_path, "XML plist")
 
-                    # Parse and re-serialize to normalize formatting
-                    plist_dict = plistlib.loads(stripped_content_bytes)
-                    if isinstance(plist_dict, dict):
-                        stripped_bytes = plistlib.dumps(plist_dict, fmt=plistlib.FMT_XML)
-                        return self._calculate_savings(content_bytes, stripped_bytes)
-                except Exception:
-                    # Not a valid plist, fall through to treat as text format
-                    logger.error(
-                        "Skipping strings minification because file is not a valid plist",
-                        extra={"file_path": file_path},
-                    )
-                    pass
-
-            # Treat as text format (traditional .strings format)
+            # For regular strings files, strip comments and normalize whitespace for savings
             content = content_bytes.decode("utf-8", errors="ignore")
             stripped_content = self._processor.strip_string_comments_and_whitespace(content)
             return self._calculate_savings(content.encode("utf-8"), stripped_content.encode("utf-8"))
@@ -97,20 +81,37 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
         stripped_size = to_nearest_block_size(len(stripped_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
         return max(0, original_size - stripped_size)
 
+    def _calculate_plist_to_strings_savings(self, content_bytes: bytes, file_path: Path, plist_type: str) -> int:
+        plist_dict = plistlib.loads(content_bytes)
+        if isinstance(plist_dict, dict):
+            strings_content = self._processor.plist_dict_to_strings(plist_dict)
+            strings_bytes = strings_content.encode("utf-8")
+            return self._calculate_savings(content_bytes, strings_bytes)
+
+        logger.error(
+            "Skipping plist conversion because file is not a valid plist",
+            extra={"file_path": file_path, "plist_type": plist_type},
+        )
+        return 0
+
 
 class MinifyLocalizedStringsProcessor:
     """Processes localized strings files by stripping comments and normalizing whitespace."""
 
     # Match /* ... */ block comments or // line comments
     _COMMENT_RE = re.compile(r"/\*.*?\*/|//.*?$", re.S | re.M)
-    # Match XML comments <!-- ... -->
-    _XML_COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
     # Lines that look like:  "key" = "value"; (handles escaped quotes inside strings)
     _KV_RE = re.compile(r'^\s*"(?:[^"\\]|\\.)+"\s*=\s*"(?:[^"\\]|\\.)*"\s*;?\s*$', re.M)
 
-    def strip_xml_comments(self, content: str) -> str:
-        """Strip XML-style comments (<!-- ... -->) from content."""
-        return self._XML_COMMENT_RE.sub("", content)
+    def plist_dict_to_strings(self, plist_dict: dict[str, str]) -> str:
+        """Convert a plist dictionary to standard strings format."""
+        lines: list[str] = []
+        for key, value in sorted(plist_dict.items()):  # Sort for consistent output
+            # Escape quotes and backslashes in key and value
+            escaped_key = str(key).replace("\\", "\\\\").replace('"', '\\"')
+            escaped_value = str(value).replace("\\", "\\\\").replace('"', '\\"')
+            lines.append(f'"{escaped_key}"="{escaped_value}";')
+        return "\n".join(lines) + "\n" if lines else ""
 
     def strip_string_comments_and_whitespace(self, content: str) -> str:
         """
