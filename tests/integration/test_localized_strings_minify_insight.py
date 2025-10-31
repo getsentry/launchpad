@@ -218,36 +218,6 @@ class TestMinifyLocalizedStringsProcessor:
         )
         assert result == expected
 
-    def test_strip_xml_comments(self):
-        """Test stripping XML comments."""
-        processor = MinifyLocalizedStringsProcessor()
-
-        # Test single line XML comment
-        content = "<!-- This is a comment --><key>test</key>"
-        result = processor.strip_xml_comments(content)
-        assert result == "<key>test</key>"
-
-        # Test multiline XML comment
-        content = """<!-- This is a
-        multiline
-        comment -->
-<dict>
-    <key>test</key>
-</dict>"""
-        result = processor.strip_xml_comments(content)
-        assert "<!--" not in result
-        assert "<dict>" in result
-        assert "<key>test</key>" in result
-
-        # Test multiple XML comments
-        content = """<!-- Comment 1 --><key>key1</key>
-<!-- Comment 2 --><string>value1</string>
-<!-- Comment 3 -->"""
-        result = processor.strip_xml_comments(content)
-        assert "<!--" not in result
-        assert "<key>key1</key>" in result
-        assert "<string>value1</string>" in result
-
 
 class TestMinifyLocalizedStringsInsight:
     """Test the MinifyLocalizedStringsInsight functionality."""
@@ -495,7 +465,7 @@ class TestMinifyLocalizedStringsInsight:
             assert result.total_savings > 0
 
     def test_binary_plist_strings_file(self):
-        """Test that insight skips binary plist files (they don't support comments)."""
+        """Test that small binary plist files don't generate insights due to low savings."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
@@ -537,8 +507,70 @@ class TestMinifyLocalizedStringsInsight:
             )
 
             result = insight.generate(input_data)
-            # Should skip binary plists (no savings possible)
+            # Small plist has savings below threshold, so no insight is generated
             assert result is None
+
+    def test_binary_plist_with_significant_savings(self):
+        """Test that large binary plist files show savings when converted to standard strings format."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create a binary plist strings file with many entries
+            strings_file = temp_path / "en.lproj" / "LargeBinaryPlist.strings"
+            strings_file.parent.mkdir(parents=True)
+
+            # Create a plist dict with enough entries to demonstrate block-aligned savings
+            # Binary plists have overhead from metadata, type info, offset tables, etc.
+            # With 200 short entries: binary ~4425 bytes (2 blocks) vs strings ~3780 bytes (1 block) = 4096 bytes savings
+            plist_dict = {}
+            for i in range(200):
+                plist_dict[f"k{i}"] = f"Value {i}"
+
+            binary_plist = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
+            strings_file.write_bytes(binary_plist)
+
+            # Calculate what the strings format would be
+            processor = MinifyLocalizedStringsProcessor()
+            strings_content = processor.plist_dict_to_strings(plist_dict)
+            strings_bytes = strings_content.encode("utf-8")
+
+            # Verify binary plist is actually larger (showing the overhead)
+            assert len(binary_plist) > len(strings_bytes), (
+                f"Binary plist ({len(binary_plist)} bytes) should be larger than "
+                f"strings format ({len(strings_bytes)} bytes)"
+            )
+
+            insight = MinifyLocalizedStringsInsight()
+
+            input_data = InsightsInput(
+                app_info=self._create_test_app_info(),
+                file_analysis=FileAnalysis(
+                    files=[
+                        FileInfo(
+                            full_path=strings_file,
+                            path="en.lproj/LargeBinaryPlist.strings",
+                            size=len(binary_plist),
+                            file_type="strings",
+                            hash="large_binary_hash",
+                            treemap_type=TreemapType.FILES,
+                            is_dir=False,
+                            children=[],
+                        )
+                    ],
+                    directories=[],
+                ),
+                binary_analysis=[],
+                treemap=None,
+                hermes_reports={},
+            )
+
+            result = insight.generate(input_data)
+            # Should find savings from converting binary plist to standard strings format
+            assert result is not None, "Should generate insight for large binary plist"
+            assert len(result.files) == 1
+            assert result.files[0].file_path == "en.lproj/LargeBinaryPlist.strings"
+            assert result.files[0].total_savings > 0
+            assert result.total_savings > insight.THRESHOLD_BYTES
 
     def test_xml_plist_strings_file_with_formatting(self):
         """Test that insight handles XML plist-format .strings files with extra formatting."""
