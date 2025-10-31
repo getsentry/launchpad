@@ -301,10 +301,7 @@ class MachOParser:
 
     @sentry_sdk.trace
     def extract_linkedit_info(self) -> LinkEditInfo:
-        """Extract all __LINKEDIT segment component sizes from load commands.
-
-        Consolidates symbol tables, DYLD info, code signature, and segment size into one structure.
-        """
+        """Extract all __LINKEDIT segment component sizes from load commands."""
         symbol_table_size = 0
         string_table_size = 0
         function_starts_size = 0
