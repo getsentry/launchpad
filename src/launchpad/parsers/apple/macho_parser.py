@@ -330,7 +330,7 @@ class MachOParser:
         chained_fixups_size = dyld_chained_fixups.data_size if dyld_chained_fixups else 0
         export_trie_size = dyld_exports_trie.data_size if dyld_exports_trie else 0
 
-        if self.binary.has_code_signature:
+        if self.binary.has_code_signature and self.binary.code_signature is not None:
             cs = self.binary.code_signature
             code_signature_size = cs.data_size
             code_signature_offset = cs.data_offset
