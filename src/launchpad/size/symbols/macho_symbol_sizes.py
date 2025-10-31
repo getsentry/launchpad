@@ -55,7 +55,7 @@ class MachOSymbolSizes:
     def _is_measurable(self, sym: lief.MachO.Symbol) -> bool:
         """Keep symbols that are actually defined inside a section."""
         is_measurable = (
-            sym.origin == lief.MachO.Symbol.ORIGIN.LC_SYMTAB
+            sym.origin == lief.MachO.Symbol.ORIGIN.SYMTAB
             and sym.type == lief.MachO.Symbol.TYPE.SECTION
             and sym.value > 0
         )
