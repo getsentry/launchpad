@@ -2,7 +2,7 @@ from pathlib import Path
 
 from launchpad.size.insights.apple.main_binary_export_metadata import MainBinaryExportMetadataInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.apple import DyldInfo, MachOBinaryAnalysis
+from launchpad.size.models.apple import LinkEditInfo, MachOBinaryAnalysis
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis
 from launchpad.size.models.insights import MainBinaryExportMetadataResult
 
@@ -26,7 +26,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=True,
             header_size=32,
-            dyld_info=DyldInfo(export_trie_size=5000),
+            linkedit_info=LinkEditInfo(export_trie_size=5000),
         )
 
         insights_input = InsightsInput(
@@ -42,7 +42,7 @@ class TestMainBinaryExportMetadataInsight:
         assert result.total_savings == 5000
 
     def test_generate_with_main_binary_without_dyld_exports_trie(self):
-        """Test that no insight is generated when main binary has no dyld_info."""
+        """Test that no insight is generated when main binary has no linkedit_info."""
         main_binary_analysis = MachOBinaryAnalysis(
             binary_absolute_path=Path("MyApp"),
             binary_relative_path=Path("MyApp"),
@@ -56,7 +56,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=True,
             header_size=32,
-            dyld_info=None,  # No dyld_info
+            linkedit_info=None,  # No linkedit_info
         )
 
         insights_input = InsightsInput(
@@ -85,7 +85,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=False,  # Not a main binary
             header_size=32,
-            dyld_info=DyldInfo(export_trie_size=5000),  # Has export trie but not main binary
+            linkedit_info=LinkEditInfo(export_trie_size=5000),  # Has export trie but not main binary
         )
 
         insights_input = InsightsInput(
@@ -114,7 +114,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=True,
             header_size=32,
-            dyld_info=DyldInfo(export_trie_size=0),  # Zero-size export trie
+            linkedit_info=LinkEditInfo(export_trie_size=0),  # Zero-size export trie
         )
 
         insights_input = InsightsInput(
@@ -156,7 +156,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=True,
             header_size=32,
-            dyld_info=DyldInfo(export_trie_size=8000),
+            linkedit_info=LinkEditInfo(export_trie_size=8000),
         )
 
         # Create framework binary (non-main)
@@ -173,7 +173,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=False,
             header_size=32,
-            dyld_info=DyldInfo(export_trie_size=3000),  # Framework also has export trie but won't be included
+            linkedit_info=LinkEditInfo(export_trie_size=3000),  # Framework also has export trie but won't be included
         )
 
         insights_input = InsightsInput(
@@ -203,7 +203,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=True,
             header_size=32,
-            dyld_info=DyldInfo(export_trie_size=512),  # Below MIN_EXPORTS_THRESHOLD (1024)
+            linkedit_info=LinkEditInfo(export_trie_size=512),  # Below MIN_EXPORTS_THRESHOLD (1024)
         )
 
         insights_input = InsightsInput(
@@ -232,7 +232,7 @@ class TestMainBinaryExportMetadataInsight:
             swift_metadata=None,
             is_main_binary=True,
             header_size=32,
-            dyld_info=DyldInfo(export_trie_size=1024),  # Exactly at MIN_EXPORTS_THRESHOLD
+            linkedit_info=LinkEditInfo(export_trie_size=1024),  # Exactly at MIN_EXPORTS_THRESHOLD
         )
 
         insights_input = InsightsInput(

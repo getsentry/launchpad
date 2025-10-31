@@ -17,11 +17,11 @@ class MainBinaryExportMetadataInsight(Insight[MainBinaryExportMetadataResult]):
             if not analysis.is_main_binary:
                 continue
 
-            dyld_info = analysis.dyld_info
-            if dyld_info is None:
+            linkedit_info = analysis.linkedit_info
+            if linkedit_info is None:
                 continue
 
-            export_trie_size = dyld_info.export_trie_size
+            export_trie_size = linkedit_info.export_trie_size
             if export_trie_size >= self.MIN_EXPORTS_THRESHOLD:
                 export_files.append(
                     FileSavingsResult(

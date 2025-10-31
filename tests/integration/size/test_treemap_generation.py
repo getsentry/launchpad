@@ -361,8 +361,26 @@ class TestTreemapGeneration:
         # Verify __LINKEDIT segment
         has_linkedit = "__LINKEDIT" in main_exe_sections
         assert has_linkedit
-        linkedit_size = main_exe_sections["__LINKEDIT"].size
+        linkedit = main_exe_sections["__LINKEDIT"]
+        linkedit_size = linkedit.size
         assert linkedit_size == 269360
+
+        # Verify __LINKEDIT has children (symbol table, string table, etc.)
+        linkedit_children = {child.name: child for child in linkedit.children}
+        assert len(linkedit_children) == 6, "__LINKEDIT should have exactly 6 child components"
+
+        # Verify expected __LINKEDIT components exist
+        assert "Symbol Table" in linkedit_children, "Symbol table should be present"
+        assert "String Table" in linkedit_children, "String table should be present"
+        assert "Function Starts" in linkedit_children, "Function starts should be present"
+
+        # Verify exact sizes for __LINKEDIT components
+        assert linkedit_children["Symbol Table"].size == 11072, "Symbol table size mismatch"
+        assert linkedit_children["String Table"].size == 16584, "String table size mismatch"
+        assert linkedit_children["Function Starts"].size == 13584, "Function starts size mismatch"
+        assert linkedit_children["Chained Fixups"].size == 87616, "Chained fixups size mismatch"
+        assert linkedit_children["Export Trie"].size == 85056, "Export trie size mismatch"
+        assert linkedit_children["Code Signature"].size == 43488, "Code signature size mismatch"
 
         # Verify Unmapped section (track size changes)
         has_unmapped = "Unmapped" in main_exe_sections
