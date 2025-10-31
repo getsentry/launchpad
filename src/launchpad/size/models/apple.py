@@ -135,6 +135,24 @@ class DyldInfo:
 
 
 @dataclass
+class CodeSignatureInfo:
+    """Code signature information extracted from LC_CODE_SIGNATURE load command."""
+
+    size: int = 0
+    offset: int = 0
+
+
+@dataclass
+class LinkEditInfo:
+    """Link edit segment components extracted from various load commands in __LINKEDIT."""
+
+    symbol_table_size: int = 0
+    string_table_size: int = 0
+    function_starts_size: int = 0
+    segment_size: int = 0
+
+
+@dataclass
 class MachOBinaryAnalysis:
     """Mach-O binary analysis results."""
 
@@ -153,6 +171,8 @@ class MachOBinaryAnalysis:
     dyld_info: DyldInfo | None = None
     dwarf_relocations: DwarfRelocationsData | None = None
     strippable_symbols_size: int = 0
+    code_signature_info: CodeSignatureInfo | None = None
+    linkedit_info: LinkEditInfo | None = None
 
 
 @dataclass

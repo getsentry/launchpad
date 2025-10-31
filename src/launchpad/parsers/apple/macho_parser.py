@@ -11,7 +11,7 @@ from typing import Dict, List
 import lief
 import sentry_sdk
 
-from launchpad.size.models.apple import DyldInfo
+from launchpad.size.models.apple import CodeSignatureInfo, DyldInfo, LinkEditInfo
 
 from ...utils.logging import get_logger
 from .binary_utils import parse_null_terminated_strings
@@ -307,4 +307,49 @@ class MachOParser:
         return DyldInfo(
             chained_fixups_size=(dyld_chained_fixups.data_size if dyld_chained_fixups else 0),
             export_trie_size=dyld_exports_trie.data_size if dyld_exports_trie else 0,
+        )
+
+    @sentry_sdk.trace
+    def extract_code_signature_info(self) -> CodeSignatureInfo | None:
+        """Extract code signature information from LC_CODE_SIGNATURE load command."""
+        if not self.binary.has_code_signature:
+            return None
+
+        cs = self.binary.code_signature
+        return CodeSignatureInfo(
+            size=cs.data_size,
+            offset=cs.data_offset,
+        )
+
+    @sentry_sdk.trace
+    def extract_linkedit_info(self) -> LinkEditInfo:
+        """Extract __LINKEDIT segment component sizes from load commands."""
+        symbol_table_size = 0
+        string_table_size = 0
+        function_starts_size = 0
+        segment_size = 0
+
+        is_64bit = self.binary.header.magic in [
+            lief.MachO.MACHO_TYPES.MAGIC_64,
+            lief.MachO.MACHO_TYPES.CIGAM_64,
+        ]
+        entry_size = 16 if is_64bit else 12
+
+        for cmd in self.binary.commands:
+            if isinstance(cmd, lief.MachO.SymbolCommand):
+                symbol_table_size = cmd.numberof_symbols * entry_size
+                string_table_size = cmd.strings_size
+            elif isinstance(cmd, lief.MachO.FunctionStarts):
+                function_starts_size = cmd.data_size
+
+        for segment in self.binary.segments:
+            if segment.name == "__LINKEDIT":
+                segment_size = segment.file_size
+                break
+
+        return LinkEditInfo(
+            symbol_table_size=symbol_table_size,
+            string_table_size=string_table_size,
+            function_starts_size=function_starts_size,
+            segment_size=segment_size,
         )
