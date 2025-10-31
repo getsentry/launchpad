@@ -439,8 +439,6 @@ class AppleAppAnalyzer:
         objc_method_names = parser.parse_objc_method_names()
         segments = self._extract_segments_info(parser.binary)
         load_commands = self._extract_load_commands_info(parser.binary)
-        dyld_info = parser.extract_dyld_info()
-        code_signature_info = parser.extract_code_signature_info()
         linkedit_info = parser.extract_linkedit_info()
 
         symbol_info = None
@@ -498,10 +496,8 @@ class AppleAppAnalyzer:
             segments=segments,
             load_commands=load_commands,
             header_size=parser.get_header_size(),
-            dyld_info=dyld_info,
             dwarf_relocations=dwarf_relocations,
             strippable_symbols_size=strippable_symbols_size,
-            code_signature_info=code_signature_info,
             linkedit_info=linkedit_info,
         )
 

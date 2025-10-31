@@ -510,79 +510,78 @@ class MachOElementBuilder(TreemapElementBuilder):
         """
         linkedit_children: List[TreemapElement] = []
 
-        # Add link edit components (symbol table, string table, function starts)
         le = binary_analysis.linkedit_info
-        if le is not None:
-            if le.string_table_size > 0:
-                linkedit_children.append(
-                    TreemapElement(
-                        name="String Table",
-                        size=le.string_table_size,
-                        type=TreemapType.EXECUTABLES,
-                        path=None,
-                        is_dir=False,
-                        children=[],
-                    )
-                )
+        if le is None:
+            return linkedit_children
 
-            if le.symbol_table_size > 0:
-                linkedit_children.append(
-                    TreemapElement(
-                        name="Symbol Table",
-                        size=le.symbol_table_size,
-                        type=TreemapType.EXECUTABLES,
-                        path=None,
-                        is_dir=False,
-                        children=[],
-                    )
+        # Add symbol table and string table
+        if le.string_table_size > 0:
+            linkedit_children.append(
+                TreemapElement(
+                    name="String Table",
+                    size=le.string_table_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
                 )
+            )
 
-            if le.function_starts_size > 0:
-                linkedit_children.append(
-                    TreemapElement(
-                        name="Function Starts",
-                        size=le.function_starts_size,
-                        type=TreemapType.EXECUTABLES,
-                        path=None,
-                        is_dir=False,
-                        children=[],
-                    )
+        if le.symbol_table_size > 0:
+            linkedit_children.append(
+                TreemapElement(
+                    name="Symbol Table",
+                    size=le.symbol_table_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
                 )
+            )
 
-        # Add DYLD info children
-        di = binary_analysis.dyld_info
-        if di is not None:
-            if di.chained_fixups_size > 0:
-                linkedit_children.append(
-                    TreemapElement(
-                        name="Chained Fixups",
-                        size=di.chained_fixups_size,
-                        type=TreemapType.DYLD,
-                        path=None,
-                        is_dir=False,
-                        children=[],
-                    )
+        if le.function_starts_size > 0:
+            linkedit_children.append(
+                TreemapElement(
+                    name="Function Starts",
+                    size=le.function_starts_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
                 )
+            )
 
-            if di.export_trie_size > 0:
-                linkedit_children.append(
-                    TreemapElement(
-                        name="Export Trie",
-                        size=di.export_trie_size,
-                        type=TreemapType.DYLD,
-                        path=None,
-                        is_dir=False,
-                        children=[],
-                    )
+        # Add DYLD info
+        if le.chained_fixups_size > 0:
+            linkedit_children.append(
+                TreemapElement(
+                    name="Chained Fixups",
+                    size=le.chained_fixups_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
                 )
+            )
+
+        if le.export_trie_size > 0:
+            linkedit_children.append(
+                TreemapElement(
+                    name="Export Trie",
+                    size=le.export_trie_size,
+                    type=TreemapType.DYLD,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
 
         # Add code signature
-        cs = binary_analysis.code_signature_info
-        if cs is not None and cs.size > 0:
+        if le.code_signature_size > 0:
             linkedit_children.append(
                 TreemapElement(
                     name="Code Signature",
-                    size=cs.size,
+                    size=le.code_signature_size,
                     type=TreemapType.CODE_SIGNATURE,
                     path=None,
                     is_dir=False,

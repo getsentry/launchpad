@@ -11,7 +11,7 @@ from typing import Dict, List
 import lief
 import sentry_sdk
 
-from launchpad.size.models.apple import CodeSignatureInfo, DyldInfo, LinkEditInfo
+from launchpad.size.models.apple import LinkEditInfo
 
 from ...utils.logging import get_logger
 from .binary_utils import parse_null_terminated_strings
@@ -300,56 +300,62 @@ class MachOParser:
         return symbols
 
     @sentry_sdk.trace
-    def extract_dyld_info(self) -> DyldInfo:
-        """Extract DYLD information from LC_DYLD_INFO load commands."""
-        dyld_chained_fixups = self.binary.dyld_chained_fixups
-        dyld_exports_trie = self.binary.dyld_exports_trie
-        return DyldInfo(
-            chained_fixups_size=(dyld_chained_fixups.data_size if dyld_chained_fixups else 0),
-            export_trie_size=dyld_exports_trie.data_size if dyld_exports_trie else 0,
-        )
-
-    @sentry_sdk.trace
-    def extract_code_signature_info(self) -> CodeSignatureInfo | None:
-        """Extract code signature information from LC_CODE_SIGNATURE load command."""
-        if not self.binary.has_code_signature:
-            return None
-
-        cs = self.binary.code_signature
-        return CodeSignatureInfo(
-            size=cs.data_size,
-            offset=cs.data_offset,
-        )
-
-    @sentry_sdk.trace
     def extract_linkedit_info(self) -> LinkEditInfo:
-        """Extract __LINKEDIT segment component sizes from load commands."""
+        """Extract all __LINKEDIT segment component sizes from load commands.
+
+        Consolidates symbol tables, DYLD info, code signature, and segment size into one structure.
+        """
         symbol_table_size = 0
         string_table_size = 0
         function_starts_size = 0
         segment_size = 0
+        chained_fixups_size = 0
+        export_trie_size = 0
+        code_signature_size = 0
+        code_signature_offset = 0
 
+        # Determine if binary is 64-bit (nlist_64 is 16 bytes, nlist is 12 bytes)
         is_64bit = self.binary.header.magic in [
             lief.MachO.MACHO_TYPES.MAGIC_64,
             lief.MachO.MACHO_TYPES.CIGAM_64,
         ]
         entry_size = 16 if is_64bit else 12
 
+        # Extract from load commands
         for cmd in self.binary.commands:
             if isinstance(cmd, lief.MachO.SymbolCommand):
+                # LC_SYMTAB: symbol table + string table
                 symbol_table_size = cmd.numberof_symbols * entry_size
                 string_table_size = cmd.strings_size
             elif isinstance(cmd, lief.MachO.FunctionStarts):
+                # LC_FUNCTION_STARTS
                 function_starts_size = cmd.data_size
 
+        # Extract DYLD info
+        dyld_chained_fixups = self.binary.dyld_chained_fixups
+        dyld_exports_trie = self.binary.dyld_exports_trie
+        chained_fixups_size = dyld_chained_fixups.data_size if dyld_chained_fixups else 0
+        export_trie_size = dyld_exports_trie.data_size if dyld_exports_trie else 0
+
+        # Extract code signature
+        if self.binary.has_code_signature:
+            cs = self.binary.code_signature
+            code_signature_size = cs.data_size
+            code_signature_offset = cs.data_offset
+
+        # Get __LINKEDIT segment size
         for segment in self.binary.segments:
             if segment.name == "__LINKEDIT":
                 segment_size = segment.file_size
                 break
 
         return LinkEditInfo(
+            segment_size=segment_size,
             symbol_table_size=symbol_table_size,
             string_table_size=string_table_size,
             function_starts_size=function_starts_size,
-            segment_size=segment_size,
+            chained_fixups_size=chained_fixups_size,
+            export_trie_size=export_trie_size,
+            code_signature_size=code_signature_size,
+            code_signature_offset=code_signature_offset,
         )
