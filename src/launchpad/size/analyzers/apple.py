@@ -437,7 +437,6 @@ class AppleAppAnalyzer:
         linked_libraries = parser.extract_linked_libraries()
         swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
         objc_method_names = parser.parse_objc_method_names()
-        static_inits = parser.static_inits()
         segments = self._extract_segments_info(parser.binary)
         load_commands = self._extract_load_commands_info(parser.binary)
         dyld_info = parser.extract_dyld_info()
@@ -499,7 +498,6 @@ class AppleAppAnalyzer:
             header_size=parser.get_header_size(),
             dyld_info=dyld_info,
             dwarf_relocations=dwarf_relocations,
-            static_inits=static_inits,
             strippable_symbols_size=strippable_symbols_size,
         )
 

@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
-import lief
-
 from pydantic import BaseModel, ConfigDict, Field
 
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsData
@@ -146,17 +144,13 @@ class MachOBinaryAnalysis:
     architectures: List[str]
     linked_libraries: List[str]
     objc_method_names: List[str]
-    # Lief types cannot be used after the binary is closed
-    # so we need to extract the segment/section data into dataclasses
     segments: List[SegmentInfo]
     load_commands: List[LoadCommandInfo]
     swift_metadata: SwiftMetadata | None = None
-    # TODO(EME-432): remove lief types from this model so it's safe to use after the binary is closed
     symbol_info: SymbolInfo | None = None
     header_size: int = 0
     dyld_info: DyldInfo | None = None
     dwarf_relocations: DwarfRelocationsData | None = None
-    static_inits: List[lief.Symbol | str] | None = None
     strippable_symbols_size: int = 0
 
 
