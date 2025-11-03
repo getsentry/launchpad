@@ -380,3 +380,73 @@ class TestUnnecessaryFilesInsight:
         assert result.files[0].total_savings == 5000  # README.md
         assert result.files[1].total_savings == 3000  # medium.xcconfig
         assert result.files[2].total_savings == 1000  # small.sh
+
+    def test_pattern_matching_swiftmodule_directories(self):
+        """Test that files inside .swiftmodule directories are matched."""
+        swiftmodule_files = [
+            # Files inside .swiftmodule directories (should match)
+            (
+                "Frameworks/MiSnapAssetManager.framework/Modules/MiSnapAssetManager.swiftmodule/arm64-apple-ios.private.swiftinterface-e",
+                True,
+            ),
+            (
+                "Frameworks/SomeFramework.framework/Modules/SomeModule.swiftmodule/x86_64-apple-ios-simulator.swiftinterface",
+                True,
+            ),
+            (
+                "MyModule.swiftmodule/arm64-apple-ios.swiftdoc",
+                True,
+            ),
+            # .swiftmodule files (should also match)
+            ("MyModule.swiftmodule", True),
+            ("SomeFramework.swiftmodule", True),
+            # Files that should NOT match (no .swiftmodule directory or extension)
+            ("MySwiftModuleFile.swift", False),
+            ("swiftmodule_helper.txt", False),
+            ("Frameworks/MyModule.framework/Info.plist", False),
+        ]
+
+        for file_path, should_match in swiftmodule_files:
+            file_info = FileInfo(
+                full_path=Path(file_path),
+                path=file_path,
+                size=2000,
+                file_type=file_path.split(".")[-1] if "." in file_path else "",
+                treemap_type=TreemapType.OTHER,
+                hash="hash",
+                is_dir=False,
+            )
+            insights_input = self._create_insights_input([file_info])
+            result = self.insight.generate(insights_input)
+
+            if should_match:
+                assert result is not None, f"Should match {file_path}"
+                assert len(result.files) == 1
+                assert result.files[0].file_path == file_path
+            else:
+                assert result is None, f"Should not match {file_path}"
+
+    def test_pattern_matching_nested_readme(self):
+        """Test that README files in nested directories are matched."""
+        nested_readme_files = [
+            "README.md",  # Root level
+            "Frameworks/SomeFramework.framework/README.md",  # Nested
+            "docs/README.txt",  # Nested in docs
+            "third_party/lib/README",  # Nested without extension
+        ]
+
+        for file_path in nested_readme_files:
+            file_info = FileInfo(
+                full_path=Path(file_path),
+                path=file_path,
+                size=1000,
+                file_type="txt",
+                treemap_type=TreemapType.OTHER,
+                hash="hash",
+                is_dir=False,
+            )
+            insights_input = self._create_insights_input([file_info])
+            result = self.insight.generate(insights_input)
+            assert result is not None, f"Should match nested README: {file_path}"
+            assert len(result.files) == 1
+            assert result.files[0].file_path == file_path
