@@ -20,6 +20,7 @@ class UnnecessaryFilesInsight(Insight[UnnecessaryFilesInsightResult]):
         r".*\.bazel$",  # Bazel files
         r".*\.xcconfig$",  # Xcode configuration files
         r".*\.swiftmodule$",  # Swift module files
+        r"\.swiftmodule/",  # Files inside .swiftmodule directories
         r"^module\.modulemap$",  # Module map files
         r".*\.bcsymbolmap$",  # Binary symbol map files
         r"^exported_symbols$",  # Exported symbols files
@@ -61,7 +62,7 @@ class UnnecessaryFilesInsight(Insight[UnnecessaryFilesInsightResult]):
         filename = Path(file_info.path).name
 
         for pattern in self._compiled_patterns:
-            if pattern.match(filename):
+            if pattern.search(file_info.path) or pattern.search(filename):
                 return True
 
         return False
