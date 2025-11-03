@@ -25,9 +25,8 @@ class DexElementBuilder(TreemapElementBuilder):
         # to build the treemap. This is because there could be multiple
         # DEX files in APK and we want to group them by package vs file.
 
-        size = file_info.size
-
         root_packages = self._build_package_tree()
+        size = sum(package.size for package in root_packages)
 
         return TreemapElement(
             name=display_name,

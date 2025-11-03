@@ -82,18 +82,14 @@ class DexMethodParser:
         self._buffer_wrapper.read_u16()  # ins_size
         self._buffer_wrapper.read_u16()  # outs_size
         tries_size = self._buffer_wrapper.read_u16()
-        debug_info_off = self._buffer_wrapper.read_u32()
+        self._buffer_wrapper.read_u32()  # debug_info_off (not counted in method size to match Android Studio's APK Analyzer behavior)
         insns_size = self._buffer_wrapper.read_u32()
 
         # Fixed overhead - 4 ushort (2b) + 2 uint (4b)
         size = 16
 
-        # Instruction size
+        # Instruction size (includes instructions, padding, tries, and catch handlers)
         size += self._get_encoded_code_size(insns_size, tries_size)
-
-        # Add debug info size if present
-        if debug_info_off != 0:
-            size += self._get_debug_info_size(debug_info_off)
 
         self._buffer_wrapper.seek(cursor)
         return size

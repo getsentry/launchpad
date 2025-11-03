@@ -1,5 +1,3 @@
-"""DEX file parser for Android applications."""
-
 from __future__ import annotations
 
 from launchpad.parsers.android.dex.dex_base_utils import DexBaseUtils
