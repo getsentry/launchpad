@@ -22,7 +22,6 @@ from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsPar
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.utils import make_hermes_reports
-from launchpad.size.insights.apple.alternate_icons_optimization import AlternateIconsOptimizationInsight
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings_minify import MinifyLocalizedStringsInsight
 from launchpad.size.insights.apple.loose_images import LooseImagesInsight
@@ -226,9 +225,10 @@ class AppleAppAnalyzer:
                 unnecessary_files=self._generate_insight_with_tracing(
                     UnnecessaryFilesInsight, insights_input, "unnecessary_files"
                 ),
-                alternate_icons_optimization=self._generate_insight_with_tracing(
-                    AlternateIconsOptimizationInsight, insights_input, "alternate_icons_optimization"
-                ),
+                # TODO(EME-593): re-enable once we manage to improve accuracy of savings calculation
+                # alternate_icons_optimization=self._generate_insight_with_tracing(
+                #     AlternateIconsOptimizationInsight, insights_input, "alternate_icons_optimization"
+                # ),
                 # TODO(EME-427): enable audio/video compression insights once we handle ffmpeg
                 # audio_compression=self._generate_insight_with_tracing(
                 #     AudioCompressionInsight, insights_input, "audio_compression"
