@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult]):
-    """Analyze potential savings from stripping comments from localized strings files."""
+    """Analyze potential savings from converting localized strings files to binary plist format."""
 
     THRESHOLD_BYTES = 1024
 
@@ -29,7 +29,7 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
             if not file_info.path.endswith(".strings"):
                 continue
 
-            savings = self._calculate_comment_savings(file_info)
+            savings = self._calculate_binary_plist_savings(file_info)
             if savings > 0:
                 result = FileSavingsResult(
                     file_path=str(file_info.path),
@@ -47,84 +47,107 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
 
         return None
 
-    def _calculate_comment_savings(self, file_info: FileInfo) -> int:
+    def _calculate_binary_plist_savings(self, file_info: FileInfo) -> int:
+        """Calculate savings from converting strings files to binary plist format."""
         try:
             file_path = file_info.full_path
             if not file_path or not file_path.exists():
-                logger.error(
-                    "Skipping strings minification because file does not exist", extra={"file_path": file_path}
-                )
+                logger.error("Skipping strings conversion because file does not exist", extra={"file_path": file_path})
                 return 0
 
             content_bytes = file_path.read_bytes()
 
-            # Binary plists and regular plists have significant overhead
-            # Calculate the savings from converting to standard strings format
+            # Binary plists are already optimal and don't support comments
+            # You can get slightly smaller size by converting to strings format, but it's not worth the effort
+            # and there are other benefits to keeping them in binary format.
             if content_bytes.startswith(b"bplist"):
-                return self._calculate_plist_to_strings_savings(content_bytes, file_path, "binary plist")
+                return 0
 
+            # XML plists: convert to binary plist (Xcode standard)
             if content_bytes.startswith(b"<?xml "):
-                return self._calculate_plist_to_strings_savings(content_bytes, file_path, "XML plist")
+                return self._calculate_xml_to_binary_plist_savings(content_bytes, file_path)
 
-            # For regular strings files, strip comments and normalize whitespace for savings
-            content = content_bytes.decode("utf-8", errors="ignore")
-            stripped_content = self._processor.strip_string_comments_and_whitespace(content)
-            return self._calculate_savings(content.encode("utf-8"), stripped_content.encode("utf-8"))
+            # Regular strings files: parse and convert to binary plist
+            return self._calculate_strings_to_binary_plist_savings(content_bytes, file_path)
 
         except Exception:
-            logger.exception("Error calculating localized strings minification savings", extra={"file_path": file_path})
+            logger.exception("Error calculating binary plist conversion savings", extra={"file_path": file_path})
             return 0
 
-    def _calculate_savings(self, original_bytes: bytes, stripped_bytes: bytes) -> int:
+    def _calculate_savings(self, original_bytes: bytes, converted_bytes: bytes) -> int:
         """Calculate savings based on block-aligned size difference."""
         original_size = to_nearest_block_size(len(original_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
-        stripped_size = to_nearest_block_size(len(stripped_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
-        return max(0, original_size - stripped_size)
+        converted_size = to_nearest_block_size(len(converted_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
+        return max(0, original_size - converted_size)
 
-    def _calculate_plist_to_strings_savings(self, content_bytes: bytes, file_path: Path, plist_type: str) -> int:
+    def _calculate_xml_to_binary_plist_savings(self, content_bytes: bytes, file_path: Path) -> int:
+        """Calculate savings from converting XML plist to binary plist format."""
         plist_dict = plistlib.loads(content_bytes)
-        if isinstance(plist_dict, dict):
-            strings_content = self._processor.plist_dict_to_strings(plist_dict)
-            strings_bytes = strings_content.encode("utf-8")
-            return self._calculate_savings(content_bytes, strings_bytes)
+        if not isinstance(plist_dict, dict):
+            logger.error(
+                "Skipping plist conversion because file is not a valid plist dict",
+                extra={"file_path": file_path, "plist_type": "XML plist"},
+            )
+            return 0
 
-        logger.error(
-            "Skipping plist conversion because file is not a valid plist",
-            extra={"file_path": file_path, "plist_type": plist_type},
-        )
-        return 0
+        binary_plist_bytes = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
+        return self._calculate_savings(content_bytes, binary_plist_bytes)
+
+    def _calculate_strings_to_binary_plist_savings(self, content_bytes: bytes, file_path: Path) -> int:
+        """Calculate savings from converting regular strings file to binary plist format."""
+        content = content_bytes.decode("utf-8", errors="ignore")
+        plist_dict = self._processor.parse_strings_file(content)
+
+        if not plist_dict:
+            return 0
+
+        binary_plist_bytes = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
+        return self._calculate_savings(content_bytes, binary_plist_bytes)
 
 
 class MinifyLocalizedStringsProcessor:
-    """Processes localized strings files by stripping comments and normalizing whitespace."""
+    """Processes localized strings files for conversion to binary plist format."""
 
     # Match /* ... */ block comments or // line comments
     _COMMENT_RE = re.compile(r"/\*.*?\*/|//.*?$", re.S | re.M)
     # Lines that look like:  "key" = "value"; (handles escaped quotes inside strings)
     _KV_RE = re.compile(r'^\s*"(?:[^"\\]|\\.)+"\s*=\s*"(?:[^"\\]|\\.)*"\s*;?\s*$', re.M)
 
-    def plist_dict_to_strings(self, plist_dict: dict[str, str]) -> str:
-        """Convert a plist dictionary to standard strings format."""
-        lines: list[str] = []
-        for key, value in sorted(plist_dict.items()):  # Sort for consistent output
-            # Escape quotes and backslashes in key and value
-            escaped_key = str(key).replace("\\", "\\\\").replace('"', '\\"')
-            escaped_value = str(value).replace("\\", "\\\\").replace('"', '\\"')
-            lines.append(f'"{escaped_key}"="{escaped_value}";')
-        return "\n".join(lines) + "\n" if lines else ""
-
-    def strip_string_comments_and_whitespace(self, content: str) -> str:
+    def parse_strings_file(self, content: str) -> dict[str, str] | None:
         """
-        Strip comments and keep only `"key" = "value";` lines, normalizing whitespace to `"key"="value";`.
-        NOTE: This is not a full parser; it will break if comment tokens appear inside quoted strings.
+        Parse a .strings file and return a dictionary of key-value pairs.
+        Strips comments and extracts key-value pairs.
+        Returns None if the file is empty or invalid.
         """
-        no_comments = self._COMMENT_RE.sub("", content)
-        kept: list[str] = []
+        try:
+            # Strip comments
+            no_comments = self._COMMENT_RE.sub("", content)
 
-        for line in self._KV_RE.findall(no_comments):
-            key, value = line.split("=", 1)
-            # normalize spaces & ensure trailing semicolon
-            normalized = f"{key.strip()}={value.strip().rstrip(';')};"
-            kept.append(normalized)
+            result: dict[str, str] = {}
 
-        return ("\n".join(kept) + "\n") if kept else ""
+            for line in self._KV_RE.findall(no_comments):
+                # Parse the line: "key" = "value";
+                parts = line.split("=", 1)
+                if len(parts) != 2:
+                    continue
+
+                key_part = parts[0].strip()
+                value_part = parts[1].strip().rstrip(";").strip()
+
+                # Remove quotes and unescape
+                if key_part.startswith('"') and key_part.endswith('"'):
+                    key_part = key_part[1:-1]
+                if value_part.startswith('"') and value_part.endswith('"'):
+                    value_part = value_part[1:-1]
+
+                # Unescape common escape sequences
+                key = key_part.replace('\\"', '"').replace("\\\\", "\\")
+                value = value_part.replace('\\"', '"').replace("\\\\", "\\")
+
+                result[key] = value
+
+            return result if result else None
+
+        except Exception:
+            logger.exception("Error parsing strings file")
+            return None

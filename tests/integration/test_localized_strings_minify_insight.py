@@ -3,6 +3,7 @@ import tempfile
 
 from pathlib import Path
 
+from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.apple.localized_strings_minify import (
     MinifyLocalizedStringsInsight,
     MinifyLocalizedStringsProcessor,
@@ -11,43 +12,56 @@ from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import TreemapType
+from launchpad.utils.file_utils import to_nearest_block_size
 
 
 class TestMinifyLocalizedStringsProcessor:
-    """Test the strip_string_comments_and_whitespace method directly."""
+    """Test the parse_strings_file method for parsing .strings files."""
 
-    def test_strip_comments_only(self):
-        """Test stripping comments without whitespace changes."""
+    def test_parse_simple_strings(self):
+        """Test parsing simple key-value pairs."""
+        processor = MinifyLocalizedStringsProcessor()
+
+        content = """
+"hello" = "Hello";
+"goodbye" = "Goodbye";
+"welcome" = "Welcome";
+"""
+
+        result = processor.parse_strings_file(content)
+        assert result is not None
+        assert result == {
+            "hello": "Hello",
+            "goodbye": "Goodbye",
+            "welcome": "Welcome",
+        }
+
+    def test_parse_with_comments(self):
+        """Test that comments are stripped during parsing."""
         processor = MinifyLocalizedStringsProcessor()
 
         content_with_comments = """
 /* This is a block comment */
-"hello"="Hello";
+"hello" = "Hello";
 
 // This is a line comment
-"goodbye"="Goodbye";
+"goodbye" = "Goodbye";
 
 /* Multi-line
    block comment */
-"welcome"="Welcome";
+"welcome" = "Welcome";
 """
 
-        stripped = processor.strip_string_comments_and_whitespace(content_with_comments)
+        result = processor.parse_strings_file(content_with_comments)
+        assert result is not None
+        assert result == {
+            "hello": "Hello",
+            "goodbye": "Goodbye",
+            "welcome": "Welcome",
+        }
 
-        expected = (
-            "\n".join(
-                [
-                    '"hello"="Hello";',
-                    '"goodbye"="Goodbye";',
-                    '"welcome"="Welcome";',
-                ]
-            )
-            + "\n"
-        )
-        assert stripped == expected
-
-    def test_normalize_whitespace_only(self):
-        """Test normalizing whitespace around = without comments."""
+    def test_parse_with_varied_whitespace(self):
+        """Test parsing with different whitespace patterns."""
         processor = MinifyLocalizedStringsProcessor()
 
         content_with_spaces = """
@@ -56,52 +70,16 @@ class TestMinifyLocalizedStringsProcessor:
 "key3"   =   "value3";
 """
 
-        normalized = processor.strip_string_comments_and_whitespace(content_with_spaces)
+        result = processor.parse_strings_file(content_with_spaces)
+        assert result is not None
+        assert result == {
+            "key1": "value1",
+            "key2": "value2",
+            "key3": "value3",
+        }
 
-        expected = (
-            "\n".join(
-                [
-                    '"key1"="value1";',
-                    '"key2"="value2";',
-                    '"key3"="value3";',
-                ]
-            )
-            + "\n"
-        )
-        assert normalized == expected
-
-    def test_strip_string_comments_and_whitespace_whitespace(self):
-        """Test both comment stripping and whitespace normalization together."""
-        processor = MinifyLocalizedStringsProcessor()
-
-        content = """
-/* Header comment */
-"hello" = "Hello World";
-
-// Comment before key
-"goodbye"  =  "Goodbye";
-
-/* Multi-line comment
-   with details */
-"welcome"   = "Welcome!";
-"""
-
-        result = processor.strip_string_comments_and_whitespace(content)
-
-        expected = (
-            "\n".join(
-                [
-                    '"hello"="Hello World";',
-                    '"goodbye"="Goodbye";',
-                    '"welcome"="Welcome!";',
-                ]
-            )
-            + "\n"
-        )
-        assert result == expected
-
-    def test_tamil_unicode_content(self):
-        """Test processing Tamil Unicode content."""
+    def test_parse_tamil_unicode_content(self):
+        """Test parsing Tamil Unicode content."""
         processor = MinifyLocalizedStringsProcessor()
 
         tamil_content = """
@@ -111,42 +89,36 @@ class TestMinifyLocalizedStringsProcessor:
 "LoginButton.LogIn" = "உள்நுழைவு";
 """
 
-        result = processor.strip_string_comments_and_whitespace(tamil_content)
+        result = processor.parse_strings_file(tamil_content)
+        assert result is not None
+        assert result == {
+            "DeviceLogin.LogInPrompt": "%@ என்பதற்குச் சென்று மேலே தெரியும் குறியீட்டை உள்ளிடவும்.",
+            "ErrorRecovery.Alert.OK": "சரி",
+            "LoginButton.LogIn": "உள்நுழைவு",
+        }
 
-        expected = (
-            "\n".join(
-                [
-                    '"DeviceLogin.LogInPrompt"="%@ என்பதற்குச் சென்று மேலே தெரியும் குறியீட்டை உள்ளிடவும்.";',
-                    '"ErrorRecovery.Alert.OK"="சரி";',
-                    '"LoginButton.LogIn"="உள்நுழைவு";',
-                ]
-            )
-            + "\n"
-        )
-        assert result == expected
-
-    def test_empty_content(self):
-        """Test that empty content returns empty string."""
+    def test_parse_empty_content(self):
+        """Test that empty content returns None."""
         processor = MinifyLocalizedStringsProcessor()
-        assert processor.strip_string_comments_and_whitespace("") == ""
+        assert processor.parse_strings_file("") is None
 
-    def test_content_with_only_comments(self):
-        """Test that content with only comments and no key-value pairs returns empty string."""
+    def test_parse_only_comments(self):
+        """Test that content with only comments returns None."""
         processor = MinifyLocalizedStringsProcessor()
 
         only_comments = "/* Just a comment */\n// Another comment"
-        assert processor.strip_string_comments_and_whitespace(only_comments) == ""
+        assert processor.parse_strings_file(only_comments) is None
 
-    def test_malformed_strings_without_quotes(self):
-        """Test that malformed strings without quotes are filtered out."""
+    def test_parse_malformed_strings_without_quotes(self):
+        """Test that malformed strings without quotes are ignored."""
         processor = MinifyLocalizedStringsProcessor()
 
         malformed = "hello = world;\nkey = value;"
-        result = processor.strip_string_comments_and_whitespace(malformed)
-        assert result == ""  # Should filter out malformed entries
+        result = processor.parse_strings_file(malformed)
+        assert result is None  # Should return None for invalid content
 
-    def test_mixed_valid_and_invalid_entries(self):
-        """Test that valid entries are kept while invalid entries are filtered out."""
+    def test_parse_mixed_valid_and_invalid_entries(self):
+        """Test that valid entries are parsed while invalid entries are ignored."""
         processor = MinifyLocalizedStringsProcessor()
 
         mixed = """
@@ -154,49 +126,38 @@ class TestMinifyLocalizedStringsProcessor:
         invalid = entry;
         "another_valid" = "entry2";
         """
-        result = processor.strip_string_comments_and_whitespace(mixed)
-        expected = (
-            "\n".join(
-                [
-                    '"valid"="entry";',
-                    '"another_valid"="entry2";',
-                ]
-            )
-            + "\n"
-        )
-        assert result == expected
+        result = processor.parse_strings_file(mixed)
+        assert result is not None
+        assert result == {
+            "valid": "entry",
+            "another_valid": "entry2",
+        }
 
-    def test_equals_in_string_values(self):
-        """Test handling of equals signs within string values."""
+    def test_parse_equals_in_string_values(self):
+        """Test parsing strings with equals signs in values."""
         processor = MinifyLocalizedStringsProcessor()
 
         content_with_equals_in_values = """
 /* Math equations */
 "math.simple" = "2 + 2 = 4";
-"math.complex"  =  "x = y + z";
+"math.complex" = "x = y + z";
 
 // Format descriptions
 "format.description" = "Use format: key = value";
-"assignment.example"   =   "Set variable: foo = bar";
+"assignment.example" = "Set variable: foo = bar";
 """
 
-        result = processor.strip_string_comments_and_whitespace(content_with_equals_in_values)
+        result = processor.parse_strings_file(content_with_equals_in_values)
+        assert result is not None
+        assert result == {
+            "math.simple": "2 + 2 = 4",
+            "math.complex": "x = y + z",
+            "format.description": "Use format: key = value",
+            "assignment.example": "Set variable: foo = bar",
+        }
 
-        expected = (
-            "\n".join(
-                [
-                    '"math.simple"="2 + 2 = 4";',
-                    '"math.complex"="x = y + z";',
-                    '"format.description"="Use format: key = value";',
-                    '"assignment.example"="Set variable: foo = bar";',
-                ]
-            )
-            + "\n"
-        )
-        assert result == expected
-
-    def test_escaped_quotes_in_string_values(self):
-        """Test handling of escaped quotes within string values."""
+    def test_parse_escaped_quotes_in_string_values(self):
+        """Test parsing strings with escaped quotes."""
         processor = MinifyLocalizedStringsProcessor()
 
         content_with_escaped_quotes = """
@@ -204,19 +165,19 @@ class TestMinifyLocalizedStringsProcessor:
 "EPILOGUE" = "";
 "FOOTER_FORMAT" = "%@ %@";
 "QUOTED_TEXT" = "She said \\"Hello\\" and left";
-"BACKSLASH_TEST"  =  "Path: C:\\\\Users\\\\file.txt";
+"BACKSLASH_TEST" = "Path: C:\\\\Users\\\\file.txt";
 """
 
-        result = processor.strip_string_comments_and_whitespace(content_with_escaped_quotes)
-
-        expected = (
-            '"PROLOGUE"="<p>Drag &amp; drop files on this window or use the \\"Upload Files&hellip;\\" button to upload new files.</p>";\n'
-            '"EPILOGUE"="";\n'
-            '"FOOTER_FORMAT"="%@ %@";\n'
-            '"QUOTED_TEXT"="She said \\"Hello\\" and left";\n'
-            '"BACKSLASH_TEST"="Path: C:\\\\Users\\\\file.txt";\n'
+        result = processor.parse_strings_file(content_with_escaped_quotes)
+        assert result is not None
+        assert (
+            result["PROLOGUE"]
+            == '<p>Drag &amp; drop files on this window or use the "Upload Files&hellip;" button to upload new files.</p>'
         )
-        assert result == expected
+        assert result["EPILOGUE"] == ""
+        assert result["FOOTER_FORMAT"] == "%@ %@"
+        assert result["QUOTED_TEXT"] == 'She said "Hello" and left'
+        assert result["BACKSLASH_TEST"] == "Path: C:\\Users\\file.txt"
 
 
 class TestMinifyLocalizedStringsInsight:
@@ -510,35 +471,21 @@ class TestMinifyLocalizedStringsInsight:
             # Small plist has savings below threshold, so no insight is generated
             assert result is None
 
-    def test_binary_plist_with_significant_savings(self):
-        """Test that large binary plist files show savings when converted to standard strings format."""
+    def test_binary_plist_already_optimal(self):
+        """Test that binary plist files are already optimal and produce no savings."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Create a binary plist strings file with many entries
-            strings_file = temp_path / "en.lproj" / "LargeBinaryPlist.strings"
+            # Create a binary plist strings file
+            strings_file = temp_path / "en.lproj" / "BinaryPlist.strings"
             strings_file.parent.mkdir(parents=True)
 
-            # Create a plist dict with enough entries to demonstrate block-aligned savings
-            # Binary plists have overhead from metadata, type info, offset tables, etc.
-            # With 200 short entries: binary ~4425 bytes (2 blocks) vs strings ~3780 bytes (1 block) = 4096 bytes savings
             plist_dict = {}
-            for i in range(200):
-                plist_dict[f"k{i}"] = f"Value {i}"
+            for i in range(100):
+                plist_dict[f"localization_key_{i}"] = f"Localized string value for item number {i}"
 
             binary_plist = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
             strings_file.write_bytes(binary_plist)
-
-            # Calculate what the strings format would be
-            processor = MinifyLocalizedStringsProcessor()
-            strings_content = processor.plist_dict_to_strings(plist_dict)
-            strings_bytes = strings_content.encode("utf-8")
-
-            # Verify binary plist is actually larger (showing the overhead)
-            assert len(binary_plist) > len(strings_bytes), (
-                f"Binary plist ({len(binary_plist)} bytes) should be larger than "
-                f"strings format ({len(strings_bytes)} bytes)"
-            )
 
             insight = MinifyLocalizedStringsInsight()
 
@@ -548,10 +495,10 @@ class TestMinifyLocalizedStringsInsight:
                     files=[
                         FileInfo(
                             full_path=strings_file,
-                            path="en.lproj/LargeBinaryPlist.strings",
+                            path="en.lproj/BinaryPlist.strings",
                             size=len(binary_plist),
                             file_type="strings",
-                            hash="large_binary_hash",
+                            hash="binary_hash",
                             treemap_type=TreemapType.FILES,
                             is_dir=False,
                             children=[],
@@ -565,12 +512,8 @@ class TestMinifyLocalizedStringsInsight:
             )
 
             result = insight.generate(input_data)
-            # Should find savings from converting binary plist to standard strings format
-            assert result is not None, "Should generate insight for large binary plist"
-            assert len(result.files) == 1
-            assert result.files[0].file_path == "en.lproj/LargeBinaryPlist.strings"
-            assert result.files[0].total_savings > 0
-            assert result.total_savings > insight.THRESHOLD_BYTES
+            # Binary plist is already optimal, so no insight should be generated
+            assert result is None, "Should not generate insight for binary plist (already optimal)"
 
     def test_xml_plist_strings_file_with_formatting(self):
         """Test that insight handles XML plist-format .strings files with extra formatting."""
@@ -764,3 +707,141 @@ class TestMinifyLocalizedStringsInsight:
             assert result.files[0].file_path == "en.lproj/CommentedPlist.strings"
             assert result.files[0].total_savings > 0
             assert result.total_savings > insight.THRESHOLD_BYTES
+
+    def test_xml_plist_conversion_with_fixtures_no_block_savings(self):
+        """
+        Test XML plist conversion using test fixtures.
+        The fixtures are sized such that XML and binary plist both round to the same block size,
+        demonstrating correct handling when there are no block-level savings.
+        """
+        # Use the test fixtures
+        xml_plist_path = Path(__file__).parent.parent / "_fixtures" / "ios" / "localized-strings-plist"
+        binary_plist_path = Path(__file__).parent.parent / "_fixtures" / "ios" / "localized-strings-bplist"
+
+        assert xml_plist_path.exists(), f"XML plist fixture not found at {xml_plist_path}"
+        assert binary_plist_path.exists(), f"Binary plist fixture not found at {binary_plist_path}"
+
+        xml_content = xml_plist_path.read_bytes()
+        binary_content = binary_plist_path.read_bytes()
+
+        # Verify the XML plist is larger than the binary plist in raw bytes
+        assert len(xml_content) > len(binary_content), (
+            f"XML plist ({len(xml_content)} bytes) should be larger than binary plist ({len(binary_content)} bytes)"
+        )
+
+        insight = MinifyLocalizedStringsInsight()
+
+        input_data = InsightsInput(
+            app_info=self._create_test_app_info(),
+            file_analysis=FileAnalysis(
+                files=[
+                    FileInfo(
+                        full_path=xml_plist_path,
+                        path="en.lproj/Localizable.strings",
+                        size=len(xml_content),
+                        file_type="strings",
+                        hash="xml_plist_hash",
+                        treemap_type=TreemapType.FILES,
+                        is_dir=False,
+                        children=[],
+                    )
+                ],
+                directories=[],
+            ),
+            binary_analysis=[],
+            treemap=None,
+            hermes_reports={},
+        )
+
+        result = insight.generate(input_data)
+
+        # Verify the savings calculation - XML to binary plist conversion
+        xml_dict = plistlib.loads(xml_content)
+
+        # Check sizes when block-aligned
+        xml_size_blocks = to_nearest_block_size(len(xml_content), APPLE_FILESYSTEM_BLOCK_SIZE)
+        binary_plist_bytes = plistlib.dumps(xml_dict, fmt=plistlib.FMT_BINARY)
+        binary_size_blocks = to_nearest_block_size(len(binary_plist_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
+
+        # For these fixtures, both formats round to the same block size
+        assert xml_size_blocks == binary_size_blocks, (
+            f"Expected same block size, got XML: {xml_size_blocks}, binary: {binary_size_blocks}"
+        )
+
+        # Therefore, no insight should be generated (no block-level savings)
+        assert result is None, "Should not generate insight when block-aligned sizes are the same"
+
+    def test_xml_plist_to_binary_with_actual_savings(self):
+        """
+        Test XML plist to binary plist conversion with a larger file that has actual block-level savings.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            strings_file = temp_path / "en.lproj" / "LargeStrings.strings"
+            strings_file.parent.mkdir(parents=True)
+
+            # Create a plist dict large enough to demonstrate savings across block boundaries
+            plist_dict = {}
+            for i in range(300):
+                plist_dict[f"localization_key_{i}"] = f"Localized string value for item number {i} with extra content"
+
+            # Write as XML plist with lots of whitespace (Xcode-style formatting)
+            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n'
+            xml_content += '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+            xml_content += '<plist version="1.0">\n<dict>\n'
+            for key, value in plist_dict.items():
+                xml_content += f"\t<key>{key}</key>\n"
+                xml_content += f"\t<string>{value}</string>\n"
+            xml_content += "</dict>\n</plist>\n"
+
+            xml_bytes = xml_content.encode("utf-8")
+            strings_file.write_bytes(xml_bytes)
+
+            # Calculate expected sizes
+            binary_plist_bytes = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
+
+            # Verify we have a file large enough to span multiple blocks
+            xml_blocks = to_nearest_block_size(len(xml_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
+            binary_blocks = to_nearest_block_size(len(binary_plist_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
+
+            # Ensure we have actual savings from XML to binary plist conversion
+            assert xml_blocks > binary_blocks, (
+                "File should be large enough to have block-level savings from XML to binary plist"
+            )
+
+            insight = MinifyLocalizedStringsInsight()
+
+            input_data = InsightsInput(
+                app_info=self._create_test_app_info(),
+                file_analysis=FileAnalysis(
+                    files=[
+                        FileInfo(
+                            full_path=strings_file,
+                            path="en.lproj/LargeStrings.strings",
+                            size=len(xml_bytes),
+                            file_type="strings",
+                            hash="large_xml_hash",
+                            treemap_type=TreemapType.FILES,
+                            is_dir=False,
+                            children=[],
+                        )
+                    ],
+                    directories=[],
+                ),
+                binary_analysis=[],
+                treemap=None,
+                hermes_reports={},
+            )
+
+            result = insight.generate(input_data)
+
+            # Should generate insight with savings
+            assert result is not None, "Should generate insight for large XML plist"
+            assert len(result.files) == 1
+            assert result.files[0].file_path == "en.lproj/LargeStrings.strings"
+            assert result.files[0].total_savings > 0
+
+            # Verify the savings calculation for XML to binary plist conversion
+            expected_savings = xml_blocks - binary_blocks
+            assert result.files[0].total_savings == expected_savings

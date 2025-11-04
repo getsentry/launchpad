@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>auth.agreement.guidelines</key>
+	<string>Hacker News Guidelines</string>
+	<key>auth.agreement.prefix</key>
+	<string>By signing in, you agree to the </string>
+	<key>auth.button.login</key>
+	<string>Login</string>
+	<key>auth.button.logout</key>
+	<string>Logout</string>
+	<key>auth.button.submit</key>
+	<string>Submit</string>
+	<key>auth.error.invalidCredentials</key>
+	<string>Invalid username or password</string>
+	<key>auth.field.password</key>
+	<string>Password</string>
+	<key>auth.field.username</key>
+	<string>Username</string>
+	<key>bookmarks.action.bookmark</key>
+	<string>Bookmark</string>
+	<key>bookmarks.action.remove</key>
+	<string>Remove Bookmark</string>
+	<key>bookmarks.emptyState</key>
+	<string>Long-press a story to bookmark it.</string>
+	<key>bookmarks.title</key>
+	<string>Bookmarks</string>
+	<key>comments.action.collapse</key>
+	<string>Collapse</string>
+	<key>comments.action.report</key>
+	<string>Report Comment</string>
+	<key>comments.action.show</key>
+	<string>Show</string>
+	<key>comments.composer.placeholder</key>
+	<string>Words of wisdom</string>
+	<key>comments.composer.title</key>
+	<string>Add a comment</string>
+	<key>feed.type.ask</key>
+	<string>Ask</string>
+	<key>feed.type.best</key>
+	<string>Best</string>
+	<key>feed.type.new</key>
+	<string>New</string>
+	<key>feed.type.show</key>
+	<string>Show</string>
+	<key>feed.type.top</key>
+	<string>Top</string>
+	<key>feedback.button.submit</key>
+	<string>Submit</string>
+	<key>feedback.field.email</key>
+	<string>Email</string>
+	<key>feedback.field.name</key>
+	<string>Name</string>
+	<key>feedback.section.yourFeedback</key>
+	<string>Your Feedback</string>
+	<key>feedback.section.yourInfo</key>
+	<string>Your Info (optional)</string>
+	<key>feedback.success</key>
+	<string>Thank you for your feedback!</string>
+	<key>feedback.title</key>
+	<string>Send Feedback</string>
+	<key>post.action.report</key>
+	<string>Report Post</string>
+	<key>settings.commentFontSize</key>
+	<string>Comment Font Size (%@pt)</string>
+	<key>settings.row.checkForUpdates</key>
+	<string>Check for Updates</string>
+	<key>settings.row.followEmerge</key>
+	<string>Follow Emerge</string>
+	<key>settings.row.followSupergooey</key>
+	<string>Follow Supergooey</string>
+	<key>settings.row.fontFamily</key>
+	<string>Font Family</string>
+	<key>settings.row.fontStyle</key>
+	<string>Font Style</string>
+	<key>settings.row.privacyPolicy</key>
+	<string>Privacy Policy</string>
+	<key>settings.row.sendFeedback</key>
+	<string>Send Feedback</string>
+	<key>settings.section.about</key>
+	<string>About</string>
+	<key>settings.section.appearance</key>
+	<string>Appearance</string>
+	<key>settings.section.profile</key>
+	<string>Profile</string>
+	<key>settings.title</key>
+	<string>Settings</string>
+	<key>settings.titleFontSize</key>
+	<string>Title Font Size (%@pt)</string>
+	<key>theme.fontFamily.ibmPlex</key>
+	<string>IBM Plex</string>
+	<key>theme.fontFamily.system</key>
+	<string>System</string>
+	<key>theme.fontStyle.sans</key>
+	<string>Sans</string>
+	<key>theme.fontStyle.sansMono</key>
+	<string>Sans + Mono</string>
+	<key>web.action.openInBrowser</key>
+	<string>Open in browser</string>
+	<key>web.action.share</key>
+	<string>Share</string>
+	<key>profile.action.edit</key>
+	<string>Edit Profile</string>
+	<key>profile.action.save</key>
+	<string>Save Changes</string>
+	<key>profile.action.cancel</key>
+	<string>Cancel</string>
+	<key>profile.field.displayName</key>
+	<string>Display Name</string>
+	<key>profile.field.email</key>
+	<string>Email Address</string>
+	<key>profile.field.bio</key>
+	<string>Biography</string>
+	<key>profile.section.account</key>
+	<string>Account Settings</string>
+	<key>profile.section.privacy</key>
+	<string>Privacy Settings</string>
+	<key>notifications.title</key>
+	<string>Notifications</string>
+	<key>notifications.action.markAllRead</key>
+	<string>Mark All as Read</string>
+	<key>notifications.emptyState</key>
+	<string>You have no new notifications</string>
+	<key>notifications.type.comment</key>
+	<string>New comment on your post</string>
+	<key>notifications.type.reply</key>
+	<string>Someone replied to your comment</string>
+	<key>notifications.type.mention</key>
+	<string>You were mentioned in a comment</string>
+	<key>search.placeholder</key>
+	<string>Search stories and comments</string>
+	<key>search.filter.stories</key>
+	<string>Stories</string>
+	<key>search.filter.comments</key>
+	<string>Comments</string>
+	<key>search.filter.users</key>
+	<string>Users</string>
+	<key>search.noResults</key>
+	<string>No results found</string>
+	<key>error.network.title</key>
+	<string>Network Error</string>
+	<key>error.network.message</key>
+	<string>Unable to connect. Please check your internet connection.</string>
+	<key>error.generic.title</key>
+	<string>Something Went Wrong</string>
+	<key>error.generic.message</key>
+	<string>An unexpected error occurred. Please try again.</string>
+	<key>error.action.retry</key>
+	<string>Retry</string>
+	<key>error.action.dismiss</key>
+	<string>Dismiss</string>
+	<key>loading.title</key>
+	<string>Loading...</string>
+	<key>loading.stories</key>
+	<string>Loading stories</string>
+	<key>loading.comments</key>
+	<string>Loading comments</string>
+	<key>share.action.copyLink</key>
+	<string>Copy Link</string>
+	<key>share.action.openInSafari</key>
+	<string>Open in Safari</string>
+	<key>share.success.linkCopied</key>
+	<string>Link copied to clipboard</string>
+	<key>filter.timeRange.day</key>
+	<string>Past 24 Hours</string>
+	<key>filter.timeRange.week</key>
+	<string>Past Week</string>
+	<key>filter.timeRange.month</key>
+	<string>Past Month</string>
+	<key>filter.timeRange.year</key>
+	<string>Past Year</string>
+	<key>filter.timeRange.all</key>
+	<string>All Time</string>
+	<key>accessibility.button.close</key>
+	<string>Close</string>
+	<key>accessibility.button.back</key>
+	<string>Back</string>
+	<key>accessibility.button.menu</key>
+	<string>Menu</string>
+	<key>accessibility.button.refresh</key>
+	<string>Refresh</string>
+	<key>accessibility.label.score</key>
+	<string>Score: %@ points</string>
+	<key>accessibility.label.comments</key>
+	<string>%@ comments</string>
+	<key>accessibility.label.timestamp</key>
+	<string>Posted %@ ago</string>
+</dict>
+</plist>
