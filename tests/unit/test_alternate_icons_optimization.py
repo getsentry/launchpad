@@ -99,9 +99,10 @@ class TestAlternateIconsOptimizationInsight:
     def test_identifies_alternate_icons(self):
         """Test that alternate icons are correctly identified and analyzed."""
         # Create test images (larger and unoptimized to ensure savings > 4KB)
-        primary_icon_path = self._create_test_png((200, 200), optimized=False)
-        alt_icon1_path = self._create_test_png((200, 200), optimized=False)
-        alt_icon2_path = self._create_test_png((200, 200), optimized=False)
+        # Using 1024x1024 to match actual app icon sizes
+        primary_icon_path = self._create_test_png((1024, 1024), optimized=False)
+        alt_icon1_path = self._create_test_png((1024, 1024), optimized=False)
+        alt_icon2_path = self._create_test_png((1024, 1024), optimized=False)
 
         try:
             app_info = AppleAppInfo(
@@ -188,8 +189,8 @@ class TestAlternateIconsOptimizationInsight:
 
     def test_excludes_primary_icon(self):
         """Test that primary icon is excluded even if it has potential savings."""
-        primary_icon_path = self._create_test_png((200, 200), optimized=False)
-        alt_icon_path = self._create_test_png((200, 200), optimized=False)
+        primary_icon_path = self._create_test_png((1024, 1024), optimized=False)
+        alt_icon_path = self._create_test_png((1024, 1024), optimized=False)
 
         try:
             app_info = AppleAppInfo(
@@ -350,9 +351,9 @@ class TestAlternateIconsOptimizationInsight:
 
     def test_icon_name_matching(self):
         """Test that icon names are matched correctly with startswith logic."""
-        icon1_path = self._create_test_png((200, 200), optimized=False)
-        icon2_path = self._create_test_png((200, 200), optimized=False)
-        icon3_path = self._create_test_png((200, 200), optimized=False)
+        icon1_path = self._create_test_png((1024, 1024), optimized=False)
+        icon2_path = self._create_test_png((1024, 1024), optimized=False)
+        icon3_path = self._create_test_png((1024, 1024), optimized=False)
 
         try:
             app_info = AppleAppInfo(
