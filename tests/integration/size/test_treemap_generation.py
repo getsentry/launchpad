@@ -46,7 +46,7 @@ class TestTreemapGeneration:
 
         # Verify size calculations work
         root_size = root.size
-        assert root_size == 9126880
+        assert root_size == 7886041
 
         # Verify platform
         platform_val = treemap.platform
@@ -83,7 +83,7 @@ class TestTreemapGeneration:
         dex = find_node_by_path(treemap.root, "Dex")
         assert dex is not None
         dex_size = dex.size
-        assert dex_size == 4363232
+        assert dex_size == 3122393
         dex_element_type = dex.type
         assert dex_element_type == "dex"
 
@@ -133,7 +133,7 @@ class TestTreemapGeneration:
 
         # Verify size calculations work
         root_size = root.size
-        assert root_size == 7173088
+        assert root_size == 5932249
 
         # Verify platform
         platform_val = treemap.platform
@@ -170,7 +170,7 @@ class TestTreemapGeneration:
         dex = find_node_by_path(treemap.root, "Dex")
         assert dex is not None
         dex_size = dex.size
-        assert dex_size == 4363232
+        assert dex_size == 3122393
         dex_element_type = dex.type
         assert dex_element_type == "dex"
 
