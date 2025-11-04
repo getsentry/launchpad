@@ -6,7 +6,7 @@ from typing import List
 
 from PIL import Image
 
-from launchpad.size.insights.apple.image_optimization import BaseImageOptimizationInsight
+from launchpad.size.insights.apple.image_optimization import BaseImageOptimizationInsight, _OptimizationResult
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import FileInfo
@@ -24,10 +24,20 @@ class AlternateIconsOptimizationInsight(BaseImageOptimizationInsight):
 
     Icons are resized to device display size (180px for iPhone 3x) and back to store
     size (1024px) before optimization, since they only need quality for homescreen display.
+
+    When HEIC images are used as app icons in asset catalogs, iOS stores them as two
+    separate images - a small compressed HEIC and an significantly larger additional variant.
+    Resizing via our suggested bash script seems to end up with a sum of the two being
+    approximately 1.5x larger than the size of a resized HEIC using PIL. The size of the HEIC
+    image depends on a number of things (variety of colors, complexity of the image, etc) that
+    has proven hard to reliably predict, so we use a rough multiplier to account for the difference.
     """
 
     IPHONE_3X_ICON_SIZE = 180  # Largest icon size displayed on device
     APP_STORE_ICON_SIZE = 1024  # Standard App Store icon size
+    HEIC_TOTAL_SIZE_MULTIPLIER = (
+        1.5  # Multiplier for total HEIC size (accounts for PIL encoding differences + iOS variants)
+    )
 
     def _find_images(self, input: InsightsInput) -> List[FileInfo]:
         if not isinstance(input.app_info, AppleAppInfo):
@@ -53,24 +63,35 @@ class AlternateIconsOptimizationInsight(BaseImageOptimizationInsight):
 
         return list({img.path: img for img in images}.values())
 
-    def _preprocess_image(self, img: Image.Image, file_info: FileInfo) -> tuple[Image.Image, int, int]:
-        resized = self._resize_icon_for_analysis(img)
-
-        # Specify quality=85 for HEICs to avoid inflating already-optimized files.
-        # Without it, PIL uses a higher default quality (~95), which would incorrectly
-        # show savings for files that are already at our target quality.
-        fmt = img.format or "PNG"
-        with io.BytesIO() as buf:
-            if fmt.upper() in {"HEIF", "HEIC"}:
-                resized.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
-            else:
-                resized.save(buf, format=fmt)
-            resized_size = buf.tell()
-
-        baseline_savings = max(0, file_info.size - resized_size)
-        return resized, resized_size, baseline_savings
-
     def _resize_icon_for_analysis(self, img: Image.Image) -> Image.Image:
         return img.resize((self.IPHONE_3X_ICON_SIZE, self.IPHONE_3X_ICON_SIZE), Image.Resampling.LANCZOS).resize(
             (self.APP_STORE_ICON_SIZE, self.APP_STORE_ICON_SIZE), Image.Resampling.LANCZOS
         )
+
+    def _check_minification(self, img: Image.Image, file_size: int, fmt: str) -> _OptimizationResult | None:
+        # Skip minification for alternate icons - only suggest HEIC conversion
+        return None
+
+    def _check_heic_conversion(
+        self, img: Image.Image, file_size: int, file_path: str = ""
+    ) -> _OptimizationResult | None:
+        try:
+            resized_small = img.resize((self.IPHONE_3X_ICON_SIZE, self.IPHONE_3X_ICON_SIZE), Image.Resampling.LANCZOS)
+            resized_large = resized_small.resize(
+                (self.APP_STORE_ICON_SIZE, self.APP_STORE_ICON_SIZE), Image.Resampling.LANCZOS
+            )
+
+            with io.BytesIO() as buf:
+                resized_large.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
+                small_heic_size = buf.tell()
+
+            total_heic_size = int(small_heic_size * self.HEIC_TOTAL_SIZE_MULTIPLIER)
+            potential_savings = file_size - total_heic_size
+
+            if total_heic_size < file_size:
+                return _OptimizationResult(potential_savings, total_heic_size)
+            else:
+                return None
+        except Exception:
+            logger.exception("Image HEIC conversion optimization failed for %s", file_path or "unknown")
+            return None

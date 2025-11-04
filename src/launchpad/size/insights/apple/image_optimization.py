@@ -52,21 +52,6 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
         """Find and return list of images to analyze. Should include deduplication if needed."""
         pass
 
-    def _preprocess_image(self, img: Image.Image, file_info: FileInfo) -> tuple[Image.Image, int, int]:
-        """Preprocess image before optimization analysis.
-
-        Args:
-            img: The loaded PIL Image
-            file_info: File metadata
-
-        Returns:
-            Tuple of (processed_image, baseline_size, baseline_savings):
-            - processed_image: The image to analyze for optimization
-            - baseline_size: Size of the processed image before optimization
-            - baseline_savings: Savings from preprocessing alone (original - baseline)
-        """
-        return img, file_info.size, 0
-
     def generate(self, input: InsightsInput) -> ImageOptimizationInsightResult | None:  # noqa: D401
         files = self._find_images(input)
         if not files:
@@ -106,36 +91,31 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             with Image.open(file_info.full_path) as img:
                 img.load()  # type: ignore
 
-                processed_img, baseline_size, baseline_savings = self._preprocess_image(img, file_info)
-
                 minify_savings = 0
                 conversion_savings = 0
                 minified_size: int | None = None
                 heic_size: int | None = None
 
-                fmt = (processed_img.format or file_info.file_type).lower()
+                fmt = (img.format or file_info.file_type).lower()
 
                 if fmt in {"png", "jpg", "jpeg"}:
-                    if res := self._check_minification(processed_img, baseline_size, fmt):
+                    if res := self._check_minification(img, file_info.size, fmt):
                         minify_savings, minified_size = res.savings, res.optimized_size
-                    if res := self._check_heic_conversion(processed_img, baseline_size):
+                    if res := self._check_heic_conversion(img, file_info.size, file_info.path):
                         conversion_savings, heic_size = res.savings, res.optimized_size
                 elif fmt in {"heif", "heic"}:
-                    if res := self._check_heic_minification(processed_img, baseline_size):
+                    if res := self._check_heic_minification(img, file_info.size):
                         minify_savings, minified_size = res.savings, res.optimized_size
 
-                total_minify = baseline_savings + minify_savings
-                total_conversion = baseline_savings + conversion_savings
-
-                if max(total_minify, total_conversion) < self.MIN_SAVINGS_THRESHOLD:
+                if max(minify_savings, conversion_savings) < self.MIN_SAVINGS_THRESHOLD:
                     return None
 
                 return OptimizableImageFile(
                     file_path=file_info.path,
                     current_size=file_info.size,
-                    minify_savings=total_minify,
+                    minify_savings=minify_savings,
                     minified_size=minified_size,
-                    conversion_savings=total_conversion,
+                    conversion_savings=conversion_savings,
                     heic_size=heic_size,
                     idiom=file_info.idiom,
                     colorspace=file_info.colorspace,
@@ -162,14 +142,16 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             logger.exception("Image minification optimization failed")
             return None
 
-    def _check_heic_conversion(self, img: Image.Image, file_size: int) -> _OptimizationResult | None:
+    def _check_heic_conversion(
+        self, img: Image.Image, file_size: int, file_path: str = ""
+    ) -> _OptimizationResult | None:
         try:
             with io.BytesIO() as buf:
                 img.save(buf, format="HEIF", quality=self.TARGET_HEIC_QUALITY)
                 new_size = buf.tell()
             return _OptimizationResult(file_size - new_size, new_size) if new_size < file_size else None
         except Exception:
-            logger.exception("Image HEIC conversion optimization failed")
+            logger.exception("Image HEIC conversion optimization failed for %s", file_path or "unknown")
             return None
 
     def _check_heic_minification(self, img: Image.Image, file_size: int) -> _OptimizationResult | None:
