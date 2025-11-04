@@ -67,7 +67,7 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
             if content_bytes.startswith(b"<?xml "):
                 return self._calculate_xml_to_binary_plist_savings(content_bytes, file_path)
 
-            # Regular strings files: parse and convert to binary plist
+            # Legacy strings files: parse and convert to binary plist
             return self._calculate_strings_to_binary_plist_savings(content_bytes, file_path)
 
         except Exception:
@@ -106,48 +106,41 @@ class MinifyLocalizedStringsInsight(Insight[LocalizedStringCommentsInsightResult
 
 
 class MinifyLocalizedStringsProcessor:
-    """Processes localized strings files for conversion to binary plist format."""
+    """Parser for .strings files to extract key-value pairs for binary plist conversion."""
 
-    # Match /* ... */ block comments or // line comments
-    _COMMENT_RE = re.compile(r"/\*.*?\*/|//.*?$", re.S | re.M)
-    # Lines that look like:  "key" = "value"; (handles escaped quotes inside strings)
+    # Regex to match key-value pairs: "key" = "value"; (handles escaped quotes)
     _KV_RE = re.compile(r'^\s*"(?:[^"\\]|\\.)+"\s*=\s*"(?:[^"\\]|\\.)*"\s*;?\s*$', re.M)
+    # Regex to strip comments (/* ... */ and // ...)
+    _COMMENT_RE = re.compile(r"/\*.*?\*/|//.*?$", re.S | re.M)
 
     def parse_strings_file(self, content: str) -> dict[str, str] | None:
         """
         Parse a .strings file and return a dictionary of key-value pairs.
-        Strips comments and extracts key-value pairs.
-        Returns None if the file is empty or invalid.
+        Returns None if the file is empty or has no valid key-value pairs.
         """
-        try:
-            # Strip comments
-            no_comments = self._COMMENT_RE.sub("", content)
+        # Strip comments first to avoid false matches
+        no_comments = self._COMMENT_RE.sub("", content)
 
-            result: dict[str, str] = {}
+        result: dict[str, str] = {}
 
-            for line in self._KV_RE.findall(no_comments):
-                # Parse the line: "key" = "value";
-                parts = line.split("=", 1)
-                if len(parts) != 2:
-                    continue
+        for line in self._KV_RE.findall(no_comments):
+            parts = line.split("=", 1)
+            if len(parts) != 2:
+                continue
 
-                key_part = parts[0].strip()
-                value_part = parts[1].strip().rstrip(";").strip()
+            key_part = parts[0].strip()
+            value_part = parts[1].strip().rstrip(";").strip()
 
-                # Remove quotes and unescape
-                if key_part.startswith('"') and key_part.endswith('"'):
-                    key_part = key_part[1:-1]
-                if value_part.startswith('"') and value_part.endswith('"'):
-                    value_part = value_part[1:-1]
+            # Remove surrounding quotes
+            if key_part.startswith('"') and key_part.endswith('"'):
+                key_part = key_part[1:-1]
+            if value_part.startswith('"') and value_part.endswith('"'):
+                value_part = value_part[1:-1]
 
-                # Unescape common escape sequences
-                key = key_part.replace('\\"', '"').replace("\\\\", "\\")
-                value = value_part.replace('\\"', '"').replace("\\\\", "\\")
+            # Unescape quotes and backslashes
+            key = key_part.replace('\\"', '"').replace("\\\\", "\\")
+            value = value_part.replace('\\"', '"').replace("\\\\", "\\")
 
-                result[key] = value
+            result[key] = value
 
-            return result if result else None
-
-        except Exception:
-            logger.exception("Error parsing strings file")
-            return None
+        return result if result else None

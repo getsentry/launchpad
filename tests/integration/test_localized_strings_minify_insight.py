@@ -3,7 +3,6 @@ import tempfile
 
 from pathlib import Path
 
-from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.insights.apple.localized_strings_minify import (
     MinifyLocalizedStringsInsight,
     MinifyLocalizedStringsProcessor,
@@ -12,7 +11,6 @@ from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import TreemapType
-from launchpad.utils.file_utils import to_nearest_block_size
 
 
 class TestMinifyLocalizedStringsProcessor:
@@ -281,27 +279,20 @@ class TestMinifyLocalizedStringsInsight:
             assert result is not None
             assert len(result.files) == 1
             assert result.files[0].file_path == "en.lproj/Localizable.strings"
-            assert result.files[0].total_savings > 0
-            assert result.total_savings > insight.THRESHOLD_BYTES
+            assert result.files[0].total_savings == 16384
 
     def test_localized_strings_with_whitespace_only(self):
         """Test that insight can find savings from whitespace normalization even without comments."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-
-            # Create content with substantial whitespace that will result in block-level savings
             strings_file = temp_path / "en.lproj" / "Localizable.strings"
             strings_file.parent.mkdir(parents=True)
 
-            # Generate enough content with excessive whitespace to cross filesystem blocks
             strings_content = ""
-            for i in range(100):  # More entries with more whitespace
-                # Add lots of whitespace that will be normalized away
+            for i in range(100):
                 strings_content += f'"key{i}"          =          "Value {i} with substantial content to ensure we have enough data";\n'
 
             strings_file.write_text(strings_content)
-
-            insight = MinifyLocalizedStringsInsight()
 
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
@@ -325,24 +316,20 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
-            # Should find savings from whitespace normalization
+            result = MinifyLocalizedStringsInsight().generate(input_data)
             assert result is not None
             assert len(result.files) == 1
-            assert result.files[0].total_savings > 0
+            assert result.files[0].total_savings == 4096
 
     def test_localized_strings_no_savings_small_file(self):
         """Test that insight returns None when file is too small to have meaningful savings."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Create a very small strings file without comments or extra whitespace
             strings_file = temp_path / "en.lproj" / "Localizable.strings"
             strings_file.parent.mkdir(parents=True)
             strings_content = '"hello"="Hello";\n"goodbye"="Goodbye";\n'  # Already optimized, very small
             strings_file.write_text(strings_content)
-
-            insight = MinifyLocalizedStringsInsight()
 
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
@@ -366,7 +353,7 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
+            result = MinifyLocalizedStringsInsight().generate(input_data)
             assert result is None  # Too small to have meaningful block-aligned savings
 
     def test_multiple_localized_strings_files(self):
@@ -374,12 +361,10 @@ class TestMinifyLocalizedStringsInsight:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
 
-            # Create multiple strings files with substantial content
             for lang in ["en", "es", "fr"]:
                 strings_file = temp_path / f"{lang}.lproj" / "Localizable.strings"
                 strings_file.parent.mkdir(parents=True)
 
-                # Generate substantial content for each language
                 strings_content = ""
                 for i in range(30):
                     strings_content += f"""
@@ -389,8 +374,6 @@ class TestMinifyLocalizedStringsInsight:
 // Line comment for variety
 """
                 strings_file.write_text(strings_content)
-
-            insight = MinifyLocalizedStringsInsight()
 
             files: list[FileInfo] = []
             for lang in ["en", "es", "fr"]:
@@ -420,21 +403,20 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
+            result = MinifyLocalizedStringsInsight().generate(input_data)
             assert result is not None
             assert len(result.files) == 3
-            assert result.total_savings > 0
+            assert result.files[0].total_savings == 4096
+            assert result.files[1].total_savings == 4096
+            assert result.files[2].total_savings == 4096
 
     def test_binary_plist_strings_file(self):
         """Test that small binary plist files don't generate insights due to low savings."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-
-            # Create a binary plist strings file
             strings_file = temp_path / "en.lproj" / "BinaryPlist.strings"
             strings_file.parent.mkdir(parents=True)
 
-            # Create a plist dict and save as binary
             plist_dict = {
                 "key1": "Value 1",
                 "key2": "Value 2",
@@ -442,8 +424,6 @@ class TestMinifyLocalizedStringsInsight:
             }
             binary_plist = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
             strings_file.write_bytes(binary_plist)
-
-            insight = MinifyLocalizedStringsInsight()
 
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
@@ -467,16 +447,13 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
-            # Small plist has savings below threshold, so no insight is generated
+            result = MinifyLocalizedStringsInsight().generate(input_data)
             assert result is None
 
     def test_binary_plist_already_optimal(self):
         """Test that binary plist files are already optimal and produce no savings."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-
-            # Create a binary plist strings file
             strings_file = temp_path / "en.lproj" / "BinaryPlist.strings"
             strings_file.parent.mkdir(parents=True)
 
@@ -487,8 +464,6 @@ class TestMinifyLocalizedStringsInsight:
             binary_plist = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
             strings_file.write_bytes(binary_plist)
 
-            insight = MinifyLocalizedStringsInsight()
-
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
@@ -511,8 +486,7 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
-            # Binary plist is already optimal, so no insight should be generated
+            result = MinifyLocalizedStringsInsight().generate(input_data)
             assert result is None, "Should not generate insight for binary plist (already optimal)"
 
     def test_xml_plist_strings_file_with_formatting(self):
@@ -523,7 +497,6 @@ class TestMinifyLocalizedStringsInsight:
             strings_file = temp_path / "en.lproj" / "WidgetIntents.strings"
             strings_file.parent.mkdir(parents=True)
 
-            # Create a plist dict with sample content
             plist_dict = {
                 "2GqvPe": "Go to Copied Link",
                 "PzSrmZ-2GqvPe": "Just to confirm, you wanted 'Go to Copied Link'?",
@@ -535,12 +508,9 @@ class TestMinifyLocalizedStringsInsight:
                 "fi3W24-2GqvPe": "There are ${count} options matching 'Go to Copied Link'.",
             }
 
-            # Add more entries to ensure we have enough content to cross filesystem blocks
             for i in range(50):
                 plist_dict[f"extra_key_{i}"] = f"Extra value with substantial content for key {i}"
 
-            # Serialize with extra formatting (indent, etc.) to simulate real-world plist
-            # We'll write it manually to ensure it has extra whitespace that can be compressed
             plist_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -562,15 +532,12 @@ class TestMinifyLocalizedStringsInsight:
 \t<key>fi3W24-2GqvPe</key>
 \t<string>There are ${count} options matching 'Go to Copied Link'.</string>
 """
-            # Add the extra entries with lots of formatting
             for i in range(50):
                 plist_xml += f"\t<key>extra_key_{i}</key>\n"
                 plist_xml += f"\t<string>Extra value with substantial content for key {i}</string>\n"
 
             plist_xml += "</dict>\n</plist>\n"
             strings_file.write_text(plist_xml)
-
-            insight = MinifyLocalizedStringsInsight()
 
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
@@ -594,12 +561,10 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
-            # Should be able to parse and find savings from XML formatting
-            if result:
-                assert len(result.files) == 1
-                assert result.files[0].file_path == "en.lproj/WidgetIntents.strings"
-                assert result.files[0].total_savings > 0
+            result = MinifyLocalizedStringsInsight().generate(input_data)
+            assert len(result.files) == 1
+            assert result.files[0].file_path == "en.lproj/WidgetIntents.strings"
+            assert result.files[0].total_savings == 4096
 
     def test_xml_plist_strings_file_already_compact(self):
         """Test that insight handles compact XML plist files with minimal savings."""
@@ -609,17 +574,13 @@ class TestMinifyLocalizedStringsInsight:
             strings_file = temp_path / "en.lproj" / "Compact.strings"
             strings_file.parent.mkdir(parents=True)
 
-            # Create a small, already compact plist
             plist_dict = {
                 "key1": "value1",
                 "key2": "value2",
             }
 
-            # Write as compact XML (plistlib default)
             plist_xml = plistlib.dumps(plist_dict, fmt=plistlib.FMT_XML)
             strings_file.write_bytes(plist_xml)
-
-            insight = MinifyLocalizedStringsInsight()
 
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
@@ -643,20 +604,16 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
-            # Small, already compact file should not yield savings
+            result = MinifyLocalizedStringsInsight().generate(input_data)
             assert result is None
 
     def test_xml_plist_with_xml_comments(self):
         """Test that insight strips XML comments from XML plist files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-
             strings_file = temp_path / "en.lproj" / "CommentedPlist.strings"
             strings_file.parent.mkdir(parents=True)
 
-            # Create a plist with substantial XML comments and extra formatting to ensure
-            # we exceed the 1024 byte threshold when comments are stripped
             plist_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- This is a lengthy comment about the plist file that provides documentation
@@ -665,7 +622,6 @@ class TestMinifyLocalizedStringsInsight:
 <plist version="1.0">
 <dict>
 """
-            # Add entries with substantial comments to ensure we cross filesystem block boundaries
             for i in range(100):
                 plist_xml += f"\t<!-- This is a detailed comment for key{i} that explains what this key is used for.\n"
                 plist_xml += "\t     It provides context and documentation for developers working with this file.\n"
@@ -675,8 +631,6 @@ class TestMinifyLocalizedStringsInsight:
 
             plist_xml += "</dict>\n</plist>\n"
             strings_file.write_text(plist_xml)
-
-            insight = MinifyLocalizedStringsInsight()
 
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
@@ -700,117 +654,31 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
-            # Should definitely find savings from stripping XML comments and formatting
+            result = MinifyLocalizedStringsInsight().generate(input_data)
             assert result is not None
             assert len(result.files) == 1
             assert result.files[0].file_path == "en.lproj/CommentedPlist.strings"
-            assert result.files[0].total_savings > 0
-            assert result.total_savings > insight.THRESHOLD_BYTES
+            assert result.files[0].total_savings == 28672
 
-    def test_xml_plist_conversion_with_fixtures_no_block_savings(self):
-        """
-        Test XML plist conversion using test fixtures.
-        The fixtures are sized such that XML and binary plist both round to the same block size,
-        demonstrating correct handling when there are no block-level savings.
-        """
-        # Use the test fixtures
-        xml_plist_path = Path(__file__).parent.parent / "_fixtures" / "ios" / "localized-strings-plist"
-        binary_plist_path = Path(__file__).parent.parent / "_fixtures" / "ios" / "localized-strings-bplist"
-
-        assert xml_plist_path.exists(), f"XML plist fixture not found at {xml_plist_path}"
-        assert binary_plist_path.exists(), f"Binary plist fixture not found at {binary_plist_path}"
-
-        xml_content = xml_plist_path.read_bytes()
-        binary_content = binary_plist_path.read_bytes()
-
-        # Verify the XML plist is larger than the binary plist in raw bytes
-        assert len(xml_content) > len(binary_content), (
-            f"XML plist ({len(xml_content)} bytes) should be larger than binary plist ({len(binary_content)} bytes)"
-        )
-
-        insight = MinifyLocalizedStringsInsight()
-
-        input_data = InsightsInput(
-            app_info=self._create_test_app_info(),
-            file_analysis=FileAnalysis(
-                files=[
-                    FileInfo(
-                        full_path=xml_plist_path,
-                        path="en.lproj/Localizable.strings",
-                        size=len(xml_content),
-                        file_type="strings",
-                        hash="xml_plist_hash",
-                        treemap_type=TreemapType.FILES,
-                        is_dir=False,
-                        children=[],
-                    )
-                ],
-                directories=[],
-            ),
-            binary_analysis=[],
-            treemap=None,
-            hermes_reports={},
-        )
-
-        result = insight.generate(input_data)
-
-        # Verify the savings calculation - XML to binary plist conversion
-        xml_dict = plistlib.loads(xml_content)
-
-        # Check sizes when block-aligned
-        xml_size_blocks = to_nearest_block_size(len(xml_content), APPLE_FILESYSTEM_BLOCK_SIZE)
-        binary_plist_bytes = plistlib.dumps(xml_dict, fmt=plistlib.FMT_BINARY)
-        binary_size_blocks = to_nearest_block_size(len(binary_plist_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
-
-        # For these fixtures, both formats round to the same block size
-        assert xml_size_blocks == binary_size_blocks, (
-            f"Expected same block size, got XML: {xml_size_blocks}, binary: {binary_size_blocks}"
-        )
-
-        # Therefore, no insight should be generated (no block-level savings)
-        assert result is None, "Should not generate insight when block-aligned sizes are the same"
-
-    def test_xml_plist_to_binary_with_actual_savings(self):
-        """
-        Test XML plist to binary plist conversion with a larger file that has actual block-level savings.
-        """
+    def test_invalid_xml_plist(self):
+        """Test that insight gracefully handles malformed XML plist files."""
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-
-            strings_file = temp_path / "en.lproj" / "LargeStrings.strings"
+            strings_file = temp_path / "en.lproj" / "Invalid.strings"
             strings_file.parent.mkdir(parents=True)
 
-            # Create a plist dict large enough to demonstrate savings across block boundaries
-            plist_dict = {}
-            for i in range(300):
-                plist_dict[f"localization_key_{i}"] = f"Localized string value for item number {i} with extra content"
-
-            # Write as XML plist with lots of whitespace (Xcode-style formatting)
-            xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n'
-            xml_content += '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
-            xml_content += '<plist version="1.0">\n<dict>\n'
-            for key, value in plist_dict.items():
-                xml_content += f"\t<key>{key}</key>\n"
-                xml_content += f"\t<string>{value}</string>\n"
-            xml_content += "</dict>\n</plist>\n"
-
-            xml_bytes = xml_content.encode("utf-8")
-            strings_file.write_bytes(xml_bytes)
-
-            # Calculate expected sizes
-            binary_plist_bytes = plistlib.dumps(plist_dict, fmt=plistlib.FMT_BINARY)
-
-            # Verify we have a file large enough to span multiple blocks
-            xml_blocks = to_nearest_block_size(len(xml_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
-            binary_blocks = to_nearest_block_size(len(binary_plist_bytes), APPLE_FILESYSTEM_BLOCK_SIZE)
-
-            # Ensure we have actual savings from XML to binary plist conversion
-            assert xml_blocks > binary_blocks, (
-                "File should be large enough to have block-level savings from XML to binary plist"
-            )
-
-            insight = MinifyLocalizedStringsInsight()
+            # Malformed XML plist - starts with XML header but has invalid structure
+            invalid_plist_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>unclosed_key
+    <string>value without closing tag
+    <dict>
+        <key>nested</key>
+    </broken>
+</plist>"""
+            strings_file.write_text(invalid_plist_xml)
 
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
@@ -818,10 +686,10 @@ class TestMinifyLocalizedStringsInsight:
                     files=[
                         FileInfo(
                             full_path=strings_file,
-                            path="en.lproj/LargeStrings.strings",
-                            size=len(xml_bytes),
+                            path="en.lproj/Invalid.strings",
+                            size=len(invalid_plist_xml.encode("utf-8")),
                             file_type="strings",
-                            hash="large_xml_hash",
+                            hash="invalid_hash",
                             treemap_type=TreemapType.FILES,
                             is_dir=False,
                             children=[],
@@ -834,14 +702,5 @@ class TestMinifyLocalizedStringsInsight:
                 hermes_reports={},
             )
 
-            result = insight.generate(input_data)
-
-            # Should generate insight with savings
-            assert result is not None, "Should generate insight for large XML plist"
-            assert len(result.files) == 1
-            assert result.files[0].file_path == "en.lproj/LargeStrings.strings"
-            assert result.files[0].total_savings > 0
-
-            # Verify the savings calculation for XML to binary plist conversion
-            expected_savings = xml_blocks - binary_blocks
-            assert result.files[0].total_savings == expected_savings
+            result = MinifyLocalizedStringsInsight().generate(input_data)
+            assert result is None, "Should return None for malformed XML plist (no savings possible)"
