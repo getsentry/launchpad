@@ -6,6 +6,7 @@ import hashlib
 import plistlib
 import re
 
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -120,9 +121,22 @@ class CodeSignatureValidator:
         if not executable:
             raise ValueError("No executable found")
 
-        with open(executable, "rb") as f:
-            fat_binary = lief.MachO.parse(f)  # type: ignore
-        if fat_binary is None:
+        timeout = 60  # seconds
+
+        def _parse(path):
+            with open(path, "rb") as f:
+                return lief.MachO.parse(f)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_parse, executable)
+            try:
+                fat_binary = future.result(timeout=timeout)
+            except TimeoutError:
+                raise ValueError("LIEF parsing timed out after %s seconds", timeout)
+            except Exception as e:
+                raise ValueError(f"Failed to parse MachO: {e}") from e
+
+        if not fat_binary:
             raise ValueError("Failed to parse binary")
 
         self.macho_parser = MachOParser(fat_binary.at(0))
