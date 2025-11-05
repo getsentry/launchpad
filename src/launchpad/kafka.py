@@ -56,7 +56,13 @@ class LaunchpadMultiProcessingPool(MultiprocessingPool):
 
 
 class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPayload, Any]):
-    """Tolerates child process exits from maxtasksperchild=1 by ignoring SIGCHLD."""
+    """
+    Tolerates child process exits from maxtasksperchild=1 by ignoring SIGCHLD.
+
+    This class extends RunTaskWithMultiprocessing with:
+    - maxtasksperchild=1 to ensure clean worker state (via LaunchpadMultiProcessingPool)
+    - Custom SIGCHLD handler that doesn't raise errors on expected worker exits
+    """
 
     def __init__(
         self,
@@ -76,15 +82,39 @@ class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPa
         )
 
 
+def timeout_handler(signum: int, frame: Any) -> None:
+    """Signal handler for SIGALRM to enforce task timeout and exit the process immediately."""
+    os._exit(1)
+
+
 def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
-    """Process a Kafka message using the actual service logic in a worker process."""
+    """
+    Process a Kafka message using the actual service logic in a worker process.
+
+    This function implements a 12-minute timeout mechanism using SIGALRM (Unix only).
+    If a task exceeds 12 minutes, it will be terminated via TaskTimeoutError.
+    The worker process will then exit (due to maxtasksperchild=1), and a new
+    process will be spawned for the next task.
+    """
+    start_time = time.time()
+
+    if hasattr(signal, "SIGALRM"):
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(720)  # 12 minute total process timeout
+
     try:
         decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
+        logger.info(f"Starting to process artifact: {decoded.get('artifact_id', 'unknown')}")
         ArtifactProcessor.process_message(decoded)
         return decoded  # type: ignore[no-any-return]
     except Exception as e:
-        logger.error(f"Failed to process message in worker: {e}", exc_info=True)
+        elapsed_time = time.time() - start_time
+        logger.error(f"Failed to process message in worker after {elapsed_time:.2f} seconds: {e}", exc_info=True)
         raise
+    finally:
+        # Cancel the timeout alarm as it's an expected exit
+        if hasattr(signal, "SIGALRM"):
+            signal.alarm(0)
 
 
 def create_kafka_consumer() -> LaunchpadKafkaConsumer:
