@@ -143,13 +143,13 @@ class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPa
                 invalid_msg = InvalidMessage(
                     message.value.partition,
                     message.value.offset,
-                    TimeoutError(f"Batch processing exceeded {self._batch_timeout}s timeout"),
+                    reason=f"Batch processing exceeded {self._batch_timeout}s timeout"
                 )
                 invalid_messages.append(invalid_msg)
 
             del self._batch_submit_times[batch_id]
 
-            logger.info(f"Terminated deadlocked worker and sent {len(input_batch)} messages to DLQ")
+            logger.info(f"Terminated worker and sent {len(input_batch)} messages to DLQ")
 
 
 def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
