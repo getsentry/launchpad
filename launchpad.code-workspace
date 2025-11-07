@@ -7,8 +7,8 @@
     ],
     "settings": {
         // Python Configuration
-        "python.pythonPath": "./venv/bin/python",
-        "python.defaultInterpreterPath": "./venv/bin/python",
+        "python.pythonPath": "./.venv/bin/python",
+        "python.defaultInterpreterPath": "./.venv/bin/python",
 
         // Test Discovery and Configuration
         "python.testing.pytestEnabled": true,
@@ -20,34 +20,20 @@
         "python.testing.promptToConfigure": false,
 
         // Code Formatting
-        "python.formatting.provider": "black",
-        "python.formatting.blackArgs": [
-            "--line-length=100"
-        ],
-
-        // Import Sorting
-        "python.sortImports.args": [
-            "--profile=black",
-            "--line-length=100"
-        ],
+        "python.formatting.provider": "ruff",
+        "python.sortImports.provider": "ruff",
 
         // Linting
         "python.linting.enabled": true,
-        "python.linting.flake8Enabled": true,
-        "python.linting.mypyEnabled": true,
-        "python.linting.flake8Args": [
-            "--max-line-length=100",
-            "--extend-ignore=E203,W503"
-        ],
-        "python.linting.mypyArgs": [
-            "--strict",
-            "--show-error-codes"
-        ],
+        "python.linting.pylintEnabled": false,
+        "python.linting.flake8Enabled": false,
+        "python.linting.mypyEnabled": false,
+        "python.linting.ruffEnabled": true,
 
         // Auto-format on save
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
-            "source.organizeImports": true
+            "source.organizeImports": "explicit"
         },
 
         // File associations and exclusions
@@ -72,7 +58,7 @@
         },
 
         // Editor settings for Python
-        "editor.rulers": [100],
+        "editor.rulers": [120],
         "editor.tabSize": 4,
         "editor.insertSpaces": true,
 
@@ -82,7 +68,7 @@
             "editor.insertSpaces": true,
             "editor.formatOnSave": true,
             "editor.codeActionsOnSave": {
-                "source.organizeImports": true
+                "source.organizeImports": "explicit"
             }
         },
 
@@ -92,16 +78,17 @@
         "python.analysis.autoImportCompletions": true,
 
         // Pytest discovery timeout
-        "python.testing.pytestPath": "./venv/bin/pytest"
+        "python.testing.pytestPath": "./.venv/bin/pytest",
+
+        // Ruff extension configuration (ensures project's ruff is used)
+        "ruff.path": [".venv/bin/ruff"],
+        "ruff.importStrategy": "fromEnvironment"
     },
-    "extensions": {
+        "extensions": {
         "recommendations": [
             "ms-python.python",
             "ms-python.vscode-pylance",
-            "ms-python.flake8",
-            "ms-python.black-formatter",
-            "ms-python.isort",
-            "ms-python.mypy-type-checker",
+            "charliermarsh.ruff",
             "ryanluker.vscode-coverage-gutters",
             "ms-vscode.makefile-tools",
             "github.vscode-github-actions"
