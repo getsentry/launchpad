@@ -63,14 +63,12 @@ class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPa
         self,
         function: Callable[[Message[TStrategyPayload]], Any],
         next_step: ProcessingStrategy[FilteredPayload | Any],
-        max_batch_size: int,
-        max_batch_time: float,
         pool: MultiprocessingPool,
         input_block_size: int | None = None,
         output_block_size: int | None = None,
         batch_timeout: float | None = None,
     ) -> None:
-        super().__init__(function, next_step, max_batch_size, max_batch_time, pool, input_block_size, output_block_size)
+        super().__init__(function, next_step, 1, 1, pool, input_block_size, output_block_size)
 
         self._batch_timeout = batch_timeout
         self._batch_submit_times: dict[int, float] = {}  # Maps batch id to submission timestamp
@@ -143,7 +141,7 @@ class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPa
                 invalid_msg = InvalidMessage(
                     message.value.partition,
                     message.value.offset,
-                    reason=f"Batch processing exceeded {self._batch_timeout}s timeout"
+                    reason=f"Batch processing exceeded {self._batch_timeout}s timeout",
                 )
                 invalid_messages.append(invalid_msg)
 
@@ -339,8 +337,6 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         strategy = LaunchpadRunTaskWithMultiprocessing(
             process_kafka_message_with_service,
             next_step=next_step,
-            max_batch_size=1,
-            max_batch_time=1,
             pool=self._pool,
             input_block_size=None,
             output_block_size=None,
