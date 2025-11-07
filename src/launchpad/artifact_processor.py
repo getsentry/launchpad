@@ -109,7 +109,7 @@ class ArtifactProcessor:
             scope.set_tag("launchpad.project_id", project_id)
             scope.set_tag("launchpad.organization_id", organization_id)
             scope.set_tag("launchpad.artifact_id", artifact_id)
-            stack.enter_context(scope.start_transaction(op="subprocess", name=f"preprodartifact_process_{artifact_id}"))
+            stack.enter_context(scope.start_transaction(op="subprocess", name="launchpad.process_message"))
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
