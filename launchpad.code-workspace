@@ -19,9 +19,9 @@
         "python.testing.autoTestDiscoverOnSaveEnabled": true,
         "python.testing.promptToConfigure": false,
 
-        // Code Formatting
-        "python.formatting.provider": "ruff",
-        "python.sortImports.provider": "ruff",
+        // Code Formatting - DEPRECATED settings but keeping for compatibility
+        "python.formatting.provider": "none",
+        "python.sortImports.provider": "none",
 
         // Linting
         "python.linting.enabled": true,
@@ -30,9 +30,11 @@
         "python.linting.mypyEnabled": false,
         "python.linting.ruffEnabled": true,
 
-        // Auto-format on save
+        // Auto-format on save - Use Ruff for everything
         "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
             "source.organizeImports": "explicit"
         },
 
@@ -67,8 +69,10 @@
             "editor.tabSize": 4,
             "editor.insertSpaces": true,
             "editor.formatOnSave": true,
+            "editor.defaultFormatter": "charliermarsh.ruff",
             "editor.codeActionsOnSave": {
-                "source.organizeImports": "explicit"
+                "source.fixAll.ruff": "explicit",
+                "source.organizeImports.ruff": "explicit"
             }
         },
 
