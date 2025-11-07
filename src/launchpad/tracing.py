@@ -18,7 +18,7 @@ def request_context():
 
 
 class RequestLogFilter:
-    """Logging filter that adds request_id to log records."""
+    """Logging filter that adds request_id to log records.."""
 
     def filter(self, record) -> bool:
         try:
