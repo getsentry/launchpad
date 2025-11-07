@@ -13,16 +13,10 @@ from typing import Any, Dict, Iterator, cast
 
 import sentry_sdk
 
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
+from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
-from launchpad.api.update_api_models import (
-    AndroidAppInfo as AndroidAppInfoModel,
-)
-from launchpad.api.update_api_models import (
-    AppleAppInfo as AppleAppInfoModel,
-)
+from launchpad.api.update_api_models import AndroidAppInfo as AndroidAppInfoModel
+from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
 from launchpad.api.update_api_models import PutSizeFailed, UpdateData
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
@@ -115,7 +109,7 @@ class ArtifactProcessor:
             scope.set_tag("launchpad.project_id", project_id)
             scope.set_tag("launchpad.organization_id", organization_id)
             scope.set_tag("launchpad.artifact_id", artifact_id)
-            stack.enter_context(scope.start_transaction(op="subprocess", name="process_message"))
+            stack.enter_context(scope.start_transaction(op="subprocess", name=f"preprodartifact_process_{artifact_id}"))
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
