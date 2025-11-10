@@ -5,28 +5,23 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
-import signal
 import time
 
 from dataclasses import dataclass
-from functools import partial
 from logging.handlers import QueueHandler, QueueListener
-from multiprocessing.pool import Pool
-from typing import Any, Callable, Mapping
+from multiprocessing.connection import Connection
+from typing import Any, Callable, Generic, Mapping, TypeVar, Union
 
-from arroyo import Message, Topic, configure_metrics
+from arroyo import Topic, configure_metrics
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
 from arroyo.backends.kafka import KafkaPayload
+from arroyo.dlq import InvalidMessage
 from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
+from arroyo.processing.strategies.abstract import MessageRejected
 from arroyo.processing.strategies.commit import CommitOffsets
 from arroyo.processing.strategies.healthcheck import Healthcheck
-from arroyo.processing.strategies.run_task_with_multiprocessing import (
-    MultiprocessingPool,
-    RunTaskWithMultiprocessing,
-    parallel_worker_initializer,
-)
-from arroyo.types import Commit, FilteredPayload, Partition, TStrategyPayload
+from arroyo.types import Commit, FilteredPayload, Message, Partition, TStrategyPayload
 from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
@@ -35,51 +30,178 @@ from launchpad.tracing import RequestLogFilter
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
 from launchpad.utils.logging import get_logger
 
+TResult = TypeVar("TResult")
+
 logger = get_logger(__name__)
 
 # Schema codec for preprod artifact events
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
-class LaunchpadMultiProcessingPool(MultiprocessingPool):
-    """Extended MultiprocessingPool with maxtasksperchild=1 to ensure clean worker state."""
+def trampoline(function: Callable, log_queue: multiprocessing.Queue, conn: Connection) -> None:
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.addFilter(RequestLogFilter())
+    root_logger.addHandler(queue_handler)
+    root_logger.setLevel(logging.DEBUG)
 
-    def maybe_create_pool(self) -> None:
-        if self._MultiprocessingPool__pool is None:
-            self._MultiprocessingPool__metrics.increment("arroyo.strategies.run_task_with_multiprocessing.pool.create")
-            self._MultiprocessingPool__pool = Pool(
-                self._MultiprocessingPool__num_processes,
-                initializer=partial(parallel_worker_initializer, self._MultiprocessingPool__initializer),
-                context=multiprocessing.get_context("spawn"),
-                maxtasksperchild=1,  # why we have this subclass
-            )
+    input_message = conn.recv()
+    try:
+        result = function(input_message)
+    except Exception as e:
+        conn.send(e)
+    else:
+        conn.send(result)
+    conn.close()
 
 
-class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPayload, Any]):
-    """Tolerates child process exits from maxtasksperchild=1 by ignoring SIGCHLD."""
-
+class Job(Generic[TStrategyPayload, TResult]):
     def __init__(
         self,
-        function: Callable[[Message[TStrategyPayload]], Any],
-        next_step: ProcessingStrategy[FilteredPayload | Any],
-        max_batch_size: int,
-        max_batch_time: float,
-        pool: MultiprocessingPool,
-        input_block_size: int | None = None,
-        output_block_size: int | None = None,
+        function: Callable,
+        log_queue: multiprocessing.Queue,
+        message: Message[TStrategyPayload],
+        deadline: float = 0,
     ) -> None:
-        super().__init__(function, next_step, max_batch_size, max_batch_time, pool, input_block_size, output_block_size)
-        # Override SIGCHLD handler - child exits are expected with maxtasksperchild=1
-        signal.signal(
-            signal.SIGCHLD,
-            lambda signum, frame: logger.debug(f"Worker process exited normally (SIGCHLD {signum})"),
-        )
+        ctx = multiprocessing.get_context("forkserver")
+        ours, theirs = ctx.Pipe(True)
+        self.__process = ctx.Process(target=trampoline, args=(function, log_queue, theirs))
+        self.__process.start()
+        self.__ours = ours
+        self.__message = message
+        self.__deadline = deadline
+        ours.send(message.payload)
+
+    def poll(self) -> Union[Message[TResult], None]:
+        if not self.__message:
+            return None
+        if self.__deadline and time.time() > self.__deadline:
+            raise InvalidMessage.from_value(self.__message.value)
+        if not self.__ours.poll(0):
+            return None
+        result = self.__ours.recv()
+        self.__ours.close()
+        self.__process.join()
+        self.__process.close()
+        self.__process = None
+
+        message = self.__message
+        self.__message = None
+        if isinstance(result, Exception):
+            raise result
+        else:
+            return message.replace(result)
+
+    def terminate(self) -> None:
+        if self.__process:
+            self.__process.terminate()
+            self.__process = None
+            self.__message = None
 
 
-def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
+class RunTaskWithSubprocess(
+    ProcessingStrategy[Union[FilteredPayload, TStrategyPayload]], Generic[TStrategyPayload, TResult]
+):
+    def __init__(
+        self,
+        function: Callable[[TStrategyPayload], TResult],
+        next_step: ProcessingStrategy[Union[FilteredPayload, TResult]],
+        timeout_s: float = 30.0,
+    ) -> None:
+        self.__function = function
+        self.__next_step = next_step
+        self.__closed = False
+        self.__timeout = timeout_s
+
+        self.__pending_input = None
+        self.__job = None
+        self.__pending_output = None
+
+        ctx = multiprocessing.get_context("forkserver")
+        self.__log_queue = ctx.Queue()
+        root_logger = logging.getLogger()
+        handlers = list(root_logger.handlers) if root_logger.handlers else []
+        self.__queue_listener = QueueListener(self.__log_queue, *handlers, respect_handler_level=True)
+        self.__queue_listener.start()
+
+    def submit(self, message: Message[Union[FilteredPayload, TStrategyPayload]]) -> None:
+        if self.__closed:
+            raise MessageRejected("Strategy is closed")
+
+        if self.__pending_input:
+            raise MessageRejected("Strategy full")
+
+        self.__pending_input = message
+
+    def poll(self) -> None:
+        if self.__pending_output:
+            try:
+                self.__next_step.submit(self.__pending_output)
+            except MessageRejected:
+                pass
+            else:
+                self.__pending_output = None
+        elif self.__job:
+            assert self.__pending_output is None
+            try:
+                result = self.__job.poll()
+            except:
+                self.__job = None
+                raise
+            else:
+                if result:
+                    self.__job = None
+                    self.__pending_output = result
+        elif self.__pending_input:
+            assert self.__job is None
+            deadline = time.time() + self.__timeout
+            self.__job = Job(self.__function, self.__log_queue, self.__pending_input, deadline)
+            self.__pending_input = None
+        else:
+            pass
+
+        self.__next_step.poll()
+
+    def close(self) -> None:
+        self.__closed = True
+
+    def terminate(self) -> None:
+        self.__closed = True
+        self.__queue_listener.stop()
+
+        if self.__job:
+            self.__job.terminate()
+            self.__job = None
+
+        self.__pending_input = None
+        self.__pending_ouput = None
+
+        self.__next_step.terminate()
+
+    def join(self, timeout: float | None = None) -> None:
+        timeout = 24 * 60 * 60 if timeout is None else timeout
+        start = time.time()
+        deadline = start + timeout
+
+        while time.time() < deadline:
+            self.poll()
+            if not self.__pending_output and not self.__pending_input and not self.__job:
+                break
+            time.sleep(0)
+
+        remaining = deadline - time.time()
+
+        self.__queue_listener.stop()
+
+        self.__next_step.close()
+        self.__next_step.join(remaining)
+
+
+def process_kafka_message_with_service(payload: KafkaPayload) -> Any:
     """Process a Kafka message using the actual service logic in a worker process."""
     try:
-        decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
+        decoded = PREPROD_ARTIFACT_SCHEMA.decode(payload.value)
         ArtifactProcessor.process_message(decoded)
         return decoded  # type: ignore[no-any-return]
     except Exception as e:
@@ -125,12 +247,9 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
 
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
     healthcheck_path = config.healthcheck_file
+    assert healthcheck_path
 
-    strategy_factory = LaunchpadStrategyFactory(
-        concurrency=config.concurrency,
-        max_pending_futures=config.max_pending_futures,
-        healthcheck_file=healthcheck_path,
-    )
+    strategy_factory = LaunchpadStrategyFactory(healthcheck_path)
 
     topics = [Topic(topic) for topic in config.topics]
     topic = topics[0] if topics else Topic("default")
@@ -140,24 +259,17 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         processor_factory=strategy_factory,
         join_timeout=config.join_timeout_seconds,  # Drop in-flight work during rebalance before Kafka times out
     )
-    return LaunchpadKafkaConsumer(processor, healthcheck_path, strategy_factory)
+    return LaunchpadKafkaConsumer(processor, healthcheck_path)
 
 
 class LaunchpadKafkaConsumer:
     processor: StreamProcessor[KafkaPayload]
     healthcheck_path: str | None
-    strategy_factory: LaunchpadStrategyFactory
     _running: bool
 
-    def __init__(
-        self,
-        processor: StreamProcessor[KafkaPayload],
-        healthcheck_path: str | None,
-        strategy_factory: LaunchpadStrategyFactory,
-    ):
+    def __init__(self, processor: StreamProcessor[KafkaPayload], healthcheck_path: str):
         self.processor = processor
         self.healthcheck_path = healthcheck_path
-        self.strategy_factory = strategy_factory
         self._running = False
 
     def run(self):
@@ -169,29 +281,11 @@ class LaunchpadKafkaConsumer:
             self.processor.run()
         finally:
             self._running = False
-            try:
-                os.remove(self.healthcheck_path)
-                logger.info(f"Removed healthcheck file: {self.healthcheck_path}")
-            except FileNotFoundError:
-                pass
-
-            # Clean up multiprocessing pool
-            try:
-                self.strategy_factory.close()
-                logger.debug("Closed multiprocessing pool")
-            except Exception:
-                logger.exception("Error closing multiprocessing pool")
 
     def stop(self):
         """Signal shutdown to the processor."""
         logger.info(f"{self} stop commanded")
         self.processor.signal_shutdown()
-
-        # Kill all multiprocessing worker children (development only)
-        environment = os.getenv("LAUNCHPAD_ENV", "development").lower()
-        if environment == "development":
-            for child in multiprocessing.active_children():
-                child.terminate()
 
     def is_healthy(self) -> bool:
         try:
@@ -204,78 +298,28 @@ class LaunchpadKafkaConsumer:
 
 
 class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
-    """Factory for creating the processing strategy chain."""
-
-    def __init__(
-        self,
-        concurrency: int,
-        max_pending_futures: int,
-        healthcheck_file: str | None = None,
-    ) -> None:
-        self._log_queue: multiprocessing.Queue[Any] = multiprocessing.Manager().Queue(-1)
-        self._queue_listener = self._setup_queue_listener()
-        self._queue_listener.start()
-
-        initializer_with_queue = partial(self._initialize_worker_logging, self._log_queue)
-
-        self._pool = LaunchpadMultiProcessingPool(
-            num_processes=concurrency,
-            initializer=initializer_with_queue,
-        )
-        self.concurrency = concurrency
-        self.max_pending_futures = max_pending_futures
-        self.healthcheck_file = healthcheck_file
-
-    def _setup_queue_listener(self) -> QueueListener:
-        """Set up listener in main process to handle logs from workers."""
-        root_logger = logging.getLogger()
-        handlers = list(root_logger.handlers) if root_logger.handlers else []
-
-        return QueueListener(self._log_queue, *handlers, respect_handler_level=True)
-
-    @staticmethod
-    def _initialize_worker_logging(log_queue: multiprocessing.Queue[Any]) -> None:
-        """Initialize logging in worker process to send logs to queue.
-
-        With multiprocessing spawn context, subprocesses don't inherit
-        parent's stdout/stderr. We use a queue to send log records to
-        the main process which writes them to stdout for Docker/GCP.
-        """
-        root_logger = logging.getLogger()
-        root_logger.handlers.clear()
-
-        queue_handler = QueueHandler(log_queue)
-        queue_handler.addFilter(RequestLogFilter())
-
-        root_logger.addHandler(queue_handler)
-        root_logger.setLevel(logging.DEBUG)
+    def __init__(self, healthcheck_path: str) -> None:
+        assert healthcheck_path
+        self.healthcheck_path = healthcheck_path
 
     def create_with_partitions(
         self,
         commit: Commit,
         partitions: Mapping[Partition, int],
     ) -> ProcessingStrategy[KafkaPayload]:
-        """Create the processing strategy chain."""
-        next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
-        assert self.healthcheck_file
-        next_step = Healthcheck(self.healthcheck_file, next_step)
+        do_commit = CommitOffsets(commit)
+        do_health_check = Healthcheck(self.healthcheck_path, next_step=do_commit)
+        do_task = RunTaskWithSubprocess(process_kafka_message_with_service, next_step=do_health_check, timeout_s=60 * 5)
 
-        strategy = LaunchpadRunTaskWithMultiprocessing(
-            process_kafka_message_with_service,
-            next_step=next_step,
-            max_batch_size=1,  # Process immediately, subject to be re-tuned
-            max_batch_time=1,  # Process after 1 second max, subject to be re-tuned
-            pool=self._pool,
-            input_block_size=None,
-            output_block_size=None,
-        )
+        return do_task
 
-        return strategy
-
-    def close(self) -> None:
-        """Clean up the multiprocessing pool and logging queue."""
-        self._pool.close()
-        self._queue_listener.stop()
+    def shutdown(self) -> None:
+        try:
+            os.remove(self.healthcheck_path)
+        except FileNotFoundError:
+            logger.error(f"Failed to remove healthcheck file: {self.healthcheck_path}")
+        else:
+            logger.info(f"Removed healthcheck file: {self.healthcheck_path}")
 
 
 @dataclass
