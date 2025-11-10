@@ -411,6 +411,41 @@ class ArtifactProcessor:
         except SentryClientError:
             logger.exception(f"Failed to update artifact with error {message}")
 
+    def _extract_tooling_versions(self, artifact: Artifact) -> Dict[str, str | None]:
+        """Extract tooling version information from the artifact zip file.
+
+        Looks for metadata files like .sentry-cli-metadata.txt in the zip
+        and extracts version information.
+
+        Returns:
+            Dict with keys: sentry_cli_version, fastlane_version, gradle_plugin_version
+        """
+        import zipfile
+
+        versions = {
+            "sentry_cli_version": None,
+            "fastlane_version": None,
+            "gradle_plugin_version": None,
+        }
+
+        try:
+            with zipfile.ZipFile(artifact.path, "r") as zf:
+                # Look for .sentry-cli-metadata.txt in the root of the zip
+                if ".sentry-cli-metadata.txt" in zf.namelist():
+                    with zf.open(".sentry-cli-metadata.txt") as f:
+                        content = f.read().decode("utf-8")
+                        # Parse format: sentry-cli-version: {version}
+                        for line in content.strip().split("\n"):
+                            if line.startswith("sentry-cli-version:"):
+                                version = line.split(":", 1)[1].strip()
+                                versions["sentry_cli_version"] = version
+                                logger.debug(f"Extracted sentry-cli version: {version}")
+                                break
+        except Exception as e:
+            logger.debug(f"Could not extract tooling versions: {e}")
+
+        return versions
+
     def _prepare_update_data(
         self,
         app_info: AppleAppInfo | BaseAppInfo,
@@ -450,6 +485,9 @@ class ArtifactProcessor:
                 has_proguard_mapping=app_info.has_proguard_mapping,
             )
 
+        # Extract tooling versions from the artifact metadata
+        tooling_versions = self._extract_tooling_versions(artifact)
+
         update_data = UpdateData(
             app_name=app_info.name,
             app_id=app_info.app_id,
@@ -459,6 +497,9 @@ class ArtifactProcessor:
             apple_app_info=apple_app_info,
             android_app_info=android_app_info,
             dequeued_at=dequeued_at,
+            sentry_cli_version=tooling_versions["sentry_cli_version"],
+            fastlane_version=tooling_versions["fastlane_version"],
+            gradle_plugin_version=tooling_versions["gradle_plugin_version"],
         )
 
         return update_data.model_dump(exclude_none=True)
