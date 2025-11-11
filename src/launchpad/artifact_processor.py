@@ -66,6 +66,8 @@ class ArtifactProcessor:
         This is used by the Kafka workers and so has to set up the context from scratch.
         If components are not provided, they will be created.
         """
+        start_time = time.time()
+
         if service_config is None:
             from launchpad.service import get_service_config
 
@@ -116,13 +118,15 @@ class ArtifactProcessor:
                 artifact_processor.process_artifact(organization_id, project_id, artifact_id, requested_features)
             except Exception:
                 statsd.increment("artifact.processing.failed")
+                duration = time.time() - start_time
                 logger.exception(
-                    f"Processing failed for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
+                    f"Processing failed for artifact {artifact_id} (project: {project_id}, org: {organization_id}) in {duration:.2f}s"
                 )
             else:
                 statsd.increment("artifact.processing.completed")
+                duration = time.time() - start_time
                 logger.info(
-                    f"Processing complete for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
+                    f"Processing complete for artifact {artifact_id} (project: {project_id}, org: {organization_id}) in {duration:.2f}s"
                 )
 
     def process_artifact(
