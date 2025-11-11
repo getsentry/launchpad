@@ -138,6 +138,7 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         consumer=arroyo_consumer,
         topic=topic,
         processor_factory=strategy_factory,
+        join_timeout=config.join_timeout_seconds,  # Drop in-flight work during rebalance before Kafka times out
     )
     return LaunchpadKafkaConsumer(processor, healthcheck_path, strategy_factory)
 
@@ -293,6 +294,7 @@ class KafkaConfig:
     sasl_mechanism: str | None
     sasl_username: str | None
     sasl_password: str | None
+    join_timeout_seconds: float
 
 
 def get_kafka_config() -> KafkaConfig:
@@ -327,4 +329,5 @@ def get_kafka_config() -> KafkaConfig:
         sasl_mechanism=os.environ.get("KAFKA_SASL_MECHANISM", None),
         sasl_username=os.environ.get("KAFKA_SASL_USERNAME", None),
         sasl_password=os.environ.get("KAFKA_SASL_PASSWORD", None),
+        join_timeout_seconds=float(os.getenv("KAFKA_JOIN_TIMEOUT_SECONDS", "10")),
     )
