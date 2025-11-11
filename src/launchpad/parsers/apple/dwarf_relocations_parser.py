@@ -19,7 +19,7 @@ class DwarfRelocation:
     size: int
     addend: int
     sym_name: str
-    sym_obj_addr: int
+    sym_obj_addr: int | None
     sym_bin_addr: int
     sym_size: int
 
@@ -30,7 +30,7 @@ class DwarfRelocation:
             size=data["size"],
             addend=data["addend"],
             sym_name=data["symName"],
-            sym_obj_addr=data["symObjAddr"],
+            sym_obj_addr=data["symObjAddr"] if "symObjAddr" in data else None,
             sym_bin_addr=data["symBinAddr"],
             sym_size=data["symSize"],
         )
