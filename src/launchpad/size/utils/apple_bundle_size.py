@@ -8,7 +8,6 @@ from typing import Tuple
 
 import lzfse
 
-from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
@@ -52,17 +51,7 @@ def _calculate_app_store_size(bundle_url: Path) -> int:
             continue
 
         file_count += 1
-
-        if file_path.is_file():
-            file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
-
-            # Add extra code signature size for binaries without extensions
-            if not file_path.suffix and MachOParser.is_macho_binary(file_path):
-                file_size += _get_extra_code_signature_size(file_path)
-
-        else:
-            # Add directory size, they take up a little space for metadata
-            file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
+        file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
         total_size += file_size
         logger.debug(f"File size: {file_size}, Total size: {total_size}")
