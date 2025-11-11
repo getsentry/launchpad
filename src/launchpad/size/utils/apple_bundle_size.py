@@ -28,14 +28,12 @@ def calculate_bundle_sizes(bundle_url: Path) -> Tuple[int, int]:
     install_size = _calculate_app_store_size(bundle_url)
     metadata_size = _zip_metadata_size_for_bundle(bundle_url)
     lzfse_size = _lzfse_content_size_for_bundle(bundle_url)
-    signature_size = _get_extra_code_signature_size(bundle_url)
-    download_size = metadata_size + lzfse_size + signature_size
+    download_size = metadata_size + lzfse_size
 
     logger.debug(
         f"Bundle size breakdown - "
         f"ZIP metadata: {metadata_size} bytes, "
         f"LZFSE content: {lzfse_size} bytes, "
-        f"Code signature: {signature_size} bytes, "
         f"Total download: {download_size} bytes, "
         f"Total install: {install_size} bytes"
     )
@@ -181,10 +179,3 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
             zip_file_path.unlink()
         if zip_info_file_path.exists():
             zip_info_file_path.unlink()
-
-
-def _get_extra_code_signature_size(bundle_url: Path) -> int:
-    """Calculate additional space needed for code signature."""
-
-    # TODO(EME-433): Implement actual code signature size calculation
-    return 0
