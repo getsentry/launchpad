@@ -53,7 +53,7 @@ class DexMethodParser:
             prototype=self._prototype,
             access_flags=self._access_flags,
             annotations=self._annotations,
-            parameters=[],  # TODO(EME-424): Implement when needed in future
+            parameters=[],
         )
 
     def get_size(self) -> int:

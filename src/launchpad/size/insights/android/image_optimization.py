@@ -25,8 +25,6 @@ class WebPOptimizationInsight(Insight[WebPOptimizationInsightResult]):
             if file_info.full_path.name.endswith(".9.png"):
                 continue
 
-            # TODO(EME-430): verify that the file is actually an image
-
             original_size = get_file_size(Path(file_info.full_path))
             with tempfile.NamedTemporaryFile(suffix=".webp", delete=True) as tmp_webp:
                 try:
