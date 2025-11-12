@@ -11,16 +11,11 @@ from launchpad.size.utils.file_analysis import analyze_apple_files
 
 
 class TestFileAnalysisIntegration:
-    """Integration tests using real xcarchive fixtures."""
-
     @pytest.fixture
     def hackernews_xcarchive_obj(self, hackernews_xcarchive):
-        """Create ZippedXCArchive from HackerNews fixture."""
         return ZippedXCArchive(hackernews_xcarchive)
 
     def test_analyze_hackernews(self, hackernews_xcarchive_obj):
-        """Test analysis of a real xcarchive produces expected structure."""
-
         start = time.time()
         result = analyze_apple_files(hackernews_xcarchive_obj)
         duration = time.time() - start
