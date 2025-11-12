@@ -65,7 +65,8 @@ class FileInfo(BaseModel):
     hash: str = Field(..., description="MD5 hash of file contents or directory identifier")
     treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
     is_dir: bool = Field(..., description="True if this is a directory, False if it's a file")
-    # Some files can be further broken down, even though it's children are not files
+    # Some files can be further broken down, e.g. asset catalog files. We are NOT storing files themselves
+    # in a tree structure, this is only for special cases.
     children: List[FileInfo] = Field(default_factory=list, description="Children of the file")
     # Asset catalog specific fields
     idiom: str | None = Field(default=None, description="Device idiom for asset catalog images")

@@ -59,6 +59,7 @@ class TestFileAnalysisIntegration:
             assert directory.file_type == "directory"
             assert directory.hash is not None
             assert directory.is_dir is True
+            assert len(directory.children) == 0
 
     def test_analyze_with_max_depth_keeps_sizes(self, hackernews_xcarchive_obj):
         """Depth limiting should omit deep children but preserve parent sizes."""
