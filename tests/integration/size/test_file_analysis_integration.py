@@ -30,65 +30,40 @@ class TestFileAnalysisIntegration:
         assert isinstance(result, FileAnalysis)
         assert len(result.files) == 32
         assert len(result.directories) == 13
+        assert len(result.items) == 45
+        assert result.total_size == 9728000
 
-        file_paths = {f.path for f in result.files}
+        hackernews_file = next(f for f in result.files if f.path == "HackerNews")
+        assert hackernews_file.size == 3153920
+        assert hackernews_file.file_type == "macho"
+        assert hackernews_file.hash == "9d10abfc90f6f027d19d4c990329d6ffc3419a28bd1ab4a9f86344e5a921c263"
+        assert hackernews_file.is_dir is False
+        assert len(hackernews_file.children) == 0
 
-        main_binary_files = [f for f in result.files if f.path == "HackerNews"]
-        assert len(main_binary_files) == 1
-        main_binary = main_binary_files[0]
-        assert main_binary.size > 0
-        assert main_binary.file_type in ["macho", "executable"]
+        asset_catalog_file = next(f for f in result.files if f.path == "Assets.car")
+        assert asset_catalog_file.size == 4788224
+        assert asset_catalog_file.file_type == "car"
+        assert asset_catalog_file.hash == "adf5fdc8ac633ba5840a047c8d77877057f85f822fa70c6690c467b8fb6d6505"
+        assert asset_catalog_file.is_dir is False
+        assert len(asset_catalog_file.children) == 14
 
-        assert "Info.plist" in file_paths
-        plist_files = [f for f in result.files if f.path == "Info.plist"]
-        assert len(plist_files) == 1
-        assert plist_files[0].file_type == "plist"
+        for child in asset_catalog_file.children:
+            assert child.size > 0
+            assert child.treemap_type == TreemapType.ASSETS
 
-        car_files = [f for f in result.files if f.file_type == "car"]
-        assert len(car_files) > 0
+        for file in result.files:
+            assert file.size > 0
+            assert file.file_type is not None
+            assert file.hash is not None
+            assert file.is_dir is False
+            if "Assets.car" not in file.path:
+                assert len(file.children) == 0
 
-        dir_paths = {d.path for d in result.directories}
-        assert "" in dir_paths  # root directory
-        assert "Frameworks" in dir_paths  # frameworks folder exists
-
-        files_total_size = sum(f.size for f in result.files)
-        assert files_total_size > 1000  # at least 1KB
-
-        root_dirs = [d for d in result.directories if d.path == ""]
-        assert len(root_dirs) == 1
-        # Root directory size is just its own entry size, not children
-        assert root_dirs[0].size == 4096  # One filesystem block
-
-        car_files = [f for f in result.files if f.file_type == "car"]
-        if car_files:
-            car_file = car_files[0]
-            for child in car_file.children:
-                assert child.path.startswith(car_file.path)
-                assert child.size >= 0
-                assert child.hash is not None
-                assert child.treemap_type == TreemapType.ASSETS
-
-        file_types = {f.file_type for f in result.files}
-        assert {
-            "plist",
-            "png",
-            "car",
-            "json",
-            "strings",
-            "macho",
-            "executable",
-        } & file_types
-
-        framework_dirs = [d for d in result.directories if d.path.endswith(".framework")]
-        assert len(framework_dirs) > 0
-        if framework_dirs:
-            framework_binaries = [
-                f.path for f in result.files if ".framework/" in f.path and f.file_type in ["macho", "executable"]
-            ]
-            assert len(framework_binaries) > 0
-
-            for binary_path in framework_binaries:
-                assert ".framework/" in binary_path, f"Framework binary should contain .framework/: {binary_path}"
+        for directory in result.directories:
+            assert directory.size > 0
+            assert directory.file_type == "directory"
+            assert directory.hash is not None
+            assert directory.is_dir is True
 
     def test_analyze_with_max_depth_keeps_sizes(self, hackernews_xcarchive_obj):
         """Depth limiting should omit deep children but preserve parent sizes."""
