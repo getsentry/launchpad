@@ -204,7 +204,7 @@ class TestMinifyLocalizedStringsInsight:
         input_data = InsightsInput(
             app_info=self._create_test_app_info(),
             file_analysis=FileAnalysis(
-                files=[
+                items=[
                     FileInfo(
                         full_path=Path("/test/regular_file.txt"),
                         path="regular_file.txt",
@@ -216,7 +216,6 @@ class TestMinifyLocalizedStringsInsight:
                         children=[],
                     )
                 ],
-                directories=[],
             ),
             binary_analysis=[],
             treemap=None,
@@ -256,7 +255,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/Localizable.strings",
@@ -268,7 +267,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -297,7 +295,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/Localizable.strings",
@@ -309,7 +307,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -334,7 +331,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/Localizable.strings",
@@ -346,7 +343,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -395,8 +391,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=files,
-                    directories=[],
+                    items=files,
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -428,7 +423,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/BinaryPlist.strings",
@@ -440,7 +435,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -467,7 +461,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/BinaryPlist.strings",
@@ -479,7 +473,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -542,7 +535,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/WidgetIntents.strings",
@@ -554,7 +547,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -585,7 +577,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/Compact.strings",
@@ -597,7 +589,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -635,7 +626,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/CommentedPlist.strings",
@@ -647,7 +638,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,
@@ -683,7 +673,7 @@ class TestMinifyLocalizedStringsInsight:
             input_data = InsightsInput(
                 app_info=self._create_test_app_info(),
                 file_analysis=FileAnalysis(
-                    files=[
+                    items=[
                         FileInfo(
                             full_path=strings_file,
                             path="en.lproj/Invalid.strings",
@@ -695,7 +685,6 @@ class TestMinifyLocalizedStringsInsight:
                             children=[],
                         )
                     ],
-                    directories=[],
                 ),
                 binary_analysis=[],
                 treemap=None,

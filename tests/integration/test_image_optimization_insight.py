@@ -389,7 +389,7 @@ class TestImageOptimizationInsightIntegration:
         small_png = temp_images["small_png"]
 
         file_analysis = FileAnalysis(
-            files=[
+            items=[
                 FileInfo(
                     path="small_optimized.png",
                     full_path=small_png,
@@ -401,7 +401,6 @@ class TestImageOptimizationInsightIntegration:
                     is_dir=False,
                 )
             ],
-            directories=[],
         )
 
         small_input = InsightsInput(

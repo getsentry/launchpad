@@ -51,12 +51,13 @@ class TestFileAnalysisIntegration:
         assert "" in dir_paths  # root directory
         assert "Frameworks" in dir_paths  # frameworks folder exists
 
-        total_size = sum(f.size for f in result.files)
-        assert total_size > 1000  # at least 1KB
+        files_total_size = sum(f.size for f in result.files)
+        assert files_total_size > 1000  # at least 1KB
 
         root_dirs = [d for d in result.directories if d.path == ""]
         assert len(root_dirs) == 1
-        assert root_dirs[0].size == total_size
+        # Root directory size is just its own entry size, not children
+        assert root_dirs[0].size == 4096  # One filesystem block
 
         car_files = [f for f in result.files if f.file_type == "car"]
         if car_files:
