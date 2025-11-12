@@ -1,5 +1,8 @@
 from unittest.mock import Mock, patch
 
+import pytest
+
+from objectstore_client import Client as ObjectstoreClient
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
@@ -12,7 +15,6 @@ from launchpad.constants import (
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
 from launchpad.service import ServiceConfig
-from launchpad.utils.objectstore.service import Client as ObjectstoreClient
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -150,7 +152,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
-            objectstore_base_url="http://test.objectstore.io",
+            objectstore_url="http://test.objectstore.io",
         )
 
         # Create a payload for iOS artifact
@@ -191,7 +193,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
-            objectstore_base_url="http://test.objectstore.io",
+            objectstore_url="http://test.objectstore.io",
         )
 
         # Create a payload for Android artifact
@@ -232,7 +234,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
-            objectstore_base_url="http://test.objectstore.io",
+            objectstore_url="http://test.objectstore.io",
         )
 
         # Make process_artifact raise an exception
@@ -272,7 +274,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["skip-project-1", "skip-project-2"],
-            objectstore_base_url="http://test.objectstore.io",
+            objectstore_url="http://test.objectstore.io",
         )
 
         # Create a payload for a project that should be skipped
@@ -301,7 +303,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["other-project"],
-            objectstore_base_url="http://test.objectstore.io",
+            objectstore_url="http://test.objectstore.io",
         )
 
         # Create a payload for a project that should NOT be skipped

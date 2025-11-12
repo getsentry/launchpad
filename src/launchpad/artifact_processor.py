@@ -11,6 +11,12 @@ from typing import Any, Dict, Iterator, cast
 
 import sentry_sdk
 
+from objectstore_client import (
+    Client as ObjectstoreClient,
+)
+from objectstore_client import (
+    Usecase,
+)
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
@@ -41,12 +47,6 @@ from launchpad.size.models.common import BaseAppInfo
 from launchpad.tracing import request_context
 from launchpad.utils.file_utils import IdPrefix, id_from_bytes
 from launchpad.utils.logging import get_logger
-from launchpad.utils.objectstore.service import (
-    Client as ObjectstoreClient,
-)
-from launchpad.utils.objectstore.service import (
-    ClientBuilder as ObjectstoreClientBuilder,
-)
 from launchpad.utils.statsd import StatsdInterface, get_statsd
 
 logger = get_logger(__name__)
@@ -62,6 +62,7 @@ class ArtifactProcessor:
         self._sentry_client = sentry_client
         self._statsd = statsd
         self._objectstore_client = objectstore_client
+        self._objectstore_usecase = Usecase(name="preprod")
 
     @staticmethod
     def process_message(
@@ -91,9 +92,7 @@ class ArtifactProcessor:
             statsd = get_statsd()
         if artifact_processor is None:
             sentry_client = SentryClient(base_url=service_config.sentry_base_url)
-            objectstore_client = ObjectstoreClientBuilder(
-                usecase="preprod", options={"base_url": "http://localhost:8888/"}
-            ).for_project(organization_id, project_id)
+            objectstore_client = ObjectstoreClient(service_config.objectstore_url)
             artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
         requested_features = []
@@ -269,7 +268,8 @@ class ArtifactProcessor:
         image_id = id_from_bytes(app_icon, IdPrefix.ICON)
         icon_key = f"{organization_id}/{project_id}/{image_id}"
         logger.info(f"Uploading app icon to object store: {icon_key}")
-        self._objectstore_client.put(app_icon, compression="none", id=icon_key)
+        session = self._objectstore_client.session(self._objectstore_usecase, org=organization_id, project=project_id)
+        session.put(app_icon, id=icon_key)
         return image_id
 
     def _do_distribution(
