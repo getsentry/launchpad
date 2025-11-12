@@ -19,9 +19,7 @@ class TestDuplicateFilesInsight:
 
     def _create_insights_input(self, files: list[FileInfo]) -> InsightsInput:
         """Helper method to create InsightsInput for testing."""
-        # Separate directories from the files list
-        directories = [f for f in files if f.is_dir]
-        file_analysis = FileAnalysis(files=files, directories=directories)
+        file_analysis = FileAnalysis(items=files)
         return InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,

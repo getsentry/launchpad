@@ -41,7 +41,7 @@ class TestLargeImageFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_file_1, large_file_2, small_file], directories=[])
+        file_analysis = FileAnalysis(items=[large_file_1, large_file_2, small_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -79,7 +79,7 @@ class TestLargeImageFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_file_1, small_file_2], directories=[])
+        file_analysis = FileAnalysis(items=[small_file_1, small_file_2])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -93,7 +93,7 @@ class TestLargeImageFileInsight:
         assert result is None
 
     def test_generate_with_empty_file_list(self):
-        file_analysis = FileAnalysis(files=[], directories=[])
+        file_analysis = FileAnalysis(items=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -117,7 +117,7 @@ class TestLargeImageFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[threshold_file], directories=[])
+        file_analysis = FileAnalysis(items=[threshold_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

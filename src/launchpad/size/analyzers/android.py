@@ -250,13 +250,7 @@ class AndroidAnalyzer:
                 files_by_type[file_info.file_type] = []
             files_by_type[file_info.file_type].append(file_info)
 
-        # Separate directories from files (though APKs typically don't have directory entries)
-        directories = [f for f in file_infos if f.is_dir]
-
-        return FileAnalysis(
-            files=file_infos,
-            directories=directories,
-        )
+        return FileAnalysis(items=file_infos)
 
     def _get_class_definitions(self, apks: list[APK]) -> list[ClassDefinition]:
         logger.debug("Getting class definitions")

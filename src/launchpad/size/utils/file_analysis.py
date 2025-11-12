@@ -190,14 +190,21 @@ def analyze_apple_files(
 
     directories_with_hashes = _hash_directories_bottom_up(dirs, files, children_by_dir, algo="sha256")
 
-    return FileAnalysis(files=list(files.values()), directories=list(directories_with_hashes.values()))
+    # Combine files and directories into a single list
+    all_items = list(files.values()) + list(directories_with_hashes.values())
+    return FileAnalysis(items=all_items)
 
 
 def _make_directory_info(full_path: Path, rel: str) -> FileInfo:
+    try:
+        dir_size = to_nearest_block_size(full_path.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
+    except OSError:
+        dir_size = 0
+
     return FileInfo(
         full_path=full_path,
         path=rel,
-        size=0,
+        size=dir_size,
         file_type="directory",
         hash="",
         treemap_type=TreemapType.FILES,
@@ -227,15 +234,15 @@ def _hash_directories_bottom_up(
     for d in sorted_dirs:
         child_paths = children_by_dir.get(d.path, [])
         child_hashes: List[str] = []
-        total_size = 0
+        children_total_size = 0
 
         for child in child_paths:
             if child in files:
                 child_hashes.append(file_hash_lookup[child])
-                total_size += file_size_lookup[child]
+                children_total_size += file_size_lookup[child]
             else:
                 child_hashes.append(dir_hash_lookup[child])
-                total_size += dir_size_lookup[child]
+                children_total_size += dir_size_lookup[child]
 
         if not child_hashes:
             digest = hashlib.new(algo, b"empty_directory").hexdigest()
@@ -246,10 +253,12 @@ def _hash_directories_bottom_up(
                 h.update(b";")
             digest = h.hexdigest()
 
+        # Store just the directory's own entry size (not including children)
+        # The treemap builder will add this to children's sum
         updated_dir = FileInfo(
             full_path=d.full_path,
             path=d.path,
-            size=total_size,
+            size=d.size,
             file_type=d.file_type,
             hash=digest,
             treemap_type=d.treemap_type,
@@ -258,7 +267,8 @@ def _hash_directories_bottom_up(
         )
         updated[d.path] = updated_dir
         dir_hash_lookup[d.path] = digest
-        dir_size_lookup[d.path] = total_size
+        # For recursive size calculation, store dir's own size + children
+        dir_size_lookup[d.path] = d.size + children_total_size
 
     return updated
 

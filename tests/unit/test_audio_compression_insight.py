@@ -34,7 +34,7 @@ class TestAudioCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[wav_file, aiff_file], directories=[])
+        file_analysis = FileAnalysis(items=[wav_file, aiff_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -83,7 +83,7 @@ class TestAudioCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[image_file], directories=[])
+        file_analysis = FileAnalysis(items=[image_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -107,7 +107,7 @@ class TestAudioCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_wav], directories=[])
+        file_analysis = FileAnalysis(items=[small_wav])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -131,7 +131,7 @@ class TestAudioCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[m4a_file], directories=[])
+        file_analysis = FileAnalysis(items=[m4a_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -155,7 +155,7 @@ class TestAudioCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[wav_file], directories=[])
+        file_analysis = FileAnalysis(items=[wav_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

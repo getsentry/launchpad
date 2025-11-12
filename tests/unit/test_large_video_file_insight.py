@@ -50,7 +50,7 @@ class TestLargeVideoFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_video_1, large_video_2, small_video, image_file], directories=[])
+        file_analysis = FileAnalysis(items=[large_video_1, large_video_2, small_video, image_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -94,7 +94,7 @@ class TestLargeVideoFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_video_1, small_video_2], directories=[])
+        file_analysis = FileAnalysis(items=[small_video_1, small_video_2])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -108,7 +108,7 @@ class TestLargeVideoFileInsight:
         assert result is None
 
     def test_generate_with_empty_file_list(self):
-        file_analysis = FileAnalysis(files=[], directories=[])
+        file_analysis = FileAnalysis(items=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -132,7 +132,7 @@ class TestLargeVideoFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[threshold_file], directories=[])
+        file_analysis = FileAnalysis(items=[threshold_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -183,7 +183,7 @@ class TestLargeVideoFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[mp4_file, mov_file, webm_file, mkv_file], directories=[])
+        file_analysis = FileAnalysis(items=[mp4_file, mov_file, webm_file, mkv_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -235,7 +235,7 @@ class TestLargeVideoFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[video_file, image_file, text_file], directories=[])
+        file_analysis = FileAnalysis(items=[video_file, image_file, text_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

@@ -64,7 +64,7 @@ class TestLooseImagesInsight:
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -135,7 +135,7 @@ class TestLooseImagesInsight:
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -185,7 +185,7 @@ class TestLooseImagesInsight:
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -227,7 +227,7 @@ class TestLooseImagesInsight:
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
@@ -280,7 +280,7 @@ class TestLooseImagesInsight:
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,

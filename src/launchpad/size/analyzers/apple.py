@@ -124,7 +124,7 @@ class AppleAppAnalyzer:
         )
 
         file_analysis = analyze_apple_files(artifact)
-        logger.debug(f"Found {file_analysis.file_count} files, total size: {file_analysis.total_size} bytes")
+        logger.debug(f"Found {len(file_analysis.files)} files, total size: {file_analysis.total_size} bytes")
 
         app_bundle_path = artifact.get_app_bundle_path()
         download_size, install_size = calculate_bundle_sizes(app_bundle_path)

@@ -91,7 +91,7 @@ class TestImageOptimizationInsightIntegration:
                 )
                 files.append(file_info)
 
-        return FileAnalysis(files=files, directories=[])
+        return FileAnalysis(items=files)
 
     @pytest.fixture
     def insights_input(self, sample_file_analysis: FileAnalysis) -> InsightsInput:
@@ -198,7 +198,7 @@ class TestImageOptimizationInsightIntegration:
             ],
         )
 
-        file_analysis = FileAnalysis(files=[car_file_info], directories=[])
+        file_analysis = FileAnalysis(items=[car_file_info])
 
         test_input = InsightsInput(
             app_info=AppleAppInfo(
@@ -265,7 +265,7 @@ class TestImageOptimizationInsightIntegration:
 
         png_only_input = InsightsInput(
             app_info=insights_input.app_info,
-            file_analysis=FileAnalysis(files=[file_info], directories=[]),
+            file_analysis=FileAnalysis(items=[file_info]),
             binary_analysis=[],
             treemap=None,
             hermes_reports={},
@@ -300,7 +300,7 @@ class TestImageOptimizationInsightIntegration:
 
         jpeg_only_input = InsightsInput(
             app_info=insights_input.app_info,
-            file_analysis=FileAnalysis(files=[file_info], directories=[]),
+            file_analysis=FileAnalysis(items=[file_info]),
             binary_analysis=[],
             treemap=None,
             hermes_reports={},
@@ -342,7 +342,7 @@ class TestImageOptimizationInsightIntegration:
 
         corrupted_input = InsightsInput(
             app_info=insights_input.app_info,
-            file_analysis=FileAnalysis(files=[file_info], directories=[]),
+            file_analysis=FileAnalysis(items=[file_info]),
             binary_analysis=[],
             treemap=None,
             hermes_reports={},
@@ -373,7 +373,7 @@ class TestImageOptimizationInsightIntegration:
                 is_code_signature_valid=True,
                 code_signature_errors=[],
             ),
-            file_analysis=FileAnalysis(files=[], directories=[]),
+            file_analysis=FileAnalysis(items=[]),
             binary_analysis=[],
             treemap=None,
             hermes_reports={},

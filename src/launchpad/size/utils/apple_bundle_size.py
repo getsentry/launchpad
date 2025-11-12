@@ -44,6 +44,11 @@ def _calculate_app_store_size(bundle_url: Path) -> int:
     total_size = 0
     file_count = 0
 
+    # Include the root directory's own entry size
+    root_dir_size = to_nearest_block_size(get_file_size(bundle_url), APPLE_FILESYSTEM_BLOCK_SIZE)
+    total_size += root_dir_size
+    logger.debug(f"Root directory size: {root_dir_size}")
+
     for file_path in bundle_url.rglob("*"):
         logger.debug(f"Processing file: {file_path.relative_to(bundle_url)}")
         if file_path.is_symlink():

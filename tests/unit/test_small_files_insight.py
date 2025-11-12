@@ -45,7 +45,7 @@ class TestSmallFilesInsight:
             )
             large_files.append(large_file)
 
-        file_analysis = FileAnalysis(files=small_files + large_files, directories=[])
+        file_analysis = FileAnalysis(items=small_files + large_files)
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -80,7 +80,7 @@ class TestSmallFilesInsight:
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -110,7 +110,7 @@ class TestSmallFilesInsight:
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -145,7 +145,7 @@ class TestSmallFilesInsight:
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -160,7 +160,7 @@ class TestSmallFilesInsight:
 
     def test_generate_with_empty_file_list(self):
         """Test that no insight is generated when there are no files."""
-        file_analysis = FileAnalysis(files=[], directories=[])
+        file_analysis = FileAnalysis(items=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -200,7 +200,7 @@ class TestSmallFilesInsight:
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -253,7 +253,7 @@ class TestSmallFilesInsight:
             )
             files.append(file)
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

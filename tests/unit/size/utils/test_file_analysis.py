@@ -202,7 +202,7 @@ class TestAnalyzeAppleFiles:
         assert files["no_extension"].file_type in ["text", "unknown"]
 
     def test_directory_size_calculation(self, mock_xcarchive, temp_app_bundle):
-        """Test that directory sizes are calculated correctly from children."""
+        """Test that directory sizes store the directory's own entry size."""
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
         mock_xcarchive.get_asset_catalog_details.return_value = []
 
@@ -212,10 +212,10 @@ class TestAnalyzeAppleFiles:
         assert len(root_dirs) == 1
         root_dir = root_dirs[0]
 
-        # Root directory size should be sum of all file sizes
-        assert root_dir.size == sum(
-            to_nearest_block_size(size, APPLE_FILESYSTEM_BLOCK_SIZE) for size in self.BASE_EXPECTED_FILES.values()
-        )
+        # Directory size should be the directory's own entry size, not including children
+        # Children's sizes are added separately in the treemap
+        assert root_dir.size > 0
+        assert root_dir.size == to_nearest_block_size(temp_app_bundle.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
     def test_directory_hashing(self, mock_xcarchive, temp_app_bundle):
         """Test that directory hashes are computed from child hashes."""
@@ -311,7 +311,9 @@ class TestAnalyzeAppleFiles:
             assert len(result.directories) == 1
             root_dir = result.directories[0]
             assert root_dir.path == ""
-            assert root_dir.size == 0
+            # Directory has its own entry size even when empty
+            assert root_dir.size > 0
+            assert root_dir.size == to_nearest_block_size(empty_bundle.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
     @patch("subprocess.run")
     def test_file_type_detection_fallback(self, mock_subprocess, mock_xcarchive, temp_app_bundle):

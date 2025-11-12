@@ -54,7 +54,7 @@ class TestHermesDebugInfoInsight:
             "file_size": 102400,
         }
 
-        file_analysis = FileAnalysis(files=[hermes_file], directories=[])
+        file_analysis = FileAnalysis(items=[hermes_file])
         hermes_reports = {"assets/index.jsbundle": hermes_report}
 
         insights_input = InsightsInput(
@@ -111,7 +111,7 @@ class TestHermesDebugInfoInsight:
             "file_size": 102400,
         }
 
-        file_analysis = FileAnalysis(files=[hermes_file], directories=[])
+        file_analysis = FileAnalysis(items=[hermes_file])
         hermes_reports = {"assets/index.jsbundle": hermes_report}
 
         insights_input = InsightsInput(
@@ -139,7 +139,7 @@ class TestHermesDebugInfoInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[non_hermes_file], directories=[])
+        file_analysis = FileAnalysis(items=[non_hermes_file])
         hermes_reports: dict[str, HermesReport] = {}
 
         insights_input = InsightsInput(
@@ -166,7 +166,7 @@ class TestHermesDebugInfoInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[hermes_file], directories=[])
+        file_analysis = FileAnalysis(items=[hermes_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -224,7 +224,7 @@ class TestHermesDebugInfoInsight:
             "file_size": 102400,
         }
 
-        file_analysis = FileAnalysis(files=[hermes_file_1, hermes_file_2], directories=[])
+        file_analysis = FileAnalysis(items=[hermes_file_1, hermes_file_2])
         hermes_reports = {
             "assets/index.jsbundle": hermes_report_1,
             "assets/vendor.hbc": hermes_report_2,

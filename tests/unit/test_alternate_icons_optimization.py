@@ -60,7 +60,7 @@ class TestAlternateIconsOptimizationInsight:
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=app_info,
             file_analysis=file_analysis,
@@ -84,7 +84,7 @@ class TestAlternateIconsOptimizationInsight:
         )
 
         files = []
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=app_info,
             file_analysis=file_analysis,
@@ -159,7 +159,7 @@ class TestAlternateIconsOptimizationInsight:
                 ),
             ]
 
-            file_analysis = FileAnalysis(files=files, directories=[])
+            file_analysis = FileAnalysis(items=files)
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
@@ -235,7 +235,7 @@ class TestAlternateIconsOptimizationInsight:
                 ),
             ]
 
-            file_analysis = FileAnalysis(files=files, directories=[])
+            file_analysis = FileAnalysis(items=files)
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
@@ -280,7 +280,7 @@ class TestAlternateIconsOptimizationInsight:
             ),
         ]
 
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         insights_input = InsightsInput(
             app_info=app_info,
             file_analysis=file_analysis,
@@ -332,7 +332,7 @@ class TestAlternateIconsOptimizationInsight:
                 ),
             ]
 
-            file_analysis = FileAnalysis(files=files, directories=[])
+            file_analysis = FileAnalysis(items=files)
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
@@ -400,7 +400,7 @@ class TestAlternateIconsOptimizationInsight:
                 ),
             ]
 
-            file_analysis = FileAnalysis(files=files, directories=[])
+            file_analysis = FileAnalysis(items=files)
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,

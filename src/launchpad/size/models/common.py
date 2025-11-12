@@ -29,33 +29,22 @@ class FileAnalysis(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    files: List[FileInfo] = Field(..., description="List of all files and directories in the bundle")
-    directories: List[FileInfo] = Field(..., description="List of all directories in the bundle")
+    items: List[FileInfo] = Field(..., description="List of all files and directories in the bundle")
+
+    @property
+    def files(self) -> List[FileInfo]:
+        """Files only (excluding directories)."""
+        return [item for item in self.items if not item.is_dir]
+
+    @property
+    def directories(self) -> List[FileInfo]:
+        """Directories only."""
+        return [item for item in self.items if item.is_dir]
 
     @property
     def total_size(self) -> int:
-        """Total bundle size in bytes (directories have size 0)."""
-        return sum(f.size for f in self.files)
-
-    @property
-    def file_count(self) -> int:
-        """Total number of files and directories."""
-        return len(self.files)
-
-    @property
-    def files_only_count(self) -> int:
-        """Total number of files (excluding directories)."""
-        return len([f for f in self.files if not f.is_dir])
-
-    @property
-    def directory_count(self) -> int:
-        """Total number of directories."""
-        return len([f for f in self.files if f.is_dir])
-
-    @property
-    def file_type_sizes(self) -> Dict[str, int]:
-        """Total size by file type."""
-        return {file.file_type: file.size for file in self.files}
+        """Total size in bytes including both files and directory entries."""
+        return sum(item.size for item in self.items)
 
 
 class FileInfo(BaseModel):

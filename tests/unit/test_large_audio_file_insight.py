@@ -41,7 +41,7 @@ class TestLargeAudioFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_audio_1, large_audio_2, small_audio], directories=[])
+        file_analysis = FileAnalysis(items=[large_audio_1, large_audio_2, small_audio])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -85,7 +85,7 @@ class TestLargeAudioFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_audio_1, small_audio_2], directories=[])
+        file_analysis = FileAnalysis(items=[small_audio_1, small_audio_2])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -99,7 +99,7 @@ class TestLargeAudioFileInsight:
         assert result is None
 
     def test_generate_with_empty_file_list(self):
-        file_analysis = FileAnalysis(files=[], directories=[])
+        file_analysis = FileAnalysis(items=[])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -123,7 +123,7 @@ class TestLargeAudioFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[threshold_audio], directories=[])
+        file_analysis = FileAnalysis(items=[threshold_audio])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -165,7 +165,7 @@ class TestLargeAudioFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[large_audio, large_image, small_audio], directories=[])
+        file_analysis = FileAnalysis(items=[large_audio, large_image, small_audio])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -223,7 +223,7 @@ class TestLargeAudioFileInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[mp3_file, aac_file, flac_file, ogg_file], directories=[])
+        file_analysis = FileAnalysis(items=[mp3_file, aac_file, flac_file, ogg_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),

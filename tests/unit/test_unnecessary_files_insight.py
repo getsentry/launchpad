@@ -19,7 +19,7 @@ class TestUnnecessaryFilesInsight:
 
     def _create_insights_input(self, files: list[FileInfo]) -> InsightsInput:
         """Helper method to create InsightsInput for testing."""
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         return InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,

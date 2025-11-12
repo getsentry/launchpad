@@ -34,7 +34,7 @@ class TestVideoCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[mov_file, mp4_file], directories=[])
+        file_analysis = FileAnalysis(items=[mov_file, mp4_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -85,7 +85,7 @@ class TestVideoCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[image_file], directories=[])
+        file_analysis = FileAnalysis(items=[image_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -109,7 +109,7 @@ class TestVideoCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[small_mov], directories=[])
+        file_analysis = FileAnalysis(items=[small_mov])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
@@ -432,7 +432,7 @@ class TestVideoCompressionInsight:
             is_dir=False,
         )
 
-        file_analysis = FileAnalysis(files=[mov_file], directories=[])
+        file_analysis = FileAnalysis(items=[mov_file])
 
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
