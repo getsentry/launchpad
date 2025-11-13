@@ -190,16 +190,12 @@ def analyze_apple_files(
 
     directories_with_hashes = _hash_directories_bottom_up(dirs, files, children_by_dir, algo="sha256")
 
-    # Combine files and directories into a single list
     all_items = list(files.values()) + list(directories_with_hashes.values())
     return FileAnalysis(items=all_items)
 
 
 def _make_directory_info(full_path: Path, rel: str) -> FileInfo:
-    try:
-        dir_size = to_nearest_block_size(full_path.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
-    except OSError:
-        dir_size = 0
+    dir_size = to_nearest_block_size(full_path.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
     return FileInfo(
         full_path=full_path,
@@ -267,7 +263,6 @@ def _hash_directories_bottom_up(
         )
         updated[d.path] = updated_dir
         dir_hash_lookup[d.path] = digest
-        # For recursive size calculation, store dir's own size + children
         dir_size_lookup[d.path] = d.size + children_total_size
 
     return updated
