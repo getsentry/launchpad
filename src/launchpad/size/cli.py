@@ -151,22 +151,6 @@ def _print_apple_table_output(results: AppleAnalysisResults) -> None:
     file_analysis = results.file_analysis
     _print_file_analysis_table(file_analysis)
 
-    # File Types Table
-    if file_analysis.file_type_sizes:
-        type_table = Table(title="File Types", show_header=True, header_style="bold yellow")
-        type_table.add_column("Type", style="cyan")
-        type_table.add_column("Size", style="white")
-        type_table.add_column("Percentage", style="green")
-
-        total_size = file_analysis.total_size
-        for file_type, size in sorted(file_analysis.file_type_sizes.items(), key=lambda x: x[1], reverse=True)[
-            :10
-        ]:  # Top 10 file types
-            percentage = (size / total_size) * 100 if total_size > 0 else 0
-            type_table.add_row(file_type or "unknown", _format_bytes(size), f"{percentage:.1f}%")
-
-        console.print(type_table)
-
 
 def _print_android_table_output(results: AndroidAnalysisResults) -> None:
     """Print results in table format to console."""
