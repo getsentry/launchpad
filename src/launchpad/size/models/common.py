@@ -10,6 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .treemap import TreemapResults, TreemapType
 
+# Only analyses of the same major version can be compared.
+# Analyses with different minor versions will skip treemap comparisons
+# so we can update treemap logic and not give users confusing diffs.
+# Patch versions are ignored.
 ANDROID_ANALYSIS_VERSION = "1.0.0"
 APPLE_ANALYSIS_VERSION = "1.1.0"
 
