@@ -62,13 +62,12 @@ class TreemapBuilder:
     def build_file_treemap(self, file_analysis: FileAnalysis) -> TreemapResults:
         logger.info("size.treemap.build_file_treemap", extra={"platform": self.platform})
 
-        # Create lookup map for directory entry sizes
         self.directory_sizes = {d.path: d.size for d in file_analysis.directories}
 
         children = self._build_file_hierarchy(file_analysis)
         total_size = sum(child.size for child in children)
 
-        # Add root directory's own entry size if present
+        # Add root directory's own entry size
         root_dir_size = self.directory_sizes.get("", 0)
         total_size += root_dir_size
 
@@ -199,7 +198,7 @@ class TreemapBuilder:
 
             total_size = sum(child.size for child in children)
 
-            # Add this directory's own entry size from file_analysis.directories
+            # Add this directory's own entry size
             dir_entry_size = self.directory_sizes.get(dir_path, 0)
             total_size += dir_entry_size
 
