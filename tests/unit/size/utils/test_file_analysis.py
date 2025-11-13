@@ -8,10 +8,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from launchpad.artifacts.apple.zipped_xcarchive import (
-    AssetCatalogElement,
-    ZippedXCArchive,
-)
+from launchpad.artifacts.apple.zipped_xcarchive import AssetCatalogElement, ZippedXCArchive
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import FileAnalysis
 from launchpad.size.models.treemap import TreemapType
@@ -212,9 +209,7 @@ class TestAnalyzeAppleFiles:
         assert len(root_dirs) == 1
         root_dir = root_dirs[0]
 
-        # Directory size should be the directory's own entry size, not including children
-        # Children's sizes are added separately in the treemap
-        assert root_dir.size > 0
+        assert root_dir.size == 4096
         assert root_dir.size == to_nearest_block_size(temp_app_bundle.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
     def test_directory_hashing(self, mock_xcarchive, temp_app_bundle):
@@ -311,8 +306,7 @@ class TestAnalyzeAppleFiles:
             assert len(result.directories) == 1
             root_dir = result.directories[0]
             assert root_dir.path == ""
-            # Directory has its own entry size even when empty
-            assert root_dir.size > 0
+            assert root_dir.size == 4096
             assert root_dir.size == to_nearest_block_size(empty_bundle.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
     @patch("subprocess.run")
