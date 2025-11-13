@@ -43,6 +43,7 @@ from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
+from src.launchpad.size.models.common import APPLE_ANALYSIS_VERSION
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -240,6 +241,7 @@ class AppleAppAnalyzer:
 
         analysis_duration = time.time() - start_time
         results = AppleAnalysisResults(
+            analysis_version=APPLE_ANALYSIS_VERSION,
             app_info=app_info,
             file_analysis=file_analysis,
             treemap=treemap,

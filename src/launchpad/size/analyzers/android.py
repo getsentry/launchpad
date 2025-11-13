@@ -14,19 +14,13 @@ from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
-from launchpad.size.insights.common.hermes_debug_info import (
-    HermesDebugInfoInsight,
-)
+from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsight
 from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.android import (
-    AndroidAnalysisResults,
-    AndroidAppInfo,
-    AndroidInsightResults,
-)
-from launchpad.size.models.common import FileAnalysis, FileInfo
+from launchpad.size.models.android import AndroidAnalysisResults, AndroidAppInfo, AndroidInsightResults
+from launchpad.size.models.common import ANDROID_ANALYSIS_VERSION, FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.android_bundle_size import calculate_apk_download_size, calculate_apk_install_size
@@ -127,6 +121,7 @@ class AndroidAnalyzer:
         analysis_duration = time.time() - start_time
         return AndroidAnalysisResults(
             generated_at=datetime.now(timezone.utc),
+            analysis_version=ANDROID_ANALYSIS_VERSION,
             app_info=app_info,
             treemap=treemap,
             file_analysis=file_analysis,
