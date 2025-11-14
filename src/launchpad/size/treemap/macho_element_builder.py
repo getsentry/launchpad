@@ -140,6 +140,8 @@ class MachOElementBuilder(TreemapElementBuilder):
         # Segments/sections (minus symbol bytes)
         self._add_segments(binary_analysis, binary_children, section_subtractions)
 
+        self._add_unmapped_region(binary_analysis, binary_children)
+
         return binary_children
 
     def _add_swift_symbols(
@@ -689,3 +691,17 @@ class MachOElementBuilder(TreemapElementBuilder):
         if any(d in name_lower for d in ["__data", "__bss", "__common"]) or segment_name_lower == "__data":
             return BinaryTag.DATA_SEGMENT
         return None
+
+    def _add_unmapped_region(self, binary_analysis: MachOBinaryAnalysis, binary_children: List[TreemapElement]) -> None:
+        total_accounted = sum(c.size for c in binary_children)
+        if binary_analysis.executable_size > total_accounted:
+            binary_children.append(
+                TreemapElement(
+                    name="Unmapped",
+                    size=binary_analysis.executable_size - total_accounted,
+                    type=TreemapType.UNMAPPED,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
