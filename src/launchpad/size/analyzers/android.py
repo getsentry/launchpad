@@ -13,6 +13,7 @@ from launchpad.parsers.android.dex.types import ClassDefinition
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.android.image_optimization import WebPOptimizationInsight
+from launchpad.size.insights.android.multiple_native_library_arch import MultipleNativeLibraryArchInsight
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
 from launchpad.size.insights.common.hermes_debug_info import HermesDebugInfoInsight
 from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
@@ -116,6 +117,7 @@ class AndroidAnalyzer:
                 large_videos=LargeVideoFileInsight().generate(insights_input),
                 large_audio=LargeAudioFileInsight().generate(insights_input),
                 hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
+                multiple_native_library_archs=MultipleNativeLibraryArchInsight().generate(insights_input),
             )
 
         analysis_duration = time.time() - start_time

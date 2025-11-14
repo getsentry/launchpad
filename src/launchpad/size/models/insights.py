@@ -234,3 +234,12 @@ class VideoCompressionInsightResult(BaseInsightResult):
     """
 
     files: List[VideoCompressionFileSavingsResult] = Field(..., description="Video files that can be compressed")
+
+
+class MultipleNativeLibraryArchInsightResult(FilesInsightResult):
+    """Results from multiple native library architectures analysis.
+
+    Files contain native library files for non-arm64-v8a architectures that could be removed.
+    """
+
+    pass

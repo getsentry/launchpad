@@ -7,6 +7,7 @@ from .insights import (
     LargeAudioFileInsightResult,
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
+    MultipleNativeLibraryArchInsightResult,
     WebPOptimizationInsightResult,
 )
 
@@ -20,6 +21,9 @@ class AndroidInsightResults(BaseModel):
     large_videos: LargeVideoFileInsightResult | None = Field(None, description="Large videos analysis")
     large_audio: LargeAudioFileInsightResult | None = Field(None, description="Large audio files analysis")
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
+    multiple_native_library_archs: MultipleNativeLibraryArchInsightResult | None = Field(
+        None, description="Multiple native library architectures analysis"
+    )
 
 
 class AndroidAppInfo(BaseAppInfo):

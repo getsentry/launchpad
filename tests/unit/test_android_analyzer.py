@@ -1,5 +1,3 @@
-"""Tests for Android analyzer with duplicate file detection."""
-
 from pathlib import Path
 from typing import cast
 
@@ -29,12 +27,19 @@ class TestAndroidAnalyzer:
 
         assert results.insights is not None
         assert results.insights.duplicate_files is not None
+        assert results.insights.multiple_native_library_archs is not None
 
         duplicate_insight = results.insights.duplicate_files
         assert hasattr(duplicate_insight, "groups")
         assert hasattr(duplicate_insight, "total_savings")
         assert isinstance(duplicate_insight.total_savings, int)
         assert duplicate_insight.total_savings == 51709
+
+        multiple_native_library_archs_insight = results.insights.multiple_native_library_archs
+        assert hasattr(multiple_native_library_archs_insight, "files")
+        assert hasattr(multiple_native_library_archs_insight, "total_savings")
+        assert isinstance(multiple_native_library_archs_insight.total_savings, int)
+        assert multiple_native_library_archs_insight.total_savings == 1891208
 
     def test_duplicate_files_have_hashes(self, hn_apk: Path, android_analyzer: AndroidAnalyzer) -> None:
         """Test that all files have MD5 hashes for duplicate detection."""
