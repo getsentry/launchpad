@@ -14,7 +14,7 @@ class TestMultipleNativeLibraryArchInsight:
         self.insight = MultipleNativeLibraryArchInsight()
 
     def _create_insights_input(self, files: list[FileInfo]) -> InsightsInput:
-        file_analysis = FileAnalysis(files=files, directories=[])
+        file_analysis = FileAnalysis(items=files)
         return InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=file_analysis,
