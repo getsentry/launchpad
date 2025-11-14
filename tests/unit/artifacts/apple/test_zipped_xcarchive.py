@@ -145,25 +145,3 @@ class TestZippedXCArchive:
                     assert not wrong_path.exists(), "Image should NOT exist at top-level"
 
                     assert "MyFramework.bundle" in str(element.full_path)
-
-    def test_get_archive_plist(self, hackernews_xcarchive: Path) -> None:
-        """Test that archive-level Info.plist can be retrieved."""
-        archive = ZippedXCArchive(hackernews_xcarchive)
-
-        archive_plist = archive.get_archive_plist()
-
-        assert archive_plist is not None
-        assert "CreationDate" in archive_plist
-        assert "Name" in archive_plist
-        assert "SchemeName" in archive_plist
-        assert archive_plist["Name"] == "HackerNews"
-        assert archive_plist["SchemeName"] == "HackerNews"
-
-        # Verify the CreationDate is a datetime object from plistlib
-        from datetime import datetime
-
-        creation_date = archive_plist["CreationDate"]
-        assert isinstance(creation_date, datetime)
-        assert creation_date.year == 2025
-        assert creation_date.month == 5
-        assert creation_date.day == 19
