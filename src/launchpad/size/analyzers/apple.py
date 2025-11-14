@@ -299,7 +299,8 @@ class AppleAppAnalyzer:
             certificate_expiration_date = self._extract_certificate_expiration_date(provisioning_profile)
 
         archive_plist = xcarchive.get_archive_plist()
-        build_date = self.parse_plist_date(archive_plist.get("CreationDate") if archive_plist else None)
+        if archive_plist:
+            build_date = self.parse_plist_date(archive_plist.get("CreationDate"))
 
         supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
         is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
