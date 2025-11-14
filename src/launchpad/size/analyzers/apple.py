@@ -563,6 +563,16 @@ class AppleAppAnalyzer:
 
                     section_infos: List[SectionInfo] = []
                     for section in command.sections:
+                        if section.segment.file_size == 0:
+                            logger.warning(
+                                "size.apple.skip_segment.zero_file_size",
+                                extra={
+                                    "segment_name": segment_name,
+                                    "section_name": section.name,
+                                },
+                            )
+                            continue
+
                         section_name = self._parse_lief_name(section.name)
                         is_zerofill = section.type == lief.MachO.Section.TYPE.ZEROFILL
                         section_infos.append(SectionInfo(name=section_name, size=section.size, is_zerofill=is_zerofill))

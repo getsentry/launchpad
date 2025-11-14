@@ -32,13 +32,9 @@ class SwiftSymbolTypeAggregator:
         Includes:
         - _$s: Modern Swift mangling
         - _Tt: Older Swift mangling
-        - __IVARS__Tt: ObjC runtime metadata for Swift classes
-        - __DATA__Tt: Data section symbols for Swift types
+        - __Tt: Swift classes exposed to ObjC with metadata
         """
-        if mangled_name.startswith("_$s") or mangled_name.startswith("_Tt"):
-            return True
-        # Swift classes exposed to ObjC have metadata with Swift mangling
-        if "__Tt" in mangled_name:
+        if mangled_name.startswith("_$s") or mangled_name.startswith("_Tt") or mangled_name.startswith("__Tt"):
             return True
         return False
 
