@@ -505,8 +505,6 @@ class MachOElementBuilder(TreemapElementBuilder):
                 segment_children.extend(linkedit_children)
                 linkedit_children_size = sum(c.size for c in linkedit_children)
 
-            displayed_section_size = sum(c.size for c in segment_children)
-
             seg_total_size = getattr(segment, "file_size", None)
             if not isinstance(seg_total_size, int) or seg_total_size <= 0:
                 seg_total_size = segment.size
@@ -515,7 +513,21 @@ class MachOElementBuilder(TreemapElementBuilder):
                 sum(s.size for s in segment.sections if not s.is_zerofill) if segment.sections else 0
             )
             segment_overhead = seg_total_size - total_section_declared - linkedit_children_size
-            actual_segment_size = displayed_section_size + max(0, segment_overhead)
+
+            # Add unmapped space within the segment (padding, alignment, etc.)
+            if segment_overhead > 0:
+                segment_children.append(
+                    TreemapElement(
+                        name="Unmapped",
+                        size=segment_overhead,
+                        type=TreemapType.UNMAPPED,
+                        path=None,
+                        is_dir=False,
+                        children=[],
+                    )
+                )
+
+            actual_segment_size = sum(c.size for c in segment_children)
 
             if actual_segment_size > 0:
                 binary_children.append(

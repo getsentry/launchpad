@@ -357,11 +357,14 @@ class TestTreemapGeneration:
         assert linkedit_size == 269360
 
         linkedit_children = {child.name: child for child in linkedit.children}
-        assert len(linkedit_children) == 6, "__LINKEDIT should have exactly 6 child components"
+        assert len(linkedit_children) == 7, (
+            "__LINKEDIT should have exactly 7 child components (including unmapped space)"
+        )
 
         assert "Symbol Table" in linkedit_children, "Symbol table should be present"
         assert "String Table" in linkedit_children, "String table should be present"
         assert "Function Starts" in linkedit_children, "Function starts should be present"
+        assert "Unmapped" in linkedit_children, "Unmapped space should be present"
 
         assert linkedit_children["Symbol Table"].size == 11072, "Symbol table size mismatch"
         assert linkedit_children["String Table"].size == 16584, "String table size mismatch"
@@ -369,6 +372,7 @@ class TestTreemapGeneration:
         assert linkedit_children["Chained Fixups"].size == 87616, "Chained fixups size mismatch"
         assert linkedit_children["Export Trie"].size == 85056, "Export trie size mismatch"
         assert linkedit_children["Code Signature"].size == 43488, "Code signature size mismatch"
+        assert linkedit_children["Unmapped"].size == 11960, "Unmapped space size mismatch"
 
         assert "Mach-O Header" in main_exe_sections
         assert main_exe_sections["Mach-O Header"].size == 32
@@ -390,10 +394,11 @@ class TestTreemapGeneration:
 
         assert main_exe.size == 3153920
 
-        # Children will sum slightly higher than parent due to accounting precision (7392 bytes = 0.23%)
+        # Children will sum slightly higher than parent due to accounting precision (7368 bytes = 0.23%)
+        # This includes per-segment unmapped space (padding/alignment) shown as separate children
         total_children_size = sum(child.size for child in main_exe.children)
-        assert total_children_size == 3161312, f"Children sum should be 3161312, got {total_children_size}"
-        expected_difference = 7392  # 0.23% accounting difference
+        assert total_children_size == 3161288, f"Children sum should be 3161288, got {total_children_size}"
+        expected_difference = 7368  # 0.23% accounting difference (includes per-segment unmapped space)
         actual_difference = total_children_size - main_exe.size
         assert actual_difference == expected_difference, (
             f"Expected {expected_difference} byte difference, got {actual_difference}"
