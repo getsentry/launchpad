@@ -287,8 +287,7 @@ class AppleAppAnalyzer:
         archive_plist = xcarchive.get_archive_plist()
         if archive_plist:
             creation_date = archive_plist.get("CreationDate")
-            if creation_date:
-                build_date = creation_date.isoformat()
+            build_date = creation_date.isoformat() if creation_date else None
 
         supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
         is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
