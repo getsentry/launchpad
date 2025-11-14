@@ -96,7 +96,6 @@ class ZippedXCArchive(AppleArtifact):
         if self._archive_plist is not None:
             return self._archive_plist
 
-        # Find the .xcarchive directory
         xcarchive_dirs = list(self._extract_dir.glob("*.xcarchive"))
         if not xcarchive_dirs:
             logger.debug(f"No .xcarchive directory found in {self._extract_dir}")
