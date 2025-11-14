@@ -15,7 +15,7 @@ from .treemap import TreemapResults, TreemapType
 # so we can update treemap logic and not give users confusing diffs.
 # Patch versions are ignored.
 ANDROID_ANALYSIS_VERSION = "1.0.0"
-APPLE_ANALYSIS_VERSION = "1.1.0"
+APPLE_ANALYSIS_VERSION = "1.2.0"
 
 
 class BaseAppInfo(BaseModel):

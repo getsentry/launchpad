@@ -222,7 +222,6 @@ class MachOElementBuilder(TreemapElementBuilder):
             type_tree: Dict[str, _SwiftTypeNode] = {}
 
             for group in type_groups:
-                # Use file size (excluding zerofill symbols) instead of total_size
                 file_size = group_file_sizes.get(id(group), 0)
                 if file_size == 0:
                     continue
@@ -270,7 +269,6 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         objc_classes: Dict[str, List[tuple[str, int]]] = {}
         for grp in symbol_info.objc_type_groups:
-            # Compute file size excluding zerofill symbols
             file_size = 0
             for sym in grp.symbols:
                 key = canonical_key(sym.segment_name, sym.section_name)
