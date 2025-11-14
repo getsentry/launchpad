@@ -78,7 +78,6 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         # Section bookkeeping for remaining size
         section_remaining: Dict[str, int] = {}
-        section_by_name: Dict[str, str] = {}  # section -> segment
         zerofill_sections_set: set[str] = set()
 
         for seg in binary_analysis.segments:
@@ -86,15 +85,13 @@ class MachOElementBuilder(TreemapElementBuilder):
                 key = f"{seg.name}.{sec.name}"
                 if not sec.is_zerofill:
                     section_remaining[key] = sec.size
-                    section_by_name[sec.name] = seg.name
                 else:
                     zerofill_sections_set.add(key)
 
         def canonical_key(seg_name: str | None, sec_name: str | None) -> str | None:
-            if not sec_name:
+            if not sec_name or not seg_name:
                 return None
-            seg = seg_name or section_by_name.get(sec_name)
-            return f"{seg}.{sec_name}" if seg else None
+            return f"{seg_name}.{sec_name}"
 
         def debit_section(seg_name: str | None, sec_name: str | None, sz: int) -> int:
             if sz <= 0:
