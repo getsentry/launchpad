@@ -268,12 +268,9 @@ class AppleAppAnalyzer:
                 dt = datetime.fromisoformat(date_value)
                 return dt.isoformat()
             except (ValueError, AttributeError):
-                # If parsing fails, return the original string
-                # This is defensive - we don't want to break on unexpected formats
                 logger.debug(f"Could not parse date string: {date_value}")
                 return date_value
 
-        # isinstance(date_value, datetime)
         return date_value.isoformat()
 
     @sentry_sdk.trace
