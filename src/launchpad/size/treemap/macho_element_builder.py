@@ -116,6 +116,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 section_subtractions,
                 debit_section,
                 canonical_key,
+                zerofill_sections_set,
             )
 
             self._add_objc_symbols(
@@ -124,6 +125,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 section_subtractions,
                 debit_section,
                 canonical_key,
+                zerofill_sections_set,
             )
 
             self._add_other_symbols(
@@ -132,6 +134,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 section_subtractions,
                 debit_section,
                 canonical_key,
+                zerofill_sections_set,
             )
 
         # Metadata
@@ -149,23 +152,39 @@ class MachOElementBuilder(TreemapElementBuilder):
         section_subtractions: Dict[str, int],
         debit_section: DebitFn,
         canonical_key: CanonKeyFn,
+        zerofill_sections: set[str],
     ) -> None:
         if not symbol_info.swift_type_groups:
             return
 
-        group_actual_sizes: Dict[int, int] = {}  # id(group) -> actual_debited_size
-
         swift_modules: Dict[str, List[SwiftSymbolTypeGroup]] = {}
+        # Track the actual size of each group (excluding zerofill symbols)
+        group_file_sizes: Dict[int, int] = {}
+
         for grp in symbol_info.swift_type_groups:
             swift_modules.setdefault(grp.module, []).append(grp)
-            actual_size = 0
+            file_size = 0
             for sym in grp.symbols:
+                # Skip symbols in zerofill sections - they don't occupy file space
+                key = canonical_key(sym.segment_name, sym.section_name)
+                if key and key in zerofill_sections:
+                    continue
+
+                file_size += sym.size
                 taken = debit_section(sym.segment_name, sym.section_name, sym.size)
-                actual_size += taken
                 if taken:
-                    key = canonical_key(sym.segment_name, sym.section_name)
                     section_subtractions[key] = section_subtractions.get(key, 0) + taken
-            group_actual_sizes[id(grp)] = actual_size
+                elif sym.size > 0:
+                    # This is a bug - symbol has size but couldn't debit
+                    logger.warning(
+                        "macho.treemap.symbol_not_debited",
+                        extra={
+                            "symbol": sym.mangled_name,
+                            "size": sym.size,
+                            "section": key,
+                        },
+                    )
+            group_file_sizes[id(grp)] = file_size
 
         def _ensure(node_map: Dict[str, _SwiftTypeNode], name: str) -> _SwiftTypeNode:
             if name not in node_map:
@@ -206,8 +225,9 @@ class MachOElementBuilder(TreemapElementBuilder):
             type_tree: Dict[str, _SwiftTypeNode] = {}
 
             for group in type_groups:
-                actual_size = group_actual_sizes.get(id(group), 0)
-                if actual_size == 0:
+                # Use file size (excluding zerofill symbols) instead of total_size
+                file_size = group_file_sizes.get(id(group), 0)
+                if file_size == 0:
                     continue
 
                 comps = group.components
@@ -223,7 +243,7 @@ class MachOElementBuilder(TreemapElementBuilder):
                 for i, comp in enumerate(comps):
                     node = _ensure(cur, comp)
                     if i == len(comps) - 1:
-                        node["self_size"] += actual_size
+                        node["self_size"] += file_size
                     cur = node["children"]
 
             module_children = _tree_to_treemap(type_tree)
@@ -246,18 +266,25 @@ class MachOElementBuilder(TreemapElementBuilder):
         section_subtractions: Dict[str, int],
         debit_section: DebitFn,
         canonical_key: CanonKeyFn,
+        zerofill_sections: set[str],
     ) -> None:
         if not symbol_info.objc_type_groups:
             return
 
         objc_classes: Dict[str, List[tuple[str, int]]] = {}
         for grp in symbol_info.objc_type_groups:
-            objc_classes.setdefault(grp.class_name, []).append((grp.method_name or "class", grp.total_size))
+            # Compute file size excluding zerofill symbols
+            file_size = 0
             for sym in grp.symbols:
+                key = canonical_key(sym.segment_name, sym.section_name)
+                if key and key in zerofill_sections:
+                    continue
+                file_size += sym.size
                 taken = debit_section(sym.segment_name, sym.section_name, sym.size)
                 if taken:
-                    key = canonical_key(sym.segment_name, sym.section_name)
                     section_subtractions[key] = section_subtractions.get(key, 0) + taken
+
+            objc_classes.setdefault(grp.class_name, []).append((grp.method_name or "class", file_size))
 
         for cls_name, meths in objc_classes.items():
             meth_elems = [
@@ -289,6 +316,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         section_subtractions: Dict[str, int],
         debit_section: DebitFn,
         canonical_key: CanonKeyFn,
+        zerofill_sections: set[str],
     ) -> None:
         other_symbols_children: List[TreemapElement] = []
         total_other_symbols_size = 0
@@ -296,23 +324,25 @@ class MachOElementBuilder(TreemapElementBuilder):
         # C++
         if symbol_info.cpp_type_groups:
             cpp_syms_with_size = []
-            cpp_actual_size = 0
             for grp in symbol_info.cpp_type_groups:
                 for sym in grp.symbols:
-                    taken = debit_section(sym.segment_name, sym.section_name, sym.size)
-                    if taken > 0:
+                    key = canonical_key(sym.segment_name, sym.section_name)
+                    if key and key in zerofill_sections:
+                        continue
+                    if sym.size > 0:
                         cpp_syms_with_size.append(sym)
-                        cpp_actual_size += taken
-                        key = canonical_key(sym.segment_name, sym.section_name)
-                        section_subtractions[key] = section_subtractions.get(key, 0) + taken
+                        taken = debit_section(sym.segment_name, sym.section_name, sym.size)
+                        if taken:
+                            section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if cpp_syms_with_size:
                 cpp_syms_with_size.sort(key=lambda s: s.size, reverse=True)
-                total_other_symbols_size += cpp_actual_size
+                cpp_total_size = sum(s.size for s in cpp_syms_with_size)
+                total_other_symbols_size += cpp_total_size
                 other_symbols_children.append(
                     TreemapElement(
                         name="C++",
-                        size=cpp_actual_size,
+                        size=cpp_total_size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
@@ -333,22 +363,23 @@ class MachOElementBuilder(TreemapElementBuilder):
         # Compiler-generated
         if symbol_info.compiler_generated_symbols:
             comp_syms = []
-            comp_actual_size = 0
             for sym in symbol_info.compiler_generated_symbols:
+                key = canonical_key(sym.segment_name, sym.section_name)
+                if key and key in zerofill_sections:
+                    continue
                 if sym.size > 0:
+                    comp_syms.append(sym)
                     taken = debit_section(sym.segment_name, sym.section_name, sym.size)
-                    if taken > 0:
-                        comp_syms.append(sym)
-                        comp_actual_size += taken
-                        key = canonical_key(sym.segment_name, sym.section_name)
+                    if taken:
                         section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if comp_syms:
-                total_other_symbols_size += comp_actual_size
+                comp_total_size = sum(s.size for s in comp_syms)
+                total_other_symbols_size += comp_total_size
                 other_symbols_children.append(
                     TreemapElement(
                         name="Compiler Generated",
-                        size=comp_actual_size,
+                        size=comp_total_size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
@@ -359,23 +390,24 @@ class MachOElementBuilder(TreemapElementBuilder):
         # C / other
         if symbol_info.other_symbols:
             other_syms = []
-            c_actual_size = 0
             for sym in symbol_info.other_symbols:
+                key = canonical_key(sym.segment_name, sym.section_name)
+                if key and key in zerofill_sections:
+                    continue
                 if sym.size > 0:
+                    other_syms.append(sym)
                     taken = debit_section(sym.segment_name, sym.section_name, sym.size)
-                    if taken > 0:
-                        other_syms.append(sym)
-                        c_actual_size += taken
-                        key = canonical_key(sym.segment_name, sym.section_name)
+                    if taken:
                         section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if other_syms:
                 other_syms.sort(key=lambda s: s.size, reverse=True)
-                total_other_symbols_size += c_actual_size
+                c_total_size = sum(s.size for s in other_syms)
+                total_other_symbols_size += c_total_size
                 other_symbols_children.append(
                     TreemapElement(
                         name="C Functions",
-                        size=c_actual_size,
+                        size=c_total_size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
