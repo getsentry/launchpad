@@ -2,6 +2,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from launchpad.size.insights.insight import Insight, InsightsInput
+from launchpad.size.models.common import FileInfo
 from launchpad.size.models.insights import (
     FileSavingsResult,
     MultipleNativeLibraryArchInsightResult,
@@ -18,23 +19,13 @@ class MultipleNativeLibraryArchInsight(Insight[MultipleNativeLibraryArchInsightR
     x86, x86_64, and armeabi-v7a libraries that can be removed.
     """
 
-    # Architecture directory names to their user-friendly names
-    ARCHITECTURE_MAPPING = {
-        "x86": "x86 (32-bit)",
-        "x86_64": "x86_64 (64-bit)",
-        "armeabi-v7a": "ARM 32-bit",
-        "arm64-v8a": "ARM 64-bit",
-    }
-
-    # Architectures that can typically be removed (keeping only arm64-v8a)
+    # Architectures that can most likely be removed (keeping only arm64-v8a)
     REMOVABLE_ARCHITECTURES = {"x86", "x86_64", "armeabi-v7a"}
 
     def generate(self, input: InsightsInput) -> MultipleNativeLibraryArchInsightResult | None:
-        # Group native libraries by architecture
-        arch_to_files: dict[str, list[tuple[str, int]]] = defaultdict(list)
+        arch_to_files: dict[str, list[FileInfo]] = defaultdict(list)
 
         for file_info in input.file_analysis.files:
-            # Check if this is a native library (.so file)
             if not file_info.path.endswith(".so"):
                 continue
 
@@ -42,30 +33,27 @@ class MultipleNativeLibraryArchInsight(Insight[MultipleNativeLibraryArchInsightR
             path_parts = Path(file_info.path).parts
             if len(path_parts) >= 3 and path_parts[0] == "lib":
                 arch = path_parts[1]
-                if arch in self.ARCHITECTURE_MAPPING:
-                    arch_to_files[arch].append((file_info.path, file_info.size))
-                    logger.debug(f"Found native library {file_info.path} for architecture {arch}")
+                arch_to_files[arch].append(file_info)
+                logger.debug(f"Found native library {file_info.path} for architecture {arch}")
 
         # If we only have arm64-v8a or no native libraries, no optimization needed
         if len(arch_to_files) <= 1:
             return None
 
-        # If we have multiple architectures but no arm64-v8a, this is unusual
+        # Shouldn't happen, but log in case
         if "arm64-v8a" not in arch_to_files:
             logger.warning("Found native libraries but no arm64-v8a architecture")
             return None
 
-        # Calculate potential savings from removing non-arm64-v8a architectures
         removable_files: list[FileSavingsResult] = []
         total_savings = 0
 
         for arch, files in arch_to_files.items():
             if arch in self.REMOVABLE_ARCHITECTURES:
-                arch_display = self.ARCHITECTURE_MAPPING[arch]
-                for file_path, file_size in files:
-                    removable_files.append(FileSavingsResult(file_path=file_path, total_savings=file_size))
-                    total_savings += file_size
-                    logger.debug(f"Removable {arch_display} library: {file_path} ({file_size} bytes)")
+                for file_info in files:
+                    removable_files.append(FileSavingsResult(file_path=file_info.path, total_savings=file_info.size))
+                    total_savings += file_info.size
+                    logger.debug(f"Removable {arch} library: {file_info.path} ({file_info.size} bytes)")
 
         if not removable_files:
             return None
