@@ -79,12 +79,11 @@ class MachOElementBuilder(TreemapElementBuilder):
         # Section bookkeeping for remaining size
         section_remaining: Dict[str, int] = {}
         section_by_name: Dict[str, str] = {}  # section -> segment
-        zerofill_sections_set: set[str] = set()  # Track zero-fill section keys
+        zerofill_sections_set: set[str] = set()
 
         for seg in binary_analysis.segments:
             for sec in seg.sections or []:
                 key = f"{seg.name}.{sec.name}"
-                # Only track non-zerofill sections for file size accounting
                 if not sec.is_zerofill:
                     section_remaining[key] = sec.size
                     section_by_name[sec.name] = seg.name
@@ -101,8 +100,6 @@ class MachOElementBuilder(TreemapElementBuilder):
             if sz <= 0:
                 return 0
             key = canonical_key(seg_name, sec_name)
-            # If section not in section_remaining, it's likely a zero-fill section
-            # Zero-fill sections don't occupy file space, so we don't debit from them
             if not key or key not in section_remaining:
                 return 0
             take = min(sz, section_remaining[key])
@@ -156,7 +153,6 @@ class MachOElementBuilder(TreemapElementBuilder):
         if not symbol_info.swift_type_groups:
             return
 
-        # Track actual debited size per group (not just requested size)
         group_actual_sizes: Dict[int, int] = {}  # id(group) -> actual_debited_size
 
         swift_modules: Dict[str, List[SwiftSymbolTypeGroup]] = {}
@@ -210,10 +206,9 @@ class MachOElementBuilder(TreemapElementBuilder):
             type_tree: Dict[str, _SwiftTypeNode] = {}
 
             for group in type_groups:
-                # Use actual debited size, not requested size
                 actual_size = group_actual_sizes.get(id(group), 0)
                 if actual_size == 0:
-                    continue  # Skip groups with no actual size
+                    continue
 
                 comps = group.components
                 if comps and comps[0] == module_name:
@@ -301,7 +296,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         # C++
         if symbol_info.cpp_type_groups:
             cpp_syms_with_size = []
-            cpp_actual_size = 0  # Track actual debited size
+            cpp_actual_size = 0
             for grp in symbol_info.cpp_type_groups:
                 for sym in grp.symbols:
                     taken = debit_section(sym.segment_name, sym.section_name, sym.size)
@@ -313,11 +308,11 @@ class MachOElementBuilder(TreemapElementBuilder):
 
             if cpp_syms_with_size:
                 cpp_syms_with_size.sort(key=lambda s: s.size, reverse=True)
-                total_other_symbols_size += cpp_actual_size  # Use actual debited size
+                total_other_symbols_size += cpp_actual_size
                 other_symbols_children.append(
                     TreemapElement(
                         name="C++",
-                        size=cpp_actual_size,  # Use actual debited size
+                        size=cpp_actual_size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
@@ -338,7 +333,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         # Compiler-generated
         if symbol_info.compiler_generated_symbols:
             comp_syms = []
-            comp_actual_size = 0  # Track actual debited size
+            comp_actual_size = 0
             for sym in symbol_info.compiler_generated_symbols:
                 if sym.size > 0:
                     taken = debit_section(sym.segment_name, sym.section_name, sym.size)
@@ -349,11 +344,11 @@ class MachOElementBuilder(TreemapElementBuilder):
                         section_subtractions[key] = section_subtractions.get(key, 0) + taken
 
             if comp_syms:
-                total_other_symbols_size += comp_actual_size  # Use actual debited size
+                total_other_symbols_size += comp_actual_size
                 other_symbols_children.append(
                     TreemapElement(
                         name="Compiler Generated",
-                        size=comp_actual_size,  # Use actual debited size
+                        size=comp_actual_size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
@@ -364,7 +359,7 @@ class MachOElementBuilder(TreemapElementBuilder):
         # C / other
         if symbol_info.other_symbols:
             other_syms = []
-            c_actual_size = 0  # Track actual debited size
+            c_actual_size = 0
             for sym in symbol_info.other_symbols:
                 if sym.size > 0:
                     taken = debit_section(sym.segment_name, sym.section_name, sym.size)
@@ -376,11 +371,11 @@ class MachOElementBuilder(TreemapElementBuilder):
 
             if other_syms:
                 other_syms.sort(key=lambda s: s.size, reverse=True)
-                total_other_symbols_size += c_actual_size  # Use actual debited size
+                total_other_symbols_size += c_actual_size
                 other_symbols_children.append(
                     TreemapElement(
                         name="C Functions",
-                        size=c_actual_size,  # Use actual debited size
+                        size=c_actual_size,
                         type=TreemapType.MODULES,
                         path=None,
                         is_dir=False,
