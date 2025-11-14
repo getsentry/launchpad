@@ -564,10 +564,7 @@ class AppleAppAnalyzer:
                     section_infos: List[SectionInfo] = []
                     for section in command.sections:
                         section_name = self._parse_lief_name(section.name)
-                        # Check if section is zero-fill (doesn't occupy file space)
-                        # LIEF section.type is an enum, S_ZEROFILL = 1
-                        # Common zero-fill sections: __bss, __common
-                        is_zerofill = "ZEROFILL" in str(section.type) or section_name in ["__bss", "__common"]
+                        is_zerofill = section.type == lief.MachO.Section.TYPE.ZEROFILL
                         section_infos.append(SectionInfo(name=section_name, size=section.size, is_zerofill=is_zerofill))
 
                     segments.append(
