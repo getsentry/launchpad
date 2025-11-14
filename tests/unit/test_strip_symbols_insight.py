@@ -36,12 +36,12 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
                 ),
                 SegmentInfo(
                     name="__DWARF",
                     sections=[
-                        SectionInfo(name="__debug_info", size=3000),
+                        SectionInfo(name="__debug_info", size=3000, is_zerofill=False),
                         SectionInfo(name="__debug_line", size=2000, is_zerofill=False),
                     ],
                     size=5000,
@@ -49,7 +49,7 @@ class TestStripSymbolsInsight:
                 SegmentInfo(
                     name="__DATA",
                     sections=[
-                        SectionInfo(name="__data", size=10000),
+                        SectionInfo(name="__data", size=10000, is_zerofill=False),
                         SectionInfo(name="__const", size=5000, is_zerofill=False),
                     ],
                     size=15000,
@@ -96,7 +96,7 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
                 ),
                 SegmentInfo(
                     name="__DWARF",
@@ -108,7 +108,7 @@ class TestStripSymbolsInsight:
                     size=11000,
                 ),
                 SegmentInfo(
-                    name="__DATA", sections=[SectionInfo(name="__data", size=5000)], size=5000, is_zerofill=False
+                    name="__DATA", sections=[SectionInfo(name="__data", size=5000, is_zerofill=False)], size=5000
                 ),
             ],
             load_commands=[],
@@ -160,12 +160,12 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
                 ),
                 SegmentInfo(
                     name="__DATA",
                     sections=[
-                        SectionInfo(name="__data", size=20000),
+                        SectionInfo(name="__data", size=20000, is_zerofill=False),
                         SectionInfo(name="__const", size=10000, is_zerofill=False),
                     ],
                     size=30000,
@@ -223,18 +223,18 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
                 ),
                 SegmentInfo(
                     name="__DWARF",
                     sections=[
-                        SectionInfo(name="__debug_info", size=2000),
+                        SectionInfo(name="__debug_info", size=2000, is_zerofill=False),
                         SectionInfo(name="__debug_line", size=1000, is_zerofill=False),
                     ],
                     size=3000,
                 ),
                 SegmentInfo(
-                    name="__DATA", sections=[SectionInfo(name="__data", size=10000)], size=10000, is_zerofill=False
+                    name="__DATA", sections=[SectionInfo(name="__data", size=10000, is_zerofill=False)], size=10000
                 ),
             ],
             load_commands=[],
@@ -255,18 +255,18 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
                 ),
                 SegmentInfo(
                     name="__DWARF",
                     sections=[
-                        SectionInfo(name="__debug_str", size=4000),
+                        SectionInfo(name="__debug_str", size=4000, is_zerofill=False),
                         SectionInfo(name="__apple_types", size=1500, is_zerofill=False),
                     ],
                     size=5500,
                 ),
                 SegmentInfo(
-                    name="__DATA", sections=[SectionInfo(name="__data", size=5000)], size=5000, is_zerofill=False
+                    name="__DATA", sections=[SectionInfo(name="__data", size=5000, is_zerofill=False)], size=5000
                 ),
             ],
             load_commands=[],
@@ -295,10 +295,10 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=40000)], size=40000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=40000, is_zerofill=False)], size=40000
                 ),
                 SegmentInfo(
-                    name="__DATA", sections=[SectionInfo(name="__data", size=15000)], size=15000, is_zerofill=False
+                    name="__DATA", sections=[SectionInfo(name="__data", size=15000, is_zerofill=False)], size=15000
                 ),
                 # No debug sections
             ],
@@ -359,12 +359,12 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
                 ),
                 SegmentInfo(
                     name="__DATA",
                     sections=[
-                        SectionInfo(name="__data", size=15000),
+                        SectionInfo(name="__data", size=15000, is_zerofill=False),
                         SectionInfo(name="__const", size=5000, is_zerofill=False),
                     ],
                     size=20000,
@@ -409,12 +409,12 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
                 ),
                 SegmentInfo(
                     name="__DATA",
                     sections=[
-                        SectionInfo(name="__data", size=15000),
+                        SectionInfo(name="__data", size=15000, is_zerofill=False),
                         SectionInfo(name="__const", size=5000, is_zerofill=False),
                     ],
                     size=20000,
@@ -451,7 +451,7 @@ class TestStripSymbolsInsight:
             objc_method_names=[],
             segments=[
                 SegmentInfo(
-                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
                 ),
                 SegmentInfo(
                     name="__DWARF",
