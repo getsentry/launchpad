@@ -47,7 +47,7 @@ class AppleAppInfo(BaseModel):
     profile_expiration_date: Optional[str] = None
     certificate_expiration_date: Optional[str] = None
     missing_dsym_binaries: Optional[List[str]] = None
-    # TODO(EME-423): add "date_built" field once exposed in 'AppleAppInfo'
+    build_date: Optional[str] = None
 
 
 class AndroidAppInfo(BaseModel):

@@ -66,6 +66,7 @@ class ZippedXCArchive(AppleArtifact):
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._app_bundle_path: Path | None = None
         self._plist: dict[str, Any] | None = None
+        self._archive_plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
         self._dsym_info: dict[str, DsymInfo] | None = None
 
@@ -88,6 +89,31 @@ class ZippedXCArchive(AppleArtifact):
             return plist_data
         except Exception as e:
             raise RuntimeError("Failed to parse Info.plist") from e
+
+    @sentry_sdk.trace
+    def get_archive_plist(self) -> dict[str, Any] | None:
+        """Get the archive-level Info.plist (not the app bundle's Info.plist)."""
+        if self._archive_plist is not None:
+            return self._archive_plist
+
+        # Find the .xcarchive directory
+        xcarchive_dirs = list(self._extract_dir.glob("*.xcarchive"))
+        if not xcarchive_dirs:
+            logger.debug(f"No .xcarchive directory found in {self._extract_dir}")
+            return None
+
+        xcarchive_dir = xcarchive_dirs[0]
+        plist_path = xcarchive_dir / "Info.plist"
+
+        try:
+            with open(plist_path, "rb") as f:
+                plist_data = plistlib.load(f)
+
+            self._archive_plist = plist_data
+            return plist_data
+        except Exception:
+            logger.debug(f"Failed to parse archive Info.plist at {plist_path}", exc_info=True)
+            return None
 
     @sentry_sdk.trace
     def get_app_icon(self) -> bytes | None:

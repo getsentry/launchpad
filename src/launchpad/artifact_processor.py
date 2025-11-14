@@ -464,7 +464,6 @@ class ArtifactProcessor:
 
         apple_app_info = None
         if isinstance(app_info, AppleAppInfo):
-            # TODO(EME-423): add "date_built" field once exposed in 'AppleAppInfo'
             apple_app_info = AppleAppInfoModel(
                 is_simulator=app_info.is_simulator,
                 codesigning_type=app_info.codesigning_type,
@@ -475,6 +474,7 @@ class ArtifactProcessor:
                 profile_expiration_date=app_info.profile_expiration_date,
                 certificate_expiration_date=app_info.certificate_expiration_date,
                 missing_dsym_binaries=app_info.missing_dsym_binaries,
+                build_date=app_info.build_date,
             )
 
         android_app_info = None

@@ -50,6 +50,7 @@ class AppleAppInfo(BaseAppInfo):
     minimum_os_version: str = Field(..., description="Minimum app version")
     supported_platforms: List[str] = Field(default_factory=list, description="Supported platforms")
     sdk_version: str | None = Field(None, description="App SDK version used for build")
+    build_date: str | None = Field(None, description="Date when the archive was built (ISO format)")
     is_simulator: bool = Field(False, description="If the app is a simulator build")
     codesigning_type: str | None = Field(
         None, description="Type of codesigning used (development, adhoc, appstore, enterprise)"

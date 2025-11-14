@@ -20,6 +20,8 @@ class TestAppleBasicInfo:
         assert basic_info.minimum_os_version == "17.5"
         assert basic_info.supported_platforms == ["iPhoneOS"]
         assert basic_info.sdk_version == "iphoneos18.4"
+        assert basic_info.build_date is not None
+        assert basic_info.build_date == "2025-05-19T16:15:12"
         assert basic_info.is_simulator is False
         assert basic_info.codesigning_type == "development"
         assert basic_info.is_code_signature_valid is True

@@ -283,6 +283,13 @@ class AppleAppAnalyzer:
                 profile_expiration_date = expiration_date.isoformat()
             certificate_expiration_date = self._extract_certificate_expiration_date(provisioning_profile)
 
+        build_date = None
+        archive_plist = xcarchive.get_archive_plist()
+        if archive_plist:
+            creation_date = archive_plist.get("CreationDate")
+            if creation_date:
+                build_date = creation_date.isoformat()
+
         supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
         is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
 
@@ -319,6 +326,7 @@ class AppleAppAnalyzer:
             minimum_os_version=plist.get("MinimumOSVersion", "Unknown"),
             supported_platforms=supported_platforms,
             sdk_version=plist.get("DTSDKName"),
+            build_date=build_date,
             is_simulator=is_simulator,
             codesigning_type=codesigning_type,
             profile_name=profile_name,
