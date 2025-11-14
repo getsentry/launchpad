@@ -259,28 +259,22 @@ class AppleAppAnalyzer:
 
         return results
 
-    def _normalize_date_string(self, date_str: str) -> str:
-        """Normalize date strings to consistent ISO format.
+    def parse_plist_date(self, date_value: str | datetime | None) -> str | None:
+        if date_value is None:
+            return None
 
-        Handles variations in date string formats that might come from:
-        - Xcode archives (various ISO 8601 formats)
-        - JSON deserialization (Z suffix, +00:00 suffix, etc.)
-        - Kafka messages (pre-serialized dates)
+        if isinstance(date_value, str):
+            try:
+                dt = datetime.fromisoformat(date_value)
+                return dt.isoformat()
+            except (ValueError, AttributeError):
+                # If parsing fails, return the original string
+                # This is defensive - we don't want to break on unexpected formats
+                logger.debug(f"Could not parse date string: {date_value}")
+                return date_value
 
-        Args:
-            date_str: Date string in ISO 8601 format
-
-        Returns:
-            Normalized ISO format string (YYYY-MM-DDTHH:MM:SS or with timezone)
-        """
-        try:
-            dt = datetime.fromisoformat(date_str)
-            return dt.isoformat()
-        except (ValueError, AttributeError):
-            # If parsing fails, return the original string
-            # This is defensive - we don't want to break on unexpected formats
-            logger.debug(f"Could not parse date string: {date_str}")
-            return date_str
+        # isinstance(date_value, datetime)
+        return date_value.isoformat()
 
     @sentry_sdk.trace
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
@@ -301,24 +295,11 @@ class AppleAppAnalyzer:
         if provisioning_profile:
             codesigning_type, profile_name = self._get_profile_type(provisioning_profile)
             expiration_date = provisioning_profile.get("ExpirationDate")
-            if isinstance(expiration_date, str):
-                profile_expiration_date = self._normalize_date_string(expiration_date)
-            elif isinstance(expiration_date, datetime):
-                profile_expiration_date = expiration_date.isoformat()
-            else:
-                profile_expiration_date = None
+            profile_expiration_date = self.parse_plist_date(expiration_date)
             certificate_expiration_date = self._extract_certificate_expiration_date(provisioning_profile)
 
-        build_date = None
         archive_plist = xcarchive.get_archive_plist()
-        if archive_plist:
-            creation_date = archive_plist.get("CreationDate")
-            if isinstance(creation_date, str):
-                build_date = self._normalize_date_string(creation_date)
-            elif isinstance(creation_date, datetime):
-                build_date = creation_date.isoformat()
-            else:
-                build_date = None
+        build_date = self.parse_plist_date(archive_plist.get("CreationDate") if archive_plist else None)
 
         supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
         is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
