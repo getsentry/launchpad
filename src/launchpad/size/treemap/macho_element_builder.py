@@ -430,23 +430,35 @@ class MachOElementBuilder(TreemapElementBuilder):
                         continue
 
                     if section_size == 0:
-                        logger.warning(f"Section {section_name} has size 0")
                         continue
 
                     key = f"{segment_name}.{section_name}"
                     subtraction = section_subtractions.get(key, 0)
 
-                    # Check for subtraction exceeding section size
                     if subtraction > section_size:
                         logger.warning(
-                            f"Section {key}: symbol bytes ({subtraction:,}) exceed section size ({section_size:,})."
+                            "macho.treemap.section_over_debited",
+                            extra={
+                                "section_key": key,
+                                "symbol_bytes": subtraction,
+                                "section_size": section_size,
+                                "excess": subtraction - section_size,
+                            },
                         )
                         subtraction = section_size
 
                     adjusted = section_size - subtraction
 
                     if adjusted < 0:
-                        logger.warning(f"Section {section_name} has negative adjusted size: {adjusted}")
+                        logger.warning(
+                            "macho.treemap.section_negative_adjusted_size",
+                            extra={
+                                "section_name": section_name,
+                                "adjusted_size": adjusted,
+                                "section_size": section_size,
+                                "subtraction": subtraction,
+                            },
+                        )
                         continue
                     elif adjusted == 0:
                         continue
@@ -475,7 +487,6 @@ class MachOElementBuilder(TreemapElementBuilder):
             if not isinstance(seg_total_size, int) or seg_total_size <= 0:
                 seg_total_size = segment.size
 
-            # Only count non-zerofill sections toward file size
             total_section_declared = (
                 sum(s.size for s in segment.sections if not s.is_zerofill) if segment.sections else 0
             )
