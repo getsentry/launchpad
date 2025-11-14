@@ -1,5 +1,4 @@
 from pathlib import Path
-from unittest.mock import Mock
 
 from launchpad.size.insights.android.multiple_native_library_arch import (
     MultipleNativeLibraryArchInsight,
@@ -15,12 +14,11 @@ class TestMultipleNativeLibraryArchInsight:
         self.insight = MultipleNativeLibraryArchInsight()
 
     def _create_insights_input(self, files: list[FileInfo]) -> InsightsInput:
-        directories = [f for f in files if f.is_dir]
-        file_analysis = FileAnalysis(files=files, directories=directories)
+        file_analysis = FileAnalysis(files=files, directories=[])
         return InsightsInput(
-            app_info=Mock(spec=BaseAppInfo),
+            app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=file_analysis,
-            treemap=Mock(),
+            treemap=None,
             binary_analysis=[],
         )
 
