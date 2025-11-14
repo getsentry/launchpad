@@ -35,15 +35,23 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DWARF",
-                    sections=[SectionInfo(name="__debug_info", size=3000), SectionInfo(name="__debug_line", size=2000)],
+                    sections=[
+                        SectionInfo(name="__debug_info", size=3000),
+                        SectionInfo(name="__debug_line", size=2000, is_zerofill=False),
+                    ],
                     size=5000,
                 ),
                 SegmentInfo(
                     name="__DATA",
-                    sections=[SectionInfo(name="__data", size=10000), SectionInfo(name="__const", size=5000)],
+                    sections=[
+                        SectionInfo(name="__data", size=10000),
+                        SectionInfo(name="__const", size=5000, is_zerofill=False),
+                    ],
                     size=15000,
                 ),
             ],
@@ -87,17 +95,21 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DWARF",
                     sections=[
-                        SectionInfo(name="__debug_info", size=8000),
-                        SectionInfo(name="__debug_abbrev", size=2000),
-                        SectionInfo(name="__apple_names", size=1000),
+                        SectionInfo(name="__debug_info", size=8000, is_zerofill=False),
+                        SectionInfo(name="__debug_abbrev", size=2000, is_zerofill=False),
+                        SectionInfo(name="__apple_names", size=1000, is_zerofill=False),
                     ],
                     size=11000,
                 ),
-                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=5000)], size=5000),
+                SegmentInfo(
+                    name="__DATA", sections=[SectionInfo(name="__data", size=5000)], size=5000, is_zerofill=False
+                ),
             ],
             load_commands=[],
             symbol_info=None,  # No symbol info
@@ -147,10 +159,15 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DATA",
-                    sections=[SectionInfo(name="__data", size=20000), SectionInfo(name="__const", size=10000)],
+                    sections=[
+                        SectionInfo(name="__data", size=20000),
+                        SectionInfo(name="__const", size=10000, is_zerofill=False),
+                    ],
                     size=30000,
                 ),
                 # No debug sections
@@ -205,13 +222,20 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DWARF",
-                    sections=[SectionInfo(name="__debug_info", size=2000), SectionInfo(name="__debug_line", size=1000)],
+                    sections=[
+                        SectionInfo(name="__debug_info", size=2000),
+                        SectionInfo(name="__debug_line", size=1000, is_zerofill=False),
+                    ],
                     size=3000,
                 ),
-                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=10000)], size=10000),
+                SegmentInfo(
+                    name="__DATA", sections=[SectionInfo(name="__data", size=10000)], size=10000, is_zerofill=False
+                ),
             ],
             load_commands=[],
             symbol_info=symbol_info_1,
@@ -230,13 +254,20 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DWARF",
-                    sections=[SectionInfo(name="__debug_str", size=4000), SectionInfo(name="__apple_types", size=1500)],
+                    sections=[
+                        SectionInfo(name="__debug_str", size=4000),
+                        SectionInfo(name="__apple_types", size=1500, is_zerofill=False),
+                    ],
                     size=5500,
                 ),
-                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=5000)], size=5000),
+                SegmentInfo(
+                    name="__DATA", sections=[SectionInfo(name="__data", size=5000)], size=5000, is_zerofill=False
+                ),
             ],
             load_commands=[],
             symbol_info=None,
@@ -263,8 +294,12 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=40000)], size=40000),
-                SegmentInfo(name="__DATA", sections=[SectionInfo(name="__data", size=15000)], size=15000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=40000)], size=40000, is_zerofill=False
+                ),
+                SegmentInfo(
+                    name="__DATA", sections=[SectionInfo(name="__data", size=15000)], size=15000, is_zerofill=False
+                ),
                 # No debug sections
             ],
             load_commands=[],
@@ -323,10 +358,15 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DATA",
-                    sections=[SectionInfo(name="__data", size=15000), SectionInfo(name="__const", size=5000)],
+                    sections=[
+                        SectionInfo(name="__data", size=15000),
+                        SectionInfo(name="__const", size=5000, is_zerofill=False),
+                    ],
                     size=20000,
                 ),
                 # No debug sections
@@ -368,10 +408,15 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=30000)], size=30000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DATA",
-                    sections=[SectionInfo(name="__data", size=15000), SectionInfo(name="__const", size=5000)],
+                    sections=[
+                        SectionInfo(name="__data", size=15000),
+                        SectionInfo(name="__const", size=5000, is_zerofill=False),
+                    ],
                     size=20000,
                 ),
                 # No debug sections
@@ -405,30 +450,32 @@ class TestStripSymbolsInsight:
             linked_libraries=[],
             objc_method_names=[],
             segments=[
-                SegmentInfo(name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000),
+                SegmentInfo(
+                    name="__TEXT", sections=[SectionInfo(name="__text", size=50000)], size=50000, is_zerofill=False
+                ),
                 SegmentInfo(
                     name="__DWARF",
                     sections=[
-                        SectionInfo(name="__debug_info", size=1000),
-                        SectionInfo(name="__debug_abbrev", size=500),
-                        SectionInfo(name="__debug_aranges", size=300),
-                        SectionInfo(name="__debug_line", size=800),
-                        SectionInfo(name="__debug_str", size=1200),
-                        SectionInfo(name="__debug_loc", size=400),
-                        SectionInfo(name="__debug_ranges", size=350),
-                        SectionInfo(name="__debug_frame", size=600),
-                        SectionInfo(name="__apple_names", size=700),
-                        SectionInfo(name="__apple_types", size=450),
-                        SectionInfo(name="__apple_namespac", size=250),
-                        SectionInfo(name="__apple_objc", size=150),
+                        SectionInfo(name="__debug_info", size=1000, is_zerofill=False),
+                        SectionInfo(name="__debug_abbrev", size=500, is_zerofill=False),
+                        SectionInfo(name="__debug_aranges", size=300, is_zerofill=False),
+                        SectionInfo(name="__debug_line", size=800, is_zerofill=False),
+                        SectionInfo(name="__debug_str", size=1200, is_zerofill=False),
+                        SectionInfo(name="__debug_loc", size=400, is_zerofill=False),
+                        SectionInfo(name="__debug_ranges", size=350, is_zerofill=False),
+                        SectionInfo(name="__debug_frame", size=600, is_zerofill=False),
+                        SectionInfo(name="__apple_names", size=700, is_zerofill=False),
+                        SectionInfo(name="__apple_types", size=450, is_zerofill=False),
+                        SectionInfo(name="__apple_namespac", size=250, is_zerofill=False),
+                        SectionInfo(name="__apple_objc", size=150, is_zerofill=False),
                     ],
                     size=6700,
                 ),
                 SegmentInfo(
                     name="__DATA",
                     sections=[
-                        SectionInfo(name="__data", size=10000),  # Non-debug section
-                        SectionInfo(name="__const", size=5000),  # Non-debug section
+                        SectionInfo(name="__data", size=10000, is_zerofill=False),  # Non-debug section
+                        SectionInfo(name="__const", size=5000, is_zerofill=False),  # Non-debug section
                     ],
                     size=15000,
                 ),

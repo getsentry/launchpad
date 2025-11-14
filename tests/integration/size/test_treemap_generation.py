@@ -318,11 +318,9 @@ class TestTreemapGeneration:
 
         results = analyzer.analyze(cast(AppleArtifact, artifact))
 
-        # Verify treemap was generated
         treemap = results.treemap
         assert treemap is not None
 
-        # Helper function to find a node by path
         def find_node_by_path(root: TreemapElement, path: str) -> TreemapElement | None:
             if root.path == path:
                 return root
@@ -331,7 +329,6 @@ class TestTreemapGeneration:
                     return result
             return None
 
-        # Verify root node
         root_name = treemap.root.name
         assert root_name == "HackerNews"
         root_is_dir = treemap.root.is_dir
@@ -339,42 +336,33 @@ class TestTreemapGeneration:
         root_element_type = treemap.root.type
         assert root_element_type is None
 
-        # Verify main executable
         main_exe = find_node_by_path(treemap.root, "HackerNews")
         assert main_exe is not None
-        # main_exe_size = main_exe.size
-        # assert main_exe_size == 3190648
+        assert main_exe.size == 3153920
         main_exe_element_type = main_exe.type
         assert main_exe_element_type == "executables"
         main_exe_is_dir = main_exe.is_dir
         assert main_exe_is_dir is False
 
-        # Verify main executable sections
         main_exe_sections = {child.name: child for child in main_exe.children}
 
-        # Verify __TEXT segment
-        has_text = "__TEXT" in main_exe_sections
-        assert has_text
+        assert "__TEXT" in main_exe_sections
         text_size = main_exe_sections["__TEXT"].size
         assert text_size == 391451
 
-        # Verify __LINKEDIT segment
         has_linkedit = "__LINKEDIT" in main_exe_sections
         assert has_linkedit
         linkedit = main_exe_sections["__LINKEDIT"]
         linkedit_size = linkedit.size
         assert linkedit_size == 269360
 
-        # Verify __LINKEDIT has children (symbol table, string table, etc.)
         linkedit_children = {child.name: child for child in linkedit.children}
         assert len(linkedit_children) == 6, "__LINKEDIT should have exactly 6 child components"
 
-        # Verify expected __LINKEDIT components exist
         assert "Symbol Table" in linkedit_children, "Symbol table should be present"
         assert "String Table" in linkedit_children, "String table should be present"
         assert "Function Starts" in linkedit_children, "Function starts should be present"
 
-        # Verify exact sizes for __LINKEDIT components
         assert linkedit_children["Symbol Table"].size == 11072, "Symbol table size mismatch"
         assert linkedit_children["String Table"].size == 16584, "String table size mismatch"
         assert linkedit_children["Function Starts"].size == 13584, "Function starts size mismatch"
@@ -382,20 +370,44 @@ class TestTreemapGeneration:
         assert linkedit_children["Export Trie"].size == 85056, "Export trie size mismatch"
         assert linkedit_children["Code Signature"].size == 43488, "Code signature size mismatch"
 
-        # Verify Unmapped section (track size changes)
-        has_unmapped = "Unmapped" in main_exe_sections
-        assert has_unmapped
-        unmapped_size = main_exe_sections["Unmapped"].size
-        assert unmapped_size == 184231
+        assert "Mach-O Header" in main_exe_sections
+        assert main_exe_sections["Mach-O Header"].size == 32
 
-        # Verify Swift module is present
-        has_hackernews = "HackerNews" in main_exe_sections
-        assert has_hackernews
+        assert "Load Commands" in main_exe_sections
+        assert main_exe_sections["Load Commands"].size == 8312
+
+        assert "__DATA" in main_exe_sections
+        assert main_exe_sections["__DATA"].size == 31947
+
+        assert "__DATA_CONST" in main_exe_sections
+        assert main_exe_sections["__DATA_CONST"].size == 72784
+
+        assert "HackerNews" in main_exe_sections
         hackernews_module = main_exe_sections["HackerNews"]
-        assert hackernews_module.size == 257340
+        assert hackernews_module.size == 262392
         assert hackernews_module.type == "modules"
+        assert len(hackernews_module.children) == 40
 
-        # Verify Frameworks directory
+        assert main_exe.size == 3153920
+
+        # Children will sum slightly higher than parent due to accounting precision (7392 bytes = 0.23%)
+        total_children_size = sum(child.size for child in main_exe.children)
+        assert total_children_size == 3161312, f"Children sum should be 3161312, got {total_children_size}"
+        expected_difference = 7392  # 0.23% accounting difference
+        actual_difference = total_children_size - main_exe.size
+        assert actual_difference == expected_difference, (
+            f"Expected {expected_difference} byte difference, got {actual_difference}"
+        )
+
+        def assert_no_negative_sizes(node: TreemapElement, path: str = "") -> None:
+            """Recursively check that no node has negative size."""
+            current_path = f"{path}/{node.name}" if path else node.name
+            assert node.size >= 0, f"Node {current_path} has negative size: {node.size}"
+            for child in node.children:
+                assert_no_negative_sizes(child, current_path)
+
+        assert_no_negative_sizes(main_exe)
+
         frameworks = find_node_by_path(treemap.root, "Frameworks")
         assert frameworks is not None
         frameworks_element_type = frameworks.type
@@ -403,7 +415,6 @@ class TestTreemapGeneration:
         frameworks_is_dir = frameworks.is_dir
         assert frameworks_is_dir is True
 
-        # Verify Sentry framework
         sentry = find_node_by_path(treemap.root, "Frameworks/Sentry.framework")
         assert sentry is not None
         sentry_element_type = sentry.type
@@ -411,7 +422,6 @@ class TestTreemapGeneration:
         sentry_is_dir = sentry.is_dir
         assert sentry_is_dir is True
 
-        # Verify Sentry binary
         sentry_binary = find_node_by_path(treemap.root, "Frameworks/Sentry.framework/Sentry")
         assert sentry_binary is not None
         sentry_binary_size = sentry_binary.size
@@ -419,7 +429,6 @@ class TestTreemapGeneration:
         sentry_binary_element_type = sentry_binary.type
         assert sentry_binary_element_type == "executables"
 
-        # Verify Common framework
         common = find_node_by_path(treemap.root, "Frameworks/Common.framework")
         assert common is not None
         common_element_type = common.type
@@ -427,15 +436,12 @@ class TestTreemapGeneration:
         common_is_dir = common.is_dir
         assert common_is_dir is True
 
-        # Verify Common binary
         common_binary = find_node_by_path(treemap.root, "Frameworks/Common.framework/Common")
         assert common_binary is not None
-        # common_binary_size = common_binary.size
-        # assert common_binary_size == 199376
+        assert common_binary.size == 192512
         common_binary_element_type = common_binary.type
         assert common_binary_element_type == "executables"
 
-        # Verify Reaper framework
         reaper = find_node_by_path(treemap.root, "Frameworks/Reaper.framework")
         assert reaper is not None
         reaper_element_type = reaper.type
@@ -443,15 +449,12 @@ class TestTreemapGeneration:
         reaper_is_dir = reaper.is_dir
         assert reaper_is_dir is True
 
-        # Verify Reaper binary
         reaper_binary = find_node_by_path(treemap.root, "Frameworks/Reaper.framework/Reaper")
         assert reaper_binary is not None
-        # reaper_binary_size = reaper_binary.size
-        # assert reaper_binary_size == 51440
+        assert reaper_binary.size == 53248
         reaper_binary_element_type = reaper_binary.type
         assert reaper_binary_element_type == "executables"
 
-        # Verify PlugIns directory
         plugins = find_node_by_path(treemap.root, "PlugIns")
         assert plugins is not None
         plugins_element_type = plugins.type
@@ -459,7 +462,6 @@ class TestTreemapGeneration:
         plugins_is_dir = plugins.is_dir
         assert plugins_is_dir is True
 
-        # Verify HomeWidget extension
         widget = find_node_by_path(treemap.root, "PlugIns/HackerNewsHomeWidgetExtension.appex")
         assert widget is not None
         widget_element_type = widget.type
@@ -467,18 +469,15 @@ class TestTreemapGeneration:
         widget_is_dir = widget.is_dir
         assert widget_is_dir is True
 
-        # Verify widget binary
         widget_binary = find_node_by_path(
             treemap.root,
             "PlugIns/HackerNewsHomeWidgetExtension.appex/HackerNewsHomeWidgetExtension",
         )
         assert widget_binary is not None
-        # widget_binary_size = widget_binary.size
-        # assert widget_binary_size == 153016
+        assert widget_binary.size == 155648
         widget_binary_element_type = widget_binary.type
         assert widget_binary_element_type == "executables"
 
-        # Verify Assets.car
         assets = find_node_by_path(treemap.root, "Assets.car")
         assert assets is not None
         assert assets.size == 4788224
@@ -513,13 +512,13 @@ class TestTreemapGeneration:
         app_view_model = find_node_by_name(treemap.root, "AppViewModel")
         assert app_view_model is not None
         app_view_model_size = app_view_model.size
-        assert app_view_model_size == 25648
+        assert app_view_model_size == 24944  # Updated after accounting fixes
         app_view_model_element_type = app_view_model.type
         assert app_view_model_element_type == "modules"
 
-        app_view_model = find_node_by_name(treemap.root, "SentryUserFeedbackFormViewModel")
-        assert app_view_model is not None
-        app_view_model_size = app_view_model.size
-        assert app_view_model_size == 27620
-        app_view_model_element_type = app_view_model.type
-        assert app_view_model_element_type == "modules"
+        sentry_feedback_model = find_node_by_name(treemap.root, "SentryUserFeedbackFormViewModel")
+        assert sentry_feedback_model is not None
+        sentry_feedback_model_size = sentry_feedback_model.size
+        assert sentry_feedback_model_size == 27612  # Updated after accounting fixes
+        sentry_feedback_model_element_type = sentry_feedback_model.type
+        assert sentry_feedback_model_element_type == "modules"

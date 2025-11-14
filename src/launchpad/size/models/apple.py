@@ -115,7 +115,8 @@ class SectionInfo:
     """Extracted section information from LIEF data."""
 
     name: str
-    size: int
+    size: int  # Virtual memory size (includes zero-fill)
+    is_zerofill: bool  # True if this section doesn't occupy file space (e.g., __bss)
 
 
 @dataclass
