@@ -256,7 +256,7 @@ class TestImageOptimizationInsightIntegration:
             hermes_reports={},
         )
 
-        result = ImageOptimizationInsight.generate(png_only_input)
+        result = ImageOptimizationInsight().generate(png_only_input)
 
         assert result is not None
         assert result.total_savings > 0
