@@ -113,6 +113,7 @@ jobs:
             -e LAUNCHPAD_ENV=development \
             -e LAUNCHPAD_HOST=localhost \
             -e LAUNCHPAD_PORT=2218 \
+            -e LAUNCHPAD_RPC_SHARED_SECRET="launchpad-test-secret" \
             -e KAFKA_BOOTSTRAP_SERVERS="kafka:9093" \
             -e KAFKA_GROUP_ID="launchpad-test-ci" \
             -e KAFKA_TOPICS="preprod-artifact-events" \
@@ -203,6 +204,7 @@ jobs:
             -e LAUNCHPAD_ENV=development \
             -e LAUNCHPAD_HOST=localhost \
             -e LAUNCHPAD_PORT=2218 \
+            -e LAUNCHPAD_RPC_SHARED_SECRET="launchpad-test-secret" \
             -e KAFKA_BOOTSTRAP_SERVERS="kafka:9093" \
             -e KAFKA_GROUP_ID="launchpad-test-coverage" \
             -e KAFKA_TOPICS="preprod-artifact-events" \
