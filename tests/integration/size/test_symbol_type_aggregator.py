@@ -42,13 +42,11 @@ class TestSymbolTypeAggregator:
         result = aggregator.aggregate_symbols(symbol_sizes)
         assert len(result) == 708
 
-        hackernews_module = next(group for group in result if group.module == "HackerNews")
-        assert hackernews_module is not None, "Expected to find HackerNews module"
-
         hackernews_app_view_model_group = next(
-            group for group in hackernews_module.symbols if group.type_name == "AppViewModel"
+            group for group in result if group.module == "HackerNews" and group.type_name == "AppViewModel"
         )
-        assert hackernews_app_view_model_group is not None, "Expected to find HackerNews.AppViewModel group"
+        assert hackernews_app_view_model_group is not None, "Expected to find AppViewModel"
+
         assert hackernews_app_view_model_group.symbol_count == 99
         assert len(hackernews_app_view_model_group.symbols) == 99
         assert hackernews_app_view_model_group.total_size == 16436
