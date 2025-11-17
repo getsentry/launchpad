@@ -181,14 +181,6 @@ class TestKafkaConsumerIntegration:
             patch.object(ArtifactProcessor, "process_artifact", mock_process_artifact),
             patch("launchpad.kafka.configure_metrics"),
         ):
-            encoded_message = schema.encode(test_message)
-            kafka_producer.produce(
-                PREPROD_ARTIFACT_EVENTS_TOPIC,
-                value=encoded_message,
-                key=test_message["artifact_id"].encode(),
-            )
-            kafka_producer.flush()
-
             consumer = create_kafka_consumer()
 
             def run_consumer():
@@ -200,7 +192,17 @@ class TestKafkaConsumerIntegration:
             consumer_thread = Thread(target=run_consumer, daemon=True)
             consumer_thread.start()
 
-            max_wait = 10
+            time.sleep(2)
+
+            encoded_message = schema.encode(test_message)
+            kafka_producer.produce(
+                PREPROD_ARTIFACT_EVENTS_TOPIC,
+                value=encoded_message,
+                key=test_message["artifact_id"].encode(),
+            )
+            kafka_producer.flush()
+
+            max_wait = 15
             start_time = time.time()
             while len(processed_messages) == 0 and (time.time() - start_time) < max_wait:
                 time.sleep(0.1)
