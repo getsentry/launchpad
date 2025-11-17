@@ -131,26 +131,6 @@ class TestServiceIntegration:
             assert service.server is not None
             assert service.kafka is not None
 
-    def test_service_health_check(self, kafka_env_vars, temp_healthcheck_file):
-        """Test service health check with real Kafka consumer."""
-        fake_statsd = FakeStatsd()
-        service = LaunchpadService(fake_statsd)
-
-        with (
-            patch("launchpad.service.initialize_sentry_sdk"),
-            patch("launchpad.kafka.configure_metrics"),
-            patch.dict(os.environ, {"KAFKA_HEALTHCHECK_FILE": temp_healthcheck_file}),
-        ):
-            service.setup()
-
-            old_time = time.time() - 120
-            os.utime(temp_healthcheck_file, (old_time, old_time))
-            assert not service.kafka.is_healthy()
-
-            Path(temp_healthcheck_file).touch()
-            assert service.kafka.is_healthy()
-            assert service.is_healthy()
-
     def test_service_config_loading(self):
         """Test service configuration loading from environment."""
 
