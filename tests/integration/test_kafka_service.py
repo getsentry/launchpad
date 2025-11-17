@@ -181,6 +181,16 @@ class TestKafkaConsumerIntegration:
             patch.object(ArtifactProcessor, "process_artifact", mock_process_artifact),
             patch("launchpad.kafka.configure_metrics"),
         ):
+            # Produce a dummy message first to ensure the topic exists
+            # Kafka auto-creates topics on first produce (if enabled)
+            kafka_producer.produce(
+                PREPROD_ARTIFACT_EVENTS_TOPIC,
+                value=b"",
+                key=b"init",
+            )
+            kafka_producer.flush()
+            time.sleep(1)
+
             consumer = create_kafka_consumer()
 
             def run_consumer():
