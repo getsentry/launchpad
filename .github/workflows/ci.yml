@@ -64,19 +64,63 @@ jobs:
       - name: Install dependencies
         run: make install-dev
 
+      - name: Start Kafka with devservices
+        run: |
+          # Start Kafka in the background
+          .venv/bin/devservices up --mode default
+
+          # Wait for Kafka to be ready
+          echo "Waiting for Kafka to be ready..."
+          KAFKA_READY=false
+          for i in {1..30}; do
+            if docker exec $(docker ps -qf "name=kafka") kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null; then
+              echo "Kafka is ready!"
+              KAFKA_READY=true
+              break
+            fi
+            echo "Waiting for Kafka... attempt $i/30"
+            sleep 2
+          done
+
+          # Fail if Kafka didn't start
+          if [ "$KAFKA_READY" = "false" ]; then
+            echo "ERROR: Kafka failed to start after 60 seconds"
+            echo "=== Docker containers ==="
+            docker ps -a
+            echo "=== Kafka logs ==="
+            docker logs $(docker ps -aqf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
+            exit 1
+          fi
+
+          # Show running containers
+          docker ps
+
       - name: Build Docker image with test fixtures
         run: docker build --build-arg TEST_BUILD=true -t launchpad-test .
 
       - name: Run all tests in Docker
         run: |
+          # Get Kafka container info for network connectivity
+          KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
+          KAFKA_NETWORK=$(docker inspect $KAFKA_CONTAINER --format='{{range $net,$v := .NetworkSettings.Networks}}{{$net}}{{end}}')
+
           docker run --rm \
+            --network $KAFKA_NETWORK \
             -e LAUNCHPAD_ENV=development \
             -e LAUNCHPAD_HOST=localhost \
             -e LAUNCHPAD_PORT=2218 \
-            -e KAFKA_BOOTSTRAP_SERVERS="localhost:9092" \
-            -e KAFKA_GROUP_ID="launchpad-test" \
+            -e KAFKA_BOOTSTRAP_SERVERS="kafka:9093" \
+            -e KAFKA_GROUP_ID="launchpad-test-ci" \
             -e KAFKA_TOPICS="preprod-artifact-events" \
             launchpad-test python -m pytest -n auto tests/ -v
+
+      - name: Show Kafka logs on failure
+        if: failure()
+        run: |
+          if docker ps -qf "name=kafka" >/dev/null 2>&1; then
+            echo "=== Kafka logs ==="
+            docker logs $(docker ps -qf "name=kafka") --tail 100
+          fi
 
       - name: Test CLI installation and basic functionality in Docker
         run: |
@@ -106,17 +150,53 @@ jobs:
       - name: Install dependencies
         run: make install-dev
 
+      - name: Start Kafka with devservices
+        run: |
+          # Start Kafka in the background
+          .venv/bin/devservices up --mode default
+
+          # Wait for Kafka to be ready
+          echo "Waiting for Kafka to be ready..."
+          KAFKA_READY=false
+          for i in {1..30}; do
+            if docker exec $(docker ps -qf "name=kafka") kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null; then
+              echo "Kafka is ready!"
+              KAFKA_READY=true
+              break
+            fi
+            echo "Waiting for Kafka... attempt $i/30"
+            sleep 2
+          done
+
+          # Fail if Kafka didn't start
+          if [ "$KAFKA_READY" = "false" ]; then
+            echo "ERROR: Kafka failed to start after 60 seconds"
+            echo "=== Docker containers ==="
+            docker ps -a
+            echo "=== Kafka logs ==="
+            docker logs $(docker ps -aqf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
+            exit 1
+          fi
+
+          # Show running containers
+          docker ps
+
       - name: Build Docker image with test fixtures
         run: docker build --build-arg TEST_BUILD=true -t launchpad-test .
 
       - name: Run coverage in Docker
         run: |
+          # Get Kafka container info for network connectivity
+          KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
+          KAFKA_NETWORK=$(docker inspect $KAFKA_CONTAINER --format='{{range $net,$v := .NetworkSettings.Networks}}{{$net}}{{end}}')
+
           docker run --rm \
+            --network $KAFKA_NETWORK \
             -e LAUNCHPAD_ENV=development \
             -e LAUNCHPAD_HOST=localhost \
             -e LAUNCHPAD_PORT=2218 \
-            -e KAFKA_BOOTSTRAP_SERVERS="localhost:9092" \
-            -e KAFKA_GROUP_ID="launchpad-test" \
+            -e KAFKA_BOOTSTRAP_SERVERS="kafka:9093" \
+            -e KAFKA_GROUP_ID="launchpad-test-coverage" \
             -e KAFKA_TOPICS="preprod-artifact-events" \
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
