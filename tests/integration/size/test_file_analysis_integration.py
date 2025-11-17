@@ -2,19 +2,12 @@
 
 import time
 
-import pytest
-
-from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.size.models.common import FileAnalysis
 from launchpad.size.models.treemap import TreemapType
 from launchpad.size.utils.file_analysis import analyze_apple_files
 
 
 class TestFileAnalysisIntegration:
-    @pytest.fixture
-    def hackernews_xcarchive_obj(self, hackernews_xcarchive):
-        return ZippedXCArchive(hackernews_xcarchive)
-
     def test_analyze_hackernews(self, hackernews_xcarchive_obj):
         start = time.time()
         result = analyze_apple_files(hackernews_xcarchive_obj)

@@ -1,42 +1,10 @@
 """Integration tests for SymbolTypeAggregator using real Mach-O binaries."""
 
-from pathlib import Path
-from typing import List
+import lief
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
-from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
+from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.size.symbols.swift_aggregator import SwiftSymbolTypeAggregator
-
-
-def create_symbol_sizes_from_xcarchive(xcarchive_path: Path) -> List[SymbolSize]:
-    """Create symbol sizes from an xcarchive for testing."""
-    archive = ZippedXCArchive(xcarchive_path)
-
-    binary_infos = archive.get_all_binary_paths()
-    assert len(binary_infos) > 0, "Failed to find binaries in xcarchive"
-
-    # Find the HackerNews main binary (should be the first one, which is the main executable)
-    hackernews_binary_info = None
-    for binary_info in binary_infos:
-        if binary_info.name == "HackerNews" or "HackerNews" in binary_info.name:
-            hackernews_binary_info = binary_info
-            break
-
-    # If we can't find HackerNews specifically, use the first binary (main executable)
-    if hackernews_binary_info is None:
-        hackernews_binary_info = binary_infos[0]
-
-    # Use the dSYM file if available, otherwise fall back to the main binary
-    binary_path = hackernews_binary_info.dsym_path if hackernews_binary_info.dsym_path else hackernews_binary_info.path
-
-    import lief
-
-    fat_binary = lief.MachO.parse(str(binary_path))  # type: ignore
-    assert fat_binary is not None, "Failed to parse binary with LIEF"
-
-    binary = fat_binary.at(0)
-    symbol_sizes = MachOSymbolSizes(binary).get_symbol_sizes()
-    return symbol_sizes
 
 
 class TestSymbolTypeAggregator:
@@ -47,24 +15,40 @@ class TestSymbolTypeAggregator:
         aggregator = SwiftSymbolTypeAggregator()
         assert aggregator.demangler is not None
 
-    def test_aggregate_symbols_with_real_binary(self, hackernews_xcarchive: Path) -> None:
+    def test_aggregate_symbols_with_real_binary(self, hackernews_xcarchive_obj: ZippedXCArchive) -> None:
         """Test aggregation of symbols using real HackerNews app binary."""
-        symbol_sizes = create_symbol_sizes_from_xcarchive(hackernews_xcarchive)
+
+        binary_infos = hackernews_xcarchive_obj.get_all_binary_paths()
+        assert len(binary_infos) > 0, "Failed to find binaries in xcarchive"
+
+        hackernews_binary_info = None
+        for binary_info in binary_infos:
+            if binary_info.name == "HackerNews":
+                hackernews_binary_info = binary_info
+                break
+
+        assert hackernews_binary_info is not None, "Failed to find HackerNews binary"
+
+        with open(hackernews_binary_info.dsym_path, "rb") as f:
+            fat_binary = lief.MachO.parse(f)  # type: ignore
+        assert fat_binary is not None, "Failed to parse binary with LIEF"
+
+        binary = fat_binary.at(0)
+        symbol_sizes = MachOSymbolSizes(binary).get_symbol_sizes()
+
         assert len(symbol_sizes) == 24465
 
         aggregator = SwiftSymbolTypeAggregator()
         result = aggregator.aggregate_symbols(symbol_sizes)
         assert len(result) == 708
 
-        hackernews_app_view_model_group = None
-        for group in result:
-            if group.module == "HackerNews" and group.type_name == "AppViewModel":
-                hackernews_app_view_model_group = group
-                break
-        assert hackernews_app_view_model_group is not None, "Expected to find HackerNews.AppViewModel group"
+        hackernews_module = next(group for group in result if group.module == "HackerNews")
+        assert hackernews_module is not None, "Expected to find HackerNews module"
 
-        assert hackernews_app_view_model_group.module == "HackerNews"
-        assert hackernews_app_view_model_group.type_name == "AppViewModel"
+        hackernews_app_view_model_group = next(
+            group for group in hackernews_module.symbols if group.type_name == "AppViewModel"
+        )
+        assert hackernews_app_view_model_group is not None, "Expected to find HackerNews.AppViewModel group"
         assert hackernews_app_view_model_group.symbol_count == 99
         assert len(hackernews_app_view_model_group.symbols) == 99
         assert hackernews_app_view_model_group.total_size == 16436

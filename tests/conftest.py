@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pytest
 
+from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
@@ -22,6 +24,11 @@ def fixtures_root() -> Path:
 def hackernews_xcarchive(fixtures_root: Path) -> Path:
     """HackerNews.xcarchive.zip test fixture."""
     return fixtures_root / "ios" / "HackerNews.xcarchive.zip"
+
+
+@pytest.fixture(scope="session")
+def hackernews_xcarchive_obj(hackernews_xcarchive: Path) -> ZippedXCArchive:
+    return ZippedXCArchive(hackernews_xcarchive)
 
 
 @pytest.fixture(scope="session")

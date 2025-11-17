@@ -6,12 +6,9 @@ from launchpad.size.hermes.parser import HermesBytecodeParser
 from launchpad.size.hermes.reporter import HermesSizeReporter
 
 
-def test_hermes_size_reporter_attributes_bytes_to_sections():
+def test_hermes_size_reporter_attributes_bytes_to_sections(hermes_test_hbc: Path):
     """Test that the size reporter correctly attributes bytes to sections."""
-    hbc_path = Path(__file__).parent / ".." / ".." / "_fixtures" / "hermes" / "test.hbc"
-    hbc_data = hbc_path.read_bytes()
-
-    parser = HermesBytecodeParser(hbc_data)
+    parser = HermesBytecodeParser(hermes_test_hbc.read_bytes())
     success = parser.parse()
     assert success, "Should parse successfully"
 

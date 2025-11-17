@@ -23,11 +23,6 @@ class TestImageOptimizationInsightIntegration:
     """Integration tests for ImageOptimizationInsight with real image files."""
 
     @pytest.fixture
-    def insight(self) -> ImageOptimizationInsight:
-        """Create an ImageOptimizationInsight instance."""
-        return ImageOptimizationInsight()
-
-    @pytest.fixture
     def temp_images(self):
         """Create temporary test images in various formats."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -123,11 +118,9 @@ class TestImageOptimizationInsightIntegration:
             hermes_reports={},
         )
 
-    def test_generates_optimization_results_for_large_images(
-        self, insight: ImageOptimizationInsight, insights_input: InsightsInput
-    ) -> None:
+    def test_generates_optimization_results_for_large_images(self, insights_input: InsightsInput) -> None:
         """Test that the insight generates optimization results for large, unoptimized images."""
-        result = insight.generate(insights_input)
+        result = ImageOptimizationInsight().generate(insights_input)
 
         assert result is not None
         assert result.total_savings > 0
@@ -137,20 +130,16 @@ class TestImageOptimizationInsightIntegration:
         assert any("large_unoptimized.png" in path for path in optimizable_paths)
         assert any("large_photo.jpg" in path for path in optimizable_paths)
 
-    def test_excludes_loose_app_icons_and_sticker_packs(
-        self, insight: ImageOptimizationInsight, insights_input: InsightsInput
-    ) -> None:
+    def test_excludes_loose_app_icons_and_sticker_packs(self, insights_input: InsightsInput) -> None:
         """Test that loose AppIcon files and sticker pack images are excluded from optimization."""
-        result = insight.generate(insights_input)
+        result = ImageOptimizationInsight().generate(insights_input)
         assert result is not None
         optimizable_paths = {f.file_path for f in result.optimizable_files}
         # Loose AppIcon files should be excluded
         assert not any("AppIcon" in path for path in optimizable_paths)
         assert not any("stickerpack" in path for path in optimizable_paths)
 
-    def test_includes_appicon_display_variants_from_asset_catalogs(
-        self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any]
-    ) -> None:
+    def test_includes_appicon_display_variants_from_asset_catalogs(self, temp_images: Dict[str, Any]) -> None:
         """Test that AppIcon display variants inside asset catalogs ARE included."""
         # Create an asset catalog with an AppIcon display variant
         car_path = temp_images["temp_dir"] / "Assets.car"
@@ -227,7 +216,7 @@ class TestImageOptimizationInsightIntegration:
             hermes_reports={},
         )
 
-        result = insight.generate(test_input)
+        result = ImageOptimizationInsight().generate(test_input)
         assert result is not None
         assert len(result.optimizable_files) > 0
 
@@ -238,14 +227,12 @@ class TestImageOptimizationInsightIntegration:
             "Actual icon should be excluded"
         )
 
-    def test_respects_minimum_savings_threshold(
-        self, insight: ImageOptimizationInsight, insights_input: InsightsInput
-    ) -> None:
+    def test_respects_minimum_savings_threshold(self, insights_input: InsightsInput) -> None:
         """Test that only images with savings above the threshold are included."""
-        result = insight.generate(insights_input)
+        result = ImageOptimizationInsight().generate(insights_input)
         assert result is not None
         for optimizable_file in result.optimizable_files:
-            assert optimizable_file.potential_savings >= insight.MIN_SAVINGS_THRESHOLD
+            assert optimizable_file.potential_savings >= ImageOptimizationInsight().MIN_SAVINGS_THRESHOLD
 
     def test_calculates_minification_savings(
         self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any], insights_input: InsightsInput
@@ -283,7 +270,7 @@ class TestImageOptimizationInsightIntegration:
         assert optimizable_file.minified_size < optimizable_file.current_size
 
     def test_calculates_heic_conversion_savings(
-        self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any], insights_input: InsightsInput
+        self, temp_images: Dict[str, Any], insights_input: InsightsInput
     ) -> None:
         """Test that HEIC conversion savings are calculated for JPEG images."""
         large_jpeg = temp_images["large_jpeg"]
@@ -306,7 +293,7 @@ class TestImageOptimizationInsightIntegration:
             hermes_reports={},
         )
 
-        result = insight.generate(jpeg_only_input)
+        result = ImageOptimizationInsight().generate(jpeg_only_input)
 
         assert result is not None, "Expected optimization results for large JPEG file"
         assert result.total_savings > 0, "Expected total savings > 0 for large JPEG"
@@ -323,7 +310,7 @@ class TestImageOptimizationInsightIntegration:
         )
 
     def test_handles_corrupted_images_gracefully(
-        self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any], insights_input: InsightsInput
+        self, temp_images: Dict[str, Any], insights_input: InsightsInput
     ) -> None:
         """Test that corrupted or invalid image files are handled gracefully."""
         corrupted_file = temp_images["temp_dir"] / "corrupted.png"
@@ -349,10 +336,10 @@ class TestImageOptimizationInsightIntegration:
         )
 
         # Should not raise an exception and should return None (no optimizable files)
-        result = insight.generate(corrupted_input)
+        result = ImageOptimizationInsight().generate(corrupted_input)
         assert result is None, "Expected None when all files are corrupted/invalid"
 
-    def test_empty_file_list_returns_none(self, insight: ImageOptimizationInsight) -> None:
+    def test_empty_file_list_returns_none(self) -> None:
         """Test that an empty file list returns None."""
         empty_input = InsightsInput(
             app_info=AppleAppInfo(
@@ -379,12 +366,10 @@ class TestImageOptimizationInsightIntegration:
             hermes_reports={},
         )
 
-        result = insight.generate(empty_input)
+        result = ImageOptimizationInsight().generate(empty_input)
         assert result is None
 
-    def test_only_small_savings_returns_none(
-        self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any], insights_input: InsightsInput
-    ) -> None:
+    def test_only_small_savings_returns_none(self, temp_images: Dict[str, Any], insights_input: InsightsInput) -> None:
         """Test that if all images have savings below threshold, None is returned."""
         small_png = temp_images["small_png"]
 
@@ -411,5 +396,5 @@ class TestImageOptimizationInsightIntegration:
             hermes_reports={},
         )
 
-        result = insight.generate(small_input)
+        result = ImageOptimizationInsight().generate(small_input)
         assert result is None
