@@ -234,9 +234,7 @@ class TestImageOptimizationInsightIntegration:
         for optimizable_file in result.optimizable_files:
             assert optimizable_file.potential_savings >= ImageOptimizationInsight().MIN_SAVINGS_THRESHOLD
 
-    def test_calculates_minification_savings(
-        self, insight: ImageOptimizationInsight, temp_images: Dict[str, Any], insights_input: InsightsInput
-    ) -> None:
+    def test_calculates_minification_savings(self, temp_images: Dict[str, Any], insights_input: InsightsInput) -> None:
         """Test that minification savings are calculated correctly."""
         large_png = temp_images["large_png"]
         file_info = FileInfo(
@@ -258,7 +256,7 @@ class TestImageOptimizationInsightIntegration:
             hermes_reports={},
         )
 
-        result = insight.generate(png_only_input)
+        result = ImageOptimizationInsight.generate(png_only_input)
 
         assert result is not None
         assert result.total_savings > 0
