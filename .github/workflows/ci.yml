@@ -66,25 +66,30 @@ jobs:
 
       - name: Start Kafka with devservices
         run: |
-          # Start Kafka in the background
           .venv/bin/devservices up --mode default
 
-          # Wait for Kafka to be ready
           echo "Waiting for Kafka to be ready..."
           KAFKA_READY=false
           for i in {1..30}; do
-            if docker exec $(docker ps -qf "name=kafka") kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null; then
+            KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
+            if [ -z "$KAFKA_CONTAINER" ]; then
+              echo "Waiting for Kafka container to start... attempt $i/30"
+              sleep 2
+              continue
+            fi
+
+            HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $KAFKA_CONTAINER 2>/dev/null || echo "none")
+            if [ "$HEALTH_STATUS" = "healthy" ]; then
               echo "Kafka is ready!"
               KAFKA_READY=true
               break
             fi
-            echo "Waiting for Kafka... attempt $i/30"
+            echo "Waiting for Kafka health check (status: $HEALTH_STATUS)... attempt $i/30"
             sleep 2
           done
 
-          # Fail if Kafka didn't start
           if [ "$KAFKA_READY" = "false" ]; then
-            echo "ERROR: Kafka failed to start after 60 seconds"
+            echo "ERROR: Kafka failed to become healthy after 60 seconds"
             echo "=== Docker containers ==="
             docker ps -a
             echo "=== Kafka logs ==="
@@ -92,7 +97,6 @@ jobs:
             exit 1
           fi
 
-          # Show running containers
           docker ps
 
       - name: Build Docker image with test fixtures
@@ -152,25 +156,30 @@ jobs:
 
       - name: Start Kafka with devservices
         run: |
-          # Start Kafka in the background
           .venv/bin/devservices up --mode default
 
-          # Wait for Kafka to be ready
           echo "Waiting for Kafka to be ready..."
           KAFKA_READY=false
           for i in {1..30}; do
-            if docker exec $(docker ps -qf "name=kafka") kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null; then
+            KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
+            if [ -z "$KAFKA_CONTAINER" ]; then
+              echo "Waiting for Kafka container to start... attempt $i/30"
+              sleep 2
+              continue
+            fi
+
+            HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $KAFKA_CONTAINER 2>/dev/null || echo "none")
+            if [ "$HEALTH_STATUS" = "healthy" ]; then
               echo "Kafka is ready!"
               KAFKA_READY=true
               break
             fi
-            echo "Waiting for Kafka... attempt $i/30"
+            echo "Waiting for Kafka health check (status: $HEALTH_STATUS)... attempt $i/30"
             sleep 2
           done
 
-          # Fail if Kafka didn't start
           if [ "$KAFKA_READY" = "false" ]; then
-            echo "ERROR: Kafka failed to start after 60 seconds"
+            echo "ERROR: Kafka failed to become healthy after 60 seconds"
             echo "=== Docker containers ==="
             docker ps -a
             echo "=== Kafka logs ==="
@@ -178,7 +187,6 @@ jobs:
             exit 1
           fi
 
-          # Show running containers
           docker ps
 
       - name: Build Docker image with test fixtures
