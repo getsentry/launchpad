@@ -147,17 +147,18 @@ class TestKafkaConsumerIntegration:
 
     def test_kafka_consumer_healthcheck_file_creation(self, kafka_env_vars, temp_healthcheck_file):
         """Test that consumer health check file is managed correctly."""
-        with patch.dict(os.environ, {"KAFKA_HEALTHCHECK_FILE": temp_healthcheck_file}):
+        with (
+            patch.dict(os.environ, {"KAFKA_HEALTHCHECK_FILE": temp_healthcheck_file}),
+            patch("launchpad.kafka.configure_metrics"),
+        ):
             consumer = create_kafka_consumer()
-
-            assert not consumer.is_healthy()
-
-            Path(temp_healthcheck_file).touch()
-            assert consumer.is_healthy()
 
             old_time = time.time() - 120
             os.utime(temp_healthcheck_file, (old_time, old_time))
             assert not consumer.is_healthy()
+
+            Path(temp_healthcheck_file).touch()
+            assert consumer.is_healthy()
 
     def test_message_processing_with_mock_artifact(self, kafka_env_vars, kafka_producer):
         """Test that messages can be sent to Kafka and processed."""
@@ -176,7 +177,10 @@ class TestKafkaConsumerIntegration:
                 {"org_id": org_id, "project_id": project_id, "artifact_id": artifact_id, "features": features}
             )
 
-        with patch.object(ArtifactProcessor, "process_artifact", mock_process_artifact):
+        with (
+            patch.object(ArtifactProcessor, "process_artifact", mock_process_artifact),
+            patch("launchpad.kafka.configure_metrics"),
+        ):
             encoded_message = schema.encode(test_message)
             kafka_producer.produce(
                 PREPROD_ARTIFACT_EVENTS_TOPIC,
@@ -212,30 +216,31 @@ class TestKafkaConsumerIntegration:
 
     def test_kafka_consumer_handles_malformed_message(self, kafka_env_vars, kafka_producer):
         """Test that consumer handles malformed messages gracefully."""
-        kafka_producer.produce(
-            PREPROD_ARTIFACT_EVENTS_TOPIC,
-            value=b"this is not valid json",
-            key=b"test-key",
-        )
-        kafka_producer.flush()
+        with patch("launchpad.kafka.configure_metrics"):
+            kafka_producer.produce(
+                PREPROD_ARTIFACT_EVENTS_TOPIC,
+                value=b"this is not valid json",
+                key=b"test-key",
+            )
+            kafka_producer.flush()
 
-        consumer = create_kafka_consumer()
+            consumer = create_kafka_consumer()
 
-        def run_consumer():
-            try:
-                consumer.run()
-            except Exception:
-                pass
+            def run_consumer():
+                try:
+                    consumer.run()
+                except Exception:
+                    pass
 
-        consumer_thread = Thread(target=run_consumer, daemon=True)
-        consumer_thread.start()
+            consumer_thread = Thread(target=run_consumer, daemon=True)
+            consumer_thread.start()
 
-        time.sleep(2)
+            time.sleep(2)
 
-        consumer.stop()
-        consumer_thread.join(timeout=5)
+            consumer.stop()
+            consumer_thread.join(timeout=5)
 
-        assert not consumer_thread.is_alive()
+            assert not consumer_thread.is_alive()
 
 
 @pytest.mark.integration
