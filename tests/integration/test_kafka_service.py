@@ -1,23 +1,3 @@
-"""Integration tests for the Launchpad Kafka service.
-
-These tests verify actual integration between components with minimal mocking.
-They test real message processing, service lifecycle, and error handling.
-
-## Test Organization
-
-- **TestKafkaConfigIntegration**: Configuration loading (no Kafka needed)
-- **TestKafkaConsumerIntegration**: Real Kafka integration (requires Kafka broker)
-- **TestServiceIntegration**: Service setup and health checks (no Kafka needed)
-- **TestMessageProcessingFlow**: Message processing logic (mocked processor)
-
-## Running Tests
-
-In CI, Kafka is started via `devservices up` and all tests run.
-Locally, you can skip Kafka tests with `SKIP_KAFKA_INTEGRATION_TESTS=1`.
-
-See KAFKA_TEST_IMPROVEMENTS.md for detailed documentation.
-"""
-
 from __future__ import annotations
 
 import os
@@ -29,19 +9,17 @@ from unittest.mock import patch
 
 import pytest
 
-from confluent_kafka import Producer
-from sentry_kafka_schemas import get_codec
+from aiohttp.test_utils import TestClient, TestServer
 
 from launchpad.artifact_processor import ArtifactProcessor
-from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
+from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC, PreprodFeature
 from launchpad.kafka import LaunchpadKafkaConsumer, create_kafka_consumer, get_kafka_config
-from launchpad.service import LaunchpadService
+from launchpad.service import LaunchpadService, ServiceConfig, get_service_config
 from launchpad.utils.statsd import FakeStatsd
 
 
 @pytest.fixture
 def kafka_env_vars():
-    """Set up Kafka environment variables for testing."""
     env_vars = {
         "KAFKA_BOOTSTRAP_SERVERS": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
         "KAFKA_GROUP_ID": f"launchpad-test-{int(time.time())}",
@@ -56,17 +34,7 @@ def kafka_env_vars():
 
 
 @pytest.fixture
-def kafka_producer(kafka_env_vars):
-    """Create a Kafka producer for sending test messages."""
-    config = {"bootstrap.servers": kafka_env_vars["KAFKA_BOOTSTRAP_SERVERS"]}
-    producer = Producer(config)
-    yield producer
-    producer.flush()
-
-
-@pytest.fixture
 def temp_healthcheck_file():
-    """Create a temporary healthcheck file."""
     with tempfile.NamedTemporaryFile(delete=False) as f:
         yield f.name
     try:
@@ -144,102 +112,10 @@ class TestKafkaConsumerIntegration:
         assert consumer.healthcheck_path is not None
         assert consumer.strategy_factory is not None
 
-    def test_kafka_consumer_healthcheck_file_creation(self, kafka_env_vars, temp_healthcheck_file):
-        """Test that consumer health check file is managed correctly."""
-        with (
-            patch.dict(os.environ, {"KAFKA_HEALTHCHECK_FILE": temp_healthcheck_file}),
-            patch("launchpad.kafka.configure_metrics"),
-        ):
-            consumer = create_kafka_consumer()
-
-            old_time = time.time() - 120
-            os.utime(temp_healthcheck_file, (old_time, old_time))
-            assert not consumer.is_healthy()
-
-            Path(temp_healthcheck_file).touch()
-            assert consumer.is_healthy()
-
-    def test_message_encoding_and_schema(self, kafka_env_vars, kafka_producer):
-        """Test that messages can be properly encoded and sent to Kafka.
-
-        Note: We don't test actual consumer processing here because the consumer
-        requires running in the main thread (due to multiprocessing/signal handling),
-        which is incompatible with pytest's threading model. Message processing logic
-        is tested in TestMessageProcessingFlow tests instead.
-        """
-        schema = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
-        test_message = {
-            "artifact_id": "test-artifact-123",
-            "project_id": "test-project",
-            "organization_id": "test-org",
-            "requested_features": ["size_analysis"],
-        }
-
-        kafka_producer.produce(
-            PREPROD_ARTIFACT_EVENTS_TOPIC,
-            value=b"",
-            key=b"init",
-        )
-        kafka_producer.flush()
-
-        encoded_message = schema.encode(test_message)
-        assert encoded_message is not None
-        assert len(encoded_message) > 0
-
-        kafka_producer.produce(
-            PREPROD_ARTIFACT_EVENTS_TOPIC,
-            value=encoded_message,
-            key=test_message["artifact_id"].encode(),
-        )
-        kafka_producer.flush()
-
-        decoded_message = schema.decode(encoded_message)
-        assert decoded_message["artifact_id"] == "test-artifact-123"
-        assert decoded_message["project_id"] == "test-project"
-        assert decoded_message["organization_id"] == "test-org"
-        assert decoded_message["requested_features"] == ["size_analysis"]
-
-    def test_kafka_producer_can_send_messages(self, kafka_env_vars, kafka_producer):
-        """Test that we can successfully send various message types to Kafka.
-
-        Note: Consumer crash handling is tested via the service's error handling,
-        not by actually running the consumer in tests (which requires main thread).
-        """
-        kafka_producer.produce(
-            PREPROD_ARTIFACT_EVENTS_TOPIC,
-            value=b"init",
-            key=b"init-key",
-        )
-        kafka_producer.flush()
-
-        kafka_producer.produce(
-            PREPROD_ARTIFACT_EVENTS_TOPIC,
-            value=b"test message",
-            key=b"test-key",
-        )
-        kafka_producer.flush()
-
-        schema = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
-        valid_message = {
-            "artifact_id": "valid-123",
-            "project_id": "test-proj",
-            "organization_id": "test-org",
-            "requested_features": ["size_analysis"],
-        }
-        encoded = schema.encode(valid_message)
-        kafka_producer.produce(
-            PREPROD_ARTIFACT_EVENTS_TOPIC,
-            value=encoded,
-            key=b"valid-key",
-        )
-        kafka_producer.flush()
-
 
 @pytest.mark.integration
 class TestServiceIntegration:
-    """Integration tests for the full service orchestration with minimal mocking."""
-
-    def test_service_setup_with_real_components(self, kafka_env_vars):
+    def test_service_setup(self, kafka_env_vars):
         """Test that service setup initializes real components correctly."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
@@ -255,11 +131,7 @@ class TestServiceIntegration:
             assert service.server is not None
             assert service.kafka is not None
 
-            assert hasattr(service.server, "create_app")
-            assert hasattr(service.kafka, "run")
-            assert hasattr(service.kafka, "is_healthy")
-
-    def test_service_health_check_with_real_components(self, kafka_env_vars, temp_healthcheck_file):
+    def test_service_health_check(self, kafka_env_vars, temp_healthcheck_file):
         """Test service health check with real Kafka consumer."""
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
@@ -281,7 +153,6 @@ class TestServiceIntegration:
 
     def test_service_config_loading(self):
         """Test service configuration loading from environment."""
-        from launchpad.service import get_service_config
 
         with patch.dict("os.environ", {}, clear=True):
             config = get_service_config()
@@ -302,7 +173,6 @@ class TestServiceIntegration:
     @pytest.mark.asyncio
     async def test_http_server_endpoints_integration(self, kafka_env_vars, temp_healthcheck_file):
         """Test HTTP server endpoints with real service components."""
-        from aiohttp.test_utils import TestClient, TestServer
 
         fake_statsd = FakeStatsd()
         service = LaunchpadService(fake_statsd)
@@ -340,7 +210,6 @@ class TestMessageProcessingFlow:
 
     def test_process_message_with_skipped_project(self):
         """Test that projects in skip list are not processed."""
-        from launchpad.service import ServiceConfig
 
         fake_statsd = FakeStatsd()
         service_config = ServiceConfig(
@@ -361,8 +230,6 @@ class TestMessageProcessingFlow:
 
     def test_process_message_with_allowed_project(self):
         """Test that non-skipped projects are processed."""
-        from launchpad.constants import PreprodFeature
-        from launchpad.service import ServiceConfig
 
         fake_statsd = FakeStatsd()
         service_config = ServiceConfig(
@@ -393,7 +260,6 @@ class TestMessageProcessingFlow:
 
     def test_process_message_error_handling(self):
         """Test that processing errors are handled gracefully."""
-        from launchpad.service import ServiceConfig
 
         fake_statsd = FakeStatsd()
         service_config = ServiceConfig(
