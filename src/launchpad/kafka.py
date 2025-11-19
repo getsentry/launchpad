@@ -49,8 +49,8 @@ def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queu
 
     try:
         ArtifactProcessor.process_message(decoded_message)
-    except Exception as e:
-        logger.exception(f"Error processing message in subprocess: {e}")
+    except Exception:
+        logger.exception("Error processing message in subprocess")
         sys.exit(1)
 
 
@@ -63,8 +63,8 @@ def process_kafka_message_with_service(
 
     try:
         decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
-    except Exception as e:
-        logger.error(f"Failed to decode message: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Failed to decode message")
         raise
 
     artifact_id = decoded.get("artifact_id", "unknown")
@@ -76,16 +76,26 @@ def process_kafka_message_with_service(
 
     if process.is_alive():
         # Timeout exceeded - kill the process
-        logger.error(f"Task exceeded timeout of {timeout}s, killing process | artifact_id={artifact_id}")
+        logger.error(
+            "Task exceeded timeout, killing process",
+            extra={"timeout_seconds": timeout, "artifact_id": artifact_id},
+        )
         process.terminate()
         process.join(timeout=5)  # Give it 5s to terminate gracefully
         if process.is_alive():
+            logger.warning(
+                "Process did not terminate gracefully, force killing",
+                extra={"artifact_id": artifact_id},
+            )
             process.kill()
             process.join()
         return None  # type: ignore[return-value]
 
     if process.exitcode != 0:
-        logger.error(f"Process exited with code {process.exitcode} | artifact_id={artifact_id}")
+        logger.error(
+            "Process exited with non-zero code",
+            extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
+        )
         return None  # type: ignore[return-value]
 
     return decoded  # type: ignore[no-any-return]

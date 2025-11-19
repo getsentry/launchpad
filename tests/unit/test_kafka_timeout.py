@@ -47,5 +47,4 @@ def test_process_timeout_kills_subprocess(mock_kafka_message, log_queue, caplog)
 
     timeout_logs = [record for record in caplog.records if "Task exceeded timeout" in record.message]
     assert len(timeout_logs) == 1
-    assert "artifact_id=test-timeout" in timeout_logs[0].message
     assert "killing process" in timeout_logs[0].message
