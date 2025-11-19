@@ -59,7 +59,7 @@ def process_kafka_message_with_service(
     log_queue: multiprocessing.Queue[Any],
 ) -> Any:
     """Process a Kafka message by spawning a fresh subprocess with timeout protection."""
-    timeout = int(os.getenv("KAFKA_TASK_TIMEOUT_SECONDS", "720"))  # 12 minutes default
+    timeout = int(os.getenv("KAFKA_TASK_TIMEOUT_SECONDS", "3600"))  # 1 hour default
 
     try:
         decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
