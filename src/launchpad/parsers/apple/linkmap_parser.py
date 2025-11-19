@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import bisect
 import re
 
 from dataclasses import dataclass, field
@@ -69,7 +70,6 @@ class LinkmapParser:
         self.objs: list[LinkmapObjectFile] = []
         self.syms: list[LinkmapSymbol] = []
         self._sects: list[LinkmapSection] = []
-        self._addr_to_sym: dict[int, LinkmapSymbol] = {}
 
         self._parse(contents, section_map)
 
@@ -80,7 +80,7 @@ class LinkmapParser:
         return cls(contents, section_map)
 
     def symbolicate(self, addr: int) -> LinkmapSymbol | None:
-        """Find the symbol that contains the given address by searching backwards."""
+        """Find the symbol that contains the given address using binary search."""
         if not self.syms:
             return None
 
@@ -90,15 +90,16 @@ class LinkmapParser:
         if addr < first_sym.addr or addr > last_sym.addr + last_sym.size:
             return None
 
-        # Search backwards from the address to find containing symbol
-        for test_addr in range(addr, -1, -1):
-            sym = self._addr_to_sym.get(test_addr)
-            if sym:
-                # Check if addr is within this symbol's range
-                if test_addr <= addr < test_addr + sym.size:
-                    return sym
-                # If we found a symbol but addr is past it, no match
-                break
+        # Binary search to find the symbol at or before this address
+        # bisect_right gives us the insertion point; the symbol we want is at index-1
+        idx = bisect.bisect_right(self.syms, addr, key=lambda sym: sym.addr)
+        if idx == 0:
+            return None
+
+        # Check if addr falls within the symbol's range
+        sym = self.syms[idx - 1]
+        if sym.addr <= addr < sym.addr + sym.size:
+            return sym
 
         return None
 
@@ -124,8 +125,6 @@ class LinkmapParser:
                 obj = self.objs[sym.obj_idx]
                 sym.obj = obj
                 obj.syms.append(sym)
-
-        self._addr_to_sym = {sym.addr: sym for sym in self.syms}
 
     def _find_section_start(self, lines: list[str], marker: str) -> int | None:
         try:
