@@ -1,3 +1,5 @@
+import os
+
 from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
 
@@ -65,36 +67,52 @@ class TestCwlDemangler:
             == "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
         )
 
-    def test_demangle_all_chunked_processing(self):
-        """Test that chunked processing works with many names."""
+    def test_parallel_processing(self):
+        """Test demangling with 20k+ symbols (covers chunking and parallel mode)."""
         demangler = CwlDemangler(continue_on_error=True)
 
-        # Generate Swift mangled names by cycling through letters
-        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        symbols_needed = 600
-
-        for i in range(symbols_needed):
-            letter1 = letters[i % len(letters)]
-            letter2 = letters[(i // len(letters)) % len(letters)]
-            letter3 = letters[(i // (len(letters) * len(letters))) % len(letters)]
-            module_name = f"Test{letter1}{letter2}"
-            symbol_name = f"Symbol{letter3}{i % 100}"
-            mangled_name = f"_$s{len(module_name)}{module_name}{len(symbol_name)}{symbol_name}"
-            demangler.add_name(mangled_name)
+        # Generate 20k symbols (4 chunks at 5k each)
+        symbols_needed = 20000
+        symbols = self._generate_symbols(symbols_needed)
+        for symbol in symbols:
+            demangler.add_name(symbol)
 
         result = demangler.demangle_all()
 
         assert len(result) == symbols_needed
-        for i in range(symbols_needed):
+        # Spot check some symbols
+        for symbol in symbols[::1000]:  # Every 1000th symbol
+            assert symbol in result
+            assert isinstance(result[symbol], CwlDemangleResult)
+
+    def test_environment_variable_disables_parallel(self):
+        """Test LAUNCHPAD_NO_PARALLEL_DEMANGLE env var disables parallel."""
+        old_value = os.environ.get("LAUNCHPAD_NO_PARALLEL_DEMANGLE")
+        try:
+            # Ensure env var is unset for first test
+            os.environ.pop("LAUNCHPAD_NO_PARALLEL_DEMANGLE", None)
+            demangler = CwlDemangler()
+            assert demangler.use_parallel is True
+
+            # Test with "true"
+            os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
+            demangler = CwlDemangler()
+            assert demangler.use_parallel is False
+        finally:
+            os.environ.pop("LAUNCHPAD_NO_PARALLEL_DEMANGLE", None)
+            if old_value is not None:
+                os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = old_value
+
+    def _generate_symbols(self, count: int) -> list[str]:
+        """Generate valid Swift mangled symbols."""
+        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        symbols = []
+        for i in range(count):
             letter1 = letters[i % len(letters)]
             letter2 = letters[(i // len(letters)) % len(letters)]
             letter3 = letters[(i // (len(letters) * len(letters))) % len(letters)]
-
             module_name = f"Test{letter1}{letter2}"
             symbol_name = f"Symbol{letter3}{i % 100}"
             mangled_name = f"_$s{len(module_name)}{module_name}{len(symbol_name)}{symbol_name}"
-
-            assert mangled_name in result
-            # Check that each result is a CwlDemangleResult instance
-            assert isinstance(result[mangled_name], CwlDemangleResult)
-            assert result[mangled_name].mangled == mangled_name
+            symbols.append(mangled_name)
+        return symbols

@@ -1,11 +1,13 @@
 import json
+import multiprocessing
+import os
 import shutil
 import subprocess
 import tempfile
 import uuid
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from launchpad.utils.logging import get_logger
 
@@ -26,10 +28,91 @@ class CwlDemangleResult:
     mangled: str
 
 
+def _demangle_chunk_worker(
+    chunk: List[str],
+    chunk_idx: int,
+    is_type: bool,
+    continue_on_error: bool,
+    demangle_uuid: str,
+) -> Dict[str, CwlDemangleResult]:
+    """
+    Module-level function to demangle a chunk of symbols. Arguments must be picklable for multiprocessing.
+
+    Args:
+        chunk: List of symbol names to demangle
+        chunk_idx: Index of this chunk (for logging/temp file naming)
+        is_type: Whether to treat inputs as types rather than symbols
+        continue_on_error: Whether to continue processing on errors
+        demangle_uuid: UUID for temp file naming
+
+    Returns:
+        Dictionary mapping mangled names to CwlDemangleResult instances
+    """
+    if not chunk:
+        return {}
+
+    binary_path = shutil.which("cwl-demangle")
+    if binary_path is None:
+        logger.error("cwl-demangle binary not found in PATH")
+        return {}
+
+    chunk_set = set[str](chunk)
+    results: Dict[str, CwlDemangleResult] = {}
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", prefix=f"cwl-demangle-{demangle_uuid}-chunk-{chunk_idx}-", suffix=".txt"
+    ) as temp_file:
+        temp_file.write("\n".join(chunk))
+        temp_file.flush()
+
+        command_parts = [
+            binary_path,
+            "batch",
+            "--input",
+            temp_file.name,
+            "--json",
+        ]
+
+        if is_type:
+            command_parts.append("--isType")
+
+        if continue_on_error:
+            command_parts.append("--continue-on-error")
+
+        try:
+            result = subprocess.run(command_parts, capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError:
+            logger.exception(f"cwl-demangle failed for chunk {chunk_idx}")
+            return {}
+
+        batch_result = json.loads(result.stdout)
+
+        for symbol_result in batch_result.get("results", []):
+            mangled = symbol_result.get("mangled", "")
+            if mangled in chunk_set:
+                demangle_result = CwlDemangleResult(
+                    name=symbol_result["name"],
+                    type=symbol_result["type"],
+                    identifier=symbol_result["identifier"],
+                    module=symbol_result["module"],
+                    testName=symbol_result["testName"],
+                    typeName=symbol_result["typeName"],
+                    description=symbol_result["description"],
+                    mangled=mangled,
+                )
+                results[mangled] = demangle_result
+
+        return results
+
+
 class CwlDemangler:
     """A class to demangle Swift symbol names using the cwl-demangle tool."""
 
-    def __init__(self, is_type: bool = False, continue_on_error: bool = True):
+    def __init__(
+        self,
+        is_type: bool = False,
+        continue_on_error: bool = True,
+    ):
         """
         Initialize the CwlDemangler.
 
@@ -40,7 +123,11 @@ class CwlDemangler:
         self.is_type = is_type
         self.queue: List[str] = []
         self.continue_on_error = continue_on_error
-        self.uuid = uuid.uuid4()
+        self.uuid = str(uuid.uuid4())
+
+        # Disable parallel processing if LAUNCHPAD_NO_PARALLEL_DEMANGLE=true
+        env_disable = os.environ.get("LAUNCHPAD_NO_PARALLEL_DEMANGLE", "").lower() == "true"
+        self.use_parallel = not env_disable
 
     def add_name(self, name: str) -> None:
         """
@@ -63,73 +150,66 @@ class CwlDemangler:
 
         names = self.queue.copy()
         self.queue.clear()
-        results: Dict[str, CwlDemangleResult] = {}
 
         # Process in chunks to avoid potential issues with large inputs
-        chunk_size = 500
+        chunk_size = 5000
+        total_chunks = (len(names) + chunk_size - 1) // chunk_size
 
+        chunks: List[Tuple[List[str], int]] = []
         for i in range(0, len(names), chunk_size):
             chunk = names[i : i + chunk_size]
-            chunk_results = self._demangle_chunk(chunk, i)
+            chunk_idx = i // chunk_size
+            chunks.append((chunk, chunk_idx))
+
+        # Only use parallel processing if workload justifies multiprocessing overhead (≥4 chunks = ≥20K symbols)
+        do_in_parallel = self.use_parallel and total_chunks >= 4
+
+        logger.debug(
+            f"Starting Swift demangling: {len(names)} symbols in {total_chunks} chunks "
+            f"of {chunk_size} ({'parallel' if do_in_parallel else 'sequential'} mode)"
+        )
+
+        return self._demangle_parallel(chunks) if do_in_parallel else self._demangle_sequential(chunks)
+
+    def _demangle_parallel(self, chunks: List[Tuple[List[str], int]]) -> Dict[str, CwlDemangleResult]:
+        """Demangle chunks in parallel using multiprocessing"""
+        results: Dict[str, CwlDemangleResult] = {}
+
+        try:
+            # Prepare arguments for starmap
+            worker_args = [
+                (chunk, chunk_idx, self.is_type, self.continue_on_error, self.uuid) for chunk, chunk_idx in chunks
+            ]
+
+            # Process chunks in parallel
+            # NOTE: starmap pickles the function and arguments to send to worker processes.
+            # Current arguments are all safe to pickle:
+            # - chunk: List[str] (standard containers with primitives)
+            # - chunk_idx: int (primitive)
+            # - is_type: bool (primitive)
+            # - continue_on_error: bool (primitive)
+            # - uuid: str (primitive)
+            with multiprocessing.Pool(processes=4) as pool:
+                chunk_results = pool.starmap(_demangle_chunk_worker, worker_args)
+
+            for chunk_result in chunk_results:
+                results.update(chunk_result)
+
+        except Exception:
+            logger.exception("Parallel demangling failed, falling back to sequential")
+            results = self._demangle_sequential(chunks)
+
+        return results
+
+    def _demangle_sequential(self, chunks: List[Tuple[List[str], int]]) -> Dict[str, CwlDemangleResult]:
+        """Demangle chunks sequentially"""
+        results: Dict[str, CwlDemangleResult] = {}
+
+        for chunk, chunk_idx in chunks:
+            chunk_results = self._demangle_chunk(chunk, chunk_idx)
             results.update(chunk_results)
 
         return results
 
     def _demangle_chunk(self, names: List[str], i: int) -> Dict[str, CwlDemangleResult]:
-        if not names:
-            logger.warning("No names to demangle")
-            return {}
-
-        binary_path = self._get_binary_path()
-        results: Dict[str, CwlDemangleResult] = {}
-
-        with tempfile.NamedTemporaryFile(
-            mode="w", prefix=f"cwl-demangle-{self.uuid}-chunk-{i}-", suffix=".txt"
-        ) as temp_file:
-            temp_file.write("\n".join(names))
-            temp_file.flush()
-
-            command_parts = [
-                binary_path,
-                "batch",
-                "--input",
-                temp_file.name,
-                "--json",
-            ]
-
-            if self.is_type:
-                command_parts.append("--isType")
-
-            if self.continue_on_error:
-                command_parts.append("--continue-on-error")
-
-            try:
-                result = subprocess.run(command_parts, capture_output=True, text=True, check=True)
-            except subprocess.CalledProcessError:
-                logger.exception("cwl-demangle failed")
-                return {}
-
-            batch_result = json.loads(result.stdout)
-
-            for symbol_result in batch_result.get("results", []):
-                mangled = symbol_result.get("mangled", "")
-                if mangled in names:
-                    demangle_result = CwlDemangleResult(
-                        name=symbol_result["name"],
-                        type=symbol_result["type"],
-                        identifier=symbol_result["identifier"],
-                        module=symbol_result["module"],
-                        testName=symbol_result["testName"],
-                        typeName=symbol_result["typeName"],
-                        description=symbol_result["description"],
-                        mangled=mangled,
-                    )
-                    results[mangled] = demangle_result
-
-            return results
-
-    def _get_binary_path(self) -> str:
-        """Get the path to the cwl-demangle binary."""
-        path = shutil.which("cwl-demangle")
-        assert path is not None
-        return path
+        return _demangle_chunk_worker(names, i, self.is_type, self.continue_on_error, self.uuid)
