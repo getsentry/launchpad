@@ -5,7 +5,6 @@ import re
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Protocol
 
 import sentry_sdk
 
@@ -50,12 +49,6 @@ class LinkmapSection:
         return f"LinkmapSection(addr={hex(self.addr)}, size={self.size}, seg={self.seg}, name={self.name})"
 
 
-class SectionMap(Protocol):
-    """Protocol for section map that can find sections by address."""
-
-    def find(self, addr: int) -> LinkmapSection | None: ...
-
-
 class LinkmapParser:
     """Parser for Xcode linkmap files.
 
@@ -66,18 +59,18 @@ class LinkmapParser:
     _SYMBOL_PATTERN = re.compile(r"^(\S+)\s+(\S+)\s+\[(.*?)\]\s+(.*)")
     _LIBRARY_ARCHIVE_PATTERN = re.compile(r"^(.*)\((.*)\)$")
 
-    def __init__(self, contents: str, section_map: SectionMap | None = None) -> None:
+    def __init__(self, contents: str) -> None:
         self.objs: list[LinkmapObjectFile] = []
         self.syms: list[LinkmapSymbol] = []
         self._sects: list[LinkmapSection] = []
 
-        self._parse(contents, section_map)
+        self._parse(contents)
 
     @classmethod
-    def from_path(cls, path: Path, section_map: SectionMap | None = None) -> LinkmapParser:
+    def from_path(cls, path: Path) -> LinkmapParser:
         with open(path, encoding="utf-8", errors="replace") as f:
             contents = f.read()
-        return cls(contents, section_map)
+        return cls(contents)
 
     def symbolicate(self, addr: int) -> LinkmapSymbol | None:
         """Find the symbol that contains the given address using binary search."""
@@ -104,13 +97,26 @@ class LinkmapParser:
         return None
 
     @sentry_sdk.trace
-    def _parse(self, contents: str, section_map: SectionMap | None) -> None:
+    def _parse(self, contents: str) -> None:
         lines = [line for line in contents.split("\n") if line.strip()]
 
-        obj_start = self._find_section_start(lines, "# Object files:")
-        sect_start = self._find_section_start(lines, "# Sections:")
-        sym_start = self._find_section_start(lines, "# Symbols:")
-        strip_start = self._find_section_start(lines, "# Dead Stripped Symbols:") or len(lines)
+        obj_start = None
+        sect_start = None
+        sym_start = None
+        strip_start = None
+
+        for i, line in enumerate(lines):
+            if line == "# Object files:":
+                obj_start = i
+            elif line == "# Sections:":
+                sect_start = i
+            elif line == "# Symbols:":
+                sym_start = i
+            elif line == "# Dead Stripped Symbols:":
+                strip_start = i
+                break  # This is typically the last section
+
+        strip_start = strip_start or len(lines)
 
         if obj_start is None or sect_start is None or sym_start is None:
             logger.warning("Could not find required sections in linkmap file")
@@ -118,19 +124,13 @@ class LinkmapParser:
 
         self._parse_sections(lines, sect_start + 1, sym_start)
         self._parse_object_files(lines, obj_start + 1, sect_start)
-        self._parse_symbols(lines, sym_start + 2, strip_start, section_map)
+        self._parse_symbols(lines, sym_start + 2, strip_start)
 
         for sym in self.syms:
             if 0 <= sym.obj_idx < len(self.objs):
                 obj = self.objs[sym.obj_idx]
                 sym.obj = obj
                 obj.syms.append(sym)
-
-    def _find_section_start(self, lines: list[str], marker: str) -> int | None:
-        try:
-            return lines.index(marker)
-        except ValueError:
-            return None
 
     def _parse_sections(self, lines: list[str], start: int, end: int) -> None:
         for i in range(start, end):
@@ -149,6 +149,7 @@ class LinkmapParser:
                     self._sects.append(LinkmapSection(addr, size, seg, name))
                 except ValueError:
                     # Skip lines that don't have valid hex addresses
+                    logger.warning("Invalid section line", extra={"line": line})
                     continue
 
     def _parse_object_files(self, lines: list[str], start: int, end: int) -> None:
@@ -192,7 +193,7 @@ class LinkmapParser:
 
             self.objs.append(obj)
 
-    def _parse_symbols(self, lines: list[str], start: int, end: int, section_map: SectionMap | None) -> None:
+    def _parse_symbols(self, lines: list[str], start: int, end: int) -> None:
         for i in range(start, end):
             line = lines[i]
             match = self._SYMBOL_PATTERN.match(line)
@@ -206,10 +207,6 @@ class LinkmapParser:
 
             # Skip symbols with zero size
             if size == 0:
-                continue
-
-            # If section_map provided, filter out symbols not in file space
-            if section_map and section_map.find(addr) is None:
                 continue
 
             # Find the section this symbol belongs to

@@ -6,24 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from launchpad.parsers.apple.linkmap_parser import LinkmapParser, LinkmapSection
-
-
-class SimpleSectionMap:
-    """Simple section map for testing that accepts all addresses."""
-
-    def find(self, addr: int) -> LinkmapSection | None:
-        """Return a dummy section for any valid address."""
-        if addr >= 0x100000000:
-            return LinkmapSection(addr=0x100000000, size=0x10000000, seg="__TEXT", name="__text")
-        return None
+from launchpad.parsers.apple.linkmap_parser import LinkmapParser
 
 
 @pytest.fixture
 def hackernews_parser(hackernews_linkmap: Path) -> LinkmapParser:
     """Parsed HackerNews linkmap."""
-    section_map = SimpleSectionMap()
-    return LinkmapParser.from_path(hackernews_linkmap, section_map)
+    return LinkmapParser.from_path(hackernews_linkmap)
 
 
 class TestHackerNewsLinkmap:
@@ -160,7 +149,7 @@ class TestLinkmapParserBasics:
 # Sections:
 # Symbols:
 """
-        parser = LinkmapParser(empty_linkmap, None)
+        parser = LinkmapParser(empty_linkmap)
         assert len(parser.objs) == 0
         assert len(parser.syms) == 0
         assert len(parser._sects) == 0
@@ -170,41 +159,9 @@ class TestLinkmapParserBasics:
         incomplete = """# Path: /Test
 # Arch: arm64
 """
-        parser = LinkmapParser(incomplete, None)
+        parser = LinkmapParser(incomplete)
         assert len(parser.objs) == 0
         assert len(parser.syms) == 0
-
-    def test_section_map_filtering(self):
-        """Test that section_map filters symbols correctly."""
-
-        class RestrictiveSectionMap:
-            def find(self, addr: int) -> LinkmapSection | None:
-                # Only accept addresses in a specific range
-                if 0x100004000 <= addr < 0x100005000:
-                    return LinkmapSection(addr=0x100004000, size=0x1000, seg="__TEXT", name="__text")
-                return None
-
-        linkmap = """# Path: /Test
-# Arch: arm64
-# Object files:
-[  0] linker synthesized
-[  1] /path/to/Main.o
-# Sections:
-# Address	Size    	Segment	Section
-0x100004000	0x00001000	__TEXT	__text
-0x100006000	0x00001000	__DATA	__data
-# Symbols:
-# Address	Size    	File  Name
-0x100004000	0x00000100	[  1] _in_range
-0x100006000	0x00000100	[  1] _out_of_range
-# Dead Stripped Symbols:
-"""
-        section_map = RestrictiveSectionMap()
-        parser = LinkmapParser(linkmap, section_map)
-
-        # Only the symbol in the accepted range should be included
-        assert len(parser.syms) == 1
-        assert parser.syms[0].name == "_in_range"
 
     def test_library_archive_parsing(self):
         """Test parsing library archive format."""
@@ -223,8 +180,7 @@ class TestLinkmapParserBasics:
 0x100004100	0x00000100	[  2] _framework_function
 # Dead Stripped Symbols:
 """
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(linkmap, section_map)
+        parser = LinkmapParser(linkmap)
 
         assert len(parser.objs) == 3
         assert parser.objs[1].file == "Object1.o"
