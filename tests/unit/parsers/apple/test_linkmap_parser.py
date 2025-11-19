@@ -6,12 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from launchpad.parsers.apple.linkmap_parser import (
-    LinkmapObjectFile,
-    LinkmapParser,
-    LinkmapSection,
-    LinkmapSymbol,
-)
+from launchpad.parsers.apple.linkmap_parser import LinkmapParser, LinkmapSection
 
 
 class SimpleSectionMap:
@@ -24,162 +19,141 @@ class SimpleSectionMap:
         return None
 
 
-class TestLinkmapParser:
-    """Tests for LinkmapParser."""
+@pytest.fixture
+def hackernews_parser(hackernews_linkmap: Path) -> LinkmapParser:
+    """Parsed HackerNews linkmap."""
+    section_map = SimpleSectionMap()
+    return LinkmapParser.from_path(hackernews_linkmap, section_map)
 
-    @pytest.fixture
-    def sample_linkmap_path(self) -> Path:
-        """Path to sample linkmap fixture."""
-        return Path(__file__).parent.parent.parent.parent / "_fixtures/ios/linkmaps/HackerNews-Release-sample.txt"
 
-    @pytest.fixture
-    def sample_linkmap_contents(self) -> str:
-        """Sample linkmap contents for testing."""
-        return """# Path: /Applications/Test.app/Test
-# Arch: arm64
-# Object files:
-[  0] linker synthesized
-[  1] /path/to/Main.o
-[  2] /path/to/Helper.o
-[  3] /path/to/lib.a(Archive.o)
-# Sections:
-# Address	Size    	Segment	Section
-0x100004000	0x00001000	__TEXT	__text
-0x100005000	0x00000100	__TEXT	__stubs
-0x100006000	0x00000200	__DATA	__data
-# Symbols:
-# Address	Size    	File  Name
-0x100004000	0x00000100	[  1] _main
-0x100004100	0x00000050	[  1] _helper_function
-0x100004150	0x00000080	[  2] _utility_function
-0x100004200	0x00000100	[  3] _archive_function
-# Dead Stripped Symbols:
-0x100005000	0x00000010	[  1] _unused_function
-"""
+class TestHackerNewsLinkmap:
+    """Integration tests using real HackerNews linkmap."""
 
-    def test_parse_basic_structure(self, sample_linkmap_contents: str):
-        """Test parsing basic linkmap structure."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
+    def test_parse_object_files_count(self, hackernews_parser: LinkmapParser):
+        """Test that we parse the expected number of object files."""
+        assert len(hackernews_parser.objs) == 496
+        assert hackernews_parser.objs[0].file == "linker synthesized"
 
-        assert len(parser.objs) == 4
-        assert len(parser.syms) == 4
-        assert len(parser._sects) == 3
+    def test_parse_specific_object_files(self, hackernews_parser: LinkmapParser):
+        """Test parsing specific known object files."""
+        obj_files = {obj.file: obj for obj in hackernews_parser.objs}
 
-    def test_parse_object_files(self, sample_linkmap_contents: str):
-        """Test parsing object files section."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
+        # Check HackerNews app object files
+        assert "LoginRow.o" in obj_files
+        assert "ContentView.o" in obj_files
+        assert "HNApp.o" in obj_files
 
-        # Check linker synthesized
-        assert parser.objs[0].file == "linker synthesized"
-        assert parser.objs[0].library is None
+        # Check library objects
+        assert "SwiftSoup.o" in obj_files
+        assert "SentrySwiftUI.o" in obj_files
 
-        # Check regular object file
-        assert parser.objs[1].file == "Main.o"
-        assert parser.objs[1].library is None
+    def test_parse_framework_libraries(self, hackernews_parser: LinkmapParser):
+        """Test that framework libraries are correctly extracted."""
+        sentry_objs = [obj for obj in hackernews_parser.objs if obj.library == "Sentry.framework"]
 
-        # Check library archive object file
-        assert parser.objs[3].file == "Archive.o"
-        assert parser.objs[3].library == "lib.a"
+        assert len(sentry_objs) == 376
+        sentry_files = {obj.file for obj in sentry_objs}
+        assert "SentryCrashScopeObserver.o" in sentry_files
+        assert "SentryAppStartMeasurement.o" in sentry_files
 
-    def test_parse_sections(self, sample_linkmap_contents: str):
-        """Test parsing sections section."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
+    def test_parse_sections(self, hackernews_parser: LinkmapParser):
+        """Test that sections are parsed correctly."""
+        assert len(hackernews_parser._sects) == 51
 
-        assert len(parser._sects) == 3
+        sections = {sect.name: sect for sect in hackernews_parser._sects}
 
-        text_sect = parser._sects[0]
-        assert text_sect.addr == 0x100004000
-        assert text_sect.size == 0x00001000
+        assert "__text" in sections
+        text_sect = sections["__text"]
         assert text_sect.seg == "__TEXT"
-        assert text_sect.name == "__text"
+        assert text_sect.addr == 0x100004000
+        assert text_sect.size == 0x1CFDDC
 
-        data_sect = parser._sects[2]
-        assert data_sect.addr == 0x100006000
-        assert data_sect.size == 0x00000200
-        assert data_sect.seg == "__DATA"
-        assert data_sect.name == "__data"
+        assert "__data" in sections and "__const" in sections
 
-    def test_parse_symbols(self, sample_linkmap_contents: str):
-        """Test parsing symbols section."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
+    def test_parse_symbols_count(self, hackernews_parser: LinkmapParser):
+        """Test that symbols are parsed (excluding zero-size symbols)."""
+        assert len(hackernews_parser.syms) == 51222
 
-        assert len(parser.syms) == 4
+    def test_parse_specific_symbols(self, hackernews_parser: LinkmapParser):
+        """Test parsing specific known symbols."""
+        symbol_names = {sym.name: sym for sym in hackernews_parser.syms}
 
-        main_sym = parser.syms[0]
-        assert main_sym.addr == 0x100004000
-        assert main_sym.size == 0x00000100
-        assert main_sym.name == "_main"
-        assert main_sym.obj_idx == 1
+        login_row_symbol = "_$s10HackerNews8LoginRowV4bodyQrvg"
+        assert login_row_symbol in symbol_names
 
-        archive_sym = parser.syms[3]
-        assert archive_sym.addr == 0x100004200
-        assert archive_sym.size == 0x00000100
-        assert archive_sym.name == "_archive_function"
-        assert archive_sym.obj_idx == 3
+        sym = symbol_names[login_row_symbol]
+        assert sym.addr == 0x100004000
+        assert sym.size == 0x524
+        assert sym.obj_idx == 1
 
-    def test_symbols_linked_to_objects(self, sample_linkmap_contents: str):
-        """Test that symbols are properly linked to their object files."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
+    def test_symbol_to_object_linking(self, hackernews_parser: LinkmapParser):
+        """Test that symbols are correctly linked to their object files."""
+        login_row_sym = next(
+            (sym for sym in hackernews_parser.syms if sym.name == "_$s10HackerNews8LoginRowV4bodyQrvg"), None
+        )
 
-        main_sym = parser.syms[0]
-        assert main_sym.obj is not None
-        assert main_sym.obj.file == "Main.o"
+        assert login_row_sym is not None
+        assert login_row_sym.obj is not None
+        assert login_row_sym.obj.file == "LoginRow.o"
+        assert login_row_sym in login_row_sym.obj.syms
 
-        archive_sym = parser.syms[3]
-        assert archive_sym.obj is not None
-        assert archive_sym.obj.file == "Archive.o"
-        assert archive_sym.obj.library == "lib.a"
+    def test_symbol_has_section(self, hackernews_parser: LinkmapParser):
+        """Test that symbols have their sections assigned."""
+        for sym in hackernews_parser.syms[:10]:
+            assert sym.sect is not None
+            assert sym.sect.seg in ["__TEXT", "__DATA", "__DATA_CONST"]
 
-        # Check that objects have their symbols
-        main_obj = parser.objs[1]
-        assert len(main_obj.syms) == 2
-        assert "_main" in [s.name for s in main_obj.syms]
-        assert "_helper_function" in [s.name for s in main_obj.syms]
+    def test_symbolicate_exact_address(self, hackernews_parser: LinkmapParser):
+        """Test symbolication with exact symbol start address."""
+        # LoginRow body getter starts at 0x100004000
+        sym = hackernews_parser.symbolicate(0x100004000)
 
-    def test_symbolicate_exact_address(self, sample_linkmap_contents: str):
-        """Test symbolication with exact symbol address."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
-
-        sym = parser.symbolicate(0x100004000)
         assert sym is not None
-        assert sym.name == "_main"
+        assert sym.name == "_$s10HackerNews8LoginRowV4bodyQrvg"
+        assert sym.addr == 0x100004000
+        assert sym.size == 0x524
 
-    def test_symbolicate_within_symbol(self, sample_linkmap_contents: str):
-        """Test symbolication with address within symbol range."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
-
-        # Address 0x100004050 is within _main (0x100004000-0x100004100)
-        sym = parser.symbolicate(0x100004050)
+    def test_symbolicate_within_symbol(self, hackernews_parser: LinkmapParser):
+        """Test symbolication with address in middle of symbol."""
+        sym = hackernews_parser.symbolicate(0x100004200)
         assert sym is not None
-        assert sym.name == "_main"
+        assert sym.name == "_$s10HackerNews8LoginRowV4bodyQrvg"
 
-        # Address 0x100004120 is within _helper_function
-        sym = parser.symbolicate(0x100004120)
-        assert sym is not None
-        assert sym.name == "_helper_function"
+    def test_symbolicate_at_symbol_boundary(self, hackernews_parser: LinkmapParser):
+        """Test symbolication at the end boundary of a symbol."""
+        sym_at_end = hackernews_parser.symbolicate(0x100004523)
+        assert sym_at_end is not None
+        assert sym_at_end.name == "_$s10HackerNews8LoginRowV4bodyQrvg"
 
-    def test_symbolicate_out_of_range(self, sample_linkmap_contents: str):
-        """Test symbolication with address out of range."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
+        sym_next = hackernews_parser.symbolicate(0x100004524)
+        assert sym_next is not None
+        assert sym_next.name != "_$s10HackerNews8LoginRowV4bodyQrvg"
 
-        # Address before first symbol
-        sym = parser.symbolicate(0x100000000)
-        assert sym is None
+    def test_symbolicate_out_of_range(self, hackernews_parser: LinkmapParser):
+        """Test symbolication with addresses outside symbol ranges."""
+        # Address before any symbols
+        assert hackernews_parser.symbolicate(0x100000000) is None
 
-        # Address after last symbol
-        sym = parser.symbolicate(0x200000000)
-        assert sym is None
+        # Address way past all symbols
+        assert hackernews_parser.symbolicate(0x200000000) is None
 
-    def test_symbolicate_empty_parser(self):
-        """Test symbolication with empty parser."""
+    def test_zero_size_symbols_filtered(self, hackernews_parser: LinkmapParser):
+        """Test that zero-size symbols are filtered out."""
+        for sym in hackernews_parser.syms:
+            assert sym.size > 0
+
+    def test_libc_plus_plus_library(self, hackernews_parser: LinkmapParser):
+        """Test parsing of .tbd library references."""
+        # Object file [37] is libc++.tbd
+        tbd_objs = [obj for obj in hackernews_parser.objs if obj.file == "libc++.tbd"]
+        assert len(tbd_objs) == 1
+
+
+class TestLinkmapParserBasics:
+    """Basic parser tests with synthetic data."""
+
+    def test_empty_linkmap(self):
+        """Test parsing an empty linkmap."""
         empty_linkmap = """# Path: /Test
 # Arch: arm64
 # Object files:
@@ -187,114 +161,25 @@ class TestLinkmapParser:
 # Symbols:
 """
         parser = LinkmapParser(empty_linkmap, None)
-
-        sym = parser.symbolicate(0x100004000)
-        assert sym is None
-
-    def test_filter_zero_size_symbols(self):
-        """Test that symbols with zero size are filtered out."""
-        linkmap = """# Path: /Test
-# Arch: arm64
-# Object files:
-[  0] linker synthesized
-[  1] /path/to/Main.o
-# Sections:
-# Address	Size    	Segment	Section
-0x100004000	0x00001000	__TEXT	__text
-# Symbols:
-# Address	Size    	File  Name
-0x100004000	0x00000000	[  0] __mh_execute_header
-0x100004000	0x00000000	[  0] ___dso_handle
-0x100004000	0x00000100	[  1] _main
-# Dead Stripped Symbols:
-"""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(linkmap, section_map)
-
-        # Only _main should be included (others have size 0)
-        assert len(parser.syms) == 1
-        assert parser.syms[0].name == "_main"
-
-    def test_section_assignment(self, sample_linkmap_contents: str):
-        """Test that symbols are assigned to correct sections."""
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser(sample_linkmap_contents, section_map)
-
-        # Symbols in __text section
-        main_sym = parser.syms[0]
-        assert main_sym.sect.seg == "__TEXT"
-        assert main_sym.sect.name == "__text"
-
-    def test_from_path_classmethod(self, sample_linkmap_path: Path):
-        """Test creating parser from file path."""
-        if not sample_linkmap_path.exists():
-            pytest.skip("Sample linkmap fixture not found")
-
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser.from_path(sample_linkmap_path, section_map)
-
-        assert len(parser.objs) > 0
-        assert len(parser.syms) > 0
-        assert len(parser._sects) > 0
-
-        # Check some expected content from the HackerNews sample
-        obj_names = [obj.file for obj in parser.objs]
-        assert "linker synthesized" in obj_names
-        assert any("LoginRow.o" in name for name in obj_names)
-
-    def test_real_swift_symbols(self, sample_linkmap_path: Path):
-        """Test parsing real Swift mangled symbols."""
-        if not sample_linkmap_path.exists():
-            pytest.skip("Sample linkmap fixture not found")
-
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser.from_path(sample_linkmap_path, section_map)
-
-        # Find a Swift mangled symbol
-        swift_syms = [s for s in parser.syms if s.name.startswith("_$s")]
-        assert len(swift_syms) > 0
-
-        # Verify they have proper sizes and object links
-        for sym in swift_syms[:5]:
-            assert sym.size > 0
-            assert sym.obj is not None
-            assert sym.sect is not None
-
-    def test_library_object_parsing(self, sample_linkmap_path: Path):
-        """Test parsing library archive objects (framework files)."""
-        if not sample_linkmap_path.exists():
-            pytest.skip("Sample linkmap fixture not found")
-
-        section_map = SimpleSectionMap()
-        parser = LinkmapParser.from_path(sample_linkmap_path, section_map)
-
-        # Look for framework library objects like Sentry.framework/Sentry(*.o)
-        framework_objs = [obj for obj in parser.objs if "Sentry.framework" in (obj.library or "")]
-        assert len(framework_objs) > 0
-
-        # Verify they're parsed correctly
-        for obj in framework_objs[:5]:
-            assert obj.library == "Sentry.framework"
-            assert obj.file.endswith(".o")
-
-    def test_missing_sections_handling(self):
-        """Test handling of linkmap with missing sections."""
-        incomplete_linkmap = """# Path: /Test
-# Arch: arm64
-"""
-        parser = LinkmapParser(incomplete_linkmap, None)
-
         assert len(parser.objs) == 0
         assert len(parser.syms) == 0
         assert len(parser._sects) == 0
 
+    def test_missing_required_sections(self):
+        """Test handling of linkmap with missing required sections."""
+        incomplete = """# Path: /Test
+# Arch: arm64
+"""
+        parser = LinkmapParser(incomplete, None)
+        assert len(parser.objs) == 0
+        assert len(parser.syms) == 0
+
     def test_section_map_filtering(self):
-        """Test that section_map properly filters symbols."""
+        """Test that section_map filters symbols correctly."""
 
         class RestrictiveSectionMap:
-            """Section map that only accepts specific address range."""
-
             def find(self, addr: int) -> LinkmapSection | None:
+                # Only accept addresses in a specific range
                 if 0x100004000 <= addr < 0x100005000:
                     return LinkmapSection(addr=0x100004000, size=0x1000, seg="__TEXT", name="__text")
                 return None
@@ -317,81 +202,32 @@ class TestLinkmapParser:
         section_map = RestrictiveSectionMap()
         parser = LinkmapParser(linkmap, section_map)
 
-        # Only the symbol in range should be included
+        # Only the symbol in the accepted range should be included
         assert len(parser.syms) == 1
         assert parser.syms[0].name == "_in_range"
 
+    def test_library_archive_parsing(self):
+        """Test parsing library archive format."""
+        linkmap = """# Path: /Test
+# Arch: arm64
+# Object files:
+[  0] linker synthesized
+[  1] /path/to/libFoo.a(Object1.o)
+[  2] /path/to/Framework.framework/Framework(Object2.o)
+# Sections:
+# Address	Size    	Segment	Section
+0x100004000	0x00001000	__TEXT	__text
+# Symbols:
+# Address	Size    	File  Name
+0x100004000	0x00000100	[  1] _foo_function
+0x100004100	0x00000100	[  2] _framework_function
+# Dead Stripped Symbols:
+"""
+        section_map = SimpleSectionMap()
+        parser = LinkmapParser(linkmap, section_map)
 
-class TestLinkmapObjectFile:
-    """Tests for LinkmapObjectFile dataclass."""
-
-    def test_object_file_creation(self):
-        """Test creating a LinkmapObjectFile."""
-        obj = LinkmapObjectFile(file="Main.o", line_name="/path/to/Main.o", library=None, line="[  1] /path/to/Main.o")
-
-        assert obj.file == "Main.o"
-        assert obj.line_name == "/path/to/Main.o"
-        assert obj.library is None
-        assert len(obj.syms) == 0
-
-    def test_object_file_with_library(self):
-        """Test creating a LinkmapObjectFile from a library."""
-        obj = LinkmapObjectFile(
-            file="Archive.o",
-            line_name="lib.a(Archive.o)",
-            library="lib.a",
-            line="[  3] /path/to/lib.a(Archive.o)",
-        )
-
-        assert obj.file == "Archive.o"
-        assert obj.library == "lib.a"
-
-    def test_repr(self):
-        """Test LinkmapObjectFile repr."""
-        obj = LinkmapObjectFile(file="Main.o", line_name="/path/to/Main.o", library=None, line="")
-        repr_str = repr(obj)
-        assert "Main.o" in repr_str
-
-
-class TestLinkmapSymbol:
-    """Tests for LinkmapSymbol dataclass."""
-
-    def test_sym_creation(self):
-        """Test creating a LinkmapSymbol."""
-        sect = LinkmapSection(addr=0x100004000, size=0x1000, seg="__TEXT", name="__text")
-        sym = LinkmapSymbol(addr=0x100004000, name="_main", size=0x100, obj_idx=1, sect=sect)
-
-        assert sym.addr == 0x100004000
-        assert sym.name == "_main"
-        assert sym.size == 0x100
-        assert sym.obj_idx == 1
-        assert sym.sect == sect
-        assert sym.obj is None
-
-    def test_repr(self):
-        """Test LinkmapSymbol repr."""
-        sect = LinkmapSection(addr=0x100004000, size=0x1000, seg="__TEXT", name="__text")
-        sym = LinkmapSymbol(addr=0x100004000, name="_main", size=0x100, obj_idx=1, sect=sect)
-        repr_str = repr(sym)
-        assert "_main" in repr_str
-        assert "0x100004000" in repr_str
-
-
-class TestLinkmapSection:
-    """Tests for LinkmapSection dataclass."""
-
-    def test_section_creation(self):
-        """Test creating a LinkmapSection."""
-        sect = LinkmapSection(addr=0x100004000, size=0x1000, seg="__TEXT", name="__text")
-
-        assert sect.addr == 0x100004000
-        assert sect.size == 0x1000
-        assert sect.seg == "__TEXT"
-        assert sect.name == "__text"
-
-    def test_repr(self):
-        """Test LinkmapSection repr."""
-        sect = LinkmapSection(addr=0x100004000, size=0x1000, seg="__TEXT", name="__text")
-        repr_str = repr(sect)
-        assert "__TEXT" in repr_str
-        assert "__text" in repr_str
+        assert len(parser.objs) == 3
+        assert parser.objs[1].file == "Object1.o"
+        assert parser.objs[1].library == "libFoo.a"
+        assert parser.objs[2].file == "Object2.o"
+        assert parser.objs[2].library == "Framework.framework"

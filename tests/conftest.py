@@ -49,6 +49,12 @@ def hackernews_results_json(fixtures_root: Path) -> Path:
     return fixtures_root / "ios" / "hackernews-results.json"
 
 
+@pytest.fixture(scope="session")
+def hackernews_linkmap(fixtures_root: Path) -> Path:
+    """HackerNews linkmap test fixture."""
+    return fixtures_root / "ios" / "linkmaps" / "HackerNews-Release.txt"
+
+
 # Android fixtures
 @pytest.fixture(scope="session")
 def debug_apk(fixtures_root: Path) -> Path:

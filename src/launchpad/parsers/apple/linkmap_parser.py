@@ -75,7 +75,7 @@ class LinkmapParser:
 
     @classmethod
     def from_path(cls, path: Path, section_map: SectionMap | None = None) -> LinkmapParser:
-        with open(path) as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             contents = f.read()
         return cls(contents, section_map)
 
