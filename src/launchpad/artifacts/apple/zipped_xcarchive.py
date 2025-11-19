@@ -318,6 +318,9 @@ class ZippedXCArchive(AppleArtifact):
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
         main_binary_path = self._get_main_binary_path()
+        if not main_binary_path.exists():
+            logger.error("Main binary not found", extra={"path": main_binary_path})
+            return []
 
         # Find corresponding dSYM for main executable
         main_uuid = self._extract_binary_uuid(main_binary_path)
