@@ -338,6 +338,9 @@ class ZippedXCArchive(AppleArtifact):
             if framework_path.is_dir():
                 framework_name = framework_path.stem
                 framework_binary_path = framework_path / framework_name
+                if not framework_binary_path.exists():
+                    logger.warning("Framework binary not found", extra={"path": framework_binary_path})
+                    continue
 
                 # Find corresponding dSYM for framework
                 framework_uuid = self._extract_binary_uuid(framework_binary_path)
@@ -359,17 +362,17 @@ class ZippedXCArchive(AppleArtifact):
                 extension_plist_path = extension_path / "Info.plist"
                 if extension_plist_path.exists():
                     try:
-                        import plistlib
-
                         with open(extension_plist_path, "rb") as f:
                             extension_plist = plistlib.load(f)
                         extension_executable = extension_plist.get("CFBundleExecutable")
                         if extension_executable:
                             extension_binary_path = extension_path / extension_executable
+                            if not extension_binary_path.exists():
+                                logger.warning("Extension binary not found", extra={"path": extension_binary_path})
+                                continue
+
                             # Use the full extension name as the key to avoid conflicts
                             extension_name = f"{extension_path.stem}/{extension_executable}"
-
-                            # Find corresponding dSYM for extension
                             extension_uuid = self._extract_binary_uuid(extension_binary_path)
                             extension_dsym_info = dsym_info.get(extension_uuid) if extension_uuid else None
 
@@ -393,15 +396,16 @@ class ZippedXCArchive(AppleArtifact):
                 watch_plist_path = watch_path / "Info.plist"
                 if watch_plist_path.exists():
                     try:
-                        import plistlib
-
                         with open(watch_plist_path, "rb") as f:
                             watch_plist = plistlib.load(f)
                         watch_executable = watch_plist.get("CFBundleExecutable")
                         if watch_executable:
                             watch_binary_path = watch_path / watch_executable
-                            watch_name = f"Watch/{watch_path.stem}/{watch_executable}"
+                            if not watch_binary_path.exists():
+                                logger.warning("Watch binary not found", extra={"path": watch_binary_path})
+                                continue
 
+                            watch_name = f"Watch/{watch_path.stem}/{watch_executable}"
                             watch_uuid = self._extract_binary_uuid(watch_binary_path)
                             watch_dsym_info = dsym_info.get(watch_uuid) if watch_uuid else None
 
