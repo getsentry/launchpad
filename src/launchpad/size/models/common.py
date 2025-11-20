@@ -15,7 +15,7 @@ from .treemap import TreemapResults, TreemapType
 # so we can update treemap logic and not give users confusing diffs.
 # Patch versions are ignored.
 ANDROID_ANALYSIS_VERSION = "1.0.0"
-APPLE_ANALYSIS_VERSION = "1.2.0"
+APPLE_ANALYSIS_VERSION = "1.3.0"
 
 
 class BaseAppInfo(BaseModel):
@@ -78,6 +78,18 @@ class FileInfo(BaseModel):
     colorspace: str | None = Field(default=None, description="Color space for asset catalog images")
 
 
+class AppComponent(BaseModel):
+    """Information about a modular app component (watch app, app extension, dynamic feature, etc.)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    component_type: str = Field(..., description="Type of component (watch_app, app_extension, dynamic_feature)")
+    name: str = Field(..., description="Component identifier/name")
+    path: str = Field(..., description="Relative path in the bundle")
+    download_size: int = Field(..., ge=0, description="Estimated download size in bytes")
+    install_size: int = Field(..., ge=0, description="Estimated install size in bytes")
+
+
 class BaseAnalysisResults(BaseModel):
     """Base analysis results structure."""
 
@@ -91,8 +103,23 @@ class BaseAnalysisResults(BaseModel):
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results", exclude=True)
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
     use_si_units: bool = Field(default=False, description="Whether to use SI units for size display")
-    download_size: int = Field(..., description="Estimated download size in bytes")
-    install_size: int = Field(..., description="Estimated install size in bytes")
+    download_size: int = Field(
+        ...,
+        description="DEPRECATED: Use main_download_size instead. Total estimated download size in bytes (main app + all components)",
+    )
+    install_size: int = Field(
+        ...,
+        description="DEPRECATED: Use main_install_size instead. Total estimated install size in bytes (main app + all components)",
+    )
+    main_download_size: int = Field(
+        ..., description="Estimated download size for main app only in bytes (excludes components)"
+    )
+    main_install_size: int = Field(
+        ..., description="Estimated install size for main app only in bytes (excludes components)"
+    )
+    app_components: List[AppComponent] = Field(
+        default_factory=list, description="Modular app components (watch apps, extensions, dynamic features)"
+    )
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with serializable datetime."""

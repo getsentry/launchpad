@@ -32,6 +32,14 @@ interface AppInfo {
   code_signature_errors?: string[];
 }
 
+export interface AppComponent {
+  component_type: string;
+  name: string;
+  path: string;
+  download_size: number;
+  install_size: number;
+}
+
 export interface InsightResult {
   total_savings: number;
   files?: {
@@ -121,8 +129,13 @@ export interface FileAnalysisReport {
   };
   generated_at: string;
   use_si_units: boolean;
+  // Deprecated fields (kept for backward compatibility)
   install_size: number;
   download_size: number;
+  // New fields
+  main_install_size?: number;
+  main_download_size?: number;
+  app_components?: AppComponent[];
 }
 
 export function parseFileAnalysisReport(data: unknown): FileAnalysisReport {

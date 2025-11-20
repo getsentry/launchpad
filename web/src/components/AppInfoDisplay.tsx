@@ -74,47 +74,195 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
           Size Analysis
         </h3>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '1rem'
-        }}>
-          <div style={{
-            backgroundColor: '#e3f2fd',
-            padding: '1rem',
-            borderRadius: '6px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
-              {formatSize(data.install_size)}
+        {/* Main App Sizes */}
+        {data.main_install_size !== undefined && data.main_download_size !== undefined ? (
+          <>
+            <div style={{
+              marginBottom: '1rem',
+              fontSize: '0.875rem',
+              color: '#6c757d',
+              fontWeight: '500'
+            }}>
+              Main App
             </div>
-            <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Install Size</div>
-          </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '1rem',
+              marginBottom: '1.5rem'
+            }}>
+              <div style={{
+                backgroundColor: '#e3f2fd',
+                padding: '1rem',
+                borderRadius: '6px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
+                  {formatSize(data.main_install_size)}
+                </div>
+                <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Install Size</div>
+              </div>
 
-          <div style={{
-            backgroundColor: '#f3e5f5',
-            padding: '1rem',
-            borderRadius: '6px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
-              {formatSize(data.download_size)}
-            </div>
-            <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Download Size</div>
-          </div>
+              <div style={{
+                backgroundColor: '#f3e5f5',
+                padding: '1rem',
+                borderRadius: '6px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
+                  {formatSize(data.main_download_size)}
+                </div>
+                <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Download Size</div>
+              </div>
 
-          <div style={{
-            backgroundColor: '#e8f5e8',
-            padding: '1rem',
-            borderRadius: '6px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#388e3c' }}>
-              {data.treemap.file_count.toLocaleString()}
+              <div style={{
+                backgroundColor: '#e8f5e8',
+                padding: '1rem',
+                borderRadius: '6px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#388e3c' }}>
+                  {data.treemap.file_count.toLocaleString()}
+                </div>
+                <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Files</div>
+              </div>
             </div>
-            <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Files</div>
+
+            {/* Components Breakdown */}
+            {data.app_components && data.app_components.length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <div style={{
+                  marginBottom: '0.75rem',
+                  fontSize: '0.875rem',
+                  color: '#6c757d',
+                  fontWeight: '500'
+                }}>
+                  Components ({data.app_components.length})
+                </div>
+                <div style={{
+                  backgroundColor: '#fff3cd',
+                  padding: '1rem',
+                  borderRadius: '6px',
+                  border: '1px solid #ffeaa7'
+                }}>
+                  {data.app_components.map((component, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '0.5rem 0',
+                        borderBottom: index < data.app_components!.length - 1 ? '1px solid #ffeaa7' : 'none'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: '600', color: '#856404' }}>
+                          {component.name}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#856404' }}>
+                          {component.component_type.replace('_', ' ')}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', color: '#856404' }}>
+                        <div style={{ fontSize: '0.875rem', fontWeight: '500' }}>
+                          Install: {formatSize(component.install_size)}
+                        </div>
+                        <div style={{ fontSize: '0.875rem' }}>
+                          Download: {formatSize(component.download_size)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Total Sizes */}
+            <div style={{
+              marginBottom: '0.5rem',
+              fontSize: '0.875rem',
+              color: '#6c757d',
+              fontWeight: '500'
+            }}>
+              Total (Main + Components)
+            </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+              gap: '1rem'
+            }}>
+              <div style={{
+                backgroundColor: '#e3f2fd',
+                padding: '1rem',
+                borderRadius: '6px',
+                textAlign: 'center',
+                border: '2px solid #1976d2'
+              }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
+                  {formatSize(data.install_size)}
+                </div>
+                <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Total Install</div>
+              </div>
+
+              <div style={{
+                backgroundColor: '#f3e5f5',
+                padding: '1rem',
+                borderRadius: '6px',
+                textAlign: 'center',
+                border: '2px solid #7b1fa2'
+              }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
+                  {formatSize(data.download_size)}
+                </div>
+                <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Total Download</div>
+              </div>
+            </div>
+          </>
+        ) : (
+          // Fallback for old format (no main_* fields)
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '1rem'
+          }}>
+            <div style={{
+              backgroundColor: '#e3f2fd',
+              padding: '1rem',
+              borderRadius: '6px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
+                {formatSize(data.install_size)}
+              </div>
+              <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Install Size</div>
+            </div>
+
+            <div style={{
+              backgroundColor: '#f3e5f5',
+              padding: '1rem',
+              borderRadius: '6px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
+                {formatSize(data.download_size)}
+              </div>
+              <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Download Size</div>
+            </div>
+
+            <div style={{
+              backgroundColor: '#e8f5e8',
+              padding: '1rem',
+              borderRadius: '6px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#388e3c' }}>
+                {data.treemap.file_count.toLocaleString()}
+              </div>
+              <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Files</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Apple-specific Info */}

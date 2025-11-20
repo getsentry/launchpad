@@ -128,8 +128,11 @@ class AndroidAnalyzer:
             treemap=treemap,
             file_analysis=file_analysis,
             insights=insights,
-            download_size=download_size,
-            install_size=install_size,
+            download_size=download_size,  # Deprecated: kept for backward compatibility
+            install_size=install_size,  # Deprecated: kept for backward compatibility
+            main_download_size=download_size,
+            main_install_size=install_size,
+            app_components=[],
             analysis_duration=analysis_duration,
             use_si_units=False,
         )
