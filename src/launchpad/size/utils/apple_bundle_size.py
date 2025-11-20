@@ -50,22 +50,10 @@ def calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
         raise ValueError(f"Component path must be a directory: {component_path}")
 
     install_size = _calculate_install_size(component_path)
-    lzfse_size = _calculate_lzfse_size(component_path)
-
-    # Estimate ZIP metadata overhead for component files
-    # ZIP overhead includes local file headers (~30 bytes), central directory entries (~46 bytes),
-    # and filename storage. We estimate ~100 bytes per file as a reasonable approximation.
-    file_count = sum(1 for p in component_path.rglob("*") if p.is_file() and not p.is_symlink())
-    zip_metadata_estimate = file_count * 100
-
-    download_size = lzfse_size + zip_metadata_estimate
+    download_size = _calculate_lzfse_size(component_path)
 
     logger.debug(
-        f"Component {component_path.name} size - "
-        f"LZFSE: {lzfse_size} bytes, "
-        f"ZIP metadata estimate: {zip_metadata_estimate} bytes ({file_count} files), "
-        f"Total download: {download_size} bytes, "
-        f"Install: {install_size} bytes"
+        f"Component {component_path.name} size - Download: {download_size} bytes, Install: {install_size} bytes"
     )
 
     return download_size, install_size
