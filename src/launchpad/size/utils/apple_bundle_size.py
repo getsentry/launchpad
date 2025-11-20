@@ -25,9 +25,9 @@ def calculate_bundle_sizes(bundle_url: Path) -> Tuple[int, int]:
         raise ValueError(f"Only .app bundles are supported, got: {bundle_url}")
 
     install_size = _calculate_install_size(bundle_url)
+    lzfse_size = _calculate_lzfse_size(bundle_url)
     metadata_size = _zip_metadata_size_for_bundle(bundle_url)
-    lzfse_size = _lzfse_content_size_for_bundle(bundle_url)
-    download_size = metadata_size + lzfse_size
+    download_size = lzfse_size + metadata_size
 
     logger.debug(
         f"Bundle size breakdown - "
@@ -50,20 +50,32 @@ def calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
         raise ValueError(f"Component path must be a directory: {component_path}")
 
     install_size = _calculate_install_size(component_path)
-    download_size = _calculate_component_download_size(component_path)
+    lzfse_size = _calculate_lzfse_size(component_path)
+
+    # Estimate ZIP metadata overhead for component files
+    # ZIP overhead includes local file headers (~30 bytes), central directory entries (~46 bytes),
+    # and filename storage. We estimate ~100 bytes per file as a reasonable approximation.
+    file_count = sum(1 for p in component_path.rglob("*") if p.is_file() and not p.is_symlink())
+    zip_metadata_estimate = file_count * 100
+
+    download_size = lzfse_size + zip_metadata_estimate
 
     logger.debug(
-        "size.apple.component_size",
-        extra={"path": component_path, "download_size": download_size, "install_size": install_size},
+        f"Component {component_path.name} size - "
+        f"LZFSE: {lzfse_size} bytes, "
+        f"ZIP metadata estimate: {zip_metadata_estimate} bytes ({file_count} files), "
+        f"Total download: {download_size} bytes, "
+        f"Install: {install_size} bytes"
     )
 
     return download_size, install_size
 
 
-def _lzfse_content_size_for_bundle(bundle_url: Path) -> int:
+def _calculate_lzfse_size(path: Path) -> int:
+    """Calculate LZFSE compressed size for all files in a directory."""
     total_lzfse_size = 0
 
-    for file_path in bundle_url.rglob("*"):
+    for file_path in path.rglob("*"):
         if not file_path.is_file():
             continue
 
@@ -73,6 +85,7 @@ def _lzfse_content_size_for_bundle(bundle_url: Path) -> int:
         compressed = _lzfse_compressed_size(file_path)
         total_lzfse_size += compressed
 
+    logger.debug(f"LZFSE size for {path.name}: {total_lzfse_size} bytes")
     return total_lzfse_size
 
 
@@ -113,24 +126,6 @@ def _calculate_install_size(path: Path) -> int:
 
     logger.debug(f"Install size for {path.name}: {file_count} files, {total_size} bytes")
     return total_size
-
-
-def _calculate_component_download_size(component_path: Path) -> int:
-    """Calculate download size for a component (LZFSE compressed size)."""
-    total_lzfse_size = 0
-
-    for file_path in component_path.rglob("*"):
-        if not file_path.is_file():
-            continue
-
-        if file_path.is_symlink():
-            continue
-
-        compressed = _lzfse_compressed_size(file_path)
-        total_lzfse_size += compressed
-
-    logger.debug(f"Component download size: {total_lzfse_size} bytes")
-    return total_lzfse_size
 
 
 def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
