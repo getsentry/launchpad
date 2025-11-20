@@ -124,7 +124,10 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
                       <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
                         {formatSize(mainInstall)}
                       </div>
-                      <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Install Size</div>
+                      <div style={{ color: '#9e9e9e', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                        {mainInstall.toLocaleString()} bytes
+                      </div>
+                      <div style={{ color: '#6c757d', fontSize: '0.875rem', marginTop: '0.5rem' }}>Install Size</div>
                     </div>
 
                     <div style={{
@@ -136,7 +139,10 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
                       <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
                         {formatSize(mainDownload)}
                       </div>
-                      <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Download Size</div>
+                      <div style={{ color: '#9e9e9e', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                        {mainDownload.toLocaleString()} bytes
+                      </div>
+                      <div style={{ color: '#6c757d', fontSize: '0.875rem', marginTop: '0.5rem' }}>Download Size</div>
                     </div>
 
                     <div style={{
@@ -191,8 +197,14 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
                             <div style={{ fontSize: '0.875rem', fontWeight: '500' }}>
                               Install: {formatSize(component.install_size)}
                             </div>
-                            <div style={{ fontSize: '0.875rem' }}>
+                            <div style={{ fontSize: '0.7rem', color: '#9e9e9e' }}>
+                              {component.install_size.toLocaleString()} bytes
+                            </div>
+                            <div style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
                               Download: {formatSize(component.download_size)}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#9e9e9e' }}>
+                              {component.download_size.toLocaleString()} bytes
                             </div>
                           </div>
                         </div>
@@ -224,7 +236,10 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
                       <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
                         {formatSize(data.install_size)}
                       </div>
-                      <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Total Install</div>
+                      <div style={{ color: '#9e9e9e', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                        {data.install_size.toLocaleString()} bytes
+                      </div>
+                      <div style={{ color: '#6c757d', fontSize: '0.875rem', marginTop: '0.5rem' }}>Total Install</div>
                     </div>
 
                     <div style={{
@@ -237,7 +252,10 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
                       <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
                         {formatSize(data.download_size)}
                       </div>
-                      <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Total Download</div>
+                      <div style={{ color: '#9e9e9e', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                        {data.download_size.toLocaleString()} bytes
+                      </div>
+                      <div style={{ color: '#6c757d', fontSize: '0.875rem', marginTop: '0.5rem' }}>Total Download</div>
                     </div>
                   </div>
                 </>
@@ -260,7 +278,10 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
               <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1976d2' }}>
                 {formatSize(data.install_size)}
               </div>
-              <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Install Size</div>
+              <div style={{ color: '#9e9e9e', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                {data.install_size.toLocaleString()} bytes
+              </div>
+              <div style={{ color: '#6c757d', fontSize: '0.875rem', marginTop: '0.5rem' }}>Install Size</div>
             </div>
 
             <div style={{
@@ -272,7 +293,10 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
               <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#7b1fa2' }}>
                 {formatSize(data.download_size)}
               </div>
-              <div style={{ color: '#6c757d', fontSize: '0.875rem' }}>Download Size</div>
+              <div style={{ color: '#9e9e9e', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                {data.download_size.toLocaleString()} bytes
+              </div>
+              <div style={{ color: '#6c757d', fontSize: '0.875rem', marginTop: '0.5rem' }}>Download Size</div>
             </div>
 
             <div style={{
