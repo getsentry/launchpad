@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass
 from functools import partial
 from logging.handlers import QueueHandler, QueueListener
+from pathlib import Path
 from typing import Any, Mapping
 
 from arroyo import Message, Topic, configure_metrics
@@ -19,7 +20,6 @@ from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
-from arroyo.processing.strategies.healthcheck import Healthcheck
 from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
 from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
@@ -99,6 +99,54 @@ def process_kafka_message_with_service(
         return None  # type: ignore[return-value]
 
     return decoded  # type: ignore[no-any-return]
+
+
+class HealthcheckWithPolling(ProcessingStrategy[KafkaPayload]):
+    """
+    Updates healthcheck file on every poll, keeping pods alive during:
+    - Rebalancing (poll continues, but no messages)
+    - Idle periods (no messages in topic)
+    - Active processing
+    
+    This prevents Kubernetes from killing pods during rebalancing.
+    """
+    
+    def __init__(self, healthcheck_file: str, next_step: ProcessingStrategy[KafkaPayload]) -> None:
+        self._healthcheck_file = healthcheck_file
+        self._next_step = next_step
+        self._last_touch = 0.0
+        self._touch_interval = 1.0  # Update at most once per second
+        
+    def poll(self) -> None:
+        """Called on every event loop iteration."""
+        # Update healthcheck on every poll (like Rust default behavior)
+        self._maybe_touch_file()
+        
+        # Continue with normal poll processing
+        self._next_step.poll()
+        
+    def _maybe_touch_file(self) -> None:
+        """Touch healthcheck file if interval has elapsed."""
+        now = time.time()
+        if now - self._last_touch >= self._touch_interval:
+            try:
+                Path(self._healthcheck_file).touch()
+                self._last_touch = now
+            except Exception:
+                # Don't crash on healthcheck failures
+                pass
+                
+    def submit(self, message: Message[KafkaPayload]) -> None:
+        self._next_step.submit(message)
+        
+    def close(self) -> None:
+        self._next_step.close()
+        
+    def terminate(self) -> None:
+        self._next_step.terminate()
+        
+    def join(self, timeout: float | None = None) -> None:
+        self._next_step.join(timeout)
 
 
 def create_kafka_consumer() -> LaunchpadKafkaConsumer:
@@ -242,20 +290,22 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     ) -> ProcessingStrategy[KafkaPayload]:
         """Create the processing strategy chain."""
         next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
-        assert self.healthcheck_file
-        next_step = Healthcheck(self.healthcheck_file, next_step)
 
         # Bind the log_queue to the processing function
         processing_function = partial(process_kafka_message_with_service, log_queue=self._log_queue)
 
-        strategy = RunTaskInThreads(
+        next_step = RunTaskInThreads(
             processing_function=processing_function,
             concurrency=self.concurrency,
             max_pending_futures=self.max_pending_futures,
             next_step=next_step,
         )
 
-        return strategy
+        # Wrap with our custom healthcheck that updates on every poll
+        assert self.healthcheck_file
+        next_step = HealthcheckWithPolling(self.healthcheck_file, next_step)
+
+        return next_step
 
     def close(self) -> None:
         """Clean up the logging queue and listener."""
