@@ -15,7 +15,7 @@ from .treemap import TreemapResults, TreemapType
 # so we can update treemap logic and not give users confusing diffs.
 # Patch versions are ignored.
 ANDROID_ANALYSIS_VERSION = "1.0.0"
-APPLE_ANALYSIS_VERSION = "1.3.0"
+APPLE_ANALYSIS_VERSION = "1.2.1"
 
 
 class BaseAppInfo(BaseModel):
@@ -103,22 +103,11 @@ class BaseAnalysisResults(BaseModel):
     file_analysis: FileAnalysis = Field(..., description="File-level analysis results", exclude=True)
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
     use_si_units: bool = Field(default=False, description="Whether to use SI units for size display")
-    download_size: int = Field(
-        ...,
-        description="DEPRECATED: Use main_download_size instead. Total estimated download size in bytes (main app + all components)",
-    )
-    install_size: int = Field(
-        ...,
-        description="DEPRECATED: Use main_install_size instead. Total estimated install size in bytes (main app + all components)",
-    )
-    main_download_size: int = Field(
-        ..., description="Estimated download size for main app only in bytes (excludes components)"
-    )
-    main_install_size: int = Field(
-        ..., description="Estimated install size for main app only in bytes (excludes components)"
-    )
+    download_size: int = Field(..., description="Total estimated download size in bytes (main app + all components)")
+    install_size: int = Field(..., description="Total estimated install size in bytes (main app + all components)")
     app_components: List[AppComponent] = Field(
-        default_factory=list, description="Modular app components (watch apps, extensions, dynamic features)"
+        default_factory=list,
+        description="Breakdown of modular app components (watch apps, extensions, dynamic features). To get main app size: total - sum(component sizes)",
     )
 
     def to_dict(self) -> Dict[str, Any]:

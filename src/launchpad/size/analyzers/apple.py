@@ -293,10 +293,8 @@ class AppleAppAnalyzer:
             insights=insights,
             analysis_duration=analysis_duration,
             use_si_units=True,
-            download_size=total_download_size,  # Deprecated: kept for backward compatibility
-            install_size=total_install_size,  # Deprecated: kept for backward compatibility
-            main_download_size=download_size,
-            main_install_size=install_size,
+            download_size=total_download_size,
+            install_size=total_install_size,
             app_components=app_components,
         )
 

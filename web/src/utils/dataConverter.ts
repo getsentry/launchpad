@@ -129,12 +129,8 @@ export interface FileAnalysisReport {
   };
   generated_at: string;
   use_si_units: boolean;
-  // Deprecated fields (kept for backward compatibility)
   install_size: number;
   download_size: number;
-  // New fields
-  main_install_size?: number;
-  main_download_size?: number;
   app_components?: AppComponent[];
 }
 
