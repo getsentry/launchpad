@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import IntEnum
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -78,12 +79,37 @@ class FileInfo(BaseModel):
     colorspace: str | None = Field(default=None, description="Color space for asset catalog images")
 
 
+class ComponentType(IntEnum):
+    """Type of modular app component. Compatible with backend MetricsArtifactType."""
+
+    MAIN_ARTIFACT = 0
+    """The main artifact (not used in app_components list)."""
+    WATCH_ARTIFACT = 1
+    """An embedded watch artifact."""
+    ANDROID_DYNAMIC_FEATURE = 2
+    """An embedded Android dynamic feature artifact."""
+
+    @classmethod
+    def as_choices(cls) -> tuple[tuple[int, str], ...]:
+        """Return choices tuple for compatibility with backend."""
+        return (
+            (cls.MAIN_ARTIFACT, "main_artifact"),
+            (cls.WATCH_ARTIFACT, "watch_artifact"),
+            (cls.ANDROID_DYNAMIC_FEATURE, "android_dynamic_feature_artifact"),
+        )
+
+    def to_string(self) -> str:
+        """Return the string representation for this component type."""
+        choices = dict(self.as_choices())
+        return choices[self]
+
+
 class AppComponent(BaseModel):
     """Information about a modular app component (watch app, app extension, dynamic feature, etc.)."""
 
     model_config = ConfigDict(frozen=True)
 
-    component_type: str = Field(..., description="Type of component (watch_app, app_extension, dynamic_feature)")
+    component_type: ComponentType = Field(..., description="Type of component")
     name: str = Field(..., description="Component identifier/name")
     path: str = Field(..., description="Relative path in the bundle")
     download_size: int = Field(..., ge=0, description="Estimated download size in bytes")

@@ -32,8 +32,14 @@ interface AppInfo {
   code_signature_errors?: string[];
 }
 
+export enum ComponentType {
+  MAIN_ARTIFACT = 0,
+  WATCH_ARTIFACT = 1,
+  ANDROID_DYNAMIC_FEATURE = 2,
+}
+
 export interface AppComponent {
-  component_type: string;
+  component_type: ComponentType;
   name: string;
   path: string;
   download_size: number;

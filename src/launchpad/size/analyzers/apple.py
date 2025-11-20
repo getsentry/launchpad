@@ -35,7 +35,7 @@ from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.common import APPLE_ANALYSIS_VERSION, AppComponent
+from launchpad.size.models.common import APPLE_ANALYSIS_VERSION, AppComponent, ComponentType
 from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes, calculate_component_sizes
@@ -145,7 +145,7 @@ class AppleAppAnalyzer:
 
                     app_components.append(
                         AppComponent(
-                            component_type="watch_app",
+                            component_type=ComponentType.WATCH_ARTIFACT,
                             name=watch_app_path.stem,
                             path=relative_path,
                             download_size=watch_download,

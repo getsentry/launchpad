@@ -1,5 +1,6 @@
 import React from 'react';
 import type { FileAnalysisReport } from '../utils/dataConverter';
+import { ComponentType } from '../utils/dataConverter';
 
 interface AppInfoDisplayProps {
   data: FileAnalysisReport;
@@ -16,6 +17,19 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
 
   const formatSize = (bytes: number): string => {
     return formatBytes(bytes, data.use_si_units);
+  };
+
+  const formatComponentType = (type: ComponentType): string => {
+    switch (type) {
+      case ComponentType.WATCH_ARTIFACT:
+        return 'Watch App';
+      case ComponentType.ANDROID_DYNAMIC_FEATURE:
+        return 'Dynamic Feature';
+      case ComponentType.MAIN_ARTIFACT:
+        return 'Main App';
+      default:
+        return 'Unknown';
+    }
   };
 
   return (
@@ -170,7 +184,7 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
                               {component.name}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: '#856404' }}>
-                              {component.component_type.replace(/_/g, ' ')}
+                              {formatComponentType(component.component_type)}
                             </div>
                           </div>
                           <div style={{ textAlign: 'right', color: '#856404' }}>
