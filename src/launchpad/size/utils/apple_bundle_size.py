@@ -24,7 +24,7 @@ def calculate_bundle_sizes(bundle_url: Path) -> Tuple[int, int]:
     if bundle_url.suffix != ".app":
         raise ValueError(f"Only .app bundles are supported, got: {bundle_url}")
 
-    install_size = _calculate_app_store_size(bundle_url)
+    install_size = _calculate_install_size(bundle_url)
     metadata_size = _zip_metadata_size_for_bundle(bundle_url)
     lzfse_size = _lzfse_content_size_for_bundle(bundle_url)
     download_size = metadata_size + lzfse_size
@@ -41,54 +41,23 @@ def calculate_bundle_sizes(bundle_url: Path) -> Tuple[int, int]:
 
 
 def calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
-    """Calculate the download and install sizes for a specific component (subdirectory) within a bundle.
+    """Calculate the download and install sizes for a specific component (subdirectory) within a bundle."""
 
-    Args:
-        component_path: Path to the component directory (e.g., Watch/*.app)
-
-    Returns:
-        Tuple of (download_size, install_size) in bytes
-    """
     if not component_path.exists():
         raise ValueError(f"Component path not found: {component_path}")
 
     if not component_path.is_dir():
         raise ValueError(f"Component path must be a directory: {component_path}")
 
-    install_size = _calculate_component_install_size(component_path)
+    install_size = _calculate_install_size(component_path)
     download_size = _calculate_component_download_size(component_path)
 
     logger.debug(
-        f"Component {component_path.name} size - Download: {download_size} bytes, Install: {install_size} bytes"
+        "size.apple.component_size",
+        extra={"path": component_path, "download_size": download_size, "install_size": install_size},
     )
 
     return download_size, install_size
-
-
-def _calculate_app_store_size(bundle_url: Path) -> int:
-    total_size = 0
-    file_count = 0
-
-    # Include the root directory's own entry size
-    root_dir_size = to_nearest_block_size(get_file_size(bundle_url), APPLE_FILESYSTEM_BLOCK_SIZE)
-    total_size += root_dir_size
-    logger.debug(f"Root directory size: {root_dir_size}")
-
-    for file_path in bundle_url.rglob("*"):
-        logger.debug(f"Processing file: {file_path.relative_to(bundle_url)}")
-        if file_path.is_symlink():
-            logger.debug("Skipping symlink")
-            continue
-
-        file_count += 1
-        file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
-
-        total_size += file_size
-        logger.debug(f"File size: {file_size}, Total size: {total_size}")
-
-    logger.debug(f"App Store size calculation: {file_count} files, {total_size} bytes")
-
-    return total_size
 
 
 def _lzfse_content_size_for_bundle(bundle_url: Path) -> int:
@@ -124,16 +93,17 @@ def _lzfse_compressed_size(file_path: Path) -> int:
         return os.path.getsize(file_path)
 
 
-def _calculate_component_install_size(component_path: Path) -> int:
-    """Calculate install size for a component by summing file sizes rounded to block size."""
+def _calculate_install_size(path: Path) -> int:
+    """Calculate install size by summing file sizes rounded to block size."""
+
     total_size = 0
     file_count = 0
 
-    # Include the component directory's own entry size
-    root_dir_size = to_nearest_block_size(get_file_size(component_path), APPLE_FILESYSTEM_BLOCK_SIZE)
+    # Include the root directory's own entry size
+    root_dir_size = to_nearest_block_size(get_file_size(path), APPLE_FILESYSTEM_BLOCK_SIZE)
     total_size += root_dir_size
 
-    for file_path in component_path.rglob("*"):
+    for file_path in path.rglob("*"):
         if file_path.is_symlink():
             continue
 
@@ -141,7 +111,7 @@ def _calculate_component_install_size(component_path: Path) -> int:
         file_size = to_nearest_block_size(get_file_size(file_path), APPLE_FILESYSTEM_BLOCK_SIZE)
         total_size += file_size
 
-    logger.debug(f"Component install size: {file_count} files, {total_size} bytes")
+    logger.debug(f"Install size for {path.name}: {file_count} files, {total_size} bytes")
     return total_size
 
 
