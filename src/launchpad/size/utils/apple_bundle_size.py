@@ -168,7 +168,6 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
         if not watch_app_path.is_dir():
             continue
 
-        # Read Info.plist to get app ID
         watch_plist_path = watch_app_path / "Info.plist"
         app_id = ""
         if watch_plist_path.exists():
@@ -177,7 +176,7 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
                     watch_plist = plistlib.load(f)
                 app_id = watch_plist.get("CFBundleIdentifier", "")
             except Exception:
-                logger.exception(f"Error reading Info.plist for watch app {watch_app_path}")
+                logger.exception("Error reading Info.plist for watch app")
 
         sizes = _calculate_component_sizes(watch_app_path)
         components.append(
