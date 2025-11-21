@@ -35,8 +35,8 @@ class PreprodFeature(Enum):
 # Retry configuration
 MAX_RETRY_ATTEMPTS = 3
 
-# Health check threshold - consider unhealthy if file not touched in 5 minutes
-HEALTHCHECK_MAX_AGE_SECONDS = 300.0
+# Health check threshold - consider unhealthy if file not touched in 60 seconds
+HEALTHCHECK_MAX_AGE_SECONDS = 60.0
 
 
 class OperationName(Enum):
