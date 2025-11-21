@@ -5,13 +5,14 @@ from __future__ import annotations
 import logging
 import multiprocessing
 import os
-import sys
+import signal
 import time
 
 from dataclasses import dataclass
 from functools import partial
 from logging.handlers import QueueHandler, QueueListener
-from typing import Any, Mapping
+from multiprocessing.pool import Pool
+from typing import Any, Callable, Mapping
 
 from arroyo import Message, Topic, configure_metrics
 from arroyo.backends.kafka import KafkaConsumer as ArroyoKafkaConsumer
@@ -20,8 +21,12 @@ from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
 from arroyo.processing.strategies.healthcheck import Healthcheck
-from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
-from arroyo.types import Commit, Partition
+from arroyo.processing.strategies.run_task_with_multiprocessing import (
+    MultiprocessingPool,
+    RunTaskWithMultiprocessing,
+    parallel_worker_initializer,
+)
+from arroyo.types import Commit, FilteredPayload, Partition, TStrategyPayload
 from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
@@ -36,69 +41,50 @@ logger = get_logger(__name__)
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
-def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queue[Any]) -> None:
-    """Worker function that runs in subprocess."""
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
+class LaunchpadMultiProcessingPool(MultiprocessingPool):
+    """Extended MultiprocessingPool with maxtasksperchild=1 to ensure clean worker state."""
 
-    queue_handler = QueueHandler(log_queue)
-    queue_handler.addFilter(RequestLogFilter())
-
-    root_logger.addHandler(queue_handler)
-    root_logger.setLevel(logging.DEBUG)
-
-    try:
-        ArtifactProcessor.process_message(decoded_message)
-    except Exception:
-        logger.exception("Error processing message in subprocess")
-        sys.exit(1)
+    def maybe_create_pool(self) -> None:
+        if self._MultiprocessingPool__pool is None:
+            self._MultiprocessingPool__metrics.increment("arroyo.strategies.run_task_with_multiprocessing.pool.create")
+            self._MultiprocessingPool__pool = Pool(
+                self._MultiprocessingPool__num_processes,
+                initializer=partial(parallel_worker_initializer, self._MultiprocessingPool__initializer),
+                context=multiprocessing.get_context("spawn"),
+                maxtasksperchild=1,  # why we have this subclass
+            )
 
 
-def process_kafka_message_with_service(
-    msg: Message[KafkaPayload],
-    log_queue: multiprocessing.Queue[Any],
-) -> Any:
-    """Process a Kafka message by spawning a fresh subprocess with timeout protection."""
-    timeout = int(os.getenv("KAFKA_TASK_TIMEOUT_SECONDS", "3600"))  # 1 hour default
+class LaunchpadRunTaskWithMultiprocessing(RunTaskWithMultiprocessing[TStrategyPayload, Any]):
+    """Tolerates child process exits from maxtasksperchild=1 by ignoring SIGCHLD."""
 
+    def __init__(
+        self,
+        function: Callable[[Message[TStrategyPayload]], Any],
+        next_step: ProcessingStrategy[FilteredPayload | Any],
+        max_batch_size: int,
+        max_batch_time: float,
+        pool: MultiprocessingPool,
+        input_block_size: int | None = None,
+        output_block_size: int | None = None,
+    ) -> None:
+        super().__init__(function, next_step, max_batch_size, max_batch_time, pool, input_block_size, output_block_size)
+        # Override SIGCHLD handler - child exits are expected with maxtasksperchild=1
+        signal.signal(
+            signal.SIGCHLD,
+            lambda signum, frame: logger.debug(f"Worker process exited normally (SIGCHLD {signum})"),
+        )
+
+
+def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
+    """Process a Kafka message using the actual service logic in a worker process."""
     try:
         decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
-    except Exception:
-        logger.exception("Failed to decode message")
+        ArtifactProcessor.process_message(decoded)
+        return decoded  # type: ignore[no-any-return]
+    except Exception as e:
+        logger.error(f"Failed to process message in worker: {e}", exc_info=True)
         raise
-
-    artifact_id = decoded.get("artifact_id", "unknown")
-
-    # Spawn actual processing in a subprocess
-    process = multiprocessing.Process(target=_process_in_subprocess, args=(decoded, log_queue))
-    process.start()
-    process.join(timeout=timeout)
-
-    if process.is_alive():
-        # Timeout exceeded - kill the process
-        logger.error(
-            "Task exceeded timeout, killing process",
-            extra={"timeout_seconds": timeout, "artifact_id": artifact_id},
-        )
-        process.terminate()
-        process.join(timeout=5)  # Give it 5s to terminate gracefully
-        if process.is_alive():
-            logger.warning(
-                "Process did not terminate gracefully, force killing",
-                extra={"artifact_id": artifact_id},
-            )
-            process.kill()
-            process.join()
-        return None  # type: ignore[return-value]
-
-    if process.exitcode != 0:
-        logger.error(
-            "Process exited with non-zero code",
-            extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
-        )
-        return None  # type: ignore[return-value]
-
-    return decoded  # type: ignore[no-any-return]
 
 
 def create_kafka_consumer() -> LaunchpadKafkaConsumer:
@@ -189,17 +175,23 @@ class LaunchpadKafkaConsumer:
             except FileNotFoundError:
                 pass
 
-            # Clean up logging queue
+            # Clean up multiprocessing pool
             try:
                 self.strategy_factory.close()
-                logger.debug("Closed logging queue listener")
+                logger.debug("Closed multiprocessing pool")
             except Exception:
-                logger.exception("Error closing logging queue listener")
+                logger.exception("Error closing multiprocessing pool")
 
     def stop(self):
         """Signal shutdown to the processor."""
         logger.info(f"{self} stop commanded")
         self.processor.signal_shutdown()
+
+        # Kill all multiprocessing worker children (development only)
+        environment = os.getenv("LAUNCHPAD_ENV", "development").lower()
+        if environment == "development":
+            for child in multiprocessing.active_children():
+                child.terminate()
 
     def is_healthy(self) -> bool:
         try:
@@ -224,6 +216,12 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         self._queue_listener = self._setup_queue_listener()
         self._queue_listener.start()
 
+        initializer_with_queue = partial(self._initialize_worker_logging, self._log_queue)
+
+        self._pool = LaunchpadMultiProcessingPool(
+            num_processes=concurrency,
+            initializer=initializer_with_queue,
+        )
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
@@ -235,6 +233,23 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
         return QueueListener(self._log_queue, *handlers, respect_handler_level=True)
 
+    @staticmethod
+    def _initialize_worker_logging(log_queue: multiprocessing.Queue[Any]) -> None:
+        """Initialize logging in worker process to send logs to queue.
+
+        With multiprocessing spawn context, subprocesses don't inherit
+        parent's stdout/stderr. We use a queue to send log records to
+        the main process which writes them to stdout for Docker/GCP.
+        """
+        root_logger = logging.getLogger()
+        root_logger.handlers.clear()
+
+        queue_handler = QueueHandler(log_queue)
+        queue_handler.addFilter(RequestLogFilter())
+
+        root_logger.addHandler(queue_handler)
+        root_logger.setLevel(logging.DEBUG)
+
     def create_with_partitions(
         self,
         commit: Commit,
@@ -245,24 +260,22 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
-        # Bind the log_queue to the processing function
-        processing_function = partial(process_kafka_message_with_service, log_queue=self._log_queue)
-
-        strategy = RunTaskInThreads(
-            processing_function=processing_function,
-            concurrency=self.concurrency,
-            max_pending_futures=self.max_pending_futures,
+        strategy = LaunchpadRunTaskWithMultiprocessing(
+            process_kafka_message_with_service,
             next_step=next_step,
+            max_batch_size=1,  # Process immediately, subject to be re-tuned
+            max_batch_time=1,  # Process after 1 second max, subject to be re-tuned
+            pool=self._pool,
+            input_block_size=None,
+            output_block_size=None,
         )
 
         return strategy
 
     def close(self) -> None:
-        """Clean up the logging queue and listener."""
-        try:
-            self._queue_listener.stop()
-        except Exception:
-            logger.exception("Error stopping queue listener")
+        """Clean up the multiprocessing pool and logging queue."""
+        self._pool.close()
+        self._queue_listener.stop()
 
 
 @dataclass
@@ -307,7 +320,7 @@ def get_kafka_config() -> KafkaConfig:
         bootstrap_servers=bootstrap_servers,
         group_id=group_id,
         topics=topics_env.split(","),
-        concurrency=int(os.getenv("KAFKA_CONCURRENCY", "4")),
+        concurrency=int(os.getenv("KAFKA_CONCURRENCY", "2")),
         max_pending_futures=int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
         healthcheck_file=os.getenv("KAFKA_HEALTHCHECK_FILE"),
         auto_offset_reset=os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
