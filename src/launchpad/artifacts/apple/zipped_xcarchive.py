@@ -361,6 +361,10 @@ class ZippedXCArchive(AppleArtifact):
 
         return binaries
 
+    def get_lief_cache(self) -> dict[Path, lief.MachO.FatBinary]:
+        """Get the LIEF cache of pre-parsed binaries"""
+        return self._lief_cache
+
     @sentry_sdk.trace
     def get_asset_catalog_details(self, relative_path: Path) -> List[AssetCatalogElement]:
         """Get the details of an asset catalog file (Assets.car) by returning the

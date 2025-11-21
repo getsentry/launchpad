@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any, Callable
 
+import lief
+
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 
 from .android.manifest.manifest import AndroidManifest
@@ -49,6 +51,10 @@ class AppleArtifact(Artifact):
     def get_plist(self) -> dict[str, Any]:
         """Get the plist from the artifact."""
         raise NotImplementedError("Not implemented")
+
+    def get_lief_cache(self) -> dict[Path, lief.MachO.FatBinary]:
+        """Get the LIEF cache of pre-parsed binaries"""
+        return {}
 
     def generate_ipa(self, output_path: Path):
         raise NotImplementedError("Not implemented")

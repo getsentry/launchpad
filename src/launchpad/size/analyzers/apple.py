@@ -151,7 +151,7 @@ class AppleAppAnalyzer:
             binaries = artifact.get_all_binary_paths()
             logger.debug(f"Found {len(binaries)} binaries to analyze")
 
-            lief_cache = getattr(artifact, "_lief_cache", {})
+            lief_cache = artifact.get_lief_cache()
             for binary_info in binaries:
                 logger.info(
                     "size.apple.binary_analysis_started",
@@ -450,6 +450,8 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
+        # Only binaries with dSYMs are pre-cached. Pop from cache to free memory immediately.
+        # Binaries without dSYMs will be parsed on-demand here.
         fat_binary = lief_cache.pop(binary_path, None) if lief_cache else None
         if fat_binary is None:
             logger.debug(f"Binary not in LIEF cache, parsing now: {binary_path.name}")
