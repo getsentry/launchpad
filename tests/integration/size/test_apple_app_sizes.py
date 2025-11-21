@@ -86,7 +86,6 @@ class TestAppleAppSizes:
         analyzer = AppleAppAnalyzer(skip_treemap=False)
         results = analyzer.analyze(artifact)
 
-        # Download size increased from base test due to ZIP metadata overhead from Watch/ directory
         assert results.install_size == 9818112
         assert results.download_size == 6503930
 
