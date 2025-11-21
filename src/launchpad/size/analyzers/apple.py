@@ -35,10 +35,10 @@ from launchpad.size.insights.common.large_audios import LargeAudioFileInsight
 from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.common import APPLE_ANALYSIS_VERSION, AppComponent, ComponentType
+from launchpad.size.models.common import APPLE_ANALYSIS_VERSION
 from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
-from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes, calculate_component_sizes
+from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
@@ -128,59 +128,8 @@ class AppleAppAnalyzer:
         logger.debug(f"Found {len(file_analysis.files)} files, total size: {file_analysis.total_size} bytes")
 
         app_bundle_path = artifact.get_app_bundle_path()
-        total_download_size, total_install_size = calculate_bundle_sizes(app_bundle_path)
 
-        # Detect and calculate sizes for watch apps
-        app_components: List[AppComponent] = []
-        watch_apps = list(app_bundle_path.rglob("Watch/*.app"))
-
-        total_watch_download = 0
-        total_watch_install = 0
-
-        for watch_app_path in watch_apps:
-            if watch_app_path.is_dir():
-                try:
-                    watch_download, watch_install = calculate_component_sizes(watch_app_path)
-                    relative_path = str(watch_app_path.relative_to(app_bundle_path))
-
-                    app_components.append(
-                        AppComponent(
-                            component_type=ComponentType.WATCH_ARTIFACT,
-                            name=watch_app_path.stem,
-                            path=relative_path,
-                            download_size=watch_download,
-                            install_size=watch_install,
-                        )
-                    )
-
-                    total_watch_download += watch_download
-                    total_watch_install += watch_install
-
-                    logger.info(
-                        "size.apple.watch_app_sizes",
-                        extra={
-                            "watch_app_name": watch_app_path.stem,
-                            "download_size": watch_download,
-                            "install_size": watch_install,
-                        },
-                    )
-                except Exception:
-                    logger.exception(f"Failed to calculate sizes for watch app: {watch_app_path}")
-
-        # Main app sizes = total - watch apps
-        download_size = total_download_size - total_watch_download
-        install_size = total_install_size - total_watch_install
-
-        logger.info(
-            "size.apple.bundle_sizes",
-            extra={
-                "main_app_download_size": download_size,
-                "main_app_install_size": install_size,
-                "total_download_size": total_download_size,
-                "total_install_size": total_install_size,
-                "watch_app_count": len(app_components),
-            },
-        )
+        total_download_size, total_install_size, app_components = calculate_bundle_sizes(app_bundle_path, app_info.name)
 
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []

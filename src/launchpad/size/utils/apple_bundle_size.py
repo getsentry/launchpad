@@ -4,19 +4,25 @@ import tempfile
 import uuid
 
 from pathlib import Path
-from typing import Tuple
+from typing import List, Tuple
 
 import lzfse
 
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
+from launchpad.size.models.common import AppComponent, ComponentType
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-def calculate_bundle_sizes(bundle_url: Path) -> Tuple[int, int]:
-    """Calculate the download and install sizes for an Apple app bundle."""
+def calculate_bundle_sizes(
+    bundle_url: Path,
+    main_app_name: str,
+) -> Tuple[int, int, List[AppComponent]]:
+    """
+    Calculate the download and install sizes for an Apple app bundle with component breakdown.
+    """
 
     if not bundle_url.exists():
         raise ValueError(f"Bundle not found: {bundle_url}")
@@ -37,10 +43,57 @@ def calculate_bundle_sizes(bundle_url: Path) -> Tuple[int, int]:
         f"Total install: {install_size} bytes"
     )
 
-    return download_size, install_size
+    watch_download, watch_install, watch_components = _calculate_watch_component_sizes(bundle_url)
+
+    main_download = download_size - watch_download
+    main_install = install_size - watch_install
+
+    app_components: List[AppComponent] = [
+        AppComponent(
+            component_type=ComponentType.MAIN_ARTIFACT,
+            name=main_app_name,
+            path=".",
+            download_size=main_download,
+            install_size=main_install,
+        )
+    ]
+
+    for watch_app_path, watch_download_size, watch_install_size in watch_components:
+        relative_path = str(watch_app_path.relative_to(bundle_url))
+        app_components.append(
+            AppComponent(
+                component_type=ComponentType.WATCH_ARTIFACT,
+                name=watch_app_path.stem,
+                path=relative_path,
+                download_size=watch_download_size,
+                install_size=watch_install_size,
+            )
+        )
+
+        logger.info(
+            "size.apple.watch_app_sizes",
+            extra={
+                "watch_app_name": watch_app_path.stem,
+                "download_size": watch_download_size,
+                "install_size": watch_install_size,
+            },
+        )
+
+    logger.info(
+        "size.apple.bundle_sizes",
+        extra={
+            "main_app_download_size": main_download,
+            "main_app_install_size": main_install,
+            "total_download_size": download_size,
+            "total_install_size": install_size,
+            "watch_app_count": len(app_components) - 1,
+        },
+    )
+
+    return download_size, install_size, app_components
 
 
-def calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
+def _calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
     """Calculate the download and install sizes for a specific component (subdirectory) within a bundle."""
 
     if not component_path.exists():
@@ -57,6 +110,50 @@ def calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
     )
 
     return download_size, install_size
+
+
+def _calculate_watch_component_sizes(bundle_path: Path) -> Tuple[int, int, list[tuple[Path, int, int]]]:
+    """Calculate sizes for all watch app components in a bundle."""
+    watch_apps = list(bundle_path.rglob("Watch/*.app"))
+
+    if not watch_apps:
+        return 0, 0, []
+
+    components: list[tuple[Path, int, int]] = []
+    total_download = 0
+    total_install = 0
+
+    for watch_app_path in watch_apps:
+        if not watch_app_path.is_dir():
+            continue
+
+        download, install = _calculate_component_sizes(watch_app_path)
+        components.append((watch_app_path, download, install))
+        total_download += download
+        total_install += install
+
+    # Calculate Watch/ directory overhead and divide evenly across watch apps
+    watch_dir = bundle_path / "Watch"
+    if watch_dir.exists() and components:
+        watch_dir_overhead = to_nearest_block_size(get_file_size(watch_dir), APPLE_FILESYSTEM_BLOCK_SIZE)
+
+        # Divide overhead evenly, first component gets remainder
+        overhead_per_app = watch_dir_overhead // len(components)
+        overhead_remainder = watch_dir_overhead % len(components)
+
+        updated_components = []
+        for i, (path, download, install) in enumerate(components):
+            # First component gets remainder
+            if i == 0:
+                install += overhead_per_app + overhead_remainder
+            else:
+                install += overhead_per_app
+            updated_components.append((path, download, install))
+
+        components = updated_components
+        total_install += watch_dir_overhead
+
+    return total_download, total_install, components
 
 
 def _calculate_lzfse_size(path: Path) -> int:
