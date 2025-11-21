@@ -1,4 +1,4 @@
---find-links https://github.com/getsentry/LIEF/releases/expanded_assets/0.0.2
+--find-links https://github.com/getsentry/LIEF/releases/expanded_assets/1.0.0
 
 aiohttp>=3.12.15
 asn1crypto>=1.5.0
@@ -9,7 +9,7 @@ cryptography>=45.0.7
 datadog==0.52.1
 google-api-core==2.25.1
 google-api-python-client==2.181.0
-lief==0.0.2
+lief==1.0.0.dev0
 lzfse>=0.4.2
 pillow>=11.3.0
 pillow_heif>=1.1.0
