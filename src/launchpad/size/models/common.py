@@ -114,6 +114,7 @@ class AppComponent(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     component_type: ComponentType = Field(..., description="Type of component")
+    app_id: str = Field(..., description="App ID (bundle id on iOS, package name on Android)")
     name: str = Field(..., description="Component identifier/name")
     path: str = Field(..., description="Relative path in the bundle")
     download_size: int = Field(..., ge=0, description="Estimated download size in bytes")

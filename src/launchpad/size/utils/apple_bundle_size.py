@@ -1,4 +1,5 @@
 import os
+import plistlib
 import subprocess
 import tempfile
 import uuid
@@ -23,12 +24,21 @@ class ComponentSizes(NamedTuple):
     install_size: int
 
 
+class ComponentInfo(NamedTuple):
+    """Information about a single component."""
+
+    path: Path
+    app_id: str
+    download_size: int
+    install_size: int
+
+
 class ComponentsWithSizes(NamedTuple):
     """Aggregated size information with component breakdown."""
 
     total_download: int
     total_install: int
-    components: List[tuple[Path, int, int]]
+    components: List[ComponentInfo]
 
 
 class BundleSizes(NamedTuple):
@@ -42,6 +52,7 @@ class BundleSizes(NamedTuple):
 def calculate_bundle_sizes(
     bundle_url: Path,
     main_app_name: str,
+    main_app_id: str,
 ) -> BundleSizes:
     """
     Calculate the download and install sizes for an Apple app bundle with component breakdown.
@@ -74,6 +85,7 @@ def calculate_bundle_sizes(
     app_components: List[AppComponent] = [
         AppComponent(
             component_type=ComponentType.MAIN_ARTIFACT,
+            app_id=main_app_id,
             name=main_app_name,
             path=".",
             download_size=main_download,
@@ -81,11 +93,12 @@ def calculate_bundle_sizes(
         )
     ]
 
-    for watch_path, watch_download_size, watch_install_size in watch_sizes.components:
+    for watch_path, watch_app_id, watch_download_size, watch_install_size in watch_sizes.components:
         relative_path = str(watch_path.relative_to(bundle_url))
         app_components.append(
             AppComponent(
                 component_type=ComponentType.WATCH_ARTIFACT,
+                app_id=watch_app_id,
                 name=watch_path.stem,
                 path=relative_path,
                 download_size=watch_download_size,
@@ -147,7 +160,7 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
     if not watch_apps:
         return ComponentsWithSizes(total_download=0, total_install=0, components=[])
 
-    components: List[tuple[Path, int, int]] = []
+    components: List[ComponentInfo] = []
     total_download = 0
     total_install = 0
 
@@ -155,8 +168,26 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
         if not watch_app_path.is_dir():
             continue
 
+        # Read Info.plist to get app ID
+        watch_plist_path = watch_app_path / "Info.plist"
+        app_id = ""
+        if watch_plist_path.exists():
+            try:
+                with open(watch_plist_path, "rb") as f:
+                    watch_plist = plistlib.load(f)
+                app_id = watch_plist.get("CFBundleIdentifier", "")
+            except Exception:
+                logger.exception(f"Error reading Info.plist for watch app {watch_app_path}")
+
         sizes = _calculate_component_sizes(watch_app_path)
-        components.append((watch_app_path, sizes.download_size, sizes.install_size))
+        components.append(
+            ComponentInfo(
+                path=watch_app_path,
+                app_id=app_id,
+                download_size=sizes.download_size,
+                install_size=sizes.install_size,
+            )
+        )
         total_download += sizes.download_size
         total_install += sizes.install_size
 
@@ -170,13 +201,13 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
         overhead_remainder = watch_dir_overhead % len(components)
 
         updated_components = []
-        for i, (path, download, install) in enumerate(components):
+        for i, (path, app_id, download, install) in enumerate(components):
             # First component gets remainder
             if i == 0:
                 install += overhead_per_app + overhead_remainder
             else:
                 install += overhead_per_app
-            updated_components.append((path, download, install))
+            updated_components.append(ComponentInfo(path, app_id, download, install))
 
         components = updated_components
         total_install += watch_dir_overhead

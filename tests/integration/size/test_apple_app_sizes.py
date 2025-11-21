@@ -1,3 +1,5 @@
+import plistlib
+
 from pathlib import Path
 from typing import Callable, cast
 
@@ -11,8 +13,8 @@ from launchpad.size.models.common import ComponentType
 
 
 @pytest.fixture
-def create_watch_app() -> Callable[[ZippedXCArchive, str, dict[str, int]], Path]:
-    def _create_watch_app(artifact: ZippedXCArchive, name: str, files: dict[str, int]) -> Path:
+def create_watch_app() -> Callable[[ZippedXCArchive, str, str, dict[str, int]], Path]:
+    def _create_watch_app(artifact: ZippedXCArchive, name: str, app_id: str, files: dict[str, int]) -> Path:
         """Create a watch app with specified files and sizes."""
         app_bundle_path = artifact.get_app_bundle_path()
 
@@ -24,11 +26,17 @@ def create_watch_app() -> Callable[[ZippedXCArchive, str, dict[str, int]], Path]
         watch_app_dir = watch_dir / f"{name}.app"
         watch_app_dir.mkdir(exist_ok=True)
 
+        # Create Info.plist with app ID
+        plist_data = {"CFBundleIdentifier": app_id}
+        plist_path = watch_app_dir / "Info.plist"
+        with open(plist_path, "wb") as f:
+            plistlib.dump(plist_data, f)
+
         # Create files with specified sizes
         for filename, size in files.items():
-            file_path = watch_app_dir / filename
-            # Fill with dummy data to reach the target size
-            file_path.write_bytes(b"x" * size)
+            if filename != "Info.plist":  # Already created above
+                file_path = watch_app_dir / filename
+                file_path.write_bytes(b"x" * size)
 
         return watch_app_dir
 
@@ -53,6 +61,7 @@ class TestAppleAppSizes:
         assert len(app_components) == 1
         main_app = app_components[0]
         assert main_app.component_type == ComponentType.MAIN_ARTIFACT
+        assert main_app.app_id == "com.emergetools.hackernews"
         assert main_app.name == "HackerNews"
         assert main_app.path == "."
         assert main_app.download_size == 6502319
@@ -63,11 +72,12 @@ class TestAppleAppSizes:
 
         artifact = cast(ZippedXCArchive, ArtifactFactory.from_path(hackernews_xcarchive))
 
+        # Note: Info.plist is created separately with plistlib to include the app_id
         create_watch_app(
             artifact,
             "TestWatch",
+            "com.test.watch.app",
             {
-                "Info.plist": 4 * 1024,  # 4KB -> rounds to 16KB
                 "TestWatch": 60 * 1024,  # 60KB -> rounds to 64KB
                 "image.png": 15 * 1024,  # 15KB -> rounds to 16KB
             },
@@ -76,29 +86,28 @@ class TestAppleAppSizes:
         analyzer = AppleAppAnalyzer(skip_treemap=False)
         results = analyzer.analyze(artifact)
 
+        # Download size increased from base test due to ZIP metadata overhead from Watch/ directory
         assert results.install_size == 9818112
-        assert results.download_size == 6503823
+        assert results.download_size == 6503930
 
         app_components = results.app_components
         assert len(app_components) == 2
 
         main_app = app_components[0]
         assert main_app.component_type == ComponentType.MAIN_ARTIFACT
+        assert main_app.app_id == "com.emergetools.hackernews"
         assert main_app.name == "HackerNews"
         assert main_app.path == "."
         assert main_app.install_size == 9728000
-        # Download size increased slightly by ZIP metadata overhead for watch app files
         assert main_app.download_size == 6503337
 
         watch_app = app_components[1]
         assert watch_app.component_type == ComponentType.WATCH_ARTIFACT
+        assert watch_app.app_id == "com.test.watch.app"
         assert watch_app.name == "TestWatch"
         assert watch_app.path == "Watch/TestWatch.app"
-        # Watch app install size breakdown:
-        # - TestWatch.app contents: 86016 bytes
-        # - Watch/ directory overhead: 4096 bytes / 1 watch app = 4096 bytes per app
         assert watch_app.install_size == 90112
-        assert watch_app.download_size == 486
+        assert watch_app.download_size == 593
 
         assert main_app.install_size + watch_app.install_size == results.install_size
         assert main_app.download_size + watch_app.download_size == results.download_size
