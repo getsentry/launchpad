@@ -129,7 +129,10 @@ class AppleAppAnalyzer:
 
         app_bundle_path = artifact.get_app_bundle_path()
 
-        total_download_size, total_install_size, app_components = calculate_bundle_sizes(app_bundle_path, app_info.name)
+        bundle_sizes = calculate_bundle_sizes(app_bundle_path, app_info.name)
+        total_download_size = bundle_sizes.total_download
+        total_install_size = bundle_sizes.total_install
+        app_components = bundle_sizes.app_components
         logger.info(
             "size.apple.bundle_sizes",
             extra={

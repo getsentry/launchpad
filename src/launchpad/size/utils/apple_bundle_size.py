@@ -4,7 +4,7 @@ import tempfile
 import uuid
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, NamedTuple
 
 import lzfse
 
@@ -16,10 +16,33 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+class ComponentSizes(NamedTuple):
+    """Size information for a component."""
+
+    download_size: int
+    install_size: int
+
+
+class ComponentsWithSizes(NamedTuple):
+    """Aggregated size information with component breakdown."""
+
+    total_download: int
+    total_install: int
+    components: List[tuple[Path, int, int]]
+
+
+class BundleSizes(NamedTuple):
+    """Complete bundle size information with all components."""
+
+    total_download: int
+    total_install: int
+    app_components: List[AppComponent]
+
+
 def calculate_bundle_sizes(
     bundle_url: Path,
     main_app_name: str,
-) -> Tuple[int, int, List[AppComponent]]:
+) -> BundleSizes:
     """
     Calculate the download and install sizes for an Apple app bundle with component breakdown.
     """
@@ -43,10 +66,10 @@ def calculate_bundle_sizes(
         f"Total install: {install_size} bytes"
     )
 
-    watch_download, watch_install, watch_components = _calculate_watch_component_sizes(bundle_url)
+    watch_sizes = _calculate_watch_component_sizes(bundle_url)
 
-    main_download = download_size - watch_download
-    main_install = install_size - watch_install
+    main_download = download_size - watch_sizes.total_download
+    main_install = install_size - watch_sizes.total_install
 
     app_components: List[AppComponent] = [
         AppComponent(
@@ -58,12 +81,12 @@ def calculate_bundle_sizes(
         )
     ]
 
-    for watch_app_path, watch_download_size, watch_install_size in watch_components:
-        relative_path = str(watch_app_path.relative_to(bundle_url))
+    for watch_path, watch_download_size, watch_install_size in watch_sizes.components:
+        relative_path = str(watch_path.relative_to(bundle_url))
         app_components.append(
             AppComponent(
                 component_type=ComponentType.WATCH_ARTIFACT,
-                name=watch_app_path.stem,
+                name=watch_path.stem,
                 path=relative_path,
                 download_size=watch_download_size,
                 install_size=watch_install_size,
@@ -73,7 +96,7 @@ def calculate_bundle_sizes(
         logger.info(
             "size.apple.watch_app_sizes",
             extra={
-                "watch_app_name": watch_app_path.stem,
+                "watch_app_name": watch_path.stem,
                 "download_size": watch_download_size,
                 "install_size": watch_install_size,
             },
@@ -90,10 +113,14 @@ def calculate_bundle_sizes(
         },
     )
 
-    return download_size, install_size, app_components
+    return BundleSizes(
+        total_download=download_size,
+        total_install=install_size,
+        app_components=app_components,
+    )
 
 
-def _calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
+def _calculate_component_sizes(component_path: Path) -> ComponentSizes:
     """Calculate the download and install sizes for a specific component (subdirectory) within a bundle."""
 
     if not component_path.exists():
@@ -109,17 +136,18 @@ def _calculate_component_sizes(component_path: Path) -> Tuple[int, int]:
         f"Component {component_path.name} size - Download: {download_size} bytes, Install: {install_size} bytes"
     )
 
-    return download_size, install_size
+    return ComponentSizes(download_size=download_size, install_size=install_size)
 
 
-def _calculate_watch_component_sizes(bundle_path: Path) -> Tuple[int, int, list[tuple[Path, int, int]]]:
+def _calculate_watch_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
     """Calculate sizes for all watch app components in a bundle."""
+
     watch_apps = list(bundle_path.rglob("Watch/*.app"))
 
     if not watch_apps:
-        return 0, 0, []
+        return ComponentsWithSizes(total_download=0, total_install=0, components=[])
 
-    components: list[tuple[Path, int, int]] = []
+    components: List[tuple[Path, int, int]] = []
     total_download = 0
     total_install = 0
 
@@ -127,10 +155,10 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> Tuple[int, int, list[
         if not watch_app_path.is_dir():
             continue
 
-        download, install = _calculate_component_sizes(watch_app_path)
-        components.append((watch_app_path, download, install))
-        total_download += download
-        total_install += install
+        sizes = _calculate_component_sizes(watch_app_path)
+        components.append((watch_app_path, sizes.download_size, sizes.install_size))
+        total_download += sizes.download_size
+        total_install += sizes.install_size
 
     # Calculate Watch/ directory overhead and divide evenly across watch apps
     watch_dir = bundle_path / "Watch"
@@ -153,7 +181,11 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> Tuple[int, int, list[
         components = updated_components
         total_install += watch_dir_overhead
 
-    return total_download, total_install, components
+    return ComponentsWithSizes(
+        total_download=total_download,
+        total_install=total_install,
+        components=components,
+    )
 
 
 def _calculate_lzfse_size(path: Path) -> int:
