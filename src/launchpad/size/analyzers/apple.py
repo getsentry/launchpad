@@ -130,6 +130,14 @@ class AppleAppAnalyzer:
         app_bundle_path = artifact.get_app_bundle_path()
 
         total_download_size, total_install_size, app_components = calculate_bundle_sizes(app_bundle_path, app_info.name)
+        logger.info(
+            "size.apple.bundle_sizes",
+            extra={
+                "download_size": total_download_size,
+                "install_size": total_install_size,
+                "app_components": [component.model_dump() for component in app_components],
+            },
+        )
 
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
