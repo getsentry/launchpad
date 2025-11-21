@@ -80,7 +80,11 @@ class FileInfo(BaseModel):
 
 
 class ComponentType(IntEnum):
-    """Type of modular app component. Compatible with backend MetricsArtifactType."""
+    """Type of modular app component. Compatible with backend MetricsArtifactType.
+
+    NOTE: The backend model must be updated FIRST if this enum is changed, so that it
+    doesn't reject the new values.
+    """
 
     MAIN_ARTIFACT = 0
     """The main artifact (not used in app_components list)."""
