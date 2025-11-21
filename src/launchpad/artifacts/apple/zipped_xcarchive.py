@@ -504,6 +504,11 @@ class ZippedXCArchive(AppleArtifact):
         if self._dsym_info is None:
             self._find_dsym_files()
 
+        config = lief.MachO.ParserConfig()
+        config.parse_dyld_exports = False
+        config.parse_dyld_bindings = False
+        config.parse_dyld_rebases = False
+
         for binary_path in binary_paths:
             if not binary_path.exists():
                 logger.warning(f"Binary path does not exist: {binary_path}")
@@ -511,7 +516,7 @@ class ZippedXCArchive(AppleArtifact):
 
             try:
                 with open(binary_path, "rb") as f:
-                    fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(f)  # type: ignore
+                    fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(f, config)  # type: ignore
 
                 if fat_binary is None or fat_binary.size == 0:
                     logger.debug(f"Failed to parse binary with LIEF: {binary_path}")
@@ -533,6 +538,7 @@ class ZippedXCArchive(AppleArtifact):
                     continue
 
                 self._binary_uuid_cache[binary_path] = extracted_uuid
+
                 if extracted_uuid in self._dsym_info:
                     self._lief_cache[binary_path] = fat_binary
                     logger.debug(f"Cached LIEF object for {binary_path.name} (has dSYM)")

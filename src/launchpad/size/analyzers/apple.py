@@ -456,7 +456,13 @@ class AppleAppAnalyzer:
         if fat_binary is None:
             logger.debug(f"Binary not in LIEF cache, parsing now: {binary_path.name}")
             with open(binary_path, "rb") as f:
-                fat_binary = lief.MachO.parse(f)  # type: ignore
+                config = lief.MachO.ParserConfig()
+                config.parse_dyld_exports = False
+                config.parse_dyld_bindings = False
+                config.parse_dyld_rebases = False
+
+                fat_binary = lief.MachO.parse(f, config)  # type: ignore
+
         if fat_binary is None or fat_binary.size == 0:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
 
@@ -479,8 +485,13 @@ class AppleAppAnalyzer:
         strippable_symbols_size = self._check_strip_symbols_removal(binary_path, binary)
 
         if dwarf_binary_path:
+            dsym_config = lief.MachO.ParserConfig()
+            dsym_config.parse_dyld_exports = False
+            dsym_config.parse_dyld_bindings = False
+            dsym_config.parse_dyld_rebases = False
+
             with open(dwarf_binary_path, "rb") as f:
-                dwarf_fat_binary = lief.MachO.parse(f)  # type: ignore
+                dwarf_fat_binary = lief.MachO.parse(f, dsym_config)  # type: ignore
             if dwarf_fat_binary:
                 dwarf_binary = dwarf_fat_binary.at(0)
                 symbol_sizes = MachOSymbolSizes(dwarf_binary).get_symbol_sizes()
