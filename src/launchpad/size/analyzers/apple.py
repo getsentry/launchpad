@@ -151,6 +151,7 @@ class AppleAppAnalyzer:
             binaries = artifact.get_all_binary_paths()
             logger.debug(f"Found {len(binaries)} binaries to analyze")
 
+            lief_cache = getattr(artifact, "_lief_cache", {})
             for binary_info in binaries:
                 logger.info(
                     "size.apple.binary_analysis_started",
@@ -165,7 +166,7 @@ class AppleAppAnalyzer:
                     logger.debug(
                         f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(artifact.get_extract_dir())}"
                     )
-                binary = self._analyze_binary(binary_info, app_bundle_path)
+                binary = self._analyze_binary(binary_info, app_bundle_path, lief_cache)
                 if binary is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
@@ -436,6 +437,7 @@ class AppleAppAnalyzer:
         self,
         binary_info: BinaryInfo,
         app_bundle_path: Path,
+        lief_cache: dict[Path, lief.MachO.FatBinary] | None = None,
         skip_swift_metadata: bool = False,
     ) -> MachOBinaryAnalysis | None:
         binary_path = binary_info.path
@@ -448,9 +450,11 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        with open(binary_path, "rb") as f:
-            fat_binary = lief.MachO.parse(f)  # type: ignore
-
+        fat_binary = lief_cache.pop(binary_path, None) if lief_cache else None
+        if fat_binary is None:
+            logger.debug(f"Binary not in LIEF cache, parsing now: {binary_path.name}")
+            with open(binary_path, "rb") as f:
+                fat_binary = lief.MachO.parse(f)  # type: ignore
         if fat_binary is None or fat_binary.size == 0:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
 

@@ -69,6 +69,8 @@ class ZippedXCArchive(AppleArtifact):
         self._archive_plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
         self._dsym_info: dict[str, DsymInfo] | None = None
+        self._binary_uuid_cache: dict[Path, str] = {}
+        self._lief_cache: dict[Path, lief.MachO.FatBinary] = {}
 
     def get_extract_dir(self) -> Path:
         return self._extract_dir
@@ -307,13 +309,13 @@ class ZippedXCArchive(AppleArtifact):
         Returns:
             List of BinaryInfo objects
         """
-
-        binaries: List[BinaryInfo] = []
         dsym_info = self._find_dsym_files()
-
         app_bundle_path = self.get_app_bundle_path()
 
-        # Find main executable
+        # Phase 1: Discover all binary paths
+        all_binary_paths: List[Path] = []
+
+        # Main executable
         main_executable = self.get_plist().get("CFBundleExecutable")
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
@@ -321,108 +323,41 @@ class ZippedXCArchive(AppleArtifact):
         if not main_binary_path.exists():
             logger.error("Main binary not found", extra={"path": main_binary_path})
             return []
+        all_binary_paths.append(main_binary_path)
 
-        # Find corresponding dSYM for main executable
-        main_uuid = self._extract_binary_uuid(main_binary_path)
-        main_dsym_info = dsym_info.get(main_uuid) if main_uuid else None
+        # Frameworks
+        framework_paths = self._discover_framework_binaries(app_bundle_path)
+        all_binary_paths.extend(framework_paths)
 
-        binaries.append(
-            BinaryInfo(
-                main_executable,
-                main_binary_path,
-                main_dsym_info.dwarf_file if main_dsym_info else None,
-                is_main_binary=True,
-                relocations_path=main_dsym_info.relocations_file if main_dsym_info else None,
-            )
+        # Extensions
+        extension_paths = self._discover_extension_binaries(app_bundle_path)
+        all_binary_paths.extend(extension_paths)
+
+        # Watch apps
+        watch_paths = self._discover_watch_binaries(app_bundle_path)
+        all_binary_paths.extend(watch_paths)
+
+        # Phase 2: Parse and cache all binaries
+        self._parse_and_cache_all_binaries(all_binary_paths)
+
+        # Phase 3: Build BinaryInfo objects using cached data
+        binaries: List[BinaryInfo] = []
+
+        # Main executable
+        binaries.append(self._make_binary_info(main_binary_path, main_executable, True, dsym_info))
+
+        # Frameworks
+        binaries.extend(self._make_binary_info(bp, bp.parent.stem, False, dsym_info) for bp in framework_paths)
+
+        # Extensions
+        binaries.extend(
+            self._make_binary_info(bp, f"{bp.parent.stem}/{bp.name}", True, dsym_info) for bp in extension_paths
         )
 
-        # Find framework binaries
-        for framework_path in app_bundle_path.rglob("*.framework"):
-            if framework_path.is_dir():
-                framework_name = framework_path.stem
-                framework_binary_path = framework_path / framework_name
-                if not framework_binary_path.exists():
-                    logger.warning("Framework binary not found", extra={"path": framework_binary_path})
-                    continue
-
-                # Find corresponding dSYM for framework
-                framework_uuid = self._extract_binary_uuid(framework_binary_path)
-                framework_dsym_info = dsym_info.get(framework_uuid) if framework_uuid else None
-
-                binaries.append(
-                    BinaryInfo(
-                        framework_name,
-                        framework_binary_path,
-                        framework_dsym_info.dwarf_file if framework_dsym_info else None,
-                        is_main_binary=False,
-                        relocations_path=framework_dsym_info.relocations_file if framework_dsym_info else None,
-                    )
-                )
-
-        # Find app extension binaries
-        for extension_path in app_bundle_path.rglob("*.appex"):
-            if extension_path.is_dir():
-                extension_plist_path = extension_path / "Info.plist"
-                if extension_plist_path.exists():
-                    try:
-                        with open(extension_plist_path, "rb") as f:
-                            extension_plist = plistlib.load(f)
-                        extension_executable = extension_plist.get("CFBundleExecutable")
-                        if extension_executable:
-                            extension_binary_path = extension_path / extension_executable
-                            if not extension_binary_path.exists():
-                                logger.warning("Extension binary not found", extra={"path": extension_binary_path})
-                                continue
-
-                            # Use the full extension name as the key to avoid conflicts
-                            extension_name = f"{extension_path.stem}/{extension_executable}"
-                            extension_uuid = self._extract_binary_uuid(extension_binary_path)
-                            extension_dsym_info = dsym_info.get(extension_uuid) if extension_uuid else None
-
-                            binaries.append(
-                                BinaryInfo(
-                                    extension_name,
-                                    extension_binary_path,
-                                    extension_dsym_info.dwarf_file if extension_dsym_info else None,
-                                    is_main_binary=True,  # App extension main executables are main binaries
-                                    relocations_path=extension_dsym_info.relocations_file
-                                    if extension_dsym_info
-                                    else None,
-                                )
-                            )
-                    except Exception:
-                        logger.exception(f"Failed to read extension Info.plist at {extension_path}")
-
-        # Find Watch app binaries
-        for watch_path in app_bundle_path.rglob("Watch/*.app"):
-            if watch_path.is_dir():
-                watch_plist_path = watch_path / "Info.plist"
-                if watch_plist_path.exists():
-                    try:
-                        with open(watch_plist_path, "rb") as f:
-                            watch_plist = plistlib.load(f)
-                        watch_executable = watch_plist.get("CFBundleExecutable")
-                        if watch_executable:
-                            watch_binary_path = watch_path / watch_executable
-                            if not watch_binary_path.exists():
-                                logger.warning("Watch binary not found", extra={"path": watch_binary_path})
-                                continue
-
-                            watch_name = f"Watch/{watch_path.stem}/{watch_executable}"
-                            watch_uuid = self._extract_binary_uuid(watch_binary_path)
-                            watch_dsym_info = dsym_info.get(watch_uuid) if watch_uuid else None
-
-                            binaries.append(
-                                BinaryInfo(
-                                    watch_name,
-                                    watch_binary_path,
-                                    watch_dsym_info.dwarf_file if watch_dsym_info else None,
-                                    is_main_binary=True,  # Watch app main executables are main binaries
-                                    relocations_path=watch_dsym_info.relocations_file if watch_dsym_info else None,
-                                )
-                            )
-                    except Exception:
-                        logger.exception(f"Failed to read Watch app Info.plist at {watch_path}")
+        # Watch apps
+        binaries.extend(
+            self._make_binary_info(bp, f"Watch/{bp.parent.stem}/{bp.name}", True, dsym_info) for bp in watch_paths
+        )
 
         return binaries
 
@@ -453,6 +388,72 @@ class ZippedXCArchive(AppleArtifact):
         except Exception:
             logger.exception(f"Failed to get asset catalog details for {relative_path}")
             return []
+
+    def _discover_framework_binaries(self, app_bundle_path: Path) -> List[Path]:
+        framework_binaries: List[Path] = []
+        for framework_path in app_bundle_path.rglob("*.framework"):
+            if framework_path.is_dir():
+                framework_name = framework_path.stem
+                framework_binary_path = framework_path / framework_name
+                if framework_binary_path.exists():
+                    framework_binaries.append(framework_binary_path)
+                else:
+                    logger.warning("Framework binary not found", extra={"path": framework_binary_path})
+        return framework_binaries
+
+    def _discover_extension_binaries(self, app_bundle_path: Path) -> List[Path]:
+        extension_binaries: List[Path] = []
+        for extension_path in app_bundle_path.rglob("*.appex"):
+            if extension_path.is_dir():
+                extension_plist_path = extension_path / "Info.plist"
+                if extension_plist_path.exists():
+                    try:
+                        with open(extension_plist_path, "rb") as f:
+                            extension_plist = plistlib.load(f)
+                        extension_executable = extension_plist.get("CFBundleExecutable")
+                        if extension_executable:
+                            extension_binary_path = extension_path / extension_executable
+                            if extension_binary_path.exists():
+                                extension_binaries.append(extension_binary_path)
+                            else:
+                                logger.warning("Extension binary not found", extra={"path": extension_binary_path})
+                    except Exception:
+                        logger.exception(f"Failed to read extension Info.plist at {extension_path}")
+        return extension_binaries
+
+    def _discover_watch_binaries(self, app_bundle_path: Path) -> List[Path]:
+        watch_binaries: List[Path] = []
+        for watch_path in app_bundle_path.rglob("Watch/*.app"):
+            if watch_path.is_dir():
+                watch_plist_path = watch_path / "Info.plist"
+                if watch_plist_path.exists():
+                    try:
+                        with open(watch_plist_path, "rb") as f:
+                            watch_plist = plistlib.load(f)
+                        watch_executable = watch_plist.get("CFBundleExecutable")
+                        if watch_executable:
+                            watch_binary_path = watch_path / watch_executable
+                            if watch_binary_path.exists():
+                                watch_binaries.append(watch_binary_path)
+                            else:
+                                logger.warning("Watch binary not found", extra={"path": watch_binary_path})
+                    except Exception:
+                        logger.exception(f"Failed to read Watch app Info.plist at {watch_path}")
+        return watch_binaries
+
+    def _make_binary_info(
+        self, binary_path: Path, name: str, is_main_binary: bool, dsym_info: dict[str, DsymInfo]
+    ) -> BinaryInfo:
+        """Create BinaryInfo from cached data."""
+        uuid = self._binary_uuid_cache.get(binary_path)
+        dsym = dsym_info.get(uuid) if uuid else None
+        return BinaryInfo(
+            name,
+            binary_path,
+            dsym.dwarf_file if dsym else None,
+            is_main_binary,
+            relocations_path=dsym.relocations_file if dsym else None,
+        )
 
     def _get_main_binary_path(self) -> Path:
         app_bundle_path = self.get_app_bundle_path()
@@ -494,26 +495,74 @@ class ZippedXCArchive(AppleArtifact):
             colorspace=colorspace,
         )
 
-    def _extract_binary_uuid(self, binary_path: Path) -> str | None:
-        try:
-            with open(binary_path, "rb") as f:
-                fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(f)  # type: ignore
+    def _parse_and_cache_all_binaries(self, binary_paths: List[Path]) -> None:
+        """Parse all binaries once, extracting UUIDs and caching LIEF objects for those with dSYMs."""
+        if self._dsym_info is None:
+            self._find_dsym_files()
+
+        for binary_path in binary_paths:
+            if not binary_path.exists():
+                logger.warning(f"Binary path does not exist: {binary_path}")
+                continue
+
+            try:
+                with open(binary_path, "rb") as f:
+                    fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(f)  # type: ignore
+
                 if fat_binary is None or fat_binary.size == 0:
                     logger.debug(f"Failed to parse binary with LIEF: {binary_path}")
-                    return None
+                    continue
 
                 binary = fat_binary.at(0)
 
-                # Look for UUID load command
+                extracted_uuid = None
                 for command in binary.commands:
                     if command.command == lief.MachO.LoadCommand.TYPE.UUID:
                         if isinstance(command, lief.MachO.UUIDCommand):
                             uuid_bytes = bytes(command.uuid)
                             uuid_obj = uuid.UUID(bytes=uuid_bytes)
-                            return str(uuid_obj).upper()
+                            extracted_uuid = str(uuid_obj).upper()
+                            break
 
-                logger.debug(f"No UUID command found in binary: {binary_path}")
+                if extracted_uuid is None:
+                    logger.debug(f"No UUID command found in binary: {binary_path}")
+                    continue
+
+                self._binary_uuid_cache[binary_path] = extracted_uuid
+                if extracted_uuid in self._dsym_info:
+                    self._lief_cache[binary_path] = fat_binary
+                    logger.debug(f"Cached LIEF object for {binary_path.name} (has dSYM)")
+                else:
+                    logger.debug(f"Skipped LIEF cache for {binary_path.name} (no dSYM)")
+
+            except Exception:
+                logger.exception(f"Failed to parse and cache binary {binary_path}")
+                continue
+
+    def _extract_binary_uuid(self, binary_path: Path) -> str | None:
+        """Extract UUID from binary, using cache if available."""
+        if binary_path in self._binary_uuid_cache:
+            return self._binary_uuid_cache[binary_path]
+
+        try:
+            with open(binary_path, "rb") as f:
+                fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(f)  # type: ignore
+
+            if fat_binary is None or fat_binary.size == 0:
+                logger.debug(f"Failed to parse binary with LIEF: {binary_path}")
                 return None
+
+            binary = fat_binary.at(0)
+
+            for command in binary.commands:
+                if command.command == lief.MachO.LoadCommand.TYPE.UUID:
+                    if isinstance(command, lief.MachO.UUIDCommand):
+                        uuid_bytes = bytes(command.uuid)
+                        uuid_obj = uuid.UUID(bytes=uuid_bytes)
+                        return str(uuid_obj).upper()
+
+            logger.debug(f"No UUID command found in binary: {binary_path}")
+            return None
 
         except Exception:
             logger.exception(f"Failed to extract UUID from binary {binary_path}")
