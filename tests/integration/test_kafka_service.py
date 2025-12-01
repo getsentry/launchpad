@@ -24,7 +24,6 @@ def kafka_env_vars():
         "KAFKA_BOOTSTRAP_SERVERS": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"),
         "KAFKA_GROUP_ID": f"launchpad-test-{int(time.time())}",
         "KAFKA_TOPICS": PREPROD_ARTIFACT_EVENTS_TOPIC,
-        "KAFKA_CONCURRENCY": "1",
         "KAFKA_AUTO_OFFSET_RESET": "earliest",
         "LAUNCHPAD_ENV": "development",
         "SENTRY_BASE_URL": "http://test.sentry.io",
@@ -53,7 +52,6 @@ class TestKafkaConfigIntegration:
         assert config.bootstrap_servers == kafka_env_vars["KAFKA_BOOTSTRAP_SERVERS"]
         assert config.group_id == kafka_env_vars["KAFKA_GROUP_ID"]
         assert config.topics == [PREPROD_ARTIFACT_EVENTS_TOPIC]
-        assert config.concurrency == 1
         assert config.auto_offset_reset == "earliest"
 
     def test_kafka_config_missing_required_vars(self):
@@ -110,7 +108,6 @@ class TestKafkaConsumerIntegration:
         assert isinstance(consumer, LaunchpadKafkaConsumer)
         assert consumer.processor is not None
         assert consumer.healthcheck_path is not None
-        assert consumer.strategy_factory is not None
 
 
 @pytest.mark.integration
