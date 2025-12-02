@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import multiprocessing
 import os
+import sys
 
 from dataclasses import dataclass
+from functools import partial
+from logging.handlers import QueueHandler, QueueListener
 from typing import Any, Mapping
 
 from arroyo import Message, Topic, configure_metrics
@@ -20,6 +25,7 @@ from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
+from launchpad.tracing import RequestLogFilter
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
 from launchpad.utils.logging import get_logger
 
@@ -29,15 +35,70 @@ logger = get_logger(__name__)
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
-def process_kafka_message_with_service(msg: Message[KafkaPayload]) -> Any:
-    """Process a Kafka message using the actual service logic."""
+def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queue[Any]) -> None:
+    """Worker function that runs in subprocess."""
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+
+    queue_handler = QueueHandler(log_queue)
+    queue_handler.addFilter(RequestLogFilter())
+
+    root_logger.addHandler(queue_handler)
+    root_logger.setLevel(logging.DEBUG)
+
+    try:
+        ArtifactProcessor.process_message(decoded_message)
+    except Exception:
+        logger.exception("Error processing message in subprocess")
+        sys.exit(1)
+
+
+def process_kafka_message_with_service(
+    msg: Message[KafkaPayload],
+    log_queue: multiprocessing.Queue[Any],
+) -> Any:
+    """Process a Kafka message by spawning a fresh subprocess with timeout protection."""
+    # INTENTIONALLY SHORT FOR TESTING. WILL CHANGE TO 3600 SECONDS FOR PRODUCTION.
+    timeout = int(os.getenv("KAFKA_TASK_TIMEOUT_SECONDS", "20"))  # 20 seconds default
+
     try:
         decoded = PREPROD_ARTIFACT_SCHEMA.decode(msg.payload.value)
-        ArtifactProcessor.process_message(decoded)
-        return decoded  # type: ignore[no-any-return]
-    except Exception as e:
-        logger.error(f"Failed to process message: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Failed to decode message")
         raise
+
+    artifact_id = decoded.get("artifact_id", "unknown")
+
+    # Spawn actual processing in a subprocess
+    process = multiprocessing.Process(target=_process_in_subprocess, args=(decoded, log_queue))
+    process.start()
+    process.join(timeout=timeout)
+
+    if process.is_alive():
+        # Timeout exceeded - kill the process
+        logger.error(
+            "Task exceeded timeout, killing process",
+            extra={"timeout_seconds": timeout, "artifact_id": artifact_id},
+        )
+        process.terminate()
+        process.join(timeout=5)  # Give it 5s to terminate gracefully
+        if process.is_alive():
+            logger.warning(
+                "Process did not terminate gracefully, force killing",
+                extra={"artifact_id": artifact_id},
+            )
+            process.kill()
+            process.join()
+        return None  # type: ignore[return-value]
+
+    if process.exitcode != 0:
+        logger.error(
+            "Process exited with non-zero code",
+            extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
+        )
+        return None  # type: ignore[return-value]
+
+    return decoded  # type: ignore[no-any-return]
 
 
 def create_kafka_consumer() -> LaunchpadKafkaConsumer:
@@ -89,20 +150,23 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         processor_factory=strategy_factory,
         join_timeout=config.join_timeout_seconds,  # Drop in-flight work during rebalance before Kafka times out
     )
-    return LaunchpadKafkaConsumer(processor, healthcheck_path)
+    return LaunchpadKafkaConsumer(processor, strategy_factory, healthcheck_path)
 
 
 class LaunchpadKafkaConsumer:
     processor: StreamProcessor[KafkaPayload]
+    strategy_factory: LaunchpadStrategyFactory
     healthcheck_path: str | None
     _running: bool
 
     def __init__(
         self,
         processor: StreamProcessor[KafkaPayload],
+        strategy_factory: LaunchpadStrategyFactory,
         healthcheck_path: str | None,
     ):
         self.processor = processor
+        self.strategy_factory = strategy_factory
         self.healthcheck_path = healthcheck_path
         self._running = False
 
@@ -121,6 +185,11 @@ class LaunchpadKafkaConsumer:
             except FileNotFoundError:
                 pass
 
+            try:
+                self.strategy_factory.close()
+            except Exception:
+                logger.exception("Error closing strategy factory")
+
     def stop(self):
         """Signal shutdown to the processor."""
         logger.info(f"{self} stop commanded")
@@ -134,7 +203,18 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     """Factory for creating the processing strategy chain."""
 
     def __init__(self, healthcheck_file: str | None = None) -> None:
+        self._log_queue: multiprocessing.Queue[Any] = multiprocessing.Manager().Queue(-1)
+        self._queue_listener = QueueListener(self._log_queue, logger)
+        self._queue_listener.start()
+
         self.healthcheck_file = healthcheck_file
+
+    def _setup_queue_listener(self) -> QueueListener:
+        """Set up listener in main process to handle logs from workers."""
+        root_logger = logging.getLogger()
+        handlers = list(root_logger.handlers) if root_logger.handlers else []
+
+        return QueueListener(self._log_queue, *handlers, respect_handler_level=True)
 
     def create_with_partitions(
         self,
@@ -146,9 +226,18 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
-        strategy = RunTask(process_kafka_message_with_service, next_step=next_step)
+        processing_function = partial(process_kafka_message_with_service, log_queue=self._log_queue)
+        strategy = RunTask(processing_function, next_step=next_step)
 
         return strategy
+
+    def close(self) -> None:
+        """Clean up the logging queue and listener."""
+        try:
+            self._queue_listener.stop()
+            logger.debug("Closed queue listener")
+        except Exception:
+            logger.exception("Error stopping queue listener")
 
 
 @dataclass
