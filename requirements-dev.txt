@@ -17,6 +17,7 @@ pytest-xdist>=3.8.0
 pytest-benchmark>=5.1.0
 pytest>=8.4.2
 responses>=0.25.8
+time-machine>=2.15.0
 ruff>=0.12.12
 safety>=3.6.1
 ty==0.0.1a20
