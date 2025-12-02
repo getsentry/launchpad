@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import time
 
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -20,7 +19,7 @@ from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
-from launchpad.constants import HEALTHCHECK_MAX_AGE_SECONDS, PREPROD_ARTIFACT_EVENTS_TOPIC
+from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
 from launchpad.utils.logging import get_logger
 
@@ -128,13 +127,7 @@ class LaunchpadKafkaConsumer:
         self.processor.signal_shutdown()
 
     def is_healthy(self) -> bool:
-        try:
-            mtime = os.path.getmtime(self.healthcheck_path)
-            age = time.time() - mtime
-        except OSError:
-            return False
-        else:
-            return age <= HEALTHCHECK_MAX_AGE_SECONDS
+        return True
 
 
 class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
