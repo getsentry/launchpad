@@ -203,8 +203,8 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     """Factory for creating the processing strategy chain."""
 
     def __init__(self, healthcheck_file: str | None = None) -> None:
-        self._log_queue: multiprocessing.Queue[Any] = multiprocessing.Manager().Queue(-1)
-        self._queue_listener = QueueListener(self._log_queue, logger)
+        self._log_queue: multiprocessing.Queue[Any] = multiprocessing.Queue()
+        self._queue_listener = self._setup_queue_listener()
         self._queue_listener.start()
 
         self.healthcheck_file = healthcheck_file
