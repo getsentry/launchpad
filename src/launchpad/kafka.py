@@ -19,7 +19,7 @@ from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
 from arroyo.processing.strategies.healthcheck import Healthcheck
-from arroyo.processing.strategies.run_task import RunTask
+from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
 from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
 
@@ -138,7 +138,11 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
     healthcheck_path = config.healthcheck_file
 
-    strategy_factory = LaunchpadStrategyFactory(healthcheck_file=healthcheck_path)
+    strategy_factory = LaunchpadStrategyFactory(
+        concurrency=config.concurrency,
+        max_pending_futures=config.max_pending_futures,
+        healthcheck_file=healthcheck_path,
+    )
 
     topics = [Topic(topic) for topic in config.topics]
     topic = topics[0] if topics else Topic("default")
@@ -200,11 +204,18 @@ class LaunchpadKafkaConsumer:
 class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     """Factory for creating the processing strategy chain."""
 
-    def __init__(self, healthcheck_file: str | None = None) -> None:
+    def __init__(
+        self,
+        concurrency: int,
+        max_pending_futures: int,
+        healthcheck_file: str | None = None,
+    ) -> None:
         self._log_queue: multiprocessing.Queue[Any] = multiprocessing.Queue()
         self._queue_listener = self._setup_queue_listener()
         self._queue_listener.start()
 
+        self.concurrency = concurrency
+        self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
 
     def _setup_queue_listener(self) -> QueueListener:
@@ -225,7 +236,12 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
         processing_function = partial(process_kafka_message_with_service, log_queue=self._log_queue)
-        strategy = RunTask(processing_function, next_step=next_step)
+        strategy = RunTaskInThreads(
+            processing_function=processing_function,
+            concurrency=self.concurrency,
+            max_pending_futures=self.max_pending_futures,
+            next_step=next_step,
+        )
 
         return strategy
 
@@ -245,6 +261,8 @@ class KafkaConfig:
     bootstrap_servers: str
     group_id: str
     topics: list[str]
+    concurrency: int
+    max_pending_futures: int
     healthcheck_file: str | None
     auto_offset_reset: str
     arroyo_strict_offset_reset: bool | None
@@ -278,6 +296,8 @@ def get_kafka_config() -> KafkaConfig:
         bootstrap_servers=bootstrap_servers,
         group_id=group_id,
         topics=topics_env.split(","),
+        concurrency=int(os.getenv("KAFKA_CONCURRENCY", "1")),
+        max_pending_futures=int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
         healthcheck_file=os.getenv("KAFKA_HEALTHCHECK_FILE"),
         auto_offset_reset=os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
         arroyo_strict_offset_reset=arroyo_strict_offset_reset,
