@@ -56,20 +56,26 @@ def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queu
 
 def _kill_process(process: multiprocessing.Process, artifact_id: str) -> None:
     """Gracefully terminate, then force kill a subprocess."""
+    pid = process.pid
+    logger.debug("Sending SIGTERM to subprocess", extra={"artifact_id": artifact_id, "pid": pid})
     process.terminate()
     process.join(timeout=5)
     if process.is_alive():
         logger.warning(
             "Process did not terminate gracefully, force killing",
-            extra={"artifact_id": artifact_id},
+            extra={"artifact_id": artifact_id, "pid": pid},
         )
         process.kill()
         process.join(timeout=1)  # Brief timeout to reap zombie, avoid infinite block
         if process.is_alive():
             logger.error(
                 "Process could not be killed, may become zombie",
-                extra={"artifact_id": artifact_id},
+                extra={"artifact_id": artifact_id, "pid": pid},
             )
+        else:
+            logger.debug("Subprocess killed with SIGKILL", extra={"artifact_id": artifact_id, "pid": pid})
+    else:
+        logger.debug("Subprocess terminated with SIGTERM", extra={"artifact_id": artifact_id, "pid": pid})
 
 
 def process_kafka_message_with_service(
@@ -97,6 +103,10 @@ def process_kafka_message_with_service(
     # Register the process for tracking (PID is always set after start())
     with registry_lock:
         process_registry[process.pid] = (process, artifact_id)  # type: ignore[index]
+        logger.debug(
+            "Registered subprocess",
+            extra={"artifact_id": artifact_id, "pid": process.pid, "registry_size": len(process_registry)},
+        )
 
     try:
         process.join(timeout=timeout)
@@ -152,8 +162,13 @@ def process_kafka_message_with_service(
 
         return decoded  # type: ignore[no-any-return]
     finally:
+        pid = process.pid
         with registry_lock:
             process_registry.pop(process.pid, None)
+            logger.debug(
+                "Unregistered subprocess",
+                extra={"artifact_id": artifact_id, "pid": pid, "exit_code": process.exitcode},
+            )
 
 
 def create_kafka_consumer() -> LaunchpadKafkaConsumer:
@@ -227,10 +242,13 @@ class ShutdownAwareStrategy(ProcessingStrategy[KafkaPayload]):
 
     def close(self) -> None:
         # Kill all active subprocesses BEFORE closing inner strategy
+        logger.info("ShutdownAwareStrategy.close() called, killing active processes")
         self._factory.kill_active_processes()
+        logger.debug("Processes killed, calling inner.close()")
         self._inner.close()
 
     def terminate(self) -> None:
+        logger.info("ShutdownAwareStrategy.terminate() called, killing active processes")
         self._factory.kill_active_processes()
         self._inner.terminate()
 
