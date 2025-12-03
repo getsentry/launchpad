@@ -111,6 +111,40 @@ def process_kafka_message_with_service(
     try:
         process.join(timeout=timeout)
 
+        # Check if killed during rebalance FIRST (before checking alive/exit code)
+        pid = process.pid
+        if pid is not None:
+            logger.debug(
+                "Attempting to acquire lock to check rebalance kill status",
+                extra={"artifact_id": artifact_id, "pid": pid},
+            )
+            with registry_lock:
+                was_killed_by_rebalance = pid in factory._killed_during_rebalance
+                logger.info(
+                    "Checked killed set",
+                    extra={
+                        "artifact_id": artifact_id,
+                        "pid": pid,
+                        "was_killed_by_rebalance": was_killed_by_rebalance,
+                        "killed_set_size": len(factory._killed_during_rebalance),
+                    },
+                )
+                if was_killed_by_rebalance:
+                    factory._killed_during_rebalance.discard(pid)
+
+            if was_killed_by_rebalance:
+                # Wait for kill to complete, then don't commit offset
+                logger.info(
+                    "Process being killed during rebalance, waiting for termination",
+                    extra={"artifact_id": artifact_id, "pid": pid},
+                )
+                process.join(timeout=10)  # Give kill_active_processes time to finish
+                logger.warning(
+                    "Process killed during rebalance, message will be reprocessed",
+                    extra={"artifact_id": artifact_id},
+                )
+                raise TimeoutError("Subprocess killed during rebalance")
+
         # Handle timeout (process still alive after full timeout)
         if process.is_alive():
             logger.error(
@@ -120,40 +154,8 @@ def process_kafka_message_with_service(
             _kill_process(process, artifact_id)
             return None  # type: ignore[return-value]
 
+        # Handle other failures
         if process.exitcode != 0:
-            # Check if we killed it during rebalance - if so, don't commit offset
-            pid = process.pid
-            logger.info(
-                "Subprocess failed, checking if killed during rebalance",
-                extra={"artifact_id": artifact_id, "exit_code": process.exitcode, "pid": pid},
-            )
-
-            if pid is not None:
-                logger.debug(
-                    "Attempting to acquire lock to check rebalance kill status",
-                    extra={"artifact_id": artifact_id, "pid": pid},
-                )
-                with registry_lock:
-                    was_killed_by_rebalance = pid in factory._killed_during_rebalance
-                    logger.info(
-                        "Checked killed set",
-                        extra={
-                            "artifact_id": artifact_id,
-                            "pid": pid,
-                            "was_killed_by_rebalance": was_killed_by_rebalance,
-                            "killed_set_size": len(factory._killed_during_rebalance),
-                        },
-                    )
-                    factory._killed_during_rebalance.discard(pid)
-
-                if was_killed_by_rebalance:
-                    logger.warning(
-                        "Process killed during rebalance, message will be reprocessed",
-                        extra={"artifact_id": artifact_id},
-                    )
-                    raise TimeoutError("Subprocess killed during rebalance")
-
-            # All other failures - skip message
             logger.error(
                 "Process exited with non-zero code",
                 extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
