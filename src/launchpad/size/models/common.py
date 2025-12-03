@@ -54,29 +54,32 @@ class FileAnalysis(BaseModel):
 
 
 class FileInfo(BaseModel):
-    """Information about a file or directory in the app bundle."""
+    """Information about a file or directory in the app bundle.
+
+    Note: Only path, hash, and children are serialized. Other fields are excluded
+    to reduce JSON size - they're only needed for internal processing.
+    """
 
     model_config = ConfigDict(frozen=True)
 
+    # Serialized fields (used for rename detection)
     path: str = Field(..., description="Relative path in the bundle")
+    hash: str = Field(..., description="MD5 hash of file contents or directory identifier")
+    children: List[FileInfo] = Field(default_factory=list, description="Children of the file")
 
-    # Some FileInfo objects are not always backed by a file (e.g. asset catalog elements), so full_path is None
+    # Excluded fields (used internally but not serialized)
     full_path: Path | None = Field(..., exclude=True, description="Fully qualified path to the file or directory")
     size: int = Field(
         ...,
         ge=0,
+        exclude=True,
         description="Raw file size in bytes with no filesystem block size adjustments (0 for directories)",
     )
-    file_type: str = Field(..., description="File type/extension or 'directory'")
-    hash: str = Field(..., description="MD5 hash of file contents or directory identifier")
-    treemap_type: TreemapType = Field(..., description="Type for treemap visualization")
-    is_dir: bool = Field(..., description="True if this is a directory, False if it's a file")
-    # Some files can be further broken down, e.g. asset catalog files. We are NOT storing files themselves
-    # in a tree structure, this is only for special cases.
-    children: List[FileInfo] = Field(default_factory=list, description="Children of the file")
-    # Asset catalog specific fields
-    idiom: str | None = Field(default=None, description="Device idiom for asset catalog images")
-    colorspace: str | None = Field(default=None, description="Color space for asset catalog images")
+    file_type: str = Field(..., exclude=True, description="File type/extension or 'directory'")
+    treemap_type: TreemapType = Field(..., exclude=True, description="Type for treemap visualization")
+    is_dir: bool = Field(..., exclude=True, description="True if this is a directory, False if it's a file")
+    idiom: str | None = Field(default=None, exclude=True, description="Device idiom for asset catalog images")
+    colorspace: str | None = Field(default=None, exclude=True, description="Color space for asset catalog images")
 
 
 class ComponentType(IntEnum):
@@ -131,7 +134,7 @@ class BaseAnalysisResults(BaseModel):
     analysis_duration: float | None = Field(None, ge=0, description="Analysis duration in seconds")
     analysis_version: str = Field(description="Analysis version")
 
-    file_analysis: FileAnalysis = Field(..., description="File-level analysis results", exclude=True)
+    file_analysis: FileAnalysis = Field(..., description="File-level analysis results")
     treemap: TreemapResults | None = Field(..., description="Hierarchical size analysis treemap")
     use_si_units: bool = Field(default=False, description="Whether to use SI units for size display")
     download_size: int = Field(..., description="Total estimated download size in bytes (main app + all components)")
