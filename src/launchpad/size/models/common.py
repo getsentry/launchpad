@@ -62,12 +62,18 @@ class FileInfo(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    # Serialized fields (used for rename detection)
+    #
+    # Serialized fields
+    #
     path: str = Field(..., description="Relative path in the bundle")
     hash: str = Field(..., description="MD5 hash of file contents or directory identifier")
+    # Some files can be further broken down, e.g. asset catalog files. We are NOT storing files themselves
+    # in a tree structure, this is only for special cases.
     children: List[FileInfo] = Field(default_factory=list, description="Children of the file")
 
-    # Excluded fields (used internally but not serialized)
+    #
+    # Excluded fields
+    #
     full_path: Path | None = Field(..., exclude=True, description="Fully qualified path to the file or directory")
     size: int = Field(
         ...,
@@ -78,6 +84,7 @@ class FileInfo(BaseModel):
     file_type: str = Field(..., exclude=True, description="File type/extension or 'directory'")
     treemap_type: TreemapType = Field(..., exclude=True, description="Type for treemap visualization")
     is_dir: bool = Field(..., exclude=True, description="True if this is a directory, False if it's a file")
+    # Asset catalog specific fields
     idiom: str | None = Field(default=None, exclude=True, description="Device idiom for asset catalog images")
     colorspace: str | None = Field(default=None, exclude=True, description="Color space for asset catalog images")
 
