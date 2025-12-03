@@ -74,9 +74,8 @@ def process_kafka_message_with_service(
     process.join(timeout=timeout)
 
     if process.is_alive():
-        # Timeout exceeded - kill the process
         logger.error(
-            "Task exceeded timeout, killing process",
+            "Launchpad task killed after exceeding timeout",
             extra={"timeout_seconds": timeout, "artifact_id": artifact_id},
         )
         process.terminate()
