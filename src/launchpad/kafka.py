@@ -113,9 +113,27 @@ def process_kafka_message_with_service(
         if process.exitcode != 0:
             # Check if we killed it during rebalance - if so, don't commit offset
             pid = process.pid
+            logger.info(
+                "Subprocess failed, checking if killed during rebalance",
+                extra={"artifact_id": artifact_id, "exit_code": process.exitcode, "pid": pid},
+            )
+
             if pid is not None:
+                logger.debug(
+                    "Attempting to acquire lock to check rebalance kill status",
+                    extra={"artifact_id": artifact_id, "pid": pid},
+                )
                 with registry_lock:
                     was_killed_by_rebalance = pid in factory._killed_during_rebalance
+                    logger.info(
+                        "Checked killed set",
+                        extra={
+                            "artifact_id": artifact_id,
+                            "pid": pid,
+                            "was_killed_by_rebalance": was_killed_by_rebalance,
+                            "killed_set_size": len(factory._killed_during_rebalance),
+                        },
+                    )
                     factory._killed_during_rebalance.discard(pid)
 
                 if was_killed_by_rebalance:
@@ -296,7 +314,12 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
     def kill_active_processes(self) -> None:
         """Kill all active subprocesses. Called during rebalancing."""
+        logger.debug("Acquiring lock to kill processes")
         with self._processes_lock:
+            logger.debug(
+                "Lock acquired for kill_active_processes",
+                extra={"active_processes": len(self._active_processes)},
+            )
             if self._active_processes:
                 logger.info(
                     "Killing %d active subprocess(es) during rebalance",
@@ -305,9 +328,13 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
                 for pid, (process, artifact_id) in list(self._active_processes.items()):
                     if process.is_alive():
                         self._killed_during_rebalance.add(pid)
-                        logger.info("Terminating subprocess with PID %d", pid)
+                        logger.info(
+                            "Added PID to killed set and terminating subprocess",
+                            extra={"pid": pid, "artifact_id": artifact_id},
+                        )
                         _kill_process(process, artifact_id)
                 self._active_processes.clear()
+        logger.debug("Lock released after killing processes")
 
     def create_with_partitions(
         self,
