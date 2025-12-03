@@ -92,7 +92,6 @@ def process_kafka_message_with_service(
         process_registry[process.pid] = (process, artifact_id)
 
     try:
-        # Just block - no polling needed
         process.join(timeout=timeout)
 
         # Handle timeout (process still alive after full timeout)
@@ -113,7 +112,6 @@ def process_kafka_message_with_service(
 
         return decoded  # type: ignore[no-any-return]
     finally:
-        # Always unregister when done
         with registry_lock:
             process_registry.pop(process.pid, None)
 
