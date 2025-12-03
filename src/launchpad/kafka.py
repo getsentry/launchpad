@@ -6,6 +6,7 @@ import logging
 import multiprocessing
 import os
 import sys
+import threading
 
 from dataclasses import dataclass
 from functools import partial
@@ -53,9 +54,24 @@ def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queu
         sys.exit(1)
 
 
+def _kill_process(process: multiprocessing.Process, artifact_id: str) -> None:
+    """Gracefully terminate, then force kill a subprocess."""
+    process.terminate()
+    process.join(timeout=5)
+    if process.is_alive():
+        logger.warning(
+            "Process did not terminate gracefully, force killing",
+            extra={"artifact_id": artifact_id},
+        )
+        process.kill()
+        process.join()
+
+
 def process_kafka_message_with_service(
     msg: Message[KafkaPayload],
     log_queue: multiprocessing.Queue[Any],
+    process_registry: dict[int, tuple[multiprocessing.Process, str]],
+    registry_lock: threading.Lock,
 ) -> Any:
     """Process a Kafka message by spawning a fresh subprocess with timeout protection."""
     timeout = int(os.getenv("KAFKA_TASK_TIMEOUT_SECONDS", "720"))  # 12 minutes default
@@ -71,32 +87,36 @@ def process_kafka_message_with_service(
     # Spawn actual processing in a subprocess
     process = multiprocessing.Process(target=_process_in_subprocess, args=(decoded, log_queue))
     process.start()
-    process.join(timeout=timeout)
 
-    if process.is_alive():
-        logger.error(
-            "Launchpad task killed after exceeding timeout",
-            extra={"timeout_seconds": timeout, "artifact_id": artifact_id},
-        )
-        process.terminate()
-        process.join(timeout=5)  # Give it 5s to terminate gracefully
+    # Register the process for tracking
+    with registry_lock:
+        process_registry[process.pid] = (process, artifact_id)
+
+    try:
+        # Just block - no polling needed
+        process.join(timeout=timeout)
+
+        # Handle timeout (process still alive after full timeout)
         if process.is_alive():
-            logger.warning(
-                "Process did not terminate gracefully, force killing",
-                extra={"artifact_id": artifact_id},
+            logger.error(
+                "Launchpad task killed after exceeding timeout",
+                extra={"timeout_seconds": timeout, "artifact_id": artifact_id},
             )
-            process.kill()
-            process.join()
-        return None  # type: ignore[return-value]
+            _kill_process(process, artifact_id)
+            return None  # type: ignore[return-value]
 
-    if process.exitcode != 0:
-        logger.error(
-            "Process exited with non-zero code",
-            extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
-        )
-        return None  # type: ignore[return-value]
+        if process.exitcode != 0:
+            logger.error(
+                "Process exited with non-zero code",
+                extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
+            )
+            return None  # type: ignore[return-value]
 
-    return decoded  # type: ignore[no-any-return]
+        return decoded  # type: ignore[no-any-return]
+    finally:
+        # Always unregister when done
+        with registry_lock:
+            process_registry.pop(process.pid, None)
 
 
 def create_kafka_consumer() -> LaunchpadKafkaConsumer:
@@ -153,6 +173,32 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         join_timeout=config.join_timeout_seconds,  # Drop in-flight work during rebalance before Kafka times out
     )
     return LaunchpadKafkaConsumer(processor, strategy_factory, healthcheck_path)
+
+
+class ShutdownAwareStrategy(ProcessingStrategy[KafkaPayload]):
+    """Wrapper that kills active subprocesses during rebalance."""
+
+    def __init__(self, inner: ProcessingStrategy[KafkaPayload], factory: LaunchpadStrategyFactory):
+        self._inner = inner
+        self._factory = factory
+
+    def submit(self, message: Message[KafkaPayload]) -> None:
+        self._inner.submit(message)
+
+    def poll(self) -> None:
+        self._inner.poll()
+
+    def close(self) -> None:
+        # Kill all active subprocesses BEFORE closing inner strategy
+        self._factory.kill_active_processes()
+        self._inner.close()
+
+    def terminate(self) -> None:
+        self._factory.kill_active_processes()
+        self._inner.terminate()
+
+    def join(self, timeout: float | None = None) -> None:
+        self._inner.join(timeout)
 
 
 class LaunchpadKafkaConsumer:
@@ -214,6 +260,10 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         self._queue_listener = self._setup_queue_listener()
         self._queue_listener.start()
 
+        # Track active subprocesses for direct termination during rebalancing
+        self._active_processes: dict[int, tuple[multiprocessing.Process, str]] = {}
+        self._processes_lock = threading.Lock()
+
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
         self.healthcheck_file = healthcheck_file
@@ -225,6 +275,20 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
         return QueueListener(self._log_queue, *handlers, respect_handler_level=True)
 
+    def kill_active_processes(self) -> None:
+        """Kill all active subprocesses. Called during rebalancing."""
+        with self._processes_lock:
+            if self._active_processes:
+                logger.info(
+                    "Killing %d active subprocess(es) during rebalance",
+                    len(self._active_processes),
+                )
+                for pid, (process, artifact_id) in list(self._active_processes.items()):
+                    if process.is_alive():
+                        logger.info("Terminating subprocess with PID %d", pid)
+                        _kill_process(process, artifact_id)
+                self._active_processes.clear()
+
     def create_with_partitions(
         self,
         commit: Commit,
@@ -235,15 +299,20 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         assert self.healthcheck_file
         next_step = Healthcheck(self.healthcheck_file, next_step)
 
-        processing_function = partial(process_kafka_message_with_service, log_queue=self._log_queue)
-        strategy = RunTaskInThreads(
+        processing_function = partial(
+            process_kafka_message_with_service,
+            log_queue=self._log_queue,
+            process_registry=self._active_processes,
+            registry_lock=self._processes_lock,
+        )
+        inner_strategy = RunTaskInThreads(
             processing_function=processing_function,
             concurrency=self.concurrency,
             max_pending_futures=self.max_pending_futures,
             next_step=next_step,
         )
 
-        return strategy
+        return ShutdownAwareStrategy(inner_strategy, self)
 
     def close(self) -> None:
         """Clean up the logging queue and listener."""
