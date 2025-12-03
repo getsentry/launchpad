@@ -111,21 +111,21 @@ def process_kafka_message_with_service(
             return None  # type: ignore[return-value]
 
         if process.exitcode != 0:
-            # Check if we killed it during rebalance (regardless of exit code)
-            pid = process.pid  # type: ignore[assignment]
-            with registry_lock:
-                was_killed_by_rebalance = pid in factory._killed_during_rebalance
-                if was_killed_by_rebalance:
+            # Check if we killed it during rebalance - if so, don't commit offset
+            pid = process.pid
+            if pid is not None:
+                with registry_lock:
+                    was_killed_by_rebalance = pid in factory._killed_during_rebalance
                     factory._killed_during_rebalance.discard(pid)
 
-            if was_killed_by_rebalance:
-                logger.warning(
-                    "Process killed during rebalance, message will be reprocessed",
-                    extra={"artifact_id": artifact_id},
-                )
-                raise TimeoutError("Subprocess killed during rebalance")
+                if was_killed_by_rebalance:
+                    logger.warning(
+                        "Process killed during rebalance, message will be reprocessed",
+                        extra={"artifact_id": artifact_id},
+                    )
+                    raise TimeoutError("Subprocess killed during rebalance")
 
-            # All other non-zero exit codes are failures - skip message
+            # All other failures - skip message
             logger.error(
                 "Process exited with non-zero code",
                 extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
