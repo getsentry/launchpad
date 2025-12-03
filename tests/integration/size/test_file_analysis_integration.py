@@ -1,14 +1,31 @@
-"""Integration tests for file analysis using real xcarchive fixtures."""
-
 import time
 
+from pathlib import Path
+from typing import cast
+
+from launchpad.artifacts.artifact import AppleArtifact
+from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import FileAnalysis
 from launchpad.size.models.treemap import TreemapType
 from launchpad.size.utils.file_analysis import analyze_apple_files
 
 
 class TestFileAnalysisIntegration:
-    def test_analyze_hackernews(self, hackernews_xcarchive_obj):
+    def test_analyze_hackernews_result(self, hackernews_xcarchive: Path) -> None:
+        analyzer = AppleAppAnalyzer(skip_treemap=False)
+        artifact = ArtifactFactory.from_path(hackernews_xcarchive)
+
+        results = analyzer.analyze(cast(AppleArtifact, artifact))
+
+        file_analysis = results.file_analysis
+        assert file_analysis is not None
+        assert len(file_analysis.files) == 32
+        assert len(file_analysis.directories) == 13
+        assert len(file_analysis.items) == 45
+        assert file_analysis.total_size == 9728000
+
+    def test_analyze_apple_files_hackernews(self, hackernews_xcarchive_obj):
         start = time.time()
         result = analyze_apple_files(hackernews_xcarchive_obj)
         duration = time.time() - start
@@ -72,4 +89,5 @@ class TestFileAnalysisIntegration:
         r2 = analyze_apple_files(hackernews_xcarchive_obj)
         d1 = next(d for d in r1.directories if d.path == "")
         d2 = next(d for d in r2.directories if d.path == "")
+        assert d1.hash == d2.hash
         assert d1.hash == d2.hash
