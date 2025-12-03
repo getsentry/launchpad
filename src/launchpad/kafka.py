@@ -64,7 +64,6 @@ def _kill_process(process: multiprocessing.Process, artifact_id: str) -> None:
             extra={"artifact_id": artifact_id},
         )
         process.kill()
-        process.join()
 
 
 def process_kafka_message_with_service(
@@ -260,7 +259,6 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         self._queue_listener = self._setup_queue_listener()
         self._queue_listener.start()
 
-        # Track active subprocesses for direct termination during rebalancing
         self._active_processes: dict[int, tuple[multiprocessing.Process, str]] = {}
         self._processes_lock = threading.Lock()
 
