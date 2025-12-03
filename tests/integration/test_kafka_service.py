@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import os
-import tempfile
 import time
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -30,16 +28,6 @@ def kafka_env_vars():
     }
     with patch.dict(os.environ, env_vars, clear=False):
         yield env_vars
-
-
-@pytest.fixture
-def temp_healthcheck_file():
-    with tempfile.NamedTemporaryFile(delete=False) as f:
-        yield f.name
-    try:
-        os.unlink(f.name)
-    except FileNotFoundError:
-        pass
 
 
 class TestKafkaConfigIntegration:
@@ -107,7 +95,6 @@ class TestKafkaConsumerIntegration:
 
         assert isinstance(consumer, LaunchpadKafkaConsumer)
         assert consumer.processor is not None
-        assert consumer.healthcheck_path is not None
 
 
 @pytest.mark.integration
@@ -148,7 +135,7 @@ class TestServiceIntegration:
             assert config.projects_to_skip == ["project1", "project2", "project3"]
 
     @pytest.mark.asyncio
-    async def test_http_server_endpoints_integration(self, kafka_env_vars, temp_healthcheck_file):
+    async def test_http_server_endpoints_integration(self, kafka_env_vars):
         """Test HTTP server endpoints with real service components."""
 
         fake_statsd = FakeStatsd()
@@ -157,11 +144,8 @@ class TestServiceIntegration:
         with (
             patch("launchpad.service.initialize_sentry_sdk"),
             patch("launchpad.kafka.configure_metrics"),
-            patch.dict(os.environ, {"KAFKA_HEALTHCHECK_FILE": temp_healthcheck_file}),
         ):
             service.setup()
-
-            Path(temp_healthcheck_file).touch()
 
             app = service.server.create_app()
             server = TestServer(app)

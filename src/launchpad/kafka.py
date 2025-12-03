@@ -19,7 +19,6 @@ from arroyo.backends.kafka import KafkaPayload
 from arroyo.processing.processor import StreamProcessor
 from arroyo.processing.strategies import ProcessingStrategy, ProcessingStrategyFactory
 from arroyo.processing.strategies.commit import CommitOffsets
-from arroyo.processing.strategies.healthcheck import Healthcheck
 from arroyo.processing.strategies.run_task_in_threads import RunTaskInThreads
 from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
@@ -142,13 +141,6 @@ def process_kafka_message_with_service(
 
 def create_kafka_consumer() -> LaunchpadKafkaConsumer:
     """Create and configure a Kafka consumer using environment variables."""
-
-    healthcheck_path = os.getenv("KAFKA_HEALTHCHECK_FILE")
-    if not healthcheck_path:
-        healthcheck_path = f"/tmp/launchpad-kafka-health-{os.getpid()}"
-        os.environ["KAFKA_HEALTHCHECK_FILE"] = healthcheck_path
-        logger.info(f"Using healthcheck file: {healthcheck_path}")
-
     config = get_kafka_config()
     configure_metrics(DatadogMetricsBackend(config.group_id))
 
@@ -177,12 +169,10 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         )
 
     arroyo_consumer = ArroyoKafkaConsumer(consumer_config)
-    healthcheck_path = config.healthcheck_file
 
     strategy_factory = LaunchpadStrategyFactory(
         concurrency=config.concurrency,
         max_pending_futures=config.max_pending_futures,
-        healthcheck_file=healthcheck_path,
     )
 
     topics = [Topic(topic) for topic in config.topics]
@@ -193,7 +183,7 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         processor_factory=strategy_factory,
         join_timeout=config.join_timeout_seconds,  # Drop in-flight work during rebalance before Kafka times out
     )
-    return LaunchpadKafkaConsumer(processor, strategy_factory, healthcheck_path)
+    return LaunchpadKafkaConsumer(processor, strategy_factory)
 
 
 # This wrapper is required to ensure that the active subprocesses are killed during rebalances due to the nature of run_task_in_threads.
@@ -226,18 +216,15 @@ class ShutdownAwareStrategy(ProcessingStrategy[KafkaPayload]):
 class LaunchpadKafkaConsumer:
     processor: StreamProcessor[KafkaPayload]
     strategy_factory: LaunchpadStrategyFactory
-    healthcheck_path: str | None
     _running: bool
 
     def __init__(
         self,
         processor: StreamProcessor[KafkaPayload],
         strategy_factory: LaunchpadStrategyFactory,
-        healthcheck_path: str | None,
     ):
         self.processor = processor
         self.strategy_factory = strategy_factory
-        self.healthcheck_path = healthcheck_path
         self._running = False
 
     def run(self):
@@ -249,12 +236,6 @@ class LaunchpadKafkaConsumer:
             self.processor.run()
         finally:
             self._running = False
-            try:
-                os.remove(self.healthcheck_path)
-                logger.info(f"Removed healthcheck file: {self.healthcheck_path}")
-            except FileNotFoundError:
-                pass
-
             try:
                 self.strategy_factory.close()
             except Exception:
@@ -276,7 +257,6 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
         self,
         concurrency: int,
         max_pending_futures: int,
-        healthcheck_file: str | None = None,
     ) -> None:
         self._log_queue: multiprocessing.Queue[Any] = multiprocessing.Queue()
         self._queue_listener = self._setup_queue_listener()
@@ -288,7 +268,6 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
-        self.healthcheck_file = healthcheck_file
 
     def _setup_queue_listener(self) -> QueueListener:
         """Set up listener in main process to handle logs from workers."""
@@ -319,8 +298,6 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
     ) -> ProcessingStrategy[KafkaPayload]:
         """Create the processing strategy chain."""
         next_step: ProcessingStrategy[Any] = CommitOffsets(commit)
-        assert self.healthcheck_file
-        next_step = Healthcheck(self.healthcheck_file, next_step)
 
         processing_function = partial(
             process_kafka_message_with_service,
@@ -356,7 +333,6 @@ class KafkaConfig:
     topics: list[str]
     concurrency: int
     max_pending_futures: int
-    healthcheck_file: str | None
     auto_offset_reset: str
     arroyo_strict_offset_reset: bool | None
     security_protocol: str
@@ -391,7 +367,6 @@ def get_kafka_config() -> KafkaConfig:
         topics=topics_env.split(","),
         concurrency=int(os.getenv("KAFKA_CONCURRENCY", "1")),
         max_pending_futures=int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
-        healthcheck_file=os.getenv("KAFKA_HEALTHCHECK_FILE"),
         auto_offset_reset=os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
         arroyo_strict_offset_reset=arroyo_strict_offset_reset,
         security_protocol=os.environ.get("KAFKA_SECURITY_PROTOCOL", "plaintext"),
