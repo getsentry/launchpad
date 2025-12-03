@@ -96,14 +96,14 @@ class SymbolInfo:
             compiler_generated_symbols: List[SymbolSize] = []
 
             for symbol in symbol_sizes:
-                if cls._is_compiler_generated(symbol.mangled_name):
-                    compiler_generated_symbols.append(symbol)
-                elif SwiftSymbolTypeAggregator.is_swift_symbol(symbol.mangled_name):
+                if SwiftSymbolTypeAggregator.is_swift_symbol(symbol.mangled_name):
                     swift_symbols.append(symbol)
                 elif ObjCSymbolTypeAggregator.is_objc_symbol(symbol.mangled_name):
                     objc_symbols.append(symbol)
                 elif CppSymbolTypeAggregator.is_cpp_symbol(symbol.mangled_name):
                     cpp_symbols.append(symbol)
+                elif cls._is_compiler_generated(symbol.mangled_name):
+                    compiler_generated_symbols.append(symbol)
                 else:
                     other_symbols.append(symbol)
 
