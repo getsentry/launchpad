@@ -87,9 +87,9 @@ def process_kafka_message_with_service(
     process = multiprocessing.Process(target=_process_in_subprocess, args=(decoded, log_queue))
     process.start()
 
-    # Register the process for tracking
+    # Register the process for tracking (PID is always set after start())
     with registry_lock:
-        process_registry[process.pid] = (process, artifact_id)
+        process_registry[process.pid] = (process, artifact_id)  # type: ignore[index]
 
     try:
         process.join(timeout=timeout)
