@@ -64,6 +64,12 @@ def _kill_process(process: multiprocessing.Process, artifact_id: str) -> None:
             extra={"artifact_id": artifact_id},
         )
         process.kill()
+        process.join(timeout=1)  # Brief timeout to reap zombie, avoid infinite block
+        if process.is_alive():
+            logger.error(
+                "Process could not be killed, may become zombie",
+                extra={"artifact_id": artifact_id},
+            )
 
 
 def process_kafka_message_with_service(
@@ -71,6 +77,7 @@ def process_kafka_message_with_service(
     log_queue: multiprocessing.Queue[Any],
     process_registry: dict[int, tuple[multiprocessing.Process, str]],
     registry_lock: threading.Lock,
+    factory: LaunchpadStrategyFactory,
 ) -> Any:
     """Process a Kafka message by spawning a fresh subprocess with timeout protection."""
     timeout = int(os.getenv("KAFKA_TASK_TIMEOUT_SECONDS", "720"))  # 12 minutes default
@@ -104,6 +111,21 @@ def process_kafka_message_with_service(
             return None  # type: ignore[return-value]
 
         if process.exitcode != 0:
+            # Check if we killed it during rebalance (regardless of exit code)
+            pid = process.pid  # type: ignore[assignment]
+            with registry_lock:
+                was_killed_by_rebalance = pid in factory._killed_during_rebalance
+                if was_killed_by_rebalance:
+                    factory._killed_during_rebalance.discard(pid)
+
+            if was_killed_by_rebalance:
+                logger.warning(
+                    "Process killed during rebalance, message will be reprocessed",
+                    extra={"artifact_id": artifact_id},
+                )
+                raise TimeoutError("Subprocess killed during rebalance")
+
+            # All other non-zero exit codes are failures - skip message
             logger.error(
                 "Process exited with non-zero code",
                 extra={"exit_code": process.exitcode, "artifact_id": artifact_id},
@@ -259,6 +281,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
 
         self._active_processes: dict[int, tuple[multiprocessing.Process, str]] = {}
         self._processes_lock = threading.Lock()
+        self._killed_during_rebalance: set[int] = set()
 
         self.concurrency = concurrency
         self.max_pending_futures = max_pending_futures
@@ -281,6 +304,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
                 )
                 for pid, (process, artifact_id) in list(self._active_processes.items()):
                     if process.is_alive():
+                        self._killed_during_rebalance.add(pid)
                         logger.info("Terminating subprocess with PID %d", pid)
                         _kill_process(process, artifact_id)
                 self._active_processes.clear()
@@ -300,6 +324,7 @@ class LaunchpadStrategyFactory(ProcessingStrategyFactory[KafkaPayload]):
             log_queue=self._log_queue,
             process_registry=self._active_processes,
             registry_lock=self._processes_lock,
+            factory=self,
         )
         inner_strategy = RunTaskInThreads(
             processing_function=processing_function,
