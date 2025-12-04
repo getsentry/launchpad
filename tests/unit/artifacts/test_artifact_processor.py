@@ -2,14 +2,10 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import PreprodArtifactEvents
 
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import (
-    MAX_RETRY_ATTEMPTS,
-    OperationName,
     PreprodFeature,
     ProcessingErrorCode,
     ProcessingErrorMessage,
@@ -27,70 +23,6 @@ class TestArtifactProcessorErrorHandling:
         mock_sentry_client = Mock(spec=SentryClient)
         mock_statsd = Mock()
         self.processor = ArtifactProcessor(mock_sentry_client, mock_statsd)
-
-    def test_retry_operation_success_on_first_attempt(self):
-        """Test that _retry_operation succeeds on first attempt."""
-        operation = Mock(return_value="success")
-
-        result = self.processor._retry_operation(
-            operation,
-            OperationName.PREPROCESSING,
-        )
-
-        assert result == "success"
-        assert operation.call_count == 1
-
-    def test_retry_operation_success_on_second_attempt(self):
-        """Test that _retry_operation succeeds on second attempt after one failure."""
-        operation = Mock()
-        operation.side_effect = [RuntimeError("Temporary failure"), "success"]
-
-        result = self.processor._retry_operation(
-            operation,
-            OperationName.PREPROCESSING,
-        )
-
-        assert result == "success"
-        assert operation.call_count == 2
-
-    def test_retry_operation_fails_after_max_attempts(self):
-        """Test that _retry_operation fails after MAX_RETRY_ATTEMPTS."""
-        operation = Mock()
-        operation.side_effect = RuntimeError("Persistent failure")
-
-        with pytest.raises(RuntimeError, match="Failed to extract basic app information"):
-            self.processor._retry_operation(
-                operation,
-                OperationName.PREPROCESSING,
-            )
-
-        assert operation.call_count == MAX_RETRY_ATTEMPTS
-
-    def test_retry_operation_non_retryable_error(self):
-        """Test that _retry_operation doesn't retry non-retryable errors."""
-        operation = Mock()
-        operation.side_effect = ValueError("Invalid input")
-
-        with pytest.raises(RuntimeError, match="Failed to perform size analysis"):
-            self.processor._retry_operation(
-                operation,
-                OperationName.SIZE_ANALYSIS,
-            )
-
-        assert operation.call_count == 1  # Should not retry
-
-    def test_retry_operation_maps_operation_to_correct_error_message(self):
-        """Test that _retry_operation correctly maps operation names to error messages."""
-        operation = Mock()
-        operation.side_effect = RuntimeError("Persistent failure")
-
-        # Test PREPROCESSING maps to PREPROCESSING_FAILED
-        with pytest.raises(RuntimeError, match="Failed to extract basic app information"):
-            self.processor._retry_operation(operation, OperationName.PREPROCESSING)
-
-        # Test SIZE_ANALYSIS maps to SIZE_ANALYSIS_FAILED
-        with pytest.raises(RuntimeError, match="Failed to perform size analysis"):
-            self.processor._retry_operation(operation, OperationName.SIZE_ANALYSIS)
 
     def test_update_artifact_error_success(self):
         """Test that _update_artifact_error successfully updates artifact with error."""

@@ -32,18 +32,8 @@ class PreprodFeature(Enum):
     BUILD_DISTRIBUTION = "build_distribution"
 
 
-# Retry configuration
-MAX_RETRY_ATTEMPTS = 3
-
 # Health check threshold - consider unhealthy if file not touched in 60 seconds
 HEALTHCHECK_MAX_AGE_SECONDS = 60.0
-
-
-class OperationName(Enum):
-    """Enum for operation names used in retry logic."""
-
-    PREPROCESSING = "preprocessing"
-    SIZE_ANALYSIS = "size analysis"
 
 
 class ProcessingErrorMessage(Enum):
@@ -69,10 +59,3 @@ class ProcessingErrorMessage(Enum):
 
     # Unknown errors
     UNKNOWN_ERROR = "An unknown error occurred"
-
-
-# Operation to error message mapping
-OPERATION_ERRORS = {
-    OperationName.PREPROCESSING: ProcessingErrorMessage.PREPROCESSING_FAILED,
-    OperationName.SIZE_ANALYSIS: ProcessingErrorMessage.SIZE_ANALYSIS_FAILED,
-}

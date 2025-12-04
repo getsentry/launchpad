@@ -26,10 +26,7 @@ from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact, Artifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
-    MAX_RETRY_ATTEMPTS,
-    OPERATION_ERRORS,
     ArtifactType,
-    OperationName,
     PreprodFeature,
     ProcessingErrorCode,
     ProcessingErrorMessage,
@@ -218,10 +215,7 @@ class ArtifactProcessor:
     ) -> AppleAppInfo | BaseAppInfo:
         logger.info(f"Preprocessing for {artifact_id} (project: {project_id}, org: {organization_id})")
         try:
-            info = self._retry_operation(
-                lambda: analyzer.preprocess(cast(Any, artifact)),
-                OperationName.PREPROCESSING,
-            )
+            info = analyzer.preprocess(cast(Any, artifact))
             update_data = self._prepare_update_data(info, artifact, dequeued_at)
             self._sentry_client.update_artifact(
                 org=organization_id,
@@ -292,10 +286,7 @@ class ArtifactProcessor:
     ):
         logger.info(f"SIZE_ANALYSIS for {artifact_id} (project: {project_id}, org: {organization_id}) started")
         try:
-            results = self._retry_operation(
-                lambda: analyzer.analyze(cast(Any, artifact)),
-                OperationName.SIZE_ANALYSIS,
-            )
+            results = analyzer.analyze(cast(Any, artifact))
             self._upload_results(organization_id, project_id, artifact_id, results)
         except Exception as e:
             logger.exception(
@@ -311,30 +302,6 @@ class ArtifactProcessor:
             )
         else:
             logger.info(f"SIZE_ANALYSIS for {artifact_id} (project: {project_id}, org: {organization_id}) succeeded")
-
-    def _retry_operation(self, operation, operation_name: OperationName):
-        """Retry an operation up to MAX_RETRY_ATTEMPTS times."""
-        error_message = OPERATION_ERRORS[operation_name]
-        last_exception = None
-
-        for attempt in range(1, MAX_RETRY_ATTEMPTS + 1):
-            try:
-                logger.debug(f"Attempting {operation_name.value} (attempt {attempt}/{MAX_RETRY_ATTEMPTS})")
-                return operation()
-            except Exception as e:
-                last_exception = e
-                logger.warning(f"{operation_name.value} failed on attempt {attempt}/{MAX_RETRY_ATTEMPTS}: {e}")
-
-                if isinstance(e, (ValueError, NotImplementedError, FileNotFoundError)):
-                    logger.info(f"Non-retryable error for {operation_name.value}, not retrying")
-                    break
-
-                if attempt < MAX_RETRY_ATTEMPTS:
-                    logger.info(f"Retrying {operation_name.value} in a moment...")
-                    time.sleep(1)
-
-        logger.error(f"All {MAX_RETRY_ATTEMPTS} attempts failed for {operation_name.value}")
-        raise RuntimeError(f"{error_message.value}: {str(last_exception)}") from last_exception
 
     def _update_artifact_error_from_exception(
         self,
