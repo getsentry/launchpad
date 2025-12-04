@@ -8,7 +8,7 @@ import click
 from . import __version__
 from .distribution.cli import distribution_command
 from .service import run_service
-from .size.cli import app_icon_command, size_command
+from .size.cli import app_icon_command, profile_dex_parsing_command, size_command
 from .utils.console import console
 from .utils.logging import setup_logging
 
@@ -85,6 +85,7 @@ def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
 cli.add_command(size_command)
 cli.add_command(app_icon_command)
 cli.add_command(distribution_command)
+cli.add_command(profile_dex_parsing_command)
 
 
 def main() -> None:

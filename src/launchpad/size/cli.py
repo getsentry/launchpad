@@ -6,6 +6,8 @@ import click
 from rich.table import Table
 
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.parsers.android.dex.dex_file_parser import DexFileParser
+from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.size.models.android import AndroidAnalysisResults
 from launchpad.size.models.apple import AppleAnalysisResults
 from launchpad.size.models.common import BaseAnalysisResults, FileAnalysis
@@ -139,6 +141,20 @@ def app_icon_command(
     else:
         console.print("No app icon found")
         raise click.Abort()
+
+
+@click.command(name="profile-dex-parsing")
+@click.argument("input_path", type=click.Path(exists=True, path_type=Path), metavar="DEX_PATH")
+@click.argument("mapping_path", required=False, type=click.Path(exists=True, path_type=Path), metavar="MAPPING_PATH")
+def profile_dex_parsing_command(input_path: Path, mapping_path: Path | None = None):
+    mapping = None
+    if mapping_path:
+        with open(mapping_path, "rb") as f:
+            mapping = DexMapping(f.read())
+    with open(input_path, "rb") as f:
+        parser = DexFileParser(f.read(), mapping)
+
+    parser.get_class_definitions()
 
 
 def _print_results_as_table(results: BaseAnalysisResults) -> None:

@@ -21,6 +21,8 @@ class DexMappingClass:
 class DexMapping:
     def __init__(self, bytes: bytes) -> None:
         self._classes: dict[str, DexMappingClass] = {}
+        self._classes_by_deobfuscated: dict[str, DexMappingClass] = {}
+        self._classes_by_deobfuscated_fqn: dict[str, DexMappingClass] = {}
 
         classes: list[DexMappingClass] = []
         current_class: DexMappingClass | None = None
@@ -42,6 +44,9 @@ class DexMapping:
 
         for clazz in classes:
             self._classes[clazz.obfuscated_fqn] = clazz
+            self._classes_by_deobfuscated[clazz.deobfuscated_signature] = clazz
+            self._classes_by_deobfuscated_fqn[clazz.deobfuscated_fqn] = clazz
+        return None
 
     @staticmethod
     def _parse_comment(line: str, pending_file_name: str | None) -> str | None:
@@ -178,10 +183,7 @@ class DexMapping:
         return self._classes.get(obfuscated_class_name)
 
     def lookup_deobfuscated_signature(self, deobfuscated_class_signature: str) -> DexMappingClass | None:
-        for clazz in self._classes.values():
-            if clazz.deobfuscated_signature == deobfuscated_class_signature:
-                return clazz
-        return None
+        return self._classes_by_deobfuscated.get(deobfuscated_class_signature)
 
     def deobfuscate_method(self, class_name: str, obfuscated_method_name: str) -> str | None:
         """Deobfuscate a method name for a given class.
@@ -195,19 +197,16 @@ class DexMapping:
         """
         # First try to find the class by obfuscated name
         clazz = self.lookup_obfuscated_class(class_name)
-        if clazz is None:
-            # Try to find by deobfuscated signature
-            clazz = self.lookup_deobfuscated_signature(class_name)
-            if clazz is None:
-                # Try to match by deobfuscated FQN
-                for c in self._classes.values():
-                    if c.deobfuscated_fqn == class_name:
-                        clazz = c
-                        break
-                if clazz is None:
-                    return None
 
-        if clazz.methods is None:
+        # Try to find by deobfuscated signature
+        if clazz is None:
+            clazz = self.lookup_deobfuscated_signature(class_name)
+
+        # Try to match by deobfuscated FQN
+        if clazz is None:
+            clazz = self._classes_by_deobfuscated_fqn.get(class_name)
+
+        if clazz is None or clazz.methods is None:
             return None
 
         return clazz.methods.get(obfuscated_method_name)
@@ -224,19 +223,16 @@ class DexMapping:
         """
         # First try to find the class by obfuscated name
         clazz = self.lookup_obfuscated_class(class_name)
-        if clazz is None:
-            # Try to find by deobfuscated signature
-            clazz = self.lookup_deobfuscated_signature(class_name)
-            if clazz is None:
-                # Try to match by deobfuscated FQN
-                for c in self._classes.values():
-                    if c.deobfuscated_fqn == class_name:
-                        clazz = c
-                        break
-                if clazz is None:
-                    return None
 
-        if clazz.fields is None:
+        # Try to find by deobfuscated signature
+        if clazz is None:
+            clazz = self.lookup_deobfuscated_signature(class_name)
+
+        # Try to match by deobfuscated FQN
+        if clazz is None:
+            clazz = self._classes_by_deobfuscated_fqn.get(class_name)
+
+        if clazz is None or clazz.fields is None:
             return None
 
         return clazz.fields.get(obfuscated_field_name)
