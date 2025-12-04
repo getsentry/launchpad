@@ -8,62 +8,13 @@ on:
       - release/**
 
 jobs:
-  build-pr:
-    name: build-pr-${{ matrix.platform }}
-    if: ${{ github.repository_owner == 'getsentry' && github.event_name == 'pull_request' }}
-
-    permissions:
-      contents: read
-      packages: read
-
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            platform: amd64
-          - os: ubuntu-24.04-arm
-            platform: arm64
-
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: pyproject.toml
-
-      - name: Install dependencies
-        run: make install-dev
-
-      - name: Build package
-        run: make build
-
-      - name: Build image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.8.10
-        with:
-          context: .
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-${{ matrix.platform }}
-          cache-to:
-          platforms: linux/${{ matrix.platform }}
-          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ matrix.platform }}
-          push: false
-
-  build-main-or-release:
+  build-multiplatform:
     name: build-${{ matrix.platform }}
-    if: |
-      github.repository_owner == 'getsentry'
-      && github.event_name == 'push'
-      && (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/heads/release/'))
+    if: ${{ github.repository_owner == 'getsentry' && github.event_name == 'pull_request' }}
+    # if: |
+    #   github.repository_owner == 'getsentry'
+    #   && github.event_name == 'push'
+    #   && (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/heads/release/'))
 
     permissions:
       contents: read
@@ -79,70 +30,24 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v3
+      - uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-      - name: Login to GHCR
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
+      - name: Build and push to ghcr.io
+        if: ${{ !github.event.pull_request.head.repo.fork && github.actor != 'dependabot[bot]' }}
+        uses: getsentry/action-build-and-push-images@b172ab61a5f7eabd58bd42ce231b517e79947c01
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata for image
-        id: meta
-        uses: docker/metadata-action@318604b99e75e41977312d83839a89be02ca4893 # v5
-        with:
-          images: |
-            ghcr.io/${{ github.repository }}
-          tags: |
-            type=sha,prefix=,format=long,suffix=-${{ matrix.platform }}
-          labels: |
-            org.opencontainers.image.title=${{ github.event.repository.name }}
-            org.opencontainers.image.description=${{ github.event.repository.description }}
-            org.opencontainers.image.vendor="Sentry"
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: pyproject.toml
-
-      - name: Install dependencies
-        run: make install-dev
-
-      - name: Build package
-        run: make build
-
-      - name: Build image & Push
-        id: build_push
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.8.10
-        with:
-          context: .
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          image_name: launchpad
           platforms: linux/${{ matrix.platform }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-${{ matrix.platform }}
-          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache-${{ matrix.platform }},mode=max
-          annotations: ${{ steps.meta.outputs.annotations }}
-          provenance: mode=max
-          sbom: true
-          push: true
+          dockerfile_path: "./Dockerfile"
+          tag_suffix: -${{ matrix.platform }}
+          ghcr: true
+          tag_nightly: true
+          tag_latest: true
+          publish_on_pr: true
 
   create-manifest:
     name: Create multi-platform manifest
-    needs: build-main-or-release
+    needs: build-multiplatform
     if: |
       github.repository_owner == 'getsentry'
       && github.event_name == 'push'
@@ -154,18 +59,34 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v3
+      - uses: actions/checkout@v6
 
-      - name: Login to GHCR
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Docker Login
+        run: docker login --username '${{ github.actor }}' --password-stdin ghcr.io <<< "$GHCR_TOKEN"
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create and push multi-platform manifest
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Create multiplatform manifests
         run: |
-          ./scripts/create-manifest.sh \
-            "${{ github.repository }}" \
-            "${{ github.sha }}" \
-            "${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}"
+          docker buildx imagetools create \
+            --tag ghcr.io/getsentry/launchpad:${{ github.sha }} \
+            --tag ghcr.io/getsentry/launchpad:nightly \
+            ghcr.io/getsentry/launchpad:${{ github.sha }}-amd64 \
+            ghcr.io/getsentry/launchpad:${{ github.sha }}-arm64
+
+      # - name: Login to GHCR
+      #   uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
+      #   with:
+      #     registry: ghcr.io
+      #     username: ${{ github.actor }}
+      #     password: ${{ secrets.GITHUB_TOKEN }}
+
+      # - name: Create and push multi-platform manifest
+      #   run: |
+      #     ./scripts/create-manifest.sh \
+      #       "${{ github.repository }}" \
+      #       "${{ github.sha }}" \
+      #       "${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}"
