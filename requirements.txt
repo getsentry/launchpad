@@ -14,7 +14,7 @@ pillow_heif>=1.1.0
 protobuf>=5.29.5,<6
 pydantic>=2.9.2,<2.10.0
 rich>=14.1.0
-sentry-arroyo==2.29.2
+sentry-arroyo==2.34.0
 sentry-kafka-schemas==2.1.2
 sentry-sdk>=2.36.0
 sortedcontainers>=2.4.0
