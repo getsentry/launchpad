@@ -10,11 +10,11 @@ on:
 jobs:
   build-multiplatform:
     name: build-${{ matrix.platform }}
-    if: ${{ github.repository_owner == 'getsentry' && github.event_name == 'pull_request' }}
-    # if: |
-    #   github.repository_owner == 'getsentry'
-    #   && github.event_name == 'push'
-    #   && (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/heads/release/'))
+    if: |
+      github.repository_owner == 'getsentry' && (
+        github.event_name == 'pull_request' ||
+        (github.event_name == 'push' && (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/heads/release/')))
+      )
 
     permissions:
       contents: read
@@ -76,17 +76,3 @@ jobs:
             --tag ghcr.io/getsentry/launchpad:nightly \
             ghcr.io/getsentry/launchpad:${{ github.sha }}-amd64 \
             ghcr.io/getsentry/launchpad:${{ github.sha }}-arm64
-
-      # - name: Login to GHCR
-      #   uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Create and push multi-platform manifest
-      #   run: |
-      #     ./scripts/create-manifest.sh \
-      #       "${{ github.repository }}" \
-      #       "${{ github.sha }}" \
-      #       "${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}"
