@@ -366,7 +366,7 @@ def get_kafka_config() -> KafkaConfig:
         group_id=group_id,
         topics=topics_env.split(","),
         concurrency=int(os.getenv("KAFKA_CONCURRENCY", "1")),
-        max_pending_futures=int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "100")),
+        max_pending_futures=int(os.getenv("KAFKA_MAX_PENDING_FUTURES", "0")),
         auto_offset_reset=os.getenv("KAFKA_AUTO_OFFSET_RESET", "latest"),  # latest = skip old messages
         arroyo_strict_offset_reset=arroyo_strict_offset_reset,
         security_protocol=os.environ.get("KAFKA_SECURITY_PROTOCOL", "plaintext"),
