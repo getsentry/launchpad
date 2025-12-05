@@ -206,11 +206,11 @@ class SentryClient:
                         if total_size:
                             total_chunks = (total_size + chunk_size - 1) // chunk_size
                             progress = (file_size / total_size) * 100
-                            logger.info(
+                            logger.debug(
                                 f"Downloaded chunk {chunk_count}/{total_chunks} - {file_size / MB_DIVISOR:.1f} MB ({progress:.1f}%)"
                             )
                         else:
-                            logger.info(f"Downloaded chunk {chunk_count} - {file_size / MB_DIVISOR:.1f} MB")
+                            logger.debug(f"Downloaded chunk {chunk_count} - {file_size / MB_DIVISOR:.1f} MB")
 
                 out.flush()
                 return file_size

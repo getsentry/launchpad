@@ -236,9 +236,10 @@ class ZippedXCArchive(AppleArtifact):
                         "zip",
                         "-r",
                         "-y",
+                        "-q",
                         str(output_path),
                         "Payload",
-                    ],  # Recursive  # Store symlinks as symlinks
+                    ],
                     cwd=temp_dir_path,
                     check=True,
                 )

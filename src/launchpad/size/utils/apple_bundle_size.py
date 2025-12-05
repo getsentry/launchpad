@@ -285,7 +285,7 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
     try:
         logger.debug(f"Creating ZIP file: zip -r {zip_file_path} {bundle_name}")
         result = subprocess.run(
-            ["zip", "-r", str(zip_file_path), str(bundle_name)],
+            ["zip", "-q", "-r", str(zip_file_path), str(bundle_name)],
             shell=False,
             capture_output=True,
             text=True,
