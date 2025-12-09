@@ -28,6 +28,9 @@ class BaseAppInfo(BaseModel):
     version: str = Field(..., description="App version")
     build: str = Field(..., description="Build number")
     app_id: str = Field(..., description="App ID (bundle id on iOS, package name on Android)")
+    cli_version: str | None = Field(None, description="sentry-cli version extracted from .sentry-cli-metadata.txt")
+    fastlane_version: str | None = Field(None, description="Fastlane plugin version extracted from .sentry-cli-metadata.txt")
+    gradle_plugin_version: str | None = Field(None, description="Gradle plugin version extracted from .sentry-cli-metadata.txt")
 
 
 class FileAnalysis(BaseModel):

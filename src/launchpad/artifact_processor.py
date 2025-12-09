@@ -497,9 +497,9 @@ class ArtifactProcessor:
             apple_app_info=apple_app_info,
             android_app_info=android_app_info,
             dequeued_at=dequeued_at,
-            sentry_cli_version=tooling_versions["sentry_cli_version"],
-            fastlane_version=tooling_versions["fastlane_version"],
-            gradle_plugin_version=tooling_versions["gradle_plugin_version"],
+            cli_version=app_info.cli_version,
+            fastlane_version=app_info.fastlane_version,
+            gradle_plugin_version=app_info.gradle_plugin_version,
         )
 
         return update_data.model_dump(exclude_none=True)

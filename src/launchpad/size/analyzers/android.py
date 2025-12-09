@@ -27,6 +27,7 @@ from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.android_bundle_size import calculate_apk_download_size, calculate_apk_install_size
 from launchpad.utils.file_utils import calculate_file_hash
 from launchpad.utils.logging import get_logger
+from launchpad.utils.metadata_extractor import extract_metadata_from_zip
 
 logger = get_logger(__name__)
 
@@ -50,12 +51,18 @@ class AndroidAnalyzer:
         manifest_dict = artifact.get_manifest().model_dump()
         has_proguard_mapping = artifact.get_dex_mapping() is not None
 
+        # Extract tooling metadata from .sentry-cli-metadata.txt if present
+        metadata = extract_metadata_from_zip(artifact.path)
+
         self.app_info = AndroidAppInfo(
             name=manifest_dict["application"]["label"] or "Unknown",
             version=manifest_dict["version_name"] or "Unknown",
             build=manifest_dict["version_code"] or "Unknown",
             app_id=manifest_dict["package_name"],
             has_proguard_mapping=has_proguard_mapping,
+            cli_version=metadata.cli_version,
+            fastlane_version=metadata.fastlane_version,
+            gradle_plugin_version=metadata.gradle_plugin_version,
         )
 
         return self.app_info

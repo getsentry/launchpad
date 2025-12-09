@@ -44,6 +44,7 @@ from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
+from launchpad.utils.metadata_extractor import extract_metadata_from_zip
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -333,6 +334,9 @@ class AppleAppAnalyzer:
         binaries = xcarchive.get_all_binary_paths()
         missing_dsym_binaries = [b.name for b in binaries if b.dsym_path is None]
 
+        # Extract tooling metadata from .sentry-cli-metadata.txt if present
+        metadata = extract_metadata_from_zip(xcarchive.path)
+
         return AppleAppInfo(
             name=app_name,
             app_id=plist.get("CFBundleIdentifier", "unknown.bundle.id"),
@@ -354,6 +358,9 @@ class AppleAppAnalyzer:
             primary_icon_name=primary_icon_name,
             alternate_icon_names=alternate_icon_names,
             missing_dsym_binaries=missing_dsym_binaries,
+            cli_version=metadata.cli_version,
+            fastlane_version=metadata.fastlane_version,
+            gradle_plugin_version=metadata.gradle_plugin_version,
         )
 
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:
