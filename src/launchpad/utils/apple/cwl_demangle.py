@@ -28,83 +28,6 @@ class CwlDemangleResult:
     mangled: str
 
 
-def _demangle_chunk_worker(
-    chunk: List[str],
-    chunk_idx: int,
-    is_type: bool,
-    continue_on_error: bool,
-    demangle_uuid: str,
-) -> Dict[str, CwlDemangleResult]:
-    """
-    Module-level function to demangle a chunk of symbols. Arguments must be picklable for multiprocessing.
-
-    Args:
-        chunk: List of symbol names to demangle
-        chunk_idx: Index of this chunk (for logging/temp file naming)
-        is_type: Whether to treat inputs as types rather than symbols
-        continue_on_error: Whether to continue processing on errors
-        demangle_uuid: UUID for temp file naming
-
-    Returns:
-        Dictionary mapping mangled names to CwlDemangleResult instances
-    """
-    if not chunk:
-        return {}
-
-    binary_path = shutil.which("cwl-demangle")
-    if binary_path is None:
-        logger.error("cwl-demangle binary not found in PATH")
-        return {}
-
-    chunk_set = set[str](chunk)
-    results: Dict[str, CwlDemangleResult] = {}
-
-    with tempfile.NamedTemporaryFile(
-        mode="w", prefix=f"cwl-demangle-{demangle_uuid}-chunk-{chunk_idx}-", suffix=".txt"
-    ) as temp_file:
-        temp_file.write("\n".join(chunk))
-        temp_file.flush()
-
-        command_parts = [
-            binary_path,
-            "batch",
-            "--input",
-            temp_file.name,
-            "--json",
-        ]
-
-        if is_type:
-            command_parts.append("--isType")
-
-        if continue_on_error:
-            command_parts.append("--continue-on-error")
-
-        try:
-            result = subprocess.run(command_parts, capture_output=True, text=True, check=True)
-        except subprocess.CalledProcessError:
-            logger.exception(f"cwl-demangle failed for chunk {chunk_idx}")
-            return {}
-
-        batch_result = json.loads(result.stdout)
-
-        for symbol_result in batch_result.get("results", []):
-            mangled = symbol_result.get("mangled", "")
-            if mangled in chunk_set:
-                demangle_result = CwlDemangleResult(
-                    name=symbol_result["name"],
-                    type=symbol_result["type"],
-                    identifier=symbol_result["identifier"],
-                    module=symbol_result["module"],
-                    testName=symbol_result["testName"],
-                    typeName=symbol_result["typeName"],
-                    description=symbol_result["description"],
-                    mangled=mangled,
-                )
-                results[mangled] = demangle_result
-
-        return results
-
-
 class CwlDemangler:
     """A class to demangle Swift symbol names using the cwl-demangle tool."""
 
@@ -213,3 +136,68 @@ class CwlDemangler:
 
     def _demangle_chunk(self, names: List[str], i: int) -> Dict[str, CwlDemangleResult]:
         return _demangle_chunk_worker(names, i, self.is_type, self.continue_on_error, self.uuid)
+
+
+def _demangle_chunk_worker(
+    chunk: List[str],
+    chunk_idx: int,
+    is_type: bool,
+    continue_on_error: bool,
+    demangle_uuid: str,
+) -> Dict[str, CwlDemangleResult]:
+    """Demangle a chunk of symbols. Arguments must be picklable for multiprocessing."""
+    if not chunk:
+        return {}
+
+    binary_path = shutil.which("cwl-demangle")
+    if binary_path is None:
+        logger.error("cwl-demangle binary not found in PATH")
+        return {}
+
+    chunk_set = set(chunk)
+    results: Dict[str, CwlDemangleResult] = {}
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", prefix=f"cwl-demangle-{demangle_uuid}-chunk-{chunk_idx}-", suffix=".txt"
+    ) as temp_file:
+        temp_file.write("\n".join(chunk))
+        temp_file.flush()
+
+        command_parts = [
+            binary_path,
+            "batch",
+            "--input",
+            temp_file.name,
+            "--json",
+        ]
+
+        if is_type:
+            command_parts.append("--isType")
+
+        if continue_on_error:
+            command_parts.append("--continue-on-error")
+
+        try:
+            result = subprocess.run(command_parts, capture_output=True, text=True, check=True)
+        except subprocess.CalledProcessError:
+            logger.exception(f"cwl-demangle failed for chunk {chunk_idx}")
+            return {}
+
+        batch_result = json.loads(result.stdout)
+
+        for symbol_result in batch_result.get("results", []):
+            mangled = symbol_result.get("mangled", "")
+            if mangled in chunk_set:
+                demangle_result = CwlDemangleResult(
+                    name=symbol_result["name"],
+                    type=symbol_result["type"],
+                    identifier=symbol_result["identifier"],
+                    module=symbol_result["module"],
+                    testName=symbol_result["testName"],
+                    typeName=symbol_result["typeName"],
+                    description=symbol_result["description"],
+                    mangled=mangled,
+                )
+                results[mangled] = demangle_result
+
+        return results

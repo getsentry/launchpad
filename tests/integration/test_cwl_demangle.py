@@ -1,5 +1,7 @@
 import os
 
+from unittest import mock
+
 from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
 
@@ -87,21 +89,16 @@ class TestCwlDemangler:
 
     def test_environment_variable_disables_parallel(self):
         """Test LAUNCHPAD_NO_PARALLEL_DEMANGLE env var disables parallel."""
-        old_value = os.environ.get("LAUNCHPAD_NO_PARALLEL_DEMANGLE")
-        try:
-            # Ensure env var is unset for first test
+        # Test with env var unset
+        with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop("LAUNCHPAD_NO_PARALLEL_DEMANGLE", None)
             demangler = CwlDemangler()
             assert demangler.use_parallel is True
 
-            # Test with "true"
-            os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
+        # Test with "true"
+        with mock.patch.dict(os.environ, {"LAUNCHPAD_NO_PARALLEL_DEMANGLE": "true"}):
             demangler = CwlDemangler()
             assert demangler.use_parallel is False
-        finally:
-            os.environ.pop("LAUNCHPAD_NO_PARALLEL_DEMANGLE", None)
-            if old_value is not None:
-                os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = old_value
 
     def _generate_symbols(self, count: int) -> list[str]:
         """Generate valid Swift mangled symbols."""
