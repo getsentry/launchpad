@@ -21,7 +21,7 @@ fastlane-plugin: 1.2.3
 gradle-plugin: 4.12.0"""
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
-        assert metadata.fastlane_version == "1.2.3"
+        assert metadata.fastlane_plugin_version == "1.2.3"
         assert metadata.gradle_plugin_version == "4.12.0"
 
     def test_parse_partial_fields(self):
@@ -29,21 +29,21 @@ gradle-plugin: 4.12.0"""
 fastlane-plugin: 1.2.3"""
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
-        assert metadata.fastlane_version == "1.2.3"
+        assert metadata.fastlane_plugin_version == "1.2.3"
         assert metadata.gradle_plugin_version is None
 
     def test_parse_only_cli_version(self):
         content = "sentry-cli-version: 2.58.2"
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
-        assert metadata.fastlane_version is None
+        assert metadata.fastlane_plugin_version is None
         assert metadata.gradle_plugin_version is None
 
     def test_parse_empty_content(self):
         content = ""
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version is None
-        assert metadata.fastlane_version is None
+        assert metadata.fastlane_plugin_version is None
         assert metadata.gradle_plugin_version is None
 
     def test_parse_with_extra_whitespace(self):
@@ -52,7 +52,7 @@ fastlane-plugin: 1.2.3"""
   gradle-plugin:  4.12.0  """
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
-        assert metadata.fastlane_version == "1.2.3"
+        assert metadata.fastlane_plugin_version == "1.2.3"
         assert metadata.gradle_plugin_version == "4.12.0"
 
     def test_parse_with_extra_lines(self):
@@ -65,7 +65,7 @@ gradle-plugin: 4.12.0
 """
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
-        assert metadata.fastlane_version == "1.2.3"
+        assert metadata.fastlane_plugin_version == "1.2.3"
         assert metadata.gradle_plugin_version == "4.12.0"
 
     def test_parse_with_unknown_fields(self):
@@ -74,7 +74,7 @@ unknown-field: some-value
 fastlane-plugin: 1.2.3"""
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
-        assert metadata.fastlane_version == "1.2.3"
+        assert metadata.fastlane_plugin_version == "1.2.3"
         assert metadata.gradle_plugin_version is None
 
 
@@ -93,7 +93,7 @@ class TestExtractMetadataFromZip:
 
                 metadata = extract_metadata_from_zip(Path(tf.name))
                 assert metadata.cli_version == "2.58.2"
-                assert metadata.fastlane_version == "1.2.3"
+                assert metadata.fastlane_plugin_version == "1.2.3"
                 assert metadata.gradle_plugin_version == "4.12.0"
             finally:
                 Path(tf.name).unlink()
@@ -110,7 +110,7 @@ class TestExtractMetadataFromZip:
 
                 metadata = extract_metadata_from_zip(Path(tf.name))
                 assert metadata.cli_version == "3.0.0"
-                assert metadata.fastlane_version is None
+                assert metadata.fastlane_plugin_version is None
                 assert metadata.gradle_plugin_version is None
             finally:
                 Path(tf.name).unlink()
@@ -124,7 +124,7 @@ class TestExtractMetadataFromZip:
 
                 metadata = extract_metadata_from_zip(Path(tf.name))
                 assert metadata.cli_version is None
-                assert metadata.fastlane_version is None
+                assert metadata.fastlane_plugin_version is None
                 assert metadata.gradle_plugin_version is None
             finally:
                 Path(tf.name).unlink()
@@ -158,7 +158,7 @@ class TestExtractMetadataFromZip:
                 metadata = extract_metadata_from_zip(Path(tf.name))
                 # Should return empty metadata on error
                 assert metadata.cli_version is None
-                assert metadata.fastlane_version is None
+                assert metadata.fastlane_plugin_version is None
                 assert metadata.gradle_plugin_version is None
             finally:
                 Path(tf.name).unlink()
@@ -170,17 +170,17 @@ class TestToolingMetadata:
     def test_create_with_all_fields(self):
         metadata = ToolingMetadata(
             cli_version="2.58.2",
-            fastlane_version="1.2.3",
+            fastlane_plugin_version="1.2.3",
             gradle_plugin_version="4.12.0",
         )
         assert metadata.cli_version == "2.58.2"
-        assert metadata.fastlane_version == "1.2.3"
+        assert metadata.fastlane_plugin_version == "1.2.3"
         assert metadata.gradle_plugin_version == "4.12.0"
 
     def test_create_with_defaults(self):
         metadata = ToolingMetadata()
         assert metadata.cli_version is None
-        assert metadata.fastlane_version is None
+        assert metadata.fastlane_plugin_version is None
         assert metadata.gradle_plugin_version is None
 
     def test_repr(self):
@@ -188,3 +188,4 @@ class TestToolingMetadata:
         repr_str = repr(metadata)
         assert "ToolingMetadata" in repr_str
         assert "cli_version=2.58.2" in repr_str
+        assert "fastlane_plugin_version" in repr_str

@@ -18,15 +18,15 @@ class ToolingMetadata:
     def __init__(
         self,
         cli_version: Optional[str] = None,
-        fastlane_version: Optional[str] = None,
+        fastlane_plugin_version: Optional[str] = None,
         gradle_plugin_version: Optional[str] = None,
     ):
         self.cli_version = cli_version
-        self.fastlane_version = fastlane_version
+        self.fastlane_plugin_version = fastlane_plugin_version
         self.gradle_plugin_version = gradle_plugin_version
 
     def __repr__(self) -> str:
-        return f"ToolingMetadata(cli_version={self.cli_version}, fastlane_version={self.fastlane_version}, gradle_plugin_version={self.gradle_plugin_version})"
+        return f"ToolingMetadata(cli_version={self.cli_version}, fastlane_plugin_version={self.fastlane_plugin_version}, gradle_plugin_version={self.gradle_plugin_version})"
 
 
 def extract_metadata_from_zip(zip_path: Path) -> ToolingMetadata:
@@ -89,6 +89,6 @@ def _parse_metadata_content(content: str) -> ToolingMetadata:
 
     return ToolingMetadata(
         cli_version=metadata.get("sentry-cli-version"),
-        fastlane_version=metadata.get("fastlane-plugin"),
+        fastlane_plugin_version=metadata.get("fastlane-plugin"),
         gradle_plugin_version=metadata.get("gradle-plugin"),
     )

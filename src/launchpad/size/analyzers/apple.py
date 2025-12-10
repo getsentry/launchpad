@@ -358,7 +358,7 @@ class AppleAppAnalyzer:
             alternate_icon_names=alternate_icon_names,
             missing_dsym_binaries=missing_dsym_binaries,
             cli_version=metadata.cli_version,
-            fastlane_version=metadata.fastlane_version,
+            fastlane_plugin_version=metadata.fastlane_plugin_version,
             gradle_plugin_version=metadata.gradle_plugin_version,
         )
 

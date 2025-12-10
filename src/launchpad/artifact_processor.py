@@ -498,7 +498,7 @@ class ArtifactProcessor:
             android_app_info=android_app_info,
             dequeued_at=dequeued_at,
             cli_version=app_info.cli_version,
-            fastlane_version=app_info.fastlane_version,
+            fastlane_plugin_version=app_info.fastlane_plugin_version,
             gradle_plugin_version=app_info.gradle_plugin_version,
         )
 
