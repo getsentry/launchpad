@@ -8,6 +8,7 @@ from .insights import (
     LargeImageFileInsightResult,
     LargeVideoFileInsightResult,
     MultipleNativeLibraryArchInsightResult,
+    SixteenKBPageReadyInsightResult,
     WebPOptimizationInsightResult,
 )
 
@@ -23,6 +24,9 @@ class AndroidInsightResults(BaseModel):
     hermes_debug_info: HermesDebugInfoInsightResult | None = Field(None, description="Hermes debug info analysis")
     multiple_native_library_archs: MultipleNativeLibraryArchInsightResult | None = Field(
         None, description="Multiple native library architectures analysis"
+    )
+    sixteen_kb_page_ready: SixteenKBPageReadyInsightResult | None = Field(
+        None, description="16KB page size readiness analysis"
     )
 
 

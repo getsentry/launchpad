@@ -243,3 +243,17 @@ class MultipleNativeLibraryArchInsightResult(FilesInsightResult):
     """
 
     pass
+
+
+class SixteenKBPageReadyInsightResult(BaseModel):
+    """Results from 16KB page ready analysis.
+
+    Indicates whether the Android app is ready for 16KB page size devices.
+    This checks ELF section alignment in native libraries for arm64-v8a and x86_64 architectures.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    is_16kb_ready: bool = Field(..., description="Whether the app is ready for 16KB page sizes")
+    unaligned_files: List[str] = Field(default_factory=list, description="List of files with alignment issues")
+    total_unaligned_files: int = Field(default=0, ge=0, description="Total number of files with alignment issues")
