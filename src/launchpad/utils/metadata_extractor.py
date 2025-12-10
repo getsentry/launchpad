@@ -30,7 +30,7 @@ class ToolingMetadata:
 
 
 def extract_metadata_from_zip(zip_path: Path) -> ToolingMetadata:
-    """Extract tooling metadata from a .sentry-cli-metadata.txt file inside a zip.
+    """Extract tooling metadata from a .sentry-cli-metadata.txt file in the root of a zip.
 
     Args:
         zip_path: Path to the zip file to search
@@ -40,18 +40,14 @@ def extract_metadata_from_zip(zip_path: Path) -> ToolingMetadata:
     """
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
-            # Look for .sentry-cli-metadata.txt anywhere in the zip
-            metadata_files = [name for name in zf.namelist() if name.endswith(METADATA_FILENAME)]
-
-            if not metadata_files:
-                logger.debug(f"No {METADATA_FILENAME} found in {zip_path}")
+            # Only look for .sentry-cli-metadata.txt in the root of the zip
+            if METADATA_FILENAME not in zf.namelist():
+                logger.debug(f"No {METADATA_FILENAME} found in root of {zip_path}")
                 return ToolingMetadata()
 
-            # Use the first metadata file found
-            metadata_file = metadata_files[0]
-            logger.debug(f"Found metadata file: {metadata_file}")
+            logger.debug(f"Found metadata file: {METADATA_FILENAME}")
 
-            with zf.open(metadata_file) as f:
+            with zf.open(METADATA_FILENAME) as f:
                 content = f.read().decode("utf-8")
                 return _parse_metadata_content(content)
 
