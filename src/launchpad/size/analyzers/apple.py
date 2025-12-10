@@ -334,7 +334,6 @@ class AppleAppAnalyzer:
         binaries = xcarchive.get_all_binary_paths()
         missing_dsym_binaries = [b.name for b in binaries if b.dsym_path is None]
 
-        # Extract tooling metadata from .sentry-cli-metadata.txt if present
         metadata = extract_metadata_from_zip(xcarchive.path)
 
         return AppleAppInfo(

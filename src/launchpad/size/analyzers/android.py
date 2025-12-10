@@ -51,7 +51,6 @@ class AndroidAnalyzer:
         manifest_dict = artifact.get_manifest().model_dump()
         has_proguard_mapping = artifact.get_dex_mapping() is not None
 
-        # Extract tooling metadata from .sentry-cli-metadata.txt if present
         metadata = extract_metadata_from_zip(artifact.path)
 
         self.app_info = AndroidAppInfo(
