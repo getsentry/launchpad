@@ -21,6 +21,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
     def generate(self, input: InsightsInput) -> DuplicateFilesInsightResult | None:
         files = input.file_analysis.files
         directories = input.file_analysis.directories
+        all_files = self._flatten_files(files)
 
         groups: List[FileSavingsResultGroup] = []
         total_savings = 0
@@ -66,7 +67,10 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         # 2) Duplicate FILES
         # -----------------------------
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
-        for f in files:
+        for f in all_files:
+            # Skip synthetic "/Other" nodes (residual bytes from .car files)
+            if f.path.endswith("/Other"):
+                continue
             if f.hash and not self._is_allowed_extension(f.path) and not self._is_under_any(f.path, covered_dirs):
                 files_by_hash[f.hash].append(f)
 
@@ -98,6 +102,15 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
     # -------------------------------------------------------------------------
     # Helpers
     # -------------------------------------------------------------------------
+
+    def _flatten_files(self, files: List[FileInfo]) -> List[FileInfo]:
+        """Recursively flatten files, extracting nested children (e.g., assets within .car files)."""
+        result: List[FileInfo] = []
+        for f in files:
+            result.append(f)
+            if f.children:
+                result.extend(self._flatten_files(f.children))
+        return result
 
     def _directory_duplicate_candidates(self, directories: List[FileInfo]) -> List[List[FileInfo]]:
         """
