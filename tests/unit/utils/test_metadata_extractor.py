@@ -17,8 +17,8 @@ class TestParseMetadataContent:
 
     def test_parse_all_fields(self):
         content = """sentry-cli-version: 2.58.2
-fastlane-plugin: 1.2.3
-gradle-plugin: 4.12.0"""
+sentry-fastlane-plugin: 1.2.3
+sentry-gradle-plugin: 4.12.0"""
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
         assert metadata.fastlane_plugin_version == "1.2.3"
@@ -26,7 +26,7 @@ gradle-plugin: 4.12.0"""
 
     def test_parse_partial_fields(self):
         content = """sentry-cli-version: 2.58.2
-fastlane-plugin: 1.2.3"""
+sentry-fastlane-plugin: 1.2.3"""
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
         assert metadata.fastlane_plugin_version == "1.2.3"
@@ -48,8 +48,8 @@ fastlane-plugin: 1.2.3"""
 
     def test_parse_with_extra_whitespace(self):
         content = """  sentry-cli-version:  2.58.2
-  fastlane-plugin:  1.2.3
-  gradle-plugin:  4.12.0  """
+  sentry-fastlane-plugin:  1.2.3
+  sentry-gradle-plugin:  4.12.0  """
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
         assert metadata.fastlane_plugin_version == "1.2.3"
@@ -59,9 +59,9 @@ fastlane-plugin: 1.2.3"""
         content = """
 sentry-cli-version: 2.58.2
 
-fastlane-plugin: 1.2.3
+sentry-fastlane-plugin: 1.2.3
 
-gradle-plugin: 4.12.0
+sentry-gradle-plugin: 4.12.0
 """
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
@@ -71,7 +71,7 @@ gradle-plugin: 4.12.0
     def test_parse_with_unknown_fields(self):
         content = """sentry-cli-version: 2.58.2
 unknown-field: some-value
-fastlane-plugin: 1.2.3"""
+sentry-fastlane-plugin: 1.2.3"""
         metadata = _parse_metadata_content(content)
         assert metadata.cli_version == "2.58.2"
         assert metadata.fastlane_plugin_version == "1.2.3"
@@ -87,7 +87,7 @@ class TestExtractMetadataFromZip:
                 with zipfile.ZipFile(tf.name, "w") as zf:
                     zf.writestr(
                         ".sentry-cli-metadata.txt",
-                        "sentry-cli-version: 2.58.2\nfastlane-plugin: 1.2.3\ngradle-plugin: 4.12.0",
+                        "sentry-cli-version: 2.58.2\nsentry-fastlane-plugin: 1.2.3\nsentry-gradle-plugin: 4.12.0",
                     )
                     zf.writestr("some-file.txt", "content")
 

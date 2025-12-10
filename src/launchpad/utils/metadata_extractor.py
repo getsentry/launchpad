@@ -65,8 +65,8 @@ def _parse_metadata_content(content: str) -> ToolingMetadata:
 
     Expected format:
         sentry-cli-version: 2.58.2
-        fastlane-plugin-version: 1.2.3
-        gradle-plugin-version: 4.12.0
+        sentry-fastlane-plugin: 1.2.3
+        sentry-gradle-plugin: 4.12.0
 
     Args:
         content: The text content of the metadata file
@@ -89,6 +89,6 @@ def _parse_metadata_content(content: str) -> ToolingMetadata:
 
     return ToolingMetadata(
         cli_version=metadata.get("sentry-cli-version"),
-        fastlane_plugin_version=metadata.get("fastlane-plugin-version"),
-        gradle_plugin_version=metadata.get("gradle-plugin-version"),
+        fastlane_plugin_version=metadata.get("sentry-fastlane-plugin"),
+        gradle_plugin_version=metadata.get("sentry-gradle-plugin"),
     )

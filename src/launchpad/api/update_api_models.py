@@ -64,8 +64,12 @@ class UpdateData(BaseModel):
     android_app_info: Optional[AndroidAppInfo] = None
     dequeued_at: Optional[datetime] = Field(None, description="Timestamp when message was dequeued from Kafka")
     cli_version: Optional[str] = Field(None, description="sentry-cli version extracted from .sentry-cli-metadata.txt")
-    fastlane_plugin_version: Optional[str] = Field(None, description="Fastlane plugin version extracted from .sentry-cli-metadata.txt")
-    gradle_plugin_version: Optional[str] = Field(None, description="Gradle plugin version extracted from .sentry-cli-metadata.txt")
+    fastlane_plugin_version: Optional[str] = Field(
+        None, description="Fastlane plugin version extracted from .sentry-cli-metadata.txt"
+    )
+    gradle_plugin_version: Optional[str] = Field(
+        None, description="Gradle plugin version extracted from .sentry-cli-metadata.txt"
+    )
 
     @field_serializer("dequeued_at")
     def serialize_datetime(self, dt: datetime | None) -> str | None:
