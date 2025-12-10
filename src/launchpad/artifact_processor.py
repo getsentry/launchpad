@@ -418,13 +418,13 @@ class ArtifactProcessor:
         and extracts version information.
 
         Returns:
-            Dict with keys: sentry_cli_version, fastlane_version, gradle_plugin_version
+            Dict with keys: sentry_cli_version, fastlane_plugin_version, gradle_plugin_version
         """
         import zipfile
 
         versions = {
             "sentry_cli_version": None,
-            "fastlane_version": None,
+            "fastlane_plugin_version": None,
             "gradle_plugin_version": None,
         }
 

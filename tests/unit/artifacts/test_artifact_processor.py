@@ -321,7 +321,7 @@ class TestToolingVersionExtraction:
 
         # Verify sentry-cli version was extracted
         assert versions["sentry_cli_version"] == "2.39.1"
-        assert versions["fastlane_version"] is None
+        assert versions["fastlane_plugin_version"] is None
         assert versions["gradle_plugin_version"] is None
 
     def test_extract_tooling_versions_no_metadata_file(self, tmp_path):
