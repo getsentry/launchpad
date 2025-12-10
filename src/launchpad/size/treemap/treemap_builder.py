@@ -286,7 +286,7 @@ class TreemapBuilder:
     def _calculate_category_breakdown(self, file_analysis: FileAnalysis) -> Dict[str, Dict[str, int]]:
         """Calculate size breakdown by category."""
         breakdown: Dict[str, Dict[str, int]] = defaultdict(lambda: {"size": 0})
-        for file_info in file_analysis.files:
+        for file_info in file_analysis.items:
             treemap_type = file_info.treemap_type.value
             size = to_nearest_block_size(file_info.size, self.filesystem_block_size)
             breakdown[treemap_type]["size"] += size
