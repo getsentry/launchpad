@@ -787,3 +787,100 @@ class TestDuplicateFilesInsight:
         paths = {f.file_path for f in group.files}
         assert "Assets.car/icon.png" in paths
         assert "Resources.bundle/Assets.car/icon.png" in paths
+
+    def test_duplicate_car_files_dont_double_count_children(self):
+        """
+        Test that when entire Assets.car files are duplicates, we only report the
+        .car files as duplicates, not their individual nested children (prevents double-counting).
+        """
+        files = [
+            # First Assets.car with children
+            FileInfo(
+                full_path=Path("Assets.car"),
+                path="Assets.car",
+                size=10000,
+                file_type="car",
+                treemap_type=TreemapType.ASSETS,
+                hash="duplicate_car_hash",
+                is_dir=False,
+                children=[
+                    FileInfo(
+                        full_path=Path("Assets.car/icon.png"),
+                        path="Assets.car/icon.png",
+                        size=2000,
+                        file_type="png",
+                        treemap_type=TreemapType.ASSETS,
+                        hash="icon_hash_inside_car",
+                        is_dir=False,
+                        children=[],
+                    ),
+                    FileInfo(
+                        full_path=Path("Assets.car/logo.png"),
+                        path="Assets.car/logo.png",
+                        size=3000,
+                        file_type="png",
+                        treemap_type=TreemapType.ASSETS,
+                        hash="logo_hash_inside_car",
+                        is_dir=False,
+                        children=[],
+                    ),
+                ],
+            ),
+            # Duplicate Assets.car with same children
+            FileInfo(
+                full_path=Path("Backup/Assets.car"),
+                path="Backup/Assets.car",
+                size=10000,
+                file_type="car",
+                treemap_type=TreemapType.ASSETS,
+                hash="duplicate_car_hash",  # Same hash as first .car
+                is_dir=False,
+                children=[
+                    FileInfo(
+                        full_path=Path("Backup/Assets.car/icon.png"),
+                        path="Backup/Assets.car/icon.png",
+                        size=2000,
+                        file_type="png",
+                        treemap_type=TreemapType.ASSETS,
+                        hash="icon_hash_inside_car",  # Same hash as first icon
+                        is_dir=False,
+                        children=[],
+                    ),
+                    FileInfo(
+                        full_path=Path("Backup/Assets.car/logo.png"),
+                        path="Backup/Assets.car/logo.png",
+                        size=3000,
+                        file_type="png",
+                        treemap_type=TreemapType.ASSETS,
+                        hash="logo_hash_inside_car",  # Same hash as first logo
+                        is_dir=False,
+                        children=[],
+                    ),
+                ],
+            ),
+        ]
+
+        insights_input = self._create_insights_input(files)
+        result = self.insight.generate(insights_input)
+
+        assert isinstance(result, DuplicateFilesInsightResult)
+
+        # Should only have 1 group: the duplicate Assets.car files
+        # The nested children should NOT be flagged separately
+        assert len(result.groups) == 1
+
+        group = result.groups[0]
+        assert group.name == "Assets.car"
+        assert len(group.files) == 2
+        assert group.total_savings == 10000
+
+        # Verify the group contains the .car files, not their children
+        paths = {f.file_path for f in group.files}
+        assert "Assets.car" in paths
+        assert "Backup/Assets.car" in paths
+
+        # Verify no nested children appear in the results
+        for g in result.groups:
+            for f in g.files:
+                assert "icon.png" not in f.file_path
+                assert "logo.png" not in f.file_path

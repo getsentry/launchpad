@@ -276,6 +276,8 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
     for element in catalog_details:
         if element.full_path and element.full_path.exists() and element.full_path.is_file():
             file_hash = calculate_file_hash(element.full_path, algorithm="sha256")
+        elif element.content_hash:
+            file_hash = element.content_hash
         else:
             file_hash = element.image_id
 

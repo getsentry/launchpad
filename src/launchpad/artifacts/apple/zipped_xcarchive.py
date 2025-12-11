@@ -33,6 +33,7 @@ class AssetCatalogElement:
     full_path: Path | None
     idiom: str | None = None
     colorspace: str | None = None
+    content_hash: str | None = None
 
 
 @dataclass
@@ -477,6 +478,7 @@ class ZippedXCArchive(AppleArtifact):
         filename = item.get("filename", "")
         idiom = item.get("idiom")
         colorspace = item.get("colorspace")
+        content_hash = item.get("contentHash")
 
         file_extension = Path(filename).suffix.lower()
         if filename and file_extension in {".png", ".jpg", ".jpeg", ".heic", ".heif", ".pdf", ".svg"}:
@@ -498,6 +500,7 @@ class ZippedXCArchive(AppleArtifact):
             full_path=full_path,
             idiom=idiom,
             colorspace=colorspace,
+            content_hash=content_hash,
         )
 
     def _parse_and_cache_all_binaries(self, binary_paths: List[Path]) -> None:

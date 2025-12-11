@@ -26,6 +26,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         groups: List[FileSavingsResultGroup] = []
         total_savings = 0
         covered_dirs: Set[str] = set()
+        covered_files: Set[str] = set()
 
         # -----------------------------
         # 1) Duplicate DIRECTORIES
@@ -68,13 +69,18 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         # -----------------------------
         files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
         for f in all_files:
-            # Skip synthetic "/Other" nodes (residual bytes from .car files)
-            if f.path.endswith("/Other"):
-                continue
-            if f.hash and not self._is_allowed_extension(f.path) and not self._is_under_any(f.path, covered_dirs):
+            if (
+                not f.path.endswith("/Other")  # Skip synthetic /Other nodes
+                and not self._is_under_any(f.path, covered_dirs)  # Skip files under duplicate dirs
+                and f.hash
+                and not self._is_allowed_extension(f.path)
+            ):
                 files_by_hash[f.hash].append(f)
 
-        for dup_files in files_by_hash.values():
+        # Process hash groups by depth (shallowest first) to handle parent files before children
+        for file_hash in sorted(files_by_hash, key=lambda h: self._min_depth([f.path for f in files_by_hash[h]])):
+            dup_files = [f for f in files_by_hash[file_hash] if not self._is_under_any(f.path, covered_files)]
+
             if len(dup_files) < 2:
                 continue
 
@@ -92,6 +98,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
                 )
             )
             total_savings += savings
+            covered_files.update(f.path for f in dup_files if f.children)
 
         groups.sort(key=lambda g: (-g.total_savings, g.name))
 
@@ -129,8 +136,14 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
 
     @staticmethod
     def _is_under_any(path: str, containers: Set[str]) -> bool:
-        for c in containers:
-            if path == c or path.startswith(c + "/"):
+        """Check if path or any of its parents are in containers (O(path_depth))."""
+        if path in containers:
+            return True
+        # Walk up parent hierarchy: "a/b/c" checks "a" then "a/b"
+        parts = path.split("/")
+        for depth in range(1, len(parts)):
+            parent_path = "/".join(parts[:depth])
+            if parent_path in containers:
                 return True
         return False
 
