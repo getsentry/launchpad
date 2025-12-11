@@ -176,6 +176,7 @@ class TestMessageProcessingFlow:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["skip-project"],
+            objectstore_url="http://test.objectstore.io",
         )
 
         test_message = {
@@ -196,6 +197,7 @@ class TestMessageProcessingFlow:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["other-project"],
+            objectstore_url="http://test.objectstore.io",
         )
 
         test_message = {
@@ -226,6 +228,7 @@ class TestMessageProcessingFlow:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
+            objectstore_url="http://test.objectstore.io",
         )
 
         test_message = {
