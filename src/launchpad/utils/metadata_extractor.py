@@ -48,9 +48,9 @@ def extract_metadata_from_zip(zip_path: Path) -> ToolingMetadata:
 
 def _parse_metadata_content(content: str) -> ToolingMetadata:
     """Expected format:
-        sentry-cli-version: 2.58.2
-        sentry-fastlane-plugin: 1.2.3
-        sentry-gradle-plugin: 4.12.0
+    sentry-cli-version: 2.58.2
+    sentry-fastlane-plugin: 1.2.3
+    sentry-gradle-plugin: 4.12.0
     """
     metadata: Dict[str, str] = {}
 
