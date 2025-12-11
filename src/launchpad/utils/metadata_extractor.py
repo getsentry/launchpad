@@ -13,8 +13,6 @@ METADATA_FILENAME = ".sentry-cli-metadata.txt"
 
 
 class ToolingMetadata:
-    """Container for tooling version metadata extracted from artifacts."""
-
     def __init__(
         self,
         cli_version: Optional[str] = None,
@@ -30,14 +28,6 @@ class ToolingMetadata:
 
 
 def extract_metadata_from_zip(zip_path: Path) -> ToolingMetadata:
-    """Extract tooling metadata from a .sentry-cli-metadata.txt file in the root of a zip.
-
-    Args:
-        zip_path: Path to the zip file to search
-
-    Returns:
-        ToolingMetadata object with extracted version information
-    """
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
             # Only look for .sentry-cli-metadata.txt in the root of the zip
@@ -57,18 +47,10 @@ def extract_metadata_from_zip(zip_path: Path) -> ToolingMetadata:
 
 
 def _parse_metadata_content(content: str) -> ToolingMetadata:
-    """Parse the content of .sentry-cli-metadata.txt file.
-
-    Expected format:
+    """Expected format:
         sentry-cli-version: 2.58.2
         sentry-fastlane-plugin: 1.2.3
         sentry-gradle-plugin: 4.12.0
-
-    Args:
-        content: The text content of the metadata file
-
-    Returns:
-        ToolingMetadata object with parsed version information
     """
     metadata: Dict[str, str] = {}
 

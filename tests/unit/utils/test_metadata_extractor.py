@@ -1,5 +1,3 @@
-"""Tests for metadata extraction from .sentry-cli-metadata.txt files."""
-
 import tempfile
 import zipfile
 
@@ -13,8 +11,6 @@ from launchpad.utils.metadata_extractor import (
 
 
 class TestParseMetadataContent:
-    """Tests for parsing .sentry-cli-metadata.txt content."""
-
     def test_parse_all_fields(self):
         content = """sentry-cli-version: 2.58.2
 sentry-fastlane-plugin: 1.2.3
@@ -33,8 +29,6 @@ sentry-gradle-plugin: 4.12.0"""
 
 
 class TestExtractMetadataFromZip:
-    """Tests for extracting metadata from zip files."""
-
     def test_extract_from_zip_root(self):
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tf:
             try:
@@ -68,8 +62,6 @@ class TestExtractMetadataFromZip:
 
 
 class TestToolingMetadata:
-    """Tests for ToolingMetadata container class."""
-
     def test_create_with_defaults(self):
         metadata = ToolingMetadata()
         assert metadata.cli_version is None
