@@ -27,7 +27,19 @@ class LargeImageFileInsight(Insight[LargeImageFileInsightResult]):
             "cur",
             "xbm",
         ]
-        image_files = [file for file in input.file_analysis.files if file.file_type in image_types]
+
+        # Recursively collect all files including nested children (e.g., images inside Assets.car)
+        def flatten(item):
+            yield item
+            for child in item.children:
+                yield from flatten(child)
+
+        all_files = []
+        for item in input.file_analysis.items:
+            if not item.is_dir:
+                all_files.extend(flatten(item))
+
+        image_files = [f for f in all_files if f.file_type in image_types]
 
         large_files = [file for file in image_files if file.size > size_threshold_bytes]
 
