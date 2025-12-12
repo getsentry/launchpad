@@ -42,6 +42,11 @@ export enum TreemapType {
   UNMAPPED = "unmapped",
 }
 
+export interface TreemapElementMisc {
+  /** Scale factor for asset catalog images (1, 2, 3) */
+  scale?: number;
+}
+
 export interface TreemapElement {
   /** Display name of the element */
   name: string;
@@ -53,6 +58,8 @@ export interface TreemapElement {
   path?: string;
   /** Whether this element represents a directory */
   is_dir: boolean;
+  /** Optional miscellaneous data for this element */
+  misc?: TreemapElementMisc;
   /** Child elements */
   children: TreemapElement[];
 }

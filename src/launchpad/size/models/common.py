@@ -87,6 +87,7 @@ class FileInfo(BaseModel):
     # Asset catalog specific fields
     idiom: str | None = Field(default=None, exclude=True, description="Device idiom for asset catalog images")
     colorspace: str | None = Field(default=None, exclude=True, description="Color space for asset catalog images")
+    scale: int | None = Field(default=None, exclude=True, description="Scale factor for asset catalog images")
 
 
 class ComponentType(IntEnum):
@@ -153,6 +154,6 @@ class BaseAnalysisResults(BaseModel):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with serializable datetime."""
-        data = self.model_dump()
+        data = self.model_dump(exclude_none=True)
         data["generated_at"] = self.generated_at.isoformat()
         return data

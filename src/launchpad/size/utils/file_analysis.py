@@ -293,6 +293,7 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
                 children=[],
                 idiom=element.idiom,
                 colorspace=element.colorspace,
+                scale=element.scale,
             )
         )
     return result
