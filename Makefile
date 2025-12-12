@@ -29,7 +29,15 @@ test-unit:
 test-integration:
 	$(PYTHON_VENV) -m pytest -n auto tests/integration/ -v
 
-test-e2e:  ## Run E2E tests with Docker Compose
+test-e2e:  ## Run E2E tests with Docker Compose (requires devservices up)
+	@echo "Ensuring devservices Kafka is running..."
+	@if ! docker ps | grep -q kafka; then \
+		echo "Starting devservices..."; \
+		devservices up --mode default; \
+		sleep 10; \
+	else \
+		echo "Kafka already running"; \
+	fi
 	@echo "Starting E2E test environment..."
 	docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from e2e-tests
 	@echo "Cleaning up E2E environment..."

@@ -226,9 +226,86 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: junit.xml
 
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install dependencies
+        run: make install-dev
+
+      - name: Start Kafka with devservices
+        run: |
+          .venv/bin/devservices up --mode default
+
+          echo "Waiting for Kafka to be ready..."
+          KAFKA_READY=false
+          for i in {1..30}; do
+            KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
+            if [ -z "$KAFKA_CONTAINER" ]; then
+              echo "Waiting for Kafka container to start... attempt $i/30"
+              sleep 2
+              continue
+            fi
+
+            HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $KAFKA_CONTAINER 2>/dev/null || echo "none")
+            if [ "$HEALTH_STATUS" = "healthy" ]; then
+              echo "Kafka is ready!"
+              KAFKA_READY=true
+              break
+            fi
+            echo "Waiting for Kafka health check (status: $HEALTH_STATUS)... attempt $i/30"
+            sleep 2
+          done
+
+          if [ "$KAFKA_READY" = "false" ]; then
+            echo "ERROR: Kafka failed to become healthy after 60 seconds"
+            echo "=== Docker containers ==="
+            docker ps -a
+            echo "=== Kafka logs ==="
+            docker logs $(docker ps -aqf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
+            exit 1
+          fi
+
+          docker ps
+
+      - name: Run E2E tests
+        run: |
+          # Start E2E stack (will connect to devservices Kafka)
+          docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from e2e-tests
+        timeout-minutes: 15
+
+      - name: Show E2E logs on failure
+        if: failure()
+        run: |
+          echo "=== Launchpad logs ==="
+          docker compose -f docker-compose.e2e.yml logs launchpad
+          echo "=== Mock API logs ==="
+          docker compose -f docker-compose.e2e.yml logs mock-sentry-api
+          echo "=== E2E test logs ==="
+          docker compose -f docker-compose.e2e.yml logs e2e-tests
+          echo "=== Kafka logs ==="
+          docker logs $(docker ps -qf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
+
+      - name: Cleanup E2E environment
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml down -v
+
   build:
     runs-on: ubuntu-latest
-    needs: [check, test]
+    needs: [check, test, e2e]
 
     steps:
       - name: Checkout code
