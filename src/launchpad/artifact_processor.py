@@ -155,7 +155,13 @@ class ArtifactProcessor:
             path = stack.enter_context(self._download_artifact(organization_id, project_id, artifact_id))
             artifact = self._parse_artifact(organization_id, project_id, artifact_id, path)
             analyzer = self._create_analyzer(artifact)
-            app_icon_object_id = self._process_app_icon(organization_id, project_id, artifact_id, artifact)
+            try:
+                app_icon_object_id = self._process_app_icon(organization_id, project_id, artifact_id, artifact)
+            except Exception:
+                logger.exception(
+                    f"Failed to process app icon for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
+                )
+                app_icon_object_id = None
             info = self._preprocess_artifact(
                 organization_id,
                 project_id,
