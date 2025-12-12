@@ -29,6 +29,21 @@ test-unit:
 test-integration:
 	$(PYTHON_VENV) -m pytest -n auto tests/integration/ -v
 
+test-e2e:  ## Run E2E tests with Docker Compose
+	@echo "Starting E2E test environment..."
+	docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from e2e-tests
+	@echo "Cleaning up E2E environment..."
+	docker compose -f docker-compose.e2e.yml down -v
+
+test-e2e-up:  ## Start E2E environment (for debugging)
+	docker compose -f docker-compose.e2e.yml up --build
+
+test-e2e-down:  ## Stop E2E environment
+	docker compose -f docker-compose.e2e.yml down -v
+
+test-e2e-logs:  ## Show logs from E2E environment
+	docker compose -f docker-compose.e2e.yml logs -f
+
 coverage:
 	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 

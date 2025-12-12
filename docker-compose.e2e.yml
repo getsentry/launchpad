@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  # Kafka infrastructure
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: echo stat | nc localhost 2181
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9093,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: kafka-broker-api-versions --bootstrap-server localhost:9093
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # MinIO for ObjectStore (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - minio-data:/data
+
+  # Mock Sentry API server
+  mock-sentry-api:
+    build:
+      context: .
+      dockerfile: tests/e2e/mock-sentry-api/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - mock-api-data:/app/data
+
+  # Launchpad service
+  launchpad:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TEST_BUILD: "true"  # Include test fixtures
+    ports:
+      - "2218:2218"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9093"
+      KAFKA_GROUP_ID: "launchpad-e2e-test"
+      KAFKA_TOPICS: "preprod-artifact-events"
+      KAFKA_AUTO_OFFSET_RESET: "earliest"
+      LAUNCHPAD_HOST: "0.0.0.0"
+      LAUNCHPAD_PORT: "2218"
+      LAUNCHPAD_ENV: "e2e-test"
+      SENTRY_BASE_URL: "http://mock-sentry-api:8000"
+      OBJECTSTORE_URL: "http://minio:9000"
+      LAUNCHPAD_RPC_SHARED_SECRET: "test-secret-key-for-e2e"
+      SENTRY_DSN: ""  # Disable Sentry SDK in tests
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mock-sentry-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2218/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Test orchestrator
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: tests/e2e/Dockerfile.test-runner
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9093"
+      MOCK_API_URL: "http://mock-sentry-api:8000"
+      LAUNCHPAD_URL: "http://launchpad:2218"
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      LAUNCHPAD_RPC_SHARED_SECRET: "test-secret-key-for-e2e"
+    depends_on:
+      launchpad:
+        condition: service_healthy
+      mock-sentry-api:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./tests:/app/tests
+      - ./tests/e2e/results:/app/results
+    command: pytest tests/e2e/test_e2e_flow.py -v --tb=short
+
+volumes:
+  minio-data:
+  mock-api-data:
+
+networks:
+  default:
+    name: launchpad-e2e

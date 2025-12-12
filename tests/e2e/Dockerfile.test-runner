@@ -1,0 +1,25 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python test dependencies
+RUN pip install --no-cache-dir \
+    pytest==8.3.3 \
+    pytest-asyncio==0.24.0 \
+    confluent-kafka==2.5.3 \
+    requests==2.32.3 \
+    boto3==1.35.0
+
+# Copy test files
+COPY tests/e2e /app/tests/e2e
+COPY tests/_fixtures /app/tests/_fixtures
+
+# Create results directory
+RUN mkdir -p /app/results
+
+WORKDIR /app
