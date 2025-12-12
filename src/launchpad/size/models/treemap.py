@@ -119,7 +119,7 @@ FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
 
 
 class TreemapElement(BaseModel):
-    model_config = ConfigDict(frozen=True, exclude_none=True)
+    model_config = ConfigDict(frozen=True)
 
     name: str = Field(..., description="Display name of the element")
     size: int = Field(..., ge=0, description="Install size in bytes")
