@@ -277,7 +277,7 @@ class ArtifactProcessor:
         icon_key = f"{organization_id}/{project_id}/{image_id}"
         logger.info(f"Uploading app icon to object store: {icon_key}")
         session = self._objectstore_client.session(self._objectstore_usecase, org=organization_id, project=project_id)
-        session.put(app_icon, id=icon_key)
+        session.put(app_icon, key=icon_key)
         return image_id
 
     def _do_distribution(
