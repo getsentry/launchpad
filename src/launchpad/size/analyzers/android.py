@@ -60,7 +60,6 @@ class AndroidAnalyzer:
             app_id=manifest_dict["package_name"],
             has_proguard_mapping=has_proguard_mapping,
             cli_version=metadata.cli_version,
-            fastlane_plugin_version=metadata.fastlane_plugin_version,
             gradle_plugin_version=metadata.gradle_plugin_version,
         )
 

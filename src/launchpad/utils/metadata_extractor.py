@@ -1,5 +1,3 @@
-"""Utility for extracting metadata from .sentry-cli-metadata.txt files in artifacts."""
-
 import zipfile
 
 from pathlib import Path
@@ -22,9 +20,6 @@ class ToolingMetadata:
         self.cli_version = cli_version
         self.fastlane_plugin_version = fastlane_plugin_version
         self.gradle_plugin_version = gradle_plugin_version
-
-    def __repr__(self) -> str:
-        return f"ToolingMetadata(cli_version={self.cli_version}, fastlane_plugin_version={self.fastlane_plugin_version}, gradle_plugin_version={self.gradle_plugin_version})"
 
 
 def extract_metadata_from_zip(zip_path: Path) -> ToolingMetadata:

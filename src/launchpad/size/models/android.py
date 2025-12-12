@@ -30,6 +30,7 @@ class AndroidAppInfo(BaseAppInfo):
     model_config = ConfigDict(frozen=True)
 
     has_proguard_mapping: bool = Field(default=False, description="Whether the app has a proguard mapping file")
+    gradle_plugin_version: str | None = Field(None, description="Gradle plugin version used for uploading")
 
 
 class AndroidAnalysisResults(BaseAnalysisResults):

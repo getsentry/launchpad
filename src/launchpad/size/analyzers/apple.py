@@ -359,7 +359,6 @@ class AppleAppAnalyzer:
             missing_dsym_binaries=missing_dsym_binaries,
             cli_version=metadata.cli_version,
             fastlane_plugin_version=metadata.fastlane_plugin_version,
-            gradle_plugin_version=metadata.gradle_plugin_version,
         )
 
     def _get_profile_type(self, profile_data: dict[str, Any]) -> Tuple[str, str]:

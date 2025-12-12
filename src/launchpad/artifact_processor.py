@@ -442,12 +442,16 @@ class ArtifactProcessor:
                 certificate_expiration_date=app_info.certificate_expiration_date,
                 missing_dsym_binaries=app_info.missing_dsym_binaries,
                 build_date=app_info.build_date,
+                cli_version=app_info.cli_version,
+                fastlane_plugin_version=app_info.fastlane_plugin_version,
             )
 
         android_app_info = None
         if isinstance(app_info, AndroidAppInfo):
             android_app_info = AndroidAppInfoModel(
                 has_proguard_mapping=app_info.has_proguard_mapping,
+                cli_version=app_info.cli_version,
+                gradle_plugin_version=app_info.gradle_plugin_version,
             )
 
         update_data = UpdateData(
@@ -459,9 +463,6 @@ class ArtifactProcessor:
             apple_app_info=apple_app_info,
             android_app_info=android_app_info,
             dequeued_at=dequeued_at,
-            cli_version=app_info.cli_version,
-            fastlane_plugin_version=app_info.fastlane_plugin_version,
-            gradle_plugin_version=app_info.gradle_plugin_version,
         )
 
         return update_data.model_dump(exclude_none=True)

@@ -70,6 +70,7 @@ class AppleAppInfo(BaseAppInfo):
     missing_dsym_binaries: List[str] = Field(
         default_factory=list, description="List of binary names that don't have corresponding dSYM files"
     )
+    fastlane_plugin_version: str | None = Field(None, description="Fastlane plugin version used for uploading")
 
 
 class AppleInsightResults(BaseModel):
