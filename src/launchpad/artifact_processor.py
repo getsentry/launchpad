@@ -57,7 +57,7 @@ class ArtifactProcessor:
         self,
         sentry_client: SentryClient,
         statsd: StatsdInterface,
-        objectstore_client: ObjectstoreClient,
+        objectstore_client: ObjectstoreClient | None,
     ) -> None:
         self._sentry_client = sentry_client
         self._statsd = statsd
@@ -92,7 +92,9 @@ class ArtifactProcessor:
             statsd = get_statsd()
         if artifact_processor is None:
             sentry_client = SentryClient(base_url=service_config.sentry_base_url)
-            objectstore_client = ObjectstoreClient(service_config.objectstore_url)
+            objectstore_client = None
+            if service_config.objectstore_url is not None:
+                objectstore_client = ObjectstoreClient(service_config.objectstore_url)
             artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
         requested_features = []
@@ -259,6 +261,12 @@ class ArtifactProcessor:
         artifact_id: str,
         artifact: Artifact,
     ) -> str | None:
+        if self._objectstore_client is None:
+            logger.info(
+                f"No objectstore client found for {artifact_id} (project: {project_id}, org: {organization_id})"
+            )
+            return None
+
         logger.info(f"Processing app icon for {artifact_id} (project: {project_id}, org: {organization_id})")
         app_icon = artifact.get_app_icon()
         if app_icon is None:

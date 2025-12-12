@@ -127,7 +127,7 @@ class ServiceConfig:
 
     sentry_base_url: str
     projects_to_skip: list[str]
-    objectstore_url: str
+    objectstore_url: str | None
 
 
 def get_service_config() -> ServiceConfig:
