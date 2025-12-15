@@ -3,8 +3,6 @@ import zipfile
 from pathlib import Path
 from typing import List
 
-import zipfile_zstd  # noqa: F401 - Import registers zstd handler with zipfile
-
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
 
