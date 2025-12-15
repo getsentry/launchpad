@@ -1,7 +1,7 @@
 import zipfile
 
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
@@ -10,6 +10,9 @@ logger = get_logger(__name__)
 
 DEFAULT_MAX_FILE_COUNT = 100000
 DEFAULT_MAX_UNCOMPRESSED_SIZE = 10 * 1024 * 1024 * 1024
+
+# Compression method constants
+COMPRESSION_ZSTD = 93  # Zstandard compression method
 
 
 class UnreasonableZipError(ValueError):
@@ -92,13 +95,43 @@ class ZipProvider:
         self._temp_dirs.append(temp_dir)
 
         self._safe_extract(str(self.path), str(temp_dir))
-        logger.debug(f"Extracted zip contents to {temp_dir} using system unzip")
+        logger.debug(f"Extracted zip contents to {temp_dir}")
 
         return temp_dir
 
+    def _detect_compression_methods(self, zip_path: str) -> Set[int]:
+        """Detect compression methods used in the zip file.
+
+        Args:
+            zip_path: Path to the zip file
+
+        Returns:
+            Set of compression method integers used in the zip file
+        """
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            return {info.compress_type for info in zf.infolist()}
+
     def _safe_extract(self, zip_path: str, extract_path: str):
-        """Extract the zip contents to a temporary directory, ensuring that the paths are safe from path traversal attacks."""
+        """Extract the zip contents to a temporary directory, ensuring that the paths are safe from path traversal attacks.
+
+        Supports both standard compression methods and Zstandard compression.
+        """
         base_dir = Path(extract_path)
+
+        # Detect if zstandard compression is used
+        compression_methods = self._detect_compression_methods(zip_path)
+        uses_zstd = COMPRESSION_ZSTD in compression_methods
+
+        if uses_zstd:
+            logger.debug("Detected Zstandard compression in zip file")
+            try:
+                import zipfile_zstd  # noqa: F401
+            except ImportError:
+                raise RuntimeError(
+                    "Zstandard-compressed zip file detected, but zipfile-zstd package is not installed. "
+                    "Install it with: pip install zipfile-zstd"
+                )
+
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             check_reasonable_zip(zip_ref)
             for member in zip_ref.namelist():

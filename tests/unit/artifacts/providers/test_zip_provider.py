@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from launchpad.artifacts.providers.zip_provider import (
+    COMPRESSION_ZSTD,
     UnreasonableZipError,
     UnsafePathError,
     ZipProvider,
@@ -87,6 +88,37 @@ class TestZipProvider:
 
             with pytest.raises(zipfile.BadZipFile):
                 provider.extract_to_temp_directory()
+
+    def test_detect_compression_methods(self, hackernews_xcarchive: Path) -> None:
+        provider = ZipProvider(hackernews_xcarchive)
+        methods = provider._detect_compression_methods(str(hackernews_xcarchive))
+
+        # Verify detection works and standard zips use deflate compression, not zstd
+        assert zipfile.ZIP_DEFLATED in methods
+        assert COMPRESSION_ZSTD not in methods
+
+    def test_extract_zstd_zip(self) -> None:
+        """Test that zstd-compressed zips can be extracted when zipfile-zstd is available."""
+        try:
+            import zipfile_zstd  # noqa: F401
+        except ImportError:
+            pytest.skip("zipfile-zstd not installed")
+
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
+            temp_path = Path(temp_file.name)
+
+            with zipfile.ZipFile(temp_path, "w") as zf:
+                zf.writestr("test.txt", "content", compress_type=COMPRESSION_ZSTD)
+
+            try:
+                provider = ZipProvider(temp_path)
+                temp_dir = provider.extract_to_temp_directory()
+
+                assert temp_dir.exists()
+                assert (temp_dir / "test.txt").exists()
+                assert (temp_dir / "test.txt").read_text() == "content"
+            finally:
+                temp_path.unlink(missing_ok=True)
 
 
 class TestIsSafePath:
