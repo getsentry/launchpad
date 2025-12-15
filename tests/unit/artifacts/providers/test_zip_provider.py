@@ -131,9 +131,9 @@ class TestCheckReasonableZip:
         with tempfile.NamedTemporaryFile(suffix=".zip") as temp_file:
             temp_path = Path(temp_file.name)
 
-            # Create a zstd-compressed zip (compression method 93)
+            # Create a zstd-compressed zip
             with zipfile.ZipFile(temp_path, "w") as zf:
-                zf.writestr("test.txt", "content", compress_type=93)
+                zf.writestr("test.txt", "content", zipfile.ZIP_ZSTANDARD)
 
             try:
                 provider = ZipProvider(temp_path)
