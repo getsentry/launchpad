@@ -128,7 +128,7 @@ class TestCheckReasonableZip:
 
     def test_extract_zstd_zip(self) -> None:
         """Test that zstd-compressed zips can be extracted."""
-        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(suffix=".zip") as temp_file:
             temp_path = Path(temp_file.name)
 
             # Create a zstd-compressed zip (compression method 93)
