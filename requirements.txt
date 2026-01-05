@@ -7,7 +7,7 @@ cryptography>=45.0.7
 datadog==0.52.1
 google-api-core==2.25.1
 google-api-python-client==2.181.0
-lief==0.17.1
+lief==0.17.2
 lzfse>=0.4.2
 objectstore-client>=0.0.14
 pillow>=11.3.0
