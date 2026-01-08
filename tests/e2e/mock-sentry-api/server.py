@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import json
 import os
-import re
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -22,15 +21,6 @@ from pydantic import BaseModel
 
 app = FastAPI(title="Mock Sentry API for Launchpad E2E Tests")
 
-
-def sanitize_id(value: str) -> str:
-    """Sanitize ID to prevent path traversal. Only allow alphanumeric, hyphens, underscores."""
-    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "", value)
-    if not sanitized:
-        raise HTTPException(status_code=400, detail="Invalid ID")
-    return sanitized
-
-
 # Storage paths
 DATA_DIR = Path("/app/data")
 ARTIFACTS_DIR = DATA_DIR / "artifacts"
@@ -40,6 +30,23 @@ CHUNKS_DIR = DATA_DIR / "chunks"
 # Create directories
 for dir_path in [ARTIFACTS_DIR, RESULTS_DIR, CHUNKS_DIR]:
     dir_path.mkdir(parents=True, exist_ok=True)
+
+
+def safe_path(base_dir: Path, filename: str) -> Path:
+    """Safely construct a path within base_dir, preventing path traversal.
+
+    This pattern is recognized by CodeQL as a proper sanitizer.
+    """
+    # Construct the path
+    target = base_dir / filename
+    # Resolve to absolute path (removes .., symlinks, etc.)
+    resolved = target.resolve()
+    # Verify it's within the base directory
+    base_resolved = base_dir.resolve()
+    if not str(resolved).startswith(str(base_resolved) + "/") and resolved != base_resolved:
+        raise HTTPException(status_code=400, detail="Invalid path")
+    return resolved
+
 
 # In-memory storage for test data
 artifacts_db: Dict[str, Dict[str, Any]] = {}
@@ -77,8 +84,7 @@ async def download_artifact(
     authorization: str = Header(None),
 ):
     """Download artifact file."""
-    safe_id = sanitize_id(artifact_id)
-    artifact_path = ARTIFACTS_DIR / f"{safe_id}.zip"
+    artifact_path = safe_path(ARTIFACTS_DIR, f"{artifact_id}.zip")
 
     if not artifact_path.exists():
         raise HTTPException(status_code=404, detail="Artifact not found")
@@ -127,18 +133,17 @@ async def update_artifact(
         raise HTTPException(status_code=403, detail="Invalid signature")
 
     data = json.loads(body)
-    safe_id = sanitize_id(artifact_id)
 
     # Store update in database
-    if safe_id not in artifacts_db:
-        artifacts_db[safe_id] = {}
+    if artifact_id not in artifacts_db:
+        artifacts_db[artifact_id] = {}
 
-    artifacts_db[safe_id].update(data)
+    artifacts_db[artifact_id].update(data)
 
     # Track which fields were updated
     updated_fields = list(data.keys())
 
-    return {"success": True, "artifactId": safe_id, "updatedFields": updated_fields}
+    return {"success": True, "artifactId": artifact_id, "updatedFields": updated_fields}
 
 
 class ChunkOptionsResponse(BaseModel):
@@ -246,19 +251,18 @@ async def assemble_file(
         }
 
     # Store assembled file
-    safe_id = sanitize_id(artifact_id)
     if assemble_type == "size_analysis":
-        result_path = RESULTS_DIR / f"{safe_id}_size_analysis.json"
+        result_path = safe_path(RESULTS_DIR, f"{artifact_id}_size_analysis.json")
         result_path.write_bytes(file_data)
 
         # Parse and store in database
         try:
-            size_analysis_db[safe_id] = json.loads(file_data.decode("utf-8"))
+            size_analysis_db[artifact_id] = json.loads(file_data.decode("utf-8"))
         except Exception as e:
             print(f"Error parsing size analysis: {e}")
 
     elif assemble_type == "installable_app":
-        app_path = RESULTS_DIR / f"{safe_id}_app"
+        app_path = safe_path(RESULTS_DIR, f"{artifact_id}_app")
         app_path.write_bytes(file_data)
 
     return {"state": "ok", "missingChunks": []}
@@ -288,16 +292,14 @@ async def update_size_analysis(
         raise HTTPException(status_code=403, detail="Invalid signature")
 
     data = json.loads(body)
-    safe_id = sanitize_id(artifact_id)
-    safe_identifier = sanitize_id(identifier) if identifier else None
 
     # Store in database
-    key = f"{safe_id}:{safe_identifier}" if safe_identifier else safe_id
+    key = f"{artifact_id}:{identifier}" if identifier else artifact_id
     if key not in size_analysis_db:
         size_analysis_db[key] = {}
     size_analysis_db[key].update(data)
 
-    return {"artifactId": safe_id}
+    return {"artifactId": artifact_id}
 
 
 # Test helper endpoints (not part of real Sentry API)
@@ -306,33 +308,32 @@ async def update_size_analysis(
 @app.post("/test/upload-artifact/{artifact_id}")
 async def test_upload_artifact(artifact_id: str, file: UploadFile):
     """Test helper: Upload an artifact file for testing."""
-    safe_id = sanitize_id(artifact_id)
-    artifact_path = ARTIFACTS_DIR / f"{safe_id}.zip"
+    artifact_path = safe_path(ARTIFACTS_DIR, f"{artifact_id}.zip")
 
     with open(artifact_path, "wb") as f:
         content = await file.read()
         f.write(content)
 
-    return {"artifact_id": safe_id, "size": len(content)}
+    return {"artifact_id": artifact_id, "size": len(content)}
 
 
 @app.get("/test/results/{artifact_id}")
 async def test_get_results(artifact_id: str):
     """Test helper: Get analysis results for an artifact."""
-    safe_id = sanitize_id(artifact_id)
+    size_analysis_path = safe_path(RESULTS_DIR, f"{artifact_id}_size_analysis.json")
+    installable_app_path = safe_path(RESULTS_DIR, f"{artifact_id}_app")
     return {
-        "artifact_metadata": artifacts_db.get(safe_id, {}),
-        "size_analysis": size_analysis_db.get(safe_id, {}),
-        "has_size_analysis_file": (RESULTS_DIR / f"{safe_id}_size_analysis.json").exists(),
-        "has_installable_app": (RESULTS_DIR / f"{safe_id}_app").exists(),
+        "artifact_metadata": artifacts_db.get(artifact_id, {}),
+        "size_analysis": size_analysis_db.get(artifact_id, {}),
+        "has_size_analysis_file": size_analysis_path.exists(),
+        "has_installable_app": installable_app_path.exists(),
     }
 
 
 @app.get("/test/results/{artifact_id}/size-analysis-raw")
 async def test_get_size_analysis_raw(artifact_id: str):
     """Test helper: Get raw size analysis JSON."""
-    safe_id = sanitize_id(artifact_id)
-    result_path = RESULTS_DIR / f"{safe_id}_size_analysis.json"
+    result_path = safe_path(RESULTS_DIR, f"{artifact_id}_size_analysis.json")
 
     if not result_path.exists():
         raise HTTPException(status_code=404, detail="Size analysis not found")
