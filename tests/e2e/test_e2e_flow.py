@@ -158,7 +158,7 @@ class TestE2EFlow:
 
         # Verify size analysis contents
         size_analysis = get_size_analysis_raw(artifact_id)
-        assert "total_size" in size_analysis, "Size analysis should contain total_size"
+        assert "download_size" in size_analysis, "Size analysis should contain download_size"
         assert "insights" in size_analysis, "Size analysis should contain insights"
         assert "treemap" in size_analysis, "Size analysis should contain treemap"
 
@@ -167,7 +167,7 @@ class TestE2EFlow:
         assert len(insights) > 0, "Should generate at least one insight"
 
         print("✓ iOS E2E test passed!")
-        print(f"  - Total size: {size_analysis.get('total_size', 'N/A')} bytes")
+        print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
         print(f"  - Insights generated: {len(insights)}")
         print(f"  - App name: {metadata.get('app_name') or metadata.get('appName')}")
 
@@ -207,11 +207,11 @@ class TestE2EFlow:
 
         # Verify size analysis contents
         size_analysis = get_size_analysis_raw(artifact_id)
-        assert "total_size" in size_analysis, "Size analysis should contain total_size"
+        assert "download_size" in size_analysis, "Size analysis should contain download_size"
         assert "insights" in size_analysis, "Size analysis should contain insights"
 
         print("✓ Android APK E2E test passed!")
-        print(f"  - Total size: {size_analysis.get('total_size', 'N/A')} bytes")
+        print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
         print(f"  - Insights generated: {len(size_analysis['insights'])}")
         print(f"  - App name: {metadata.get('app_name') or metadata.get('appName')}")
 
@@ -251,11 +251,11 @@ class TestE2EFlow:
 
         # Verify size analysis contents
         size_analysis = get_size_analysis_raw(artifact_id)
-        assert "total_size" in size_analysis, "Size analysis should contain total_size"
+        assert "download_size" in size_analysis, "Size analysis should contain download_size"
         assert "insights" in size_analysis, "Size analysis should contain insights"
 
         print("✓ Android AAB E2E test passed!")
-        print(f"  - Total size: {size_analysis.get('total_size', 'N/A')} bytes")
+        print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
         print(f"  - Insights generated: {len(size_analysis['insights'])}")
         print(f"  - App name: {metadata.get('app_name') or metadata.get('appName')}")
 
