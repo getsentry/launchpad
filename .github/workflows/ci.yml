@@ -281,6 +281,13 @@ jobs:
 
           docker ps
 
+      - name: Create Kafka topic
+        run: |
+          KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
+          echo "Creating preprod-artifact-events topic..."
+          docker exec $KAFKA_CONTAINER kafka-topics --bootstrap-server localhost:9092 --create --topic preprod-artifact-events --partitions 1 --replication-factor 1 --if-not-exists
+          echo "Topic created successfully"
+
       - name: Run E2E tests
         run: |
           # Start E2E stack (will connect to devservices Kafka)
