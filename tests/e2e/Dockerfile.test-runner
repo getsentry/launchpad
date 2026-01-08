@@ -2,9 +2,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including build tools for confluent-kafka
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    gcc \
+    g++ \
+    librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python test dependencies
@@ -15,9 +18,10 @@ RUN pip install --no-cache-dir \
     requests==2.32.3 \
     boto3==1.35.0
 
-# Copy test files
-COPY tests/e2e /app/tests/e2e
-COPY tests/_fixtures /app/tests/_fixtures
+# Copy only E2E test files (not the main test suite)
+# Copy to root to avoid pytest finding parent conftest.py
+COPY tests/e2e /app/e2e_tests
+COPY tests/_fixtures /app/fixtures
 
 # Create results directory
 RUN mkdir -p /app/results

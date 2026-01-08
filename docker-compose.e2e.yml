@@ -8,8 +8,8 @@ services:
   minio:
     image: minio/minio:latest
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9010:9000"
+      - "9011:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -30,7 +30,7 @@ services:
       context: .
       dockerfile: tests/e2e/mock-sentry-api/Dockerfile
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       PYTHONUNBUFFERED: "1"
       MINIO_ENDPOINT: "http://minio:9000"
@@ -40,7 +40,7 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "-L", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -104,9 +104,8 @@ services:
       mock-sentry-api:
         condition: service_healthy
     volumes:
-      - ./tests:/app/tests
       - ./tests/e2e/results:/app/results
-    command: pytest tests/e2e/test_e2e_flow.py -v --tb=short
+    command: pytest e2e_tests/test_e2e_flow.py -v --tb=short
     networks:
       - launchpad-e2e
       - devservices

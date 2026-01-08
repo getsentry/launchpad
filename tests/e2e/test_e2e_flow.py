@@ -26,7 +26,7 @@ LAUNCHPAD_URL = os.getenv("LAUNCHPAD_URL", "http://launchpad:2218")
 KAFKA_TOPIC = "preprod-artifact-events"
 
 # Test fixtures
-FIXTURES_DIR = Path(__file__).parent.parent / "_fixtures"
+FIXTURES_DIR = Path("/app/fixtures")
 IOS_FIXTURE = FIXTURES_DIR / "ios" / "HackerNews.xcarchive.zip"
 ANDROID_APK_FIXTURE = FIXTURES_DIR / "android" / "hn.apk"
 ANDROID_AAB_FIXTURE = FIXTURES_DIR / "android" / "hn.aab"
