@@ -84,8 +84,8 @@ def wait_for_processing(artifact_id: str, timeout: int = 120, check_interval: in
             results = response.json()
 
             # Check if processing is complete
-            # We consider it complete when artifact metadata has been updated
-            if results.get("artifact_metadata"):
+            # Processing is complete when both metadata is updated AND size analysis file exists
+            if results.get("artifact_metadata") and results.get("has_size_analysis_file"):
                 print(f"✓ Processing completed for {artifact_id}")
                 return results
 
