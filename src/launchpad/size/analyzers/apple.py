@@ -60,6 +60,37 @@ from ..models.apple import (
 logger = get_logger(__name__)
 
 
+def _detect_apple_platform(plist: dict[str, Any]) -> str:
+    """Detect the primary Apple platform from Info.plist.
+
+    Returns "ios", "macos", "tvos", or "watchos". Defaults to "ios" for backwards compatibility.
+    Mac Catalyst apps are treated as iOS apps.
+    """
+    dt_platform = plist.get("DTPlatformName", "").lower()
+    supported = plist.get("CFBundleSupportedPlatforms", [])
+
+    if "maccatalyst" in dt_platform or "iphoneos" in dt_platform or "iphonesimulator" in dt_platform:
+        return "ios"
+    if "macosx" in dt_platform:
+        return "macos"
+    if "appletvos" in dt_platform or "appletvsimulator" in dt_platform:
+        return "tvos"
+    if "watchos" in dt_platform or "watchsimulator" in dt_platform:
+        return "watchos"
+
+    supported_lower = [p.lower() for p in supported]
+    if "iphoneos" in supported_lower or "iphonesimulator" in supported_lower:
+        return "ios"
+    if "macosx" in supported_lower:
+        return "macos"
+    if "appletvos" in supported_lower:
+        return "tvos"
+    if "watchos" in supported_lower:
+        return "watchos"
+
+    return "ios"
+
+
 class AppleAppAnalyzer:
     """Analyzer for Apple app bundles (.xcarchive directories)."""
 
@@ -187,7 +218,7 @@ class AppleAppAnalyzer:
 
             treemap_builder = TreemapBuilder(
                 app_name=app_info.name,
-                platform="ios",
+                platform=app_info.platform,
                 binary_analysis_map=binary_analysis_map,
                 hermes_reports=hermes_reports,
             )
@@ -307,6 +338,7 @@ class AppleAppAnalyzer:
             build_date = self.parse_plist_date(archive_plist.get("CreationDate"))
 
         supported_platforms = plist.get("CFBundleSupportedPlatforms", [])
+        platform = _detect_apple_platform(plist)
         is_simulator = "iphonesimulator" in supported_platforms or plist.get("DTPlatformName") == "iphonesimulator"
 
         is_code_signature_valid = False
@@ -341,6 +373,7 @@ class AppleAppAnalyzer:
             executable=plist.get("CFBundleExecutable", "Unknown"),
             minimum_os_version=plist.get("MinimumOSVersion", "Unknown"),
             supported_platforms=supported_platforms,
+            platform=platform,
             sdk_version=plist.get("DTSDKName"),
             build_date=build_date,
             is_simulator=is_simulator,
