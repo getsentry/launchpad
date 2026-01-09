@@ -125,9 +125,9 @@ class ProtobufResourceTable(ResourceTable):
                 return str(item.str.value)
             elif item.HasField("ref"):
                 ref = item.ref
-                if ref.name:
+                if ref.id:
                     return self.get_value_by_id(ref.id)
-                elif ref.id:
+                elif ref.name:
                     return self.get_value_by_key(ref.name)
                 else:
                     logger.debug("item.value.ref.id and item.value.ref.name are not defined.")

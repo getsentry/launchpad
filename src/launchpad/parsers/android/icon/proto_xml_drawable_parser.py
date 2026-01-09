@@ -108,9 +108,9 @@ class ProtoXmlDrawableParser(IconParser):
                 value = str(compiled_item.str.value)
             elif compiled_item.HasField("ref"):
                 ref = compiled_item.ref
-                if ref.HasField("name"):
+                if ref.name:
                     value = ref.name
-                elif ref.HasField("id"):
+                elif ref.id:
                     value = f"resourceId:{ref.id:#010x}"
                 raw_type = 0x01  # TYPE_REFERENCE
             elif compiled_item.HasField("prim"):

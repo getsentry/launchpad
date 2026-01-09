@@ -365,9 +365,9 @@ class ProtoXmlUtils:
                 return str(compiled_item.str.value)
             elif compiled_item.HasField("ref"):
                 ref = compiled_item.ref
-                if ref.HasField("name"):
+                if ref.name:
                     return ProtoXmlUtils._get_resource_by_key_from_proto_resource_files(ref.name, proto_res_tables)
-                elif ref.HasField("id"):
+                elif ref.id:
                     return ProtoXmlUtils._get_resource_by_id_from_proto_resource_files(ref.id, proto_res_tables)
                 else:
                     logger.error("item.value.ref.id and item.value.ref.name are not defined")
