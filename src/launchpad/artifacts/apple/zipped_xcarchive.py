@@ -1,5 +1,4 @@
 import json
-import os
 import plistlib
 import shutil
 import subprocess
@@ -72,6 +71,15 @@ class ZippedXCArchive(AppleArtifact):
         self._dsym_info: dict[str, DsymInfo] | None = None
         self._binary_uuid_cache: dict[Path, str] = {}
         self._lief_cache: dict[Path, lief.MachO.FatBinary] = {}
+        self._is_macos_bundle: bool | None = None
+
+    def _is_macos_app_bundle(self) -> bool:
+        """Check if this is a macOS app bundle (has Contents/ directory structure)."""
+        if self._is_macos_bundle is not None:
+            return self._is_macos_bundle
+        app_bundle_path = self.get_app_bundle_path()
+        self._is_macos_bundle = (app_bundle_path / "Contents").is_dir()
+        return self._is_macos_bundle
 
     def get_extract_dir(self) -> Path:
         return self._extract_dir
@@ -82,7 +90,10 @@ class ZippedXCArchive(AppleArtifact):
             return self._plist
 
         app_bundle_path = self.get_app_bundle_path()
-        plist_path = app_bundle_path / "Info.plist"
+        # macOS apps have Info.plist in Contents/, iOS apps have it directly in the bundle
+        plist_path = app_bundle_path / "Contents" / "Info.plist"
+        if not plist_path.exists():
+            plist_path = app_bundle_path / "Info.plist"
 
         try:
             with open(plist_path, "rb") as f:
@@ -284,6 +295,8 @@ class ZippedXCArchive(AppleArtifact):
         if not executable_name:
             return None
 
+        if self._is_macos_app_bundle():
+            return app_bundle_path / "Contents" / "MacOS" / executable_name
         return app_bundle_path / executable_name
 
     @sentry_sdk.trace
@@ -400,25 +413,42 @@ class ZippedXCArchive(AppleArtifact):
         for framework_path in app_bundle_path.rglob("*.framework"):
             if framework_path.is_dir():
                 framework_name = framework_path.stem
-                framework_binary_path = framework_path / framework_name
-                if framework_binary_path.exists():
-                    framework_binaries.append(framework_binary_path)
+                # macOS frameworks use Versions/A/ or Versions/B/ structure
+                versions_path = framework_path / "Versions"
+                if versions_path.is_dir():
+                    for version_dir in versions_path.iterdir():
+                        if version_dir.is_dir() and version_dir.name not in ("Current",):
+                            framework_binary_path = version_dir / framework_name
+                            if framework_binary_path.exists():
+                                framework_binaries.append(framework_binary_path)
                 else:
-                    logger.warning("Framework binary not found", extra={"path": framework_binary_path})
+                    # iOS frameworks have binary directly in framework
+                    framework_binary_path = framework_path / framework_name
+                    if framework_binary_path.exists():
+                        framework_binaries.append(framework_binary_path)
+                    else:
+                        logger.warning("Framework binary not found", extra={"path": framework_binary_path})
         return framework_binaries
 
     def _discover_extension_binaries(self, app_bundle_path: Path) -> List[Path]:
         extension_binaries: List[Path] = []
         for extension_path in app_bundle_path.rglob("*.appex"):
             if extension_path.is_dir():
-                extension_plist_path = extension_path / "Info.plist"
+                # macOS extensions have Contents/ structure, iOS extensions don't
+                contents_path = extension_path / "Contents"
+                if contents_path.is_dir():
+                    extension_plist_path = contents_path / "Info.plist"
+                    binary_base_path = contents_path / "MacOS"
+                else:
+                    extension_plist_path = extension_path / "Info.plist"
+                    binary_base_path = extension_path
                 if extension_plist_path.exists():
                     try:
                         with open(extension_plist_path, "rb") as f:
                             extension_plist = plistlib.load(f)
                         extension_executable = extension_plist.get("CFBundleExecutable")
                         if extension_executable:
-                            extension_binary_path = extension_path / extension_executable
+                            extension_binary_path = binary_base_path / extension_executable
                             if extension_binary_path.exists():
                                 extension_binaries.append(extension_binary_path)
                             else:
@@ -466,7 +496,9 @@ class ZippedXCArchive(AppleArtifact):
         main_executable = self.get_plist().get("CFBundleExecutable")
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
-        return Path(os.path.join(str(app_bundle_path), main_executable))
+        if self._is_macos_app_bundle():
+            return app_bundle_path / "Contents" / "MacOS" / main_executable
+        return app_bundle_path / main_executable
 
     def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
         """Parse a dictionary item into an AssetCatalogElement."""
