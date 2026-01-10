@@ -32,20 +32,14 @@ for dir_path in [ARTIFACTS_DIR, RESULTS_DIR, CHUNKS_DIR]:
     dir_path.mkdir(parents=True, exist_ok=True)
 
 
-def safe_path(base_dir: Path, filename: str) -> Path:
-    """Safely construct a path within base_dir, preventing path traversal.
+def safe_filename(artifact_id: str, suffix: str = "") -> str:
+    """Convert artifact_id to a safe filename using SHA256 hash.
 
-    This pattern is recognized by CodeQL as a proper sanitizer.
+    This prevents path traversal by ensuring user input never directly
+    becomes part of the filename - only the hash is used.
     """
-    # Construct the path
-    target = base_dir / filename
-    # Resolve to absolute path (removes .., symlinks, etc.)
-    resolved = target.resolve()
-    # Verify it's within the base directory
-    base_resolved = base_dir.resolve()
-    if not str(resolved).startswith(str(base_resolved) + "/") and resolved != base_resolved:
-        raise HTTPException(status_code=400, detail="Invalid path")
-    return resolved
+    hash_digest = hashlib.sha256(artifact_id.encode()).hexdigest()[:16]
+    return f"{hash_digest}{suffix}"
 
 
 # In-memory storage for test data
@@ -84,7 +78,7 @@ async def download_artifact(
     authorization: str = Header(None),
 ):
     """Download artifact file."""
-    artifact_path = safe_path(ARTIFACTS_DIR, f"{artifact_id}.zip")
+    artifact_path = ARTIFACTS_DIR / safe_filename(artifact_id, ".zip")
 
     if not artifact_path.exists():
         raise HTTPException(status_code=404, detail="Artifact not found")
@@ -252,7 +246,7 @@ async def assemble_file(
 
     # Store assembled file
     if assemble_type == "size_analysis":
-        result_path = safe_path(RESULTS_DIR, f"{artifact_id}_size_analysis.json")
+        result_path = RESULTS_DIR / safe_filename(artifact_id, "_size_analysis.json")
         result_path.write_bytes(file_data)
 
         # Parse and store in database
@@ -262,7 +256,7 @@ async def assemble_file(
             print(f"Error parsing size analysis: {e}")
 
     elif assemble_type == "installable_app":
-        app_path = safe_path(RESULTS_DIR, f"{artifact_id}_app")
+        app_path = RESULTS_DIR / safe_filename(artifact_id, "_app")
         app_path.write_bytes(file_data)
 
     return {"state": "ok", "missingChunks": []}
@@ -308,7 +302,7 @@ async def update_size_analysis(
 @app.post("/test/upload-artifact/{artifact_id}")
 async def test_upload_artifact(artifact_id: str, file: UploadFile):
     """Test helper: Upload an artifact file for testing."""
-    artifact_path = safe_path(ARTIFACTS_DIR, f"{artifact_id}.zip")
+    artifact_path = ARTIFACTS_DIR / safe_filename(artifact_id, ".zip")
 
     with open(artifact_path, "wb") as f:
         content = await file.read()
@@ -320,8 +314,8 @@ async def test_upload_artifact(artifact_id: str, file: UploadFile):
 @app.get("/test/results/{artifact_id}")
 async def test_get_results(artifact_id: str):
     """Test helper: Get analysis results for an artifact."""
-    size_analysis_path = safe_path(RESULTS_DIR, f"{artifact_id}_size_analysis.json")
-    installable_app_path = safe_path(RESULTS_DIR, f"{artifact_id}_app")
+    size_analysis_path = RESULTS_DIR / safe_filename(artifact_id, "_size_analysis.json")
+    installable_app_path = RESULTS_DIR / safe_filename(artifact_id, "_app")
     return {
         "artifact_metadata": artifacts_db.get(artifact_id, {}),
         "size_analysis": size_analysis_db.get(artifact_id, {}),
@@ -333,7 +327,7 @@ async def test_get_results(artifact_id: str):
 @app.get("/test/results/{artifact_id}/size-analysis-raw")
 async def test_get_size_analysis_raw(artifact_id: str):
     """Test helper: Get raw size analysis JSON."""
-    result_path = safe_path(RESULTS_DIR, f"{artifact_id}_size_analysis.json")
+    result_path = RESULTS_DIR / safe_filename(artifact_id, "_size_analysis.json")
 
     if not result_path.exists():
         raise HTTPException(status_code=404, detail="Size analysis not found")
