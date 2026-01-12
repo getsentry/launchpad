@@ -42,16 +42,13 @@ def safe_filename(artifact_id: str, suffix: str = "") -> str:
     return f"{hash_digest}{suffix}"
 
 
-def safe_chunk_path(checksum: str) -> Path:
-    """Get a safe path for a chunk file, preventing path traversal.
+def safe_chunk_filename(checksum: str) -> str:
+    """Convert checksum to a safe filename using SHA256 hash.
 
-    Resolves the path and verifies it stays within CHUNKS_DIR.
-    Raises HTTPException if the path would escape the allowed directory.
+    This prevents path traversal by ensuring user input never directly
+    becomes part of the filename - only the hash is used.
     """
-    chunk_path = (CHUNKS_DIR / checksum).resolve()
-    if not str(chunk_path).startswith(str(CHUNKS_DIR.resolve())):
-        raise HTTPException(status_code=400, detail="Invalid chunk checksum")
-    return chunk_path
+    return hashlib.sha256(checksum.encode()).hexdigest()[:16]
 
 
 # In-memory storage for test data
@@ -195,8 +192,8 @@ async def upload_chunk(
     # Calculate checksum
     checksum = hashlib.sha1(chunk_data).hexdigest()
 
-    # Store chunk
-    chunk_path = CHUNKS_DIR / checksum
+    # Store chunk using safe filename (hash of checksum prevents path injection)
+    chunk_path = CHUNKS_DIR / safe_chunk_filename(checksum)
     chunk_path.write_bytes(chunk_data)
 
     # Return 200 if successful, 409 if already exists
@@ -231,10 +228,10 @@ async def assemble_file(
     chunks = data["chunks"]
     assemble_type = data["assemble_type"]
 
-    # Check which chunks are missing (safe_chunk_path validates against path traversal)
+    # Check which chunks are missing (safe_chunk_filename hashes input to prevent path injection)
     missing_chunks = []
     for chunk_checksum in chunks:
-        chunk_path = safe_chunk_path(chunk_checksum)
+        chunk_path = CHUNKS_DIR / safe_chunk_filename(chunk_checksum)
         if not chunk_path.exists():
             missing_chunks.append(chunk_checksum)
 
@@ -244,7 +241,7 @@ async def assemble_file(
     # Assemble the file
     file_data = b""
     for chunk_checksum in chunks:
-        chunk_path = safe_chunk_path(chunk_checksum)
+        chunk_path = CHUNKS_DIR / safe_chunk_filename(chunk_checksum)
         file_data += chunk_path.read_bytes()
 
     # Verify checksum
