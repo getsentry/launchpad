@@ -11,7 +11,6 @@ import hashlib
 import hmac
 import json
 import os
-import re
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -43,17 +42,16 @@ def safe_filename(artifact_id: str, suffix: str = "") -> str:
     return f"{hash_digest}{suffix}"
 
 
-# Pattern for valid SHA1 hex checksums (40 hex characters)
-SHA1_HEX_PATTERN = re.compile(r"^[a-f0-9]{40}$")
+def safe_chunk_path(checksum: str) -> Path:
+    """Get a safe path for a chunk file, preventing path traversal.
 
-
-def is_valid_chunk_checksum(checksum: str) -> bool:
-    """Validate that a chunk checksum is a valid SHA1 hex string.
-
-    This prevents path traversal by ensuring chunk checksums can only
-    contain hex characters and are exactly 40 characters long.
+    Resolves the path and verifies it stays within CHUNKS_DIR.
+    Raises HTTPException if the path would escape the allowed directory.
     """
-    return bool(SHA1_HEX_PATTERN.match(checksum))
+    chunk_path = (CHUNKS_DIR / checksum).resolve()
+    if not str(chunk_path).startswith(str(CHUNKS_DIR.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid chunk checksum")
+    return chunk_path
 
 
 # In-memory storage for test data
@@ -233,15 +231,10 @@ async def assemble_file(
     chunks = data["chunks"]
     assemble_type = data["assemble_type"]
 
-    # Validate all chunk checksums to prevent path traversal
-    for chunk_checksum in chunks:
-        if not is_valid_chunk_checksum(chunk_checksum):
-            raise HTTPException(status_code=400, detail=f"Invalid chunk checksum format: {chunk_checksum}")
-
-    # Check which chunks are missing
+    # Check which chunks are missing (safe_chunk_path validates against path traversal)
     missing_chunks = []
     for chunk_checksum in chunks:
-        chunk_path = CHUNKS_DIR / chunk_checksum  # Safe: validated above
+        chunk_path = safe_chunk_path(chunk_checksum)
         if not chunk_path.exists():
             missing_chunks.append(chunk_checksum)
 
@@ -251,7 +244,7 @@ async def assemble_file(
     # Assemble the file
     file_data = b""
     for chunk_checksum in chunks:
-        chunk_path = CHUNKS_DIR / chunk_checksum  # Safe: validated above
+        chunk_path = safe_chunk_path(chunk_checksum)
         file_data += chunk_path.read_bytes()
 
     # Verify checksum
