@@ -149,35 +149,33 @@ class TestE2EFlow:
         assert results["artifact_metadata"], "Artifact metadata should be updated"
         metadata = results["artifact_metadata"]
 
-        # Verify iOS-specific metadata fields (API contract)
-        # These are the fields Sentry expects from Launchpad for iOS apps
-        ios_required_fields = [
+        # Verify common metadata fields (API contract from UpdateData model)
+        required_fields = [
             "app_name",
             "app_id",
             "build_version",
-            "short_version",
+            "artifact_type",
         ]
-        for field in ios_required_fields:
-            assert field in metadata, f"iOS metadata missing required field: {field}"
-            assert metadata[field] is not None, f"iOS metadata field {field} should not be None"
+        for field in required_fields:
+            assert field in metadata, f"Metadata missing required field: {field}"
+            assert metadata[field] is not None, f"Metadata field {field} should not be None"
 
-        # Verify iOS-specific optional fields are present (may be None but key should exist)
-        ios_optional_fields = [
-            "minimum_os_version",
-            "sdk_version",
-            "is_simulator",
-            "codesigning_type",
-            "build_date",
-        ]
-        for field in ios_optional_fields:
-            assert field in metadata, f"iOS metadata missing optional field: {field}"
+        # Verify iOS-specific nested info exists
+        assert "apple_app_info" in metadata, "iOS metadata should have apple_app_info"
+        apple_info = metadata["apple_app_info"]
+        assert apple_info is not None, "apple_app_info should not be None for iOS"
+
+        # Verify iOS-specific fields in apple_app_info
+        ios_fields = ["is_simulator", "codesigning_type", "build_date"]
+        for field in ios_fields:
+            assert field in apple_info, f"apple_app_info missing field: {field}"
 
         # Verify build_date format if present (should be ISO format)
-        if metadata.get("build_date"):
+        if apple_info.get("build_date"):
             try:
-                datetime.fromisoformat(metadata["build_date"])
+                datetime.fromisoformat(apple_info["build_date"])
             except ValueError:
-                raise AssertionError(f"build_date should be ISO format, got: {metadata['build_date']}")
+                raise AssertionError(f"build_date should be ISO format, got: {apple_info['build_date']}")
 
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
@@ -198,7 +196,7 @@ class TestE2EFlow:
         print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
         print(f"  - Insights generated: {len(insights)}")
         print(f"  - App name: {metadata.get('app_name')}")
-        print(f"  - Build date: {metadata.get('build_date')}")
+        print(f"  - Build date: {apple_info.get('build_date')}")
 
     def test_android_apk_full_flow(self):
         """Test full flow with Android .apk file."""
@@ -227,16 +225,21 @@ class TestE2EFlow:
         assert results["artifact_metadata"], "Artifact metadata should be updated"
         metadata = results["artifact_metadata"]
 
-        # Verify Android-specific metadata fields (API contract)
-        android_required_fields = [
+        # Verify common metadata fields (API contract from UpdateData model)
+        required_fields = [
             "app_name",
             "app_id",
-            "version_code",
-            "version_name",
+            "build_version",
+            "artifact_type",
         ]
-        for field in android_required_fields:
-            assert field in metadata, f"Android metadata missing required field: {field}"
-            assert metadata[field] is not None, f"Android metadata field {field} should not be None"
+        for field in required_fields:
+            assert field in metadata, f"Metadata missing required field: {field}"
+            assert metadata[field] is not None, f"Metadata field {field} should not be None"
+
+        # Verify Android-specific nested info exists
+        assert "android_app_info" in metadata, "Android metadata should have android_app_info"
+        android_info = metadata["android_app_info"]
+        assert android_info is not None, "android_app_info should not be None for Android"
 
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
@@ -280,16 +283,21 @@ class TestE2EFlow:
         assert results["artifact_metadata"], "Artifact metadata should be updated"
         metadata = results["artifact_metadata"]
 
-        # Verify Android-specific metadata fields (API contract)
-        android_required_fields = [
+        # Verify common metadata fields (API contract from UpdateData model)
+        required_fields = [
             "app_name",
             "app_id",
-            "version_code",
-            "version_name",
+            "build_version",
+            "artifact_type",
         ]
-        for field in android_required_fields:
-            assert field in metadata, f"Android metadata missing required field: {field}"
-            assert metadata[field] is not None, f"Android metadata field {field} should not be None"
+        for field in required_fields:
+            assert field in metadata, f"Metadata missing required field: {field}"
+            assert metadata[field] is not None, f"Metadata field {field} should not be None"
+
+        # Verify Android-specific nested info exists
+        assert "android_app_info" in metadata, "Android metadata should have android_app_info"
+        android_info = metadata["android_app_info"]
+        assert android_info is not None, "android_app_info should not be None for Android"
 
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
