@@ -187,14 +187,14 @@ class TestE2EFlow:
         assert "insights" in size_analysis, "Size analysis should contain insights"
         assert "treemap" in size_analysis, "Size analysis should contain treemap"
 
-        # Verify insights were generated
+        # Verify insights were generated (insights is a dict keyed by category)
         insights = size_analysis["insights"]
-        assert isinstance(insights, list), "insights should be a list"
-        assert len(insights) > 0, "Should generate at least one insight"
+        assert isinstance(insights, dict), "insights should be a dict"
+        assert len(insights) > 0, "Should generate at least one insight category"
 
         print("✓ iOS E2E test passed!")
         print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
-        print(f"  - Insights generated: {len(insights)}")
+        print(f"  - Insight categories: {list(insights.keys())}")
         print(f"  - App name: {metadata.get('app_name')}")
         print(f"  - Build date: {apple_info.get('build_date')}")
 
@@ -249,11 +249,11 @@ class TestE2EFlow:
         assert "download_size" in size_analysis, "Size analysis should contain download_size"
         assert isinstance(size_analysis["download_size"], int), "download_size should be an integer"
         assert "insights" in size_analysis, "Size analysis should contain insights"
-        assert isinstance(size_analysis["insights"], list), "insights should be a list"
+        assert isinstance(size_analysis["insights"], dict), "insights should be a dict"
 
         print("✓ Android APK E2E test passed!")
         print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
-        print(f"  - Insights generated: {len(size_analysis['insights'])}")
+        print(f"  - Insight categories: {list(size_analysis['insights'].keys())}")
         print(f"  - App name: {metadata.get('app_name')}")
 
     def test_android_aab_full_flow(self):
@@ -307,11 +307,11 @@ class TestE2EFlow:
         assert "download_size" in size_analysis, "Size analysis should contain download_size"
         assert isinstance(size_analysis["download_size"], int), "download_size should be an integer"
         assert "insights" in size_analysis, "Size analysis should contain insights"
-        assert isinstance(size_analysis["insights"], list), "insights should be a list"
+        assert isinstance(size_analysis["insights"], dict), "insights should be a dict"
 
         print("✓ Android AAB E2E test passed!")
         print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
-        print(f"  - Insights generated: {len(size_analysis['insights'])}")
+        print(f"  - Insight categories: {list(size_analysis['insights'].keys())}")
         print(f"  - App name: {metadata.get('app_name')}")
 
     def test_launchpad_health_check(self):
