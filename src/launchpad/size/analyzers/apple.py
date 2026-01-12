@@ -111,7 +111,6 @@ class AppleAppAnalyzer:
         Returns:
             Analysis results including file sizes, binary analysis, and treemap
         """
-        raise RuntimeError("DELIBERATE ERROR: Testing E2E failure detection")
         start_time = time.time()
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
