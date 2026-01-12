@@ -11,6 +11,7 @@ import json
 import os
 import time
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
@@ -148,10 +149,35 @@ class TestE2EFlow:
         assert results["artifact_metadata"], "Artifact metadata should be updated"
         metadata = results["artifact_metadata"]
 
-        # Verify basic metadata
-        assert "app_name" in metadata or "appName" in metadata, "App name should be present"
-        assert "app_id" in metadata or "appId" in metadata, "App ID should be present"
-        assert "build_version" in metadata or "buildVersion" in metadata, "Build version should be present"
+        # Verify iOS-specific metadata fields (API contract)
+        # These are the fields Sentry expects from Launchpad for iOS apps
+        ios_required_fields = [
+            "app_name",
+            "app_id",
+            "build_version",
+            "short_version",
+        ]
+        for field in ios_required_fields:
+            assert field in metadata, f"iOS metadata missing required field: {field}"
+            assert metadata[field] is not None, f"iOS metadata field {field} should not be None"
+
+        # Verify iOS-specific optional fields are present (may be None but key should exist)
+        ios_optional_fields = [
+            "minimum_os_version",
+            "sdk_version",
+            "is_simulator",
+            "codesigning_type",
+            "build_date",
+        ]
+        for field in ios_optional_fields:
+            assert field in metadata, f"iOS metadata missing optional field: {field}"
+
+        # Verify build_date format if present (should be ISO format)
+        if metadata.get("build_date"):
+            try:
+                datetime.fromisoformat(metadata["build_date"])
+            except ValueError:
+                raise AssertionError(f"build_date should be ISO format, got: {metadata['build_date']}")
 
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
@@ -159,17 +185,20 @@ class TestE2EFlow:
         # Verify size analysis contents
         size_analysis = get_size_analysis_raw(artifact_id)
         assert "download_size" in size_analysis, "Size analysis should contain download_size"
+        assert isinstance(size_analysis["download_size"], int), "download_size should be an integer"
         assert "insights" in size_analysis, "Size analysis should contain insights"
         assert "treemap" in size_analysis, "Size analysis should contain treemap"
 
         # Verify insights were generated
         insights = size_analysis["insights"]
+        assert isinstance(insights, list), "insights should be a list"
         assert len(insights) > 0, "Should generate at least one insight"
 
         print("✓ iOS E2E test passed!")
         print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
         print(f"  - Insights generated: {len(insights)}")
-        print(f"  - App name: {metadata.get('app_name') or metadata.get('appName')}")
+        print(f"  - App name: {metadata.get('app_name')}")
+        print(f"  - Build date: {metadata.get('build_date')}")
 
     def test_android_apk_full_flow(self):
         """Test full flow with Android .apk file."""
@@ -198,9 +227,16 @@ class TestE2EFlow:
         assert results["artifact_metadata"], "Artifact metadata should be updated"
         metadata = results["artifact_metadata"]
 
-        # Verify basic metadata
-        assert "app_name" in metadata or "appName" in metadata, "App name should be present"
-        assert "app_id" in metadata or "appId" in metadata, "App ID should be present"
+        # Verify Android-specific metadata fields (API contract)
+        android_required_fields = [
+            "app_name",
+            "app_id",
+            "version_code",
+            "version_name",
+        ]
+        for field in android_required_fields:
+            assert field in metadata, f"Android metadata missing required field: {field}"
+            assert metadata[field] is not None, f"Android metadata field {field} should not be None"
 
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
@@ -208,12 +244,14 @@ class TestE2EFlow:
         # Verify size analysis contents
         size_analysis = get_size_analysis_raw(artifact_id)
         assert "download_size" in size_analysis, "Size analysis should contain download_size"
+        assert isinstance(size_analysis["download_size"], int), "download_size should be an integer"
         assert "insights" in size_analysis, "Size analysis should contain insights"
+        assert isinstance(size_analysis["insights"], list), "insights should be a list"
 
         print("✓ Android APK E2E test passed!")
         print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
         print(f"  - Insights generated: {len(size_analysis['insights'])}")
-        print(f"  - App name: {metadata.get('app_name') or metadata.get('appName')}")
+        print(f"  - App name: {metadata.get('app_name')}")
 
     def test_android_aab_full_flow(self):
         """Test full flow with Android .aab file."""
@@ -242,9 +280,16 @@ class TestE2EFlow:
         assert results["artifact_metadata"], "Artifact metadata should be updated"
         metadata = results["artifact_metadata"]
 
-        # Verify basic metadata
-        assert "app_name" in metadata or "appName" in metadata, "App name should be present"
-        assert "app_id" in metadata or "appId" in metadata, "App ID should be present"
+        # Verify Android-specific metadata fields (API contract)
+        android_required_fields = [
+            "app_name",
+            "app_id",
+            "version_code",
+            "version_name",
+        ]
+        for field in android_required_fields:
+            assert field in metadata, f"Android metadata missing required field: {field}"
+            assert metadata[field] is not None, f"Android metadata field {field} should not be None"
 
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
@@ -252,12 +297,14 @@ class TestE2EFlow:
         # Verify size analysis contents
         size_analysis = get_size_analysis_raw(artifact_id)
         assert "download_size" in size_analysis, "Size analysis should contain download_size"
+        assert isinstance(size_analysis["download_size"], int), "download_size should be an integer"
         assert "insights" in size_analysis, "Size analysis should contain insights"
+        assert isinstance(size_analysis["insights"], list), "insights should be a list"
 
         print("✓ Android AAB E2E test passed!")
         print(f"  - Download size: {size_analysis.get('download_size', 'N/A')} bytes")
         print(f"  - Insights generated: {len(size_analysis['insights'])}")
-        print(f"  - App name: {metadata.get('app_name') or metadata.get('appName')}")
+        print(f"  - App name: {metadata.get('app_name')}")
 
     def test_launchpad_health_check(self):
         """Verify Launchpad service is healthy."""
