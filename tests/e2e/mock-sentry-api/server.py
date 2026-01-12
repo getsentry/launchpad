@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -40,6 +41,19 @@ def safe_filename(artifact_id: str, suffix: str = "") -> str:
     """
     hash_digest = hashlib.sha256(artifact_id.encode()).hexdigest()[:16]
     return f"{hash_digest}{suffix}"
+
+
+# Pattern for valid SHA1 hex checksums (40 hex characters)
+SHA1_HEX_PATTERN = re.compile(r"^[a-f0-9]{40}$")
+
+
+def is_valid_chunk_checksum(checksum: str) -> bool:
+    """Validate that a chunk checksum is a valid SHA1 hex string.
+
+    This prevents path traversal by ensuring chunk checksums can only
+    contain hex characters and are exactly 40 characters long.
+    """
+    return bool(SHA1_HEX_PATTERN.match(checksum))
 
 
 # In-memory storage for test data
@@ -219,10 +233,15 @@ async def assemble_file(
     chunks = data["chunks"]
     assemble_type = data["assemble_type"]
 
+    # Validate all chunk checksums to prevent path traversal
+    for chunk_checksum in chunks:
+        if not is_valid_chunk_checksum(chunk_checksum):
+            raise HTTPException(status_code=400, detail=f"Invalid chunk checksum format: {chunk_checksum}")
+
     # Check which chunks are missing
     missing_chunks = []
     for chunk_checksum in chunks:
-        chunk_path = CHUNKS_DIR / chunk_checksum
+        chunk_path = CHUNKS_DIR / chunk_checksum  # Safe: validated above
         if not chunk_path.exists():
             missing_chunks.append(chunk_checksum)
 
@@ -232,7 +251,7 @@ async def assemble_file(
     # Assemble the file
     file_data = b""
     for chunk_checksum in chunks:
-        chunk_path = CHUNKS_DIR / chunk_checksum
+        chunk_path = CHUNKS_DIR / chunk_checksum  # Safe: validated above
         file_data += chunk_path.read_bytes()
 
     # Verify checksum
