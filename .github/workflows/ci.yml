@@ -288,21 +288,40 @@ jobs:
           docker exec $KAFKA_CONTAINER kafka-topics --bootstrap-server localhost:9092 --create --topic preprod-artifact-events --partitions 1 --replication-factor 1 --if-not-exists
           echo "Topic created successfully"
 
+      - name: Build E2E Docker images
+        run: docker compose -f docker-compose.e2e.yml build
+
+      - name: Start E2E services
+        run: |
+          # Start services in detached mode (minio, mock-sentry-api, launchpad)
+          docker compose -f docker-compose.e2e.yml up -d minio mock-sentry-api launchpad
+
+          # Wait for launchpad to be healthy
+          echo "Waiting for Launchpad to be healthy..."
+          for i in {1..30}; do
+            if docker compose -f docker-compose.e2e.yml ps launchpad | grep -q "healthy"; then
+              echo "Launchpad is ready!"
+              break
+            fi
+            echo "Waiting for Launchpad... attempt $i/30"
+            sleep 5
+          done
+
+          # Show running services
+          docker compose -f docker-compose.e2e.yml ps
+
       - name: Run E2E tests
         run: |
-          # Start E2E stack (will connect to devservices Kafka)
-          docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from e2e-tests
-        timeout-minutes: 15
+          docker compose -f docker-compose.e2e.yml run --rm e2e-tests
+        timeout-minutes: 10
 
-      - name: Show E2E logs on failure
+      - name: Show service logs on failure
         if: failure()
         run: |
           echo "=== Launchpad logs ==="
           docker compose -f docker-compose.e2e.yml logs launchpad
           echo "=== Mock API logs ==="
           docker compose -f docker-compose.e2e.yml logs mock-sentry-api
-          echo "=== E2E test logs ==="
-          docker compose -f docker-compose.e2e.yml logs e2e-tests
           echo "=== Kafka logs ==="
           docker logs $(docker ps -qf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
 
