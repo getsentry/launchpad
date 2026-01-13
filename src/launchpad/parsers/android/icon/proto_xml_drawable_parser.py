@@ -30,11 +30,21 @@ class ProtoXmlDrawableParser(IconParser):
     def __init__(self, extract_dir: Path, proto_res_tables: list[ProtobufResourceTable]) -> None:
         super().__init__(extract_dir)
         self.proto_res_tables = proto_res_tables
+        # Map from id(attributes list) to original protobuf attributes
+        self._attrs_to_pb_attrs: dict[int, list[PbXmlAttribute]] = {}
 
     def _get_attr_value(self, attributes: list, name: str, required: bool = False) -> str | None:
+        # Look up the original protobuf attributes using the converted attributes list id
+        pb_attributes = self._attrs_to_pb_attrs.get(id(attributes))
+        
+        if pb_attributes is None:
+            logger.warning(f"Could not find protobuf attributes for attribute list, using converted attributes")
+            # Fallback: use the converted attributes (this will fail if compiled_item is needed)
+            pb_attributes = attributes
+        
         if required:
-            return ProtoXmlUtils.required_attr_value_by_name(attributes, name, self.proto_res_tables)
-        return ProtoXmlUtils.optional_attr_value_by_name(attributes, name, self.proto_res_tables)
+            return ProtoXmlUtils.required_attr_value_by_name(pb_attributes, name, self.proto_res_tables)
+        return ProtoXmlUtils.optional_attr_value_by_name(pb_attributes, name, self.proto_res_tables)
 
     def _get_resource_path(self, resource_ref: str) -> str | None:
         # Handle different resource reference formats
@@ -79,6 +89,10 @@ class ProtoXmlDrawableParser(IconParser):
     def _convert_pb_element_to_xml_node(self, pb_element: PbXmlElement) -> XmlNode:
         # Convert attributes
         attributes = [self._convert_pb_attribute(attr) for attr in pb_element.attribute]
+        
+        # Store mapping from converted attributes list to original protobuf attributes
+        # This allows _get_attr_value to retrieve the original protobuf attributes
+        self._attrs_to_pb_attrs[id(attributes)] = list(pb_element.attribute)
 
         # Convert child nodes
         child_nodes = []
