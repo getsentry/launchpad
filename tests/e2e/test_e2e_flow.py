@@ -171,11 +171,11 @@ class TestE2EFlow:
         size_analysis = get_size_analysis_raw(artifact_id)
         assert size_analysis["download_size"] == 6502319
 
-        # Verify treemap structure and root size matches download_size
+        # Verify treemap structure (root size is install size, different from download_size)
         treemap = size_analysis["treemap"]
         assert treemap["platform"] == "ios"
         assert treemap["root"]["name"] == "HackerNews"
-        assert treemap["root"]["size"] == 6502319
+        assert treemap["root"]["size"] == 9728000  # Install size, larger than download_size
         assert treemap["root"]["is_dir"] is True
         assert len(treemap["root"]["children"]) > 0
 
