@@ -237,7 +237,7 @@ async def assemble_file(
             return {
                 "state": "error",
                 "missingChunks": [],
-                "detail": f"Invalid JSON in size analysis: {e}",
+                "detail": "Invalid JSON in size analysis",
             }
 
     elif assemble_type == "installable_app":
