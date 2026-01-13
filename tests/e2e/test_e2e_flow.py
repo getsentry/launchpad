@@ -167,19 +167,34 @@ class TestE2EFlow:
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
 
-        # Verify size analysis contents
+        # Verify size analysis contents with exact values
         size_analysis = get_size_analysis_raw(artifact_id)
-        assert size_analysis["download_size"] > 0
-        assert "treemap" in size_analysis
+        assert size_analysis["download_size"] == 6502319
 
-        # Verify expected insight categories for iOS
+        # Verify treemap structure and root size matches download_size
+        treemap = size_analysis["treemap"]
+        assert treemap["platform"] == "ios"
+        assert treemap["root"]["name"] == "HackerNews.app"
+        assert treemap["root"]["size"] == 6502319
+        assert treemap["root"]["is_dir"] is True
+        assert len(treemap["root"]["children"]) > 0
+
+        # Verify expected insight categories and their structure
         insights = size_analysis["insights"]
         assert "duplicate_files" in insights
+        assert insights["duplicate_files"]["total_savings"] > 0
+        assert len(insights["duplicate_files"]["groups"]) > 0
+
         assert "image_optimization" in insights
+        assert insights["image_optimization"]["total_savings"] > 0
+        assert len(insights["image_optimization"]["optimizable_files"]) > 0
+
         assert "main_binary_exported_symbols" in insights
+        assert insights["main_binary_exported_symbols"]["total_savings"] > 0
 
         print("✓ iOS E2E test passed!")
         print(f"  - Download size: {size_analysis['download_size']} bytes")
+        print(f"  - Treemap root size: {treemap['root']['size']} bytes")
         print(f"  - Insight categories: {list(insights.keys())}")
 
     def test_android_apk_full_flow(self):
@@ -222,17 +237,30 @@ class TestE2EFlow:
         # Check size analysis was uploaded
         assert results["has_size_analysis_file"], "Size analysis file should be uploaded"
 
-        # Verify size analysis contents
+        # Verify size analysis contents with exact values
         size_analysis = get_size_analysis_raw(artifact_id)
-        assert size_analysis["download_size"] > 0
+        assert size_analysis["download_size"] == 3670839
 
-        # Verify expected insight categories for Android APK
+        # Verify treemap structure and root size
+        treemap = size_analysis["treemap"]
+        assert treemap["platform"] == "android"
+        assert treemap["root"]["name"] == "Hacker News"
+        assert treemap["root"]["size"] == 7886041
+        assert treemap["root"]["is_dir"] is True
+        assert len(treemap["root"]["children"]) == 14
+
+        # Verify expected insight categories and their structure
         insights = size_analysis["insights"]
         assert "duplicate_files" in insights
+        assert insights["duplicate_files"]["total_savings"] == 51709
+        assert len(insights["duplicate_files"]["groups"]) > 0
+
         assert "multiple_native_library_archs" in insights
+        assert insights["multiple_native_library_archs"]["total_savings"] == 1891208
 
         print("✓ Android APK E2E test passed!")
         print(f"  - Download size: {size_analysis['download_size']} bytes")
+        print(f"  - Treemap root size: {treemap['root']['size']} bytes")
         print(f"  - Insight categories: {list(insights.keys())}")
 
     def test_android_aab_full_flow(self):
@@ -279,14 +307,26 @@ class TestE2EFlow:
 
         # Verify size analysis contents
         size_analysis = get_size_analysis_raw(artifact_id)
+        # AAB download size varies based on extracted APKs - verify it's positive
         assert size_analysis["download_size"] > 0
+
+        # Verify treemap structure and root size
+        treemap = size_analysis["treemap"]
+        assert treemap["platform"] == "android"
+        assert treemap["root"]["name"] == "Hacker News"
+        assert treemap["root"]["size"] == 5932249
+        assert treemap["root"]["is_dir"] is True
+        assert len(treemap["root"]["children"]) == 14
 
         # Verify expected insight categories for Android AAB
         insights = size_analysis["insights"]
         assert "duplicate_files" in insights
+        assert insights["duplicate_files"]["total_savings"] >= 0
+        assert "groups" in insights["duplicate_files"]
 
         print("✓ Android AAB E2E test passed!")
         print(f"  - Download size: {size_analysis['download_size']} bytes")
+        print(f"  - Treemap root size: {treemap['root']['size']} bytes")
         print(f"  - Insight categories: {list(insights.keys())}")
 
     def test_launchpad_health_check(self):
