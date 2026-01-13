@@ -174,7 +174,7 @@ class TestE2EFlow:
         # Verify treemap structure and root size matches download_size
         treemap = size_analysis["treemap"]
         assert treemap["platform"] == "ios"
-        assert treemap["root"]["name"] == "HackerNews.app"
+        assert treemap["root"]["name"] == "HackerNews"
         assert treemap["root"]["size"] == 6502319
         assert treemap["root"]["is_dir"] is True
         assert len(treemap["root"]["children"]) > 0
