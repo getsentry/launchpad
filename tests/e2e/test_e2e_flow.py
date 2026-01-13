@@ -39,7 +39,7 @@ def wait_for_service(url: str, timeout: int = 60, service_name: str = "service")
         try:
             response = requests.get(f"{url}/health", timeout=5)
             if response.status_code == 200:
-                print(f"✓ {service_name} is healthy")
+                print(f"[OK] {service_name} is healthy")
                 return
         except requests.exceptions.RequestException:
             pass
@@ -53,11 +53,18 @@ def upload_artifact_to_mock_api(artifact_id: str, file_path: Path) -> None:
         files = {"file": (file_path.name, f, "application/zip")}
         response = requests.post(f"{MOCK_API_URL}/test/upload-artifact/{artifact_id}", files=files, timeout=30)
         response.raise_for_status()
-        print(f"✓ Uploaded artifact {artifact_id} ({file_path.name})")
+        print(f"[OK] Uploaded artifact {artifact_id} ({file_path.name})")
 
 
 def send_kafka_message(artifact_id: str, org: str, project: str, features: list[str]) -> None:
     """Send a Kafka message to trigger artifact processing."""
+    delivery_error = None
+
+    def delivery_callback(err, msg):
+        nonlocal delivery_error
+        if err:
+            delivery_error = err
+
     producer = Producer({"bootstrap.servers": KAFKA_BOOTSTRAP_SERVERS, "client.id": "e2e-test-producer"})
 
     message = {
@@ -67,9 +74,20 @@ def send_kafka_message(artifact_id: str, org: str, project: str, features: list[
         "requested_features": features,
     }
 
-    producer.produce(KAFKA_TOPIC, key=artifact_id.encode("utf-8"), value=json.dumps(message).encode("utf-8"))
-    producer.flush(timeout=10)
-    print(f"✓ Sent Kafka message for artifact {artifact_id}")
+    producer.produce(
+        KAFKA_TOPIC,
+        key=artifact_id.encode("utf-8"),
+        value=json.dumps(message).encode("utf-8"),
+        callback=delivery_callback,
+    )
+    remaining = producer.flush(timeout=10)
+
+    if delivery_error:
+        raise RuntimeError(f"Kafka message delivery failed: {delivery_error}")
+    if remaining > 0:
+        raise RuntimeError(f"Failed to flush {remaining} Kafka messages")
+
+    print(f"[OK] Sent Kafka message for artifact {artifact_id}")
 
 
 def wait_for_processing(artifact_id: str, timeout: int = 120, check_interval: int = 3) -> Dict[str, Any]:
@@ -86,7 +104,7 @@ def wait_for_processing(artifact_id: str, timeout: int = 120, check_interval: in
             # Check if processing is complete
             # Processing is complete when both metadata is updated AND size analysis file exists
             if results.get("artifact_metadata") and results.get("has_size_analysis_file"):
-                print(f"✓ Processing completed for {artifact_id}")
+                print(f"[OK] Processing completed for {artifact_id}")
                 return results
 
             # Show progress
@@ -192,7 +210,7 @@ class TestE2EFlow:
         assert "main_binary_exported_symbols" in insights
         assert insights["main_binary_exported_symbols"]["total_savings"] > 0
 
-        print("✓ iOS E2E test passed!")
+        print("[OK] iOS E2E test passed!")
         print(f"  - Download size: {size_analysis['download_size']} bytes")
         print(f"  - Treemap root size: {treemap['root']['size']} bytes")
         print(f"  - Insight categories: {list(insights.keys())}")
@@ -258,7 +276,7 @@ class TestE2EFlow:
         assert "multiple_native_library_archs" in insights
         assert insights["multiple_native_library_archs"]["total_savings"] == 1891208
 
-        print("✓ Android APK E2E test passed!")
+        print("[OK] Android APK E2E test passed!")
         print(f"  - Download size: {size_analysis['download_size']} bytes")
         print(f"  - Treemap root size: {treemap['root']['size']} bytes")
         print(f"  - Insight categories: {list(insights.keys())}")
@@ -324,7 +342,7 @@ class TestE2EFlow:
         assert insights["duplicate_files"]["total_savings"] >= 0
         assert "groups" in insights["duplicate_files"]
 
-        print("✓ Android AAB E2E test passed!")
+        print("[OK] Android AAB E2E test passed!")
         print(f"  - Download size: {size_analysis['download_size']} bytes")
         print(f"  - Treemap root size: {treemap['root']['size']} bytes")
         print(f"  - Insight categories: {list(insights.keys())}")
@@ -336,4 +354,35 @@ class TestE2EFlow:
         data = response.json()
         assert data["service"] == "launchpad"
         assert data["status"] == "ok"
-        print("✓ Launchpad health check passed")
+        print("[OK] Launchpad health check passed")
+
+    def test_nonexistent_artifact_error_handling(self):
+        """Test that processing a non-existent artifact is handled gracefully."""
+        artifact_id = "test-nonexistent-artifact"
+        org = "test-org"
+        project = "test-project"
+
+        print("\n=== Testing non-existent artifact error handling ===")
+
+        # Don't upload any artifact - just send Kafka message for non-existent one
+        send_kafka_message(artifact_id, org, project, ["size_analysis"])
+
+        # Wait a bit for processing attempt
+        time.sleep(10)
+
+        # Check results - should have error metadata, no size analysis
+        response = requests.get(f"{MOCK_API_URL}/test/results/{artifact_id}", timeout=10)
+        response.raise_for_status()
+        results = response.json()
+
+        # Verify no size analysis was uploaded (artifact download should have failed)
+        assert not results["has_size_analysis_file"], "Should not have size analysis for non-existent artifact"
+
+        # The artifact metadata may have error information
+        metadata = results.get("artifact_metadata", {})
+        # If error was recorded, it should indicate a download/processing failure
+        if metadata:
+            # Check if error fields are present (depends on implementation)
+            print(f"  Metadata received: {metadata}")
+
+        print("[OK] Non-existent artifact handled correctly (no size analysis produced)")

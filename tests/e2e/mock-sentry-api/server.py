@@ -13,11 +13,10 @@ import json
 import os
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
 
 app = FastAPI(title="Mock Sentry API for Launchpad E2E Tests")
 
@@ -54,7 +53,6 @@ def safe_chunk_filename(checksum: str) -> str:
 # In-memory storage for test data
 artifacts_db: Dict[str, Dict[str, Any]] = {}
 size_analysis_db: Dict[str, Dict[str, Any]] = {}
-assembled_files: Dict[str, bytes] = {}
 
 # Expected RPC secret (should match docker-compose env var)
 RPC_SHARED_SECRET = os.getenv("LAUNCHPAD_RPC_SHARED_SECRET", "test-secret-key-for-e2e")
@@ -68,7 +66,7 @@ def verify_rpc_signature(authorization: str, body: bytes) -> bool:
     signature = authorization.replace("rpcsignature rpc0:", "")
     expected_signature = hmac.new(RPC_SHARED_SECRET.encode("utf-8"), body, hashlib.sha256).hexdigest()
 
-    return signature == expected_signature
+    return hmac.compare_digest(signature, expected_signature)
 
 
 @app.get("/health")
@@ -101,23 +99,19 @@ async def download_artifact(
     range_header = request.headers.get("range")
     if range_header:
         # Parse range header (simplified implementation)
+        file_size = artifact_path.stat().st_size
         range_start = int(range_header.replace("bytes=", "").split("-")[0])
         with open(artifact_path, "rb") as f:
             f.seek(range_start)
             content = f.read()
+        range_end = range_start + len(content) - 1
         return Response(
             content=content,
             status_code=206,
-            headers={"Content-Range": f"bytes {range_start}-{len(content) - 1}/{artifact_path.stat().st_size}"},
+            headers={"Content-Range": f"bytes {range_start}-{range_end}/{file_size}"},
         )
 
     return FileResponse(artifact_path)
-
-
-class UpdateRequest(BaseModel):
-    """Artifact update request model."""
-
-    pass  # Accept any fields
 
 
 @app.put("/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/")
@@ -147,20 +141,6 @@ async def update_artifact(
     updated_fields = list(data.keys())
 
     return {"success": True, "artifactId": artifact_id, "updatedFields": updated_fields}
-
-
-class ChunkOptionsResponse(BaseModel):
-    """Chunk upload options response."""
-
-    url: str
-    chunkSize: int
-    chunksPerRequest: int
-    maxFileSize: int
-    maxRequestSize: int
-    concurrency: int
-    hashAlgorithm: str
-    compression: List[str]
-    accept: List[str]
 
 
 @app.get("/api/0/organizations/{org}/chunk-upload/")
@@ -198,14 +178,6 @@ async def upload_chunk(
 
     # Return 200 if successful, 409 if already exists
     return JSONResponse({"checksum": checksum}, status_code=200)
-
-
-class AssembleRequest(BaseModel):
-    """Assembly request model."""
-
-    checksum: str
-    chunks: List[str]
-    assemble_type: str
 
 
 @app.post("/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/assemble-generic/")
@@ -258,23 +230,28 @@ async def assemble_file(
         result_path = RESULTS_DIR / safe_filename(artifact_id, "_size_analysis.json")
         result_path.write_bytes(file_data)
 
-        # Parse and store in database
+        # Parse and store in database - fail if JSON is invalid
         try:
             size_analysis_db[artifact_id] = json.loads(file_data.decode("utf-8"))
-        except Exception as e:
-            print(f"Error parsing size analysis: {e}")
+        except json.JSONDecodeError as e:
+            return {
+                "state": "error",
+                "missingChunks": [],
+                "detail": f"Invalid JSON in size analysis: {e}",
+            }
 
     elif assemble_type == "installable_app":
         app_path = RESULTS_DIR / safe_filename(artifact_id, "_app")
         app_path.write_bytes(file_data)
 
+    else:
+        return {
+            "state": "error",
+            "missingChunks": [],
+            "detail": f"Unknown assemble_type: {assemble_type}",
+        }
+
     return {"state": "ok", "missingChunks": []}
-
-
-class PutSizeRequest(BaseModel):
-    """Size analysis update request."""
-
-    pass  # Accept any fields
 
 
 @app.put("/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/size/")

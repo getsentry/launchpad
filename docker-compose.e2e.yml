@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Note: This E2E setup leverages your existing devservices Kafka
 # Run `devservices up` before starting these tests
 

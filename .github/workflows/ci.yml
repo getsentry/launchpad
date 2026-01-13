@@ -298,14 +298,22 @@ jobs:
 
           # Wait for launchpad to be healthy
           echo "Waiting for Launchpad to be healthy..."
+          LAUNCHPAD_READY=false
           for i in {1..30}; do
             if docker compose -f docker-compose.e2e.yml ps launchpad | grep -q "healthy"; then
               echo "Launchpad is ready!"
+              LAUNCHPAD_READY=true
               break
             fi
             echo "Waiting for Launchpad... attempt $i/30"
             sleep 5
           done
+
+          if [ "$LAUNCHPAD_READY" = "false" ]; then
+            echo "ERROR: Launchpad failed to become healthy"
+            docker compose -f docker-compose.e2e.yml logs launchpad
+            exit 1
+          fi
 
           # Show running services
           docker compose -f docker-compose.e2e.yml ps
