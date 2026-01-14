@@ -581,10 +581,19 @@ class CodeSignatureParser:
 
             logger.debug(f"Signature magic: 0x{magic:08x}, length: {signature_length}")
 
+            # Check if there's actual signature data (not just the header)
+            if signature_length <= 8:
+                logger.debug("Signature slot present but empty (length <= 8)")
+                return None
+
             # Extract the signature content (skip the 8-byte header)
             sig_start = sig_offset + 8
             sig_end = sig_offset + signature_length
             signature_content = bytes(content[sig_start:sig_end])
+
+            if len(signature_content) == 0:
+                logger.debug("No signature content to parse")
+                return None
 
             # Parse the CMS signature
             try:
