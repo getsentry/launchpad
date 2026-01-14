@@ -233,7 +233,7 @@ async def assemble_file(
         # Parse and store in database - fail if JSON is invalid
         try:
             size_analysis_db[artifact_id] = json.loads(file_data.decode("utf-8"))
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             return {
                 "state": "error",
                 "missingChunks": [],
