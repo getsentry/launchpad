@@ -141,8 +141,8 @@ class IconParser:
 
     def _render_vector_drawable(self, root_element: XmlNode) -> bytes | None:
         # Extract vector attributes
-        width = self._get_attr_value(root_element.attributes, "width", required=True)
-        height = self._get_attr_value(root_element.attributes, "height", required=True)
+        width = self._get_attr_value(root_element.attributes, "width")
+        height = self._get_attr_value(root_element.attributes, "height")
         viewport_width = self._get_attr_value(root_element.attributes, "viewportWidth")
         viewport_height = self._get_attr_value(root_element.attributes, "viewportHeight")
         tint = self._get_attr_value(root_element.attributes, "tint")

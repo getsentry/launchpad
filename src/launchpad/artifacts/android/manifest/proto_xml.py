@@ -356,11 +356,11 @@ class ProtoXmlUtils:
         if not value:
             logger.debug("could not find string value for attribute matching filter, trying to parse compiled value")
 
-            if not attribute.compiled_item:
+            compiled_item = getattr(attribute, "compiled_item", None)
+            if not compiled_item:
                 logger.debug("could not find compiledItem for attribute matching filter")
                 return None
 
-            compiled_item = attribute.compiled_item
             if compiled_item.HasField("str"):
                 return str(compiled_item.str.value)
             elif compiled_item.HasField("ref"):
