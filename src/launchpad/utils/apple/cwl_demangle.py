@@ -189,11 +189,11 @@ def _demangle_chunk_worker(
             )
         except subprocess.TimeoutExpired:
             elapsed = time.time() - start_time
-            logger.warning(f"Chunk {chunk_idx} timed out after {elapsed:.1f}s")
+            logger.exception("cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
             return {}
         except subprocess.CalledProcessError:
             elapsed = time.time() - start_time
-            logger.error(f"Chunk {chunk_idx} failed after {elapsed:.1f}s")
+            logger.exception("cwl-demangle subprocess failed", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
             return {}
 
         batch_result = json.loads(result.stdout)
