@@ -17,6 +17,9 @@ logger = get_logger(__name__)
 # Default timeout for cwl-demangle subprocess (in seconds)
 DEFAULT_DEMANGLE_TIMEOUT = int(os.environ.get("LAUNCHPAD_DEMANGLE_TIMEOUT", "10"))
 
+# Default chunk size for batching symbols
+DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "500"))
+
 
 @dataclass
 class CwlDemangleResult:
@@ -79,7 +82,7 @@ class CwlDemangler:
         self.queue.clear()
 
         # Process in chunks to avoid potential issues with large inputs
-        chunk_size = 500
+        chunk_size = DEFAULT_CHUNK_SIZE
         total_chunks = (len(names) + chunk_size - 1) // chunk_size
 
         chunks: List[Tuple[List[str], int]] = []
@@ -88,7 +91,7 @@ class CwlDemangler:
             chunk_idx = i // chunk_size
             chunks.append((chunk, chunk_idx))
 
-        # Only use parallel processing if workload justifies multiprocessing overhead (≥4 chunks = ≥20K symbols)
+        # Only use parallel processing if workload justifies multiprocessing overhead (≥4 chunks)
         do_in_parallel = self.use_parallel and total_chunks >= 4
 
         logger.debug(
