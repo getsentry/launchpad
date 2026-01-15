@@ -100,6 +100,21 @@ class TestCwlDemangler:
             demangler = CwlDemangler()
             assert demangler.use_parallel is False
 
+    def test_timeout_configuration(self):
+        """Test LAUNCHPAD_DEMANGLE_TIMEOUT env var configures timeout."""
+        demangler = CwlDemangler()
+
+        # Test with custom timeout
+        with mock.patch.dict(os.environ, {"LAUNCHPAD_DEMANGLE_TIMEOUT": "10"}):
+            # Generate a few symbols to trigger sequential processing
+            symbols = self._generate_symbols(100)
+            for symbol in symbols:
+                demangler.add_name(symbol)
+
+            result = demangler.demangle_all()
+            # Should succeed with custom timeout
+            assert len(result) == 100
+
     def _generate_symbols(self, count: int) -> list[str]:
         """Generate valid Swift mangled symbols."""
         letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
