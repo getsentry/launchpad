@@ -89,6 +89,12 @@ class FileInfo(BaseModel):
     idiom: str | None = Field(default=None, exclude=True, description="Device idiom for asset catalog images")
     colorspace: str | None = Field(default=None, exclude=True, description="Color space for asset catalog images")
     scale: int | None = Field(default=None, exclude=True, description="Scale factor for asset catalog images")
+    # Directory-specific fields
+    size_including_children: int | None = Field(
+        default=None,
+        exclude=True,
+        description="Total size including all children (for directories). None for files.",
+    )
 
 
 class ComponentType(IntEnum):

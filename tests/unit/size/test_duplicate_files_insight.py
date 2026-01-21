@@ -134,6 +134,7 @@ class TestDuplicateFilesInsight:
                 treemap_type=TreemapType.OTHER,
                 hash="bundle_hash",  # Same hash for identical content
                 is_dir=True,
+                size_including_children=12000,
             ),
             # Second SwiftMath_SwiftMath.bundle directory (duplicate)
             FileInfo(
@@ -146,6 +147,7 @@ class TestDuplicateFilesInsight:
                 treemap_type=TreemapType.OTHER,
                 hash="bundle_hash",  # Same hash for identical content
                 is_dir=True,
+                size_including_children=12000,
             ),
         ]
 
@@ -239,6 +241,7 @@ class TestDuplicateFilesInsight:
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
+                size_including_children=3500,
             ),
             # Second Resources.bundle directory (duplicate)
             FileInfo(
@@ -249,6 +252,7 @@ class TestDuplicateFilesInsight:
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
+                size_including_children=3500,
             ),
         ]
 
@@ -660,6 +664,7 @@ class TestDuplicateFilesInsight:
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
+                size_including_children=3000,
             ),
             # Second Resources.bundle directory (duplicate)
             FileInfo(
@@ -670,6 +675,7 @@ class TestDuplicateFilesInsight:
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
+                size_including_children=3000,
             ),
         ]
 

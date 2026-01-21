@@ -251,6 +251,7 @@ def _hash_directories_bottom_up(
 
         # Store just the directory's own entry size (not including children)
         # The treemap builder will add this to children's sum
+        total_content_size = d.size + children_total_size
         updated_dir = FileInfo(
             full_path=d.full_path,
             path=d.path,
@@ -260,10 +261,11 @@ def _hash_directories_bottom_up(
             treemap_type=d.treemap_type,
             is_dir=True,
             children=d.children,
+            size_including_children=total_content_size,
         )
         updated[d.path] = updated_dir
         dir_hash_lookup[d.path] = digest
-        dir_size_lookup[d.path] = d.size + children_total_size
+        dir_size_lookup[d.path] = total_content_size
 
     return updated
 

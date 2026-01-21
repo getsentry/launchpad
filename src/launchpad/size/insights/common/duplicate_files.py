@@ -42,16 +42,20 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
                 continue
 
             # Savings if we keep the largest one and dedupe the rest
-            dirs.sort(key=lambda d: (-d.size, d.path))
+            # size_including_children is always set for directories
+            dirs.sort(key=lambda d: (-d.size_including_children, d.path))  # type: ignore[arg-type]
             if len(dirs) < 2:
                 continue
 
-            group_size = sum(d.size for d in dirs)
-            savings = group_size - dirs[0].size
+            group_size = sum(d.size_including_children for d in dirs)  # type: ignore[misc]
+            savings = group_size - dirs[0].size_including_children  # type: ignore[operator]
             if savings <= 0:
                 continue
 
-            files_with_savings = [FileSavingsResult(file_path=d.path, total_savings=d.size) for d in dirs]
+            files_with_savings = [
+                FileSavingsResult(file_path=d.path, total_savings=d.size_including_children)
+                for d in dirs  # type: ignore[arg-type]
+            ]
             groups.append(
                 FileSavingsResultGroup(
                     name=os.path.basename(dirs[0].path) or "/",
@@ -126,7 +130,8 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         """
         by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
         for f in directories:
-            if f.hash and f.size >= self.MIN_DIR_SIZE_BYTES:
+            # size_including_children is always set for directories
+            if f.hash and f.size_including_children >= self.MIN_DIR_SIZE_BYTES:  # type: ignore[operator]
                 by_hash[f.hash].append(f)
 
         return [dirs for dirs in by_hash.values() if len(dirs) > 1]
