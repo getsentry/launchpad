@@ -42,20 +42,16 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
                 continue
 
             # Savings if we keep the largest one and dedupe the rest
-            # size_including_children is always set for directories
-            dirs.sort(key=lambda d: (-d.size_including_children, d.path))  # type: ignore[arg-type]
+            dirs.sort(key=lambda d: (-self._dir_size(d), d.path))
             if len(dirs) < 2:
                 continue
 
-            group_size = sum(d.size_including_children for d in dirs)  # type: ignore[misc]
-            savings = group_size - dirs[0].size_including_children  # type: ignore[operator]
+            group_size = sum(self._dir_size(d) for d in dirs)
+            savings = group_size - self._dir_size(dirs[0])
             if savings <= 0:
                 continue
 
-            files_with_savings = [
-                FileSavingsResult(file_path=d.path, total_savings=d.size_including_children)
-                for d in dirs  # type: ignore[arg-type]
-            ]
+            files_with_savings = [FileSavingsResult(file_path=d.path, total_savings=self._dir_size(d)) for d in dirs]
             groups.append(
                 FileSavingsResultGroup(
                     name=os.path.basename(dirs[0].path) or "/",
@@ -114,6 +110,12 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
     # Helpers
     # -------------------------------------------------------------------------
 
+    @staticmethod
+    def _dir_size(d: FileInfo) -> int:
+        """Get size_including_children for a directory, asserting it's set."""
+        assert d.size_including_children is not None
+        return d.size_including_children
+
     def _flatten_files(self, files: List[FileInfo]) -> List[FileInfo]:
         """Recursively flatten files, extracting nested children (e.g., assets within .car files)."""
         result: List[FileInfo] = []
@@ -130,8 +132,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         """
         by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
         for f in directories:
-            # size_including_children is always set for directories
-            if f.hash and f.size_including_children >= self.MIN_DIR_SIZE_BYTES:  # type: ignore[operator]
+            if f.hash and self._dir_size(f) >= self.MIN_DIR_SIZE_BYTES:
                 by_hash[f.hash].append(f)
 
         return [dirs for dirs in by_hash.values() if len(dirs) > 1]

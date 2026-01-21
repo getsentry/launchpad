@@ -129,12 +129,12 @@ class TestDuplicateFilesInsight:
             FileInfo(
                 full_path=Path("SwiftMath_SwiftMath.bundle"),
                 path="SwiftMath_SwiftMath.bundle",
-                size=12000,  # Total size of all files in bundle
+                size=4096,  # Directory entry size
                 file_type="directory",
                 treemap_type=TreemapType.OTHER,
                 hash="bundle_hash",  # Same hash for identical content
                 is_dir=True,
-                size_including_children=12000,
+                size_including_children=12000,  # Total content size (5000 + 4000 + 3000)
             ),
             # Second SwiftMath_SwiftMath.bundle directory (duplicate)
             FileInfo(
@@ -142,12 +142,12 @@ class TestDuplicateFilesInsight:
                     "Frameworks/SwiftMath_-5E59CDD896963160_PackageProduct.framework/SwiftMath_SwiftMath.bundle"
                 ),
                 path="Frameworks/SwiftMath_-5E59CDD896963160_PackageProduct.framework/SwiftMath_SwiftMath.bundle",
-                size=12000,  # Same total size
+                size=4096,  # Directory entry size
                 file_type="directory",
                 treemap_type=TreemapType.OTHER,
                 hash="bundle_hash",  # Same hash for identical content
                 is_dir=True,
-                size_including_children=12000,
+                size_including_children=12000,  # Total content size
             ),
         ]
 
@@ -169,6 +169,12 @@ class TestDuplicateFilesInsight:
         # Bundle savings = total size of one bundle (smaller one gets eliminated)
         bundle_size = 5000 + 4000 + 3000  # 12000 per bundle
         assert bundle_group.total_savings == bundle_size
+
+        # Each directory should report its full content size (size_including_children),
+        # not just the directory entry size (~4KB). This catches the bug where d.size
+        # was used instead of d.size_including_children for directory savings.
+        for file_result in bundle_group.files:
+            assert file_result.total_savings == bundle_size
 
         # Find the icon group
         icon_group = next((g for g in result.groups if g.name == "icon.png"), None)
@@ -236,23 +242,23 @@ class TestDuplicateFilesInsight:
             FileInfo(
                 full_path=Path("Frameworks/MyFramework.framework/Resources.bundle"),
                 path="Frameworks/MyFramework.framework/Resources.bundle",
-                size=3500,  # Total size of all files in bundle (2000 + 1500)
+                size=4096,  # Directory entry size
                 file_type="directory",
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
-                size_including_children=3500,
+                size_including_children=3500,  # Total content size (2000 + 1500)
             ),
             # Second Resources.bundle directory (duplicate)
             FileInfo(
                 full_path=Path("Backup/MyFramework.framework/Resources.bundle"),
                 path="Backup/MyFramework.framework/Resources.bundle",
-                size=3500,  # Same total size
+                size=4096,  # Directory entry size
                 file_type="directory",
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
-                size_including_children=3500,
+                size_including_children=3500,  # Total content size
             ),
         ]
 
@@ -659,23 +665,23 @@ class TestDuplicateFilesInsight:
             FileInfo(
                 full_path=Path("Framework1.framework/Resources.bundle"),
                 path="Framework1.framework/Resources.bundle",
-                size=3000,  # Total size of all files in bundle (1000 + 2000)
+                size=4096,  # Directory entry size
                 file_type="directory",
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
-                size_including_children=3000,
+                size_including_children=3000,  # Total content size (1000 + 2000)
             ),
             # Second Resources.bundle directory (duplicate)
             FileInfo(
                 full_path=Path("Framework2.framework/Resources.bundle"),
                 path="Framework2.framework/Resources.bundle",
-                size=3000,  # Same total size
+                size=4096,  # Directory entry size
                 file_type="directory",
                 treemap_type=TreemapType.OTHER,
                 hash="resources_bundle_hash",  # Same hash for identical content
                 is_dir=True,
-                size_including_children=3000,
+                size_including_children=3000,  # Total content size
             ),
         ]
 
