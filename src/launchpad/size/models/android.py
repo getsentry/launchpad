@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import BaseAnalysisResults, BaseAppInfo
@@ -14,6 +16,8 @@ from .insights import (
 
 class AndroidInsightResults(BaseModel):
     model_config = ConfigDict(frozen=True)
+
+    platform: Literal["android"] = "android"
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
     webp_optimization: WebPOptimizationInsightResult | None = Field(None, description="WebP optimization analysis")

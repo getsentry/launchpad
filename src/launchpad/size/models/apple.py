@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -77,6 +77,8 @@ class AppleInsightResults(BaseModel):
     """Collection of all insight results."""
 
     model_config = ConfigDict(frozen=True)
+
+    platform: Literal["apple"] = "apple"
 
     duplicate_files: DuplicateFilesInsightResult | None = Field(None, description="Duplicate files analysis")
     large_images: LargeImageFileInsightResult | None = Field(None, description="Large image files analysis")
