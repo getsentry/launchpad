@@ -27,6 +27,9 @@ logger = get_logger(__name__)
 # Platform-specific filesystem block sizes (in bytes)
 FILESYSTEM_BLOCK_SIZES = {
     "ios": APPLE_FILESYSTEM_BLOCK_SIZE,
+    "macos": APPLE_FILESYSTEM_BLOCK_SIZE,
+    "tvos": APPLE_FILESYSTEM_BLOCK_SIZE,
+    "watchos": APPLE_FILESYSTEM_BLOCK_SIZE,
     "android": 4 * 1024,
 }
 
@@ -35,7 +38,7 @@ class TreemapBuilder:
     def __init__(
         self,
         app_name: str,
-        platform: Literal["ios", "android"],
+        platform: Literal["ios", "macos", "tvos", "watchos", "android"],
         filesystem_block_size: int | None = None,
         # Optional presentation tweak: collapse one-child directory chains (off by default)
         compress_paths: bool = False,
