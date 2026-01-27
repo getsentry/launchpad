@@ -129,6 +129,7 @@ class TreemapElement(BaseModel):
     """ Some files (like zip files) are not directories but have children. """
     children: List[TreemapElement] = Field(default_factory=list, description="Child elements")
     misc: TreemapElementMisc | None = Field(None, description="Optional miscellaneous data for this element")
+    flagged_insights: List[str] = Field(default_factory=list, description="Flagged insights keys for this element")
 
 
 class TreemapResults(BaseModel):

@@ -21,6 +21,7 @@ from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsParser
 from launchpad.parsers.apple.macho_parser import MachOParser
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
+from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
 from launchpad.size.insights.apple.image_optimization import ImageOptimizationInsight
 from launchpad.size.insights.apple.localized_strings_minify import MinifyLocalizedStringsInsight
@@ -40,6 +41,7 @@ from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
+from launchpad.size.utils.insight_path_map import build_insight_path_map
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
@@ -146,7 +148,7 @@ class AppleAppAnalyzer:
         treemap = None
         binary_analysis: List[MachOBinaryAnalysis] = []
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] = {}
-        hermes_reports = {}
+        hermes_reports: Dict[str, HermesReport] = {}
 
         if not self.skip_treemap and not self.skip_component_analysis:
             binaries = artifact.get_all_binary_paths()
@@ -186,22 +188,17 @@ class AppleAppAnalyzer:
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
-            treemap_builder = TreemapBuilder(
-                app_name=app_info.name,
-                platform="ios",
-                binary_analysis_map=binary_analysis_map,
-                hermes_reports=hermes_reports,
-            )
-            treemap = treemap_builder.build_file_treemap(file_analysis)
-
+        # Generate insights BEFORE treemap so we can tag nodes with flagged insights
         insights: AppleInsightResults | None = None
+        insight_path_map: Dict[str, List[str]] = {}
+
         if not self.skip_insights:
             logger.info("size.apple.generate_insights")
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
-                treemap=treemap,
+                treemap=None,  # Not available yet
                 hermes_reports=hermes_reports,
             )
             insights = AppleInsightResults(
@@ -245,6 +242,19 @@ class AppleAppAnalyzer:
                 #     VideoCompressionInsight, insights_input, "video_compression"
                 # ),
             )
+
+            insight_path_map = build_insight_path_map(insights)
+
+        # Build treemap with insight path map for tagging flagged nodes
+        if not self.skip_treemap and not self.skip_component_analysis:
+            treemap_builder = TreemapBuilder(
+                app_name=app_info.name,
+                platform="ios",
+                binary_analysis_map=binary_analysis_map,
+                hermes_reports=hermes_reports,
+                insight_path_map=insight_path_map,
+            )
+            treemap = treemap_builder.build_file_treemap(file_analysis)
 
         analysis_duration = time.time() - start_time
         results = AppleAnalysisResults(

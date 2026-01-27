@@ -25,6 +25,7 @@ from launchpad.size.models.common import ANDROID_ANALYSIS_VERSION, FileAnalysis,
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.android_bundle_size import calculate_apk_download_size, calculate_apk_install_size
+from launchpad.size.utils.insight_path_map import build_insight_path_map
 from launchpad.utils.file_utils import calculate_file_hash
 from launchpad.utils.logging import get_logger
 from launchpad.utils.metadata_extractor import extract_metadata_from_zip
@@ -91,27 +92,21 @@ class AndroidAnalyzer:
         file_analysis = self._get_file_analysis(apks)
         class_definitions = self._get_class_definitions(apks)
         hermes_reports = self._get_hermes_reports(apks)
-        treemap_builder = TreemapBuilder(
-            app_name=app_info.name,
-            platform="android",
-            class_definitions=class_definitions,
-            hermes_reports=hermes_reports,
-        )
-
-        logger.debug("Building file treemap")
-        treemap = treemap_builder.build_file_treemap(file_analysis)
 
         # Calculate download and install sizes
         logger.debug("Calculating APK download and install sizes")
         download_size, install_size = self._calculate_apk_sizes(apks)
 
+        # Generate insights BEFORE treemap so we can tag nodes with flagged insights
         insights: AndroidInsightResults | None = None
+        insight_path_map: dict[str, list[str]] = {}
+
         if not self.skip_insights:
             logger.info("Generating insights from analysis results")
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
-                treemap=treemap,
+                treemap=None,  # Not available yet
                 binary_analysis=[],
                 hermes_reports=hermes_reports,
             )
@@ -124,6 +119,20 @@ class AndroidAnalyzer:
                 hermes_debug_info=HermesDebugInfoInsight().generate(insights_input),
                 multiple_native_library_archs=MultipleNativeLibraryArchInsight().generate(insights_input),
             )
+
+            insight_path_map = build_insight_path_map(insights)
+
+        # Build treemap with insight path map for tagging flagged nodes
+        treemap_builder = TreemapBuilder(
+            app_name=app_info.name,
+            platform="android",
+            class_definitions=class_definitions,
+            hermes_reports=hermes_reports,
+            insight_path_map=insight_path_map,
+        )
+
+        logger.debug("Building file treemap")
+        treemap = treemap_builder.build_file_treemap(file_analysis)
 
         analysis_duration = time.time() - start_time
         return AndroidAnalysisResults(

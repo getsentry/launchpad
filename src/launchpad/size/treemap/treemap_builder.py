@@ -42,6 +42,7 @@ class TreemapBuilder:
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
         hermes_reports: Dict[str, HermesReport] | None = None,
+        insight_path_map: Dict[str, List[str]] | None = None,
     ) -> None:
         self.app_name = app_name
         self.platform = platform
@@ -49,6 +50,7 @@ class TreemapBuilder:
         self.class_definitions = class_definitions or []
         self.hermes_reports = hermes_reports or {}
         self.compress_paths = compress_paths
+        self.insight_path_map = insight_path_map or {}
 
         if filesystem_block_size is not None:
             self.filesystem_block_size = filesystem_block_size
@@ -78,6 +80,7 @@ class TreemapBuilder:
             path=None,
             is_dir=True,
             children=children,
+            misc=None,
         )
 
         if self.compress_paths:
@@ -95,6 +98,7 @@ class TreemapBuilder:
     def _create_file_element(self, file_info: FileInfo, display_name: str) -> TreemapElement:
         default_element_builder = DefaultFileElementBuilder(
             filesystem_block_size=self.filesystem_block_size,
+            insight_path_map=self.insight_path_map,
         )
 
         element_builder: TreemapElementBuilder = default_element_builder
@@ -118,6 +122,12 @@ class TreemapBuilder:
         element = element_builder.build_element(file_info, display_name)
         if element is None:
             element = default_element_builder.build_element(file_info, display_name)
+
+        # Tag element with flagged insights
+        flagged = self.insight_path_map.get(file_info.path, [])
+        if flagged:
+            element = element.model_copy(update={"flagged_insights": flagged})
+
         return element
 
     def _build_file_hierarchy(self, file_analysis: FileAnalysis) -> List[TreemapElement]:
@@ -202,14 +212,22 @@ class TreemapBuilder:
             dir_entry_size = self.directory_sizes.get(dir_path, 0)
             total_size += dir_entry_size
 
-            return TreemapElement(
+            element = TreemapElement(
                 name=dir_name or dir_path,  # fall back if basename is empty
                 size=total_size,
                 type=self._get_directory_type(dir_name, dir_path),
                 path=dir_path,
                 is_dir=True,
                 children=children,
+                misc=None,
             )
+
+            # Tag directory with flagged insights
+            flagged = self.insight_path_map.get(dir_path, [])
+            if flagged:
+                element = element.model_copy(update={"flagged_insights": flagged})
+
+            return element
 
         # Build top-level directories (e.g., "Frameworks", "PlugIns", "javax", etc.)
         top_level_dirs: set[str] = {d for d in all_dirs if len(PPath(d).parts) == 1}
