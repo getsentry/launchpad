@@ -5,7 +5,6 @@ from typing import Dict, Protocol, Sequence, TypeVar
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.models.apple import MachOBinaryAnalysis
 from launchpad.size.models.common import BaseAppInfo, FileAnalysis
-from launchpad.size.models.treemap import TreemapResults
 
 T_co = TypeVar("T_co", covariant=True)
 
@@ -14,7 +13,6 @@ T_co = TypeVar("T_co", covariant=True)
 class InsightsInput:
     app_info: BaseAppInfo
     file_analysis: FileAnalysis
-    treemap: TreemapResults | None
     binary_analysis: Sequence[MachOBinaryAnalysis]
     hermes_reports: Dict[str, HermesReport] | None = None
 

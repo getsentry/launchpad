@@ -106,7 +106,6 @@ class AndroidAnalyzer:
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
-                treemap=None,  # Not available yet
                 binary_analysis=[],
                 hermes_reports=hermes_reports,
             )

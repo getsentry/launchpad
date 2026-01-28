@@ -198,7 +198,6 @@ class AppleAppAnalyzer:
                 app_info=app_info,
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
-                treemap=None,  # Not available yet
                 hermes_reports=hermes_reports,
             )
             insights = AppleInsightResults(
