@@ -22,7 +22,7 @@ def build_insight_path_map(
     if insights is None:
         return {}
 
-    path_map: dict[str, list[str]] = defaultdict(list)
+    path_map: dict[str, set[str]] = defaultdict(set)
 
     for field_name in insights.model_fields:
         result = getattr(insights, field_name, None)
@@ -33,7 +33,6 @@ def build_insight_path_map(
             continue
 
         for path in result.get_file_paths():
-            if field_name not in path_map[path]:
-                path_map[path].append(field_name)
+            path_map[path].add(field_name)
 
-    return dict(path_map)
+    return {k: list(v) for k, v in path_map.items()}
