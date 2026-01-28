@@ -60,7 +60,6 @@ class TestHermesDebugInfoInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
             hermes_reports=hermes_reports,
         )
@@ -117,7 +116,6 @@ class TestHermesDebugInfoInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
             hermes_reports=hermes_reports,
         )
@@ -145,7 +143,6 @@ class TestHermesDebugInfoInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
             hermes_reports=hermes_reports,
         )
@@ -171,7 +168,6 @@ class TestHermesDebugInfoInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
             hermes_reports=None,
         )
@@ -233,7 +229,6 @@ class TestHermesDebugInfoInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
             hermes_reports=hermes_reports,
         )

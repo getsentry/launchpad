@@ -114,7 +114,6 @@ class TestImageOptimizationInsightIntegration:
             app_info=app_info,
             file_analysis=sample_file_analysis,
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 
@@ -212,7 +211,6 @@ class TestImageOptimizationInsightIntegration:
             ),
             file_analysis=file_analysis,
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 
@@ -252,7 +250,6 @@ class TestImageOptimizationInsightIntegration:
             app_info=insights_input.app_info,
             file_analysis=FileAnalysis(items=[file_info]),
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 
@@ -287,7 +284,6 @@ class TestImageOptimizationInsightIntegration:
             app_info=insights_input.app_info,
             file_analysis=FileAnalysis(items=[file_info]),
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 
@@ -329,7 +325,6 @@ class TestImageOptimizationInsightIntegration:
             app_info=insights_input.app_info,
             file_analysis=FileAnalysis(items=[file_info]),
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 
@@ -360,7 +355,6 @@ class TestImageOptimizationInsightIntegration:
             ),
             file_analysis=FileAnalysis(items=[]),
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 
@@ -390,7 +384,6 @@ class TestImageOptimizationInsightIntegration:
             app_info=insights_input.app_info,
             file_analysis=file_analysis,
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 

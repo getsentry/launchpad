@@ -18,7 +18,6 @@ class TestMultipleNativeLibraryArchInsight:
         return InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=file_analysis,
-            treemap=None,
             binary_analysis=[],
         )
 

@@ -46,7 +46,6 @@ class TestLargeAudioFileInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -90,7 +89,6 @@ class TestLargeAudioFileInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -104,7 +102,6 @@ class TestLargeAudioFileInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -128,7 +125,6 @@ class TestLargeAudioFileInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -170,7 +166,6 @@ class TestLargeAudioFileInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -228,7 +223,6 @@ class TestLargeAudioFileInsight:
         insights_input = InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 

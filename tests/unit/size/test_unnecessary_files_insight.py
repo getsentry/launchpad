@@ -23,7 +23,6 @@ class TestUnnecessaryFilesInsight:
         return InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 

@@ -66,7 +66,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[binary_analysis],
         )
 
@@ -121,7 +120,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[binary_analysis],
         )
 
@@ -183,7 +181,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[binary_analysis],
         )
 
@@ -313,7 +310,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[binary_analysis_1, binary_analysis_2, binary_analysis_3],
         )
 
@@ -381,7 +377,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[binary_analysis],
         )
 
@@ -432,7 +427,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[binary_analysis],
         )
 
@@ -490,7 +484,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[binary_analysis],
         )
 
@@ -515,7 +508,6 @@ class TestStripSymbolsInsight:
         insights_input = InsightsInput(
             app_info=BaseAppInfo(name="TestApp", version="1.0", build="1", app_id="com.testapp"),
             file_analysis=FileAnalysis(items=[]),
-            treemap=None,
             binary_analysis=[],  # Empty list
         )
 

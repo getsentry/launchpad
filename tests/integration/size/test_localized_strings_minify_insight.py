@@ -218,7 +218,6 @@ class TestMinifyLocalizedStringsInsight:
                 ],
             ),
             binary_analysis=[],
-            treemap=None,
             hermes_reports={},
         )
 
@@ -269,7 +268,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -309,7 +307,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -345,7 +342,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -394,7 +390,6 @@ class TestMinifyLocalizedStringsInsight:
                     items=files,
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -437,7 +432,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -475,7 +469,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -549,7 +542,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -591,7 +583,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -640,7 +631,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 
@@ -687,7 +677,6 @@ class TestMinifyLocalizedStringsInsight:
                     ],
                 ),
                 binary_analysis=[],
-                treemap=None,
                 hermes_reports={},
             )
 

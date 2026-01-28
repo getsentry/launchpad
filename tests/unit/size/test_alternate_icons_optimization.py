@@ -1,7 +1,6 @@
 import tempfile
 
 from pathlib import Path
-from unittest.mock import Mock
 
 from PIL import Image
 
@@ -64,7 +63,6 @@ class TestAlternateIconsOptimizationInsight:
         insights_input = InsightsInput(
             app_info=app_info,
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -88,7 +86,6 @@ class TestAlternateIconsOptimizationInsight:
         insights_input = InsightsInput(
             app_info=app_info,
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -163,7 +160,6 @@ class TestAlternateIconsOptimizationInsight:
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
-                treemap=Mock(),
                 binary_analysis=[],
             )
 
@@ -239,7 +235,6 @@ class TestAlternateIconsOptimizationInsight:
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
-                treemap=Mock(),
                 binary_analysis=[],
             )
 
@@ -284,7 +279,6 @@ class TestAlternateIconsOptimizationInsight:
         insights_input = InsightsInput(
             app_info=app_info,
             file_analysis=file_analysis,
-            treemap=Mock(),
             binary_analysis=[],
         )
 
@@ -336,7 +330,6 @@ class TestAlternateIconsOptimizationInsight:
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
-                treemap=Mock(),
                 binary_analysis=[],
             )
 
@@ -404,7 +397,6 @@ class TestAlternateIconsOptimizationInsight:
             insights_input = InsightsInput(
                 app_info=app_info,
                 file_analysis=file_analysis,
-                treemap=Mock(),
                 binary_analysis=[],
             )
 
