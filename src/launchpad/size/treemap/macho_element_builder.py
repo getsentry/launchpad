@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, TypedDict
 
-from launchpad.size.models.apple import MachOBinaryAnalysis
+from launchpad.size.models.apple import ArchitectureSlice, LinkEditInfo, MachOBinaryAnalysis
 from launchpad.size.models.binary_component import BinaryTag
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
@@ -74,6 +74,325 @@ class MachOElementBuilder(TreemapElementBuilder):
             )
 
     def _build_binary_treemap(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement] | None:
+        # If we have multiple architecture slices, create parent nodes for each
+        if binary_analysis.architecture_slices and len(binary_analysis.architecture_slices) > 1:
+            return self._build_multi_arch_treemap(binary_analysis)
+
+        return self._build_single_arch_treemap(binary_analysis)
+
+    def _build_multi_arch_treemap(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement]:
+        """Build treemap with parent nodes for each architecture slice."""
+        arch_elements: List[TreemapElement] = []
+
+        for arch_slice in binary_analysis.architecture_slices or []:
+            arch_children = self._build_arch_slice_treemap(arch_slice)
+            arch_elements.append(
+                TreemapElement(
+                    name=arch_slice.arch_name,
+                    size=arch_slice.size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=arch_children,
+                )
+            )
+
+        return arch_elements
+
+    def _build_arch_slice_treemap(self, arch_slice: ArchitectureSlice) -> List[TreemapElement]:
+        """Build treemap for a single architecture slice."""
+        binary_children: List[TreemapElement] = []
+
+        # Section bookkeeping for remaining size
+        section_remaining: Dict[str, int] = {}
+        zerofill_sections_set: set[str] = set()
+
+        for seg in arch_slice.segments:
+            for sec in seg.sections or []:
+                key = f"{seg.name}.{sec.name}"
+                if not sec.is_zerofill:
+                    section_remaining[key] = sec.size
+                else:
+                    zerofill_sections_set.add(key)
+
+        def canonical_key(seg_name: str | None, sec_name: str | None) -> str | None:
+            if not sec_name or not seg_name:
+                return None
+            return f"{seg_name}.{sec_name}"
+
+        def debit_section(seg_name: str | None, sec_name: str | None, sz: int) -> int:
+            if sz <= 0:
+                return 0
+            key = canonical_key(seg_name, sec_name)
+            if not key or key not in section_remaining:
+                return 0
+            take = min(sz, section_remaining[key])
+            if take:
+                section_remaining[key] -= take
+            return take
+
+        section_subtractions: Dict[str, int] = {}
+
+        # Add symbols if this slice has symbol_info (only primary slice will have this)
+        if arch_slice.symbol_info:
+            self._add_swift_symbols(
+                arch_slice.symbol_info,
+                binary_children,
+                section_subtractions,
+                debit_section,
+                canonical_key,
+                zerofill_sections_set,
+            )
+
+            self._add_objc_symbols(
+                arch_slice.symbol_info,
+                binary_children,
+                section_subtractions,
+                debit_section,
+                canonical_key,
+                zerofill_sections_set,
+            )
+
+            self._add_other_symbols(
+                arch_slice.symbol_info,
+                binary_children,
+                section_subtractions,
+                debit_section,
+                canonical_key,
+                zerofill_sections_set,
+            )
+
+        # Metadata
+        binary_children.extend(self._build_arch_slice_metadata(arch_slice))
+
+        # Segments/sections (minus symbol bytes)
+        self._add_arch_slice_segments(arch_slice, binary_children, section_subtractions)
+
+        # Add unmapped region
+        self._add_arch_slice_unmapped(arch_slice, binary_children)
+
+        return binary_children
+
+    def _build_arch_slice_metadata(self, arch_slice: ArchitectureSlice) -> List[TreemapElement]:
+        """Build metadata components for an architecture slice."""
+        metadata_children: List[TreemapElement] = []
+
+        if arch_slice.header_size > 0:
+            metadata_children.append(
+                TreemapElement(
+                    name="Mach-O Header",
+                    size=arch_slice.header_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if arch_slice.load_commands:
+            load_command_children: List[TreemapElement] = [
+                TreemapElement(
+                    name=lc.name,
+                    size=lc.size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+                for lc in arch_slice.load_commands
+            ]
+            metadata_children.append(
+                TreemapElement(
+                    name="Load Commands",
+                    size=sum(lc.size for lc in arch_slice.load_commands),
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=load_command_children,
+                )
+            )
+
+        return metadata_children
+
+    def _add_arch_slice_segments(
+        self,
+        arch_slice: ArchitectureSlice,
+        binary_children: List[TreemapElement],
+        section_subtractions: Dict[str, int],
+    ) -> None:
+        """Add segment elements for an architecture slice."""
+        for segment in arch_slice.segments:
+            segment_name = segment.name
+            segment_children: List[TreemapElement] = []
+
+            if segment.sections:
+                for section in segment.sections:
+                    section_name = section.name
+                    section_size = section.size
+
+                    if section.is_zerofill:
+                        continue
+
+                    if section_size == 0:
+                        continue
+
+                    key = f"{segment_name}.{section_name}"
+                    subtraction = section_subtractions.get(key, 0)
+
+                    if subtraction > section_size:
+                        subtraction = section_size
+
+                    adjusted = section_size - subtraction
+
+                    if adjusted <= 0:
+                        continue
+
+                    tag = self._categorize_section(section_name, segment_name) or BinaryTag.OTHER
+                    elem = TreemapElement(
+                        name=section_name,
+                        size=adjusted,
+                        type=self._get_element_type_from_tag(tag),
+                        path=None,
+                        is_dir=False,
+                        children=[],
+                    )
+
+                    segment_children.append(elem)
+
+            linkedit_children_size = 0
+            if segment_name == "__LINKEDIT" and arch_slice.linkedit_info:
+                linkedit_children = self._build_linkedit_children_from_info(arch_slice.linkedit_info)
+                segment_children.extend(linkedit_children)
+                linkedit_children_size = sum(c.size for c in linkedit_children)
+
+            seg_total_size = segment.size
+
+            total_section_declared = (
+                sum(s.size for s in segment.sections if not s.is_zerofill) if segment.sections else 0
+            )
+            segment_overhead = seg_total_size - total_section_declared - linkedit_children_size
+
+            if segment_overhead > 0:
+                segment_children.append(
+                    TreemapElement(
+                        name="Unmapped",
+                        size=segment_overhead,
+                        type=TreemapType.UNMAPPED,
+                        path=None,
+                        is_dir=False,
+                        children=[],
+                    )
+                )
+
+            actual_segment_size = sum(c.size for c in segment_children)
+
+            if actual_segment_size > 0:
+                binary_children.append(
+                    TreemapElement(
+                        name=segment_name,
+                        size=actual_segment_size,
+                        type=TreemapType.EXECUTABLES,
+                        path=None,
+                        is_dir=False,
+                        children=segment_children,
+                    )
+                )
+
+    def _build_linkedit_children_from_info(self, linkedit_info: LinkEditInfo) -> List[TreemapElement]:
+        """Build __LINKEDIT children from LinkEditInfo."""
+        children: List[TreemapElement] = []
+
+        if linkedit_info.symbol_table_size > 0:
+            children.append(
+                TreemapElement(
+                    name="Symbol Table",
+                    size=linkedit_info.symbol_table_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if linkedit_info.string_table_size > 0:
+            children.append(
+                TreemapElement(
+                    name="String Table",
+                    size=linkedit_info.string_table_size,
+                    type=TreemapType.STRINGS,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if linkedit_info.function_starts_size > 0:
+            children.append(
+                TreemapElement(
+                    name="Function Starts",
+                    size=linkedit_info.function_starts_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if linkedit_info.chained_fixups_size > 0:
+            children.append(
+                TreemapElement(
+                    name="Chained Fixups",
+                    size=linkedit_info.chained_fixups_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if linkedit_info.export_trie_size > 0:
+            children.append(
+                TreemapElement(
+                    name="Export Trie",
+                    size=linkedit_info.export_trie_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        if linkedit_info.code_signature_size > 0:
+            children.append(
+                TreemapElement(
+                    name="Code Signature",
+                    size=linkedit_info.code_signature_size,
+                    type=TreemapType.EXECUTABLES,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+        return children
+
+    def _add_arch_slice_unmapped(self, arch_slice: ArchitectureSlice, binary_children: List[TreemapElement]) -> None:
+        """Add unmapped region for architecture slice."""
+        total_accounted = sum(c.size for c in binary_children)
+        if arch_slice.size > total_accounted:
+            binary_children.append(
+                TreemapElement(
+                    name="Unmapped",
+                    size=arch_slice.size - total_accounted,
+                    type=TreemapType.UNMAPPED,
+                    path=None,
+                    is_dir=False,
+                    children=[],
+                )
+            )
+
+    def _build_single_arch_treemap(self, binary_analysis: MachOBinaryAnalysis) -> List[TreemapElement]:
+        """Build treemap for a single-architecture binary (original behavior)."""
         binary_children: List[TreemapElement] = []
 
         # Section bookkeeping for remaining size

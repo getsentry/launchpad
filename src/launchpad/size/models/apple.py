@@ -158,6 +158,19 @@ class LinkEditInfo:
 
 
 @dataclass
+class ArchitectureSlice:
+    """Analysis results for a single architecture slice in a Mach-O binary."""
+
+    arch_name: str
+    size: int
+    segments: List[SegmentInfo]
+    load_commands: List[LoadCommandInfo]
+    header_size: int = 0
+    linkedit_info: LinkEditInfo | None = None
+    symbol_info: "SymbolInfo | None" = None
+
+
+@dataclass
 class MachOBinaryAnalysis:
     """Mach-O binary analysis results."""
 
@@ -176,6 +189,7 @@ class MachOBinaryAnalysis:
     dwarf_relocations: DwarfRelocationsData | None = None
     strippable_symbols_size: int = 0
     linkedit_info: LinkEditInfo | None = None
+    architecture_slices: List[ArchitectureSlice] | None = None
 
 
 @dataclass
