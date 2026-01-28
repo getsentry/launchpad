@@ -163,8 +163,8 @@ DEPS = [
     ),
     Dep(
         "cwl-demangle",
-        "https://github.com/getsentry/CwlDemangle/releases/download/v1.0.0/cwl-demangle-linux-x86_64",
-        "1975b26dcf1d79ffba16612442e378438b01a9f930fc0129d9ac8d40bb9339f5",
+        "https://github.com/getsentry/CwlDemangle/releases/download/v1.1.0/cwl-demangle-linux-x86_64",
+        "e15449f24a73c184c05640100ec4e0c1e9c05c3542b497e9243eb4c3c1d607dd",
         architecture="x86_64",
         system="linux",
         binaries=[
@@ -173,8 +173,8 @@ DEPS = [
     ),
     Dep(
         "cwl-demangle",
-        "https://github.com/getsentry/CwlDemangle/releases/download/v1.0.0/cwl-demangle-macos-arm64",
-        "91a8d3ea4f62e40af83535edc6eb932e64e25ea39fb2a3915c19b8b30aa477af",
+        "https://github.com/getsentry/CwlDemangle/releases/download/v1.1.0/cwl-demangle-macos-arm64",
+        "a91dee08c3794fbea2009bfe52262b25df6d4c486539e85fd906aca4fa9e9d7f",
         architecture="aarch64",
         system="darwin",
         binaries=[
