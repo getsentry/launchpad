@@ -3,6 +3,7 @@ from pathlib import Path
 from launchpad.size.insights.apple.strip_symbols import StripSymbolsInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import (
+    ArchitectureSlice,
     MachOBinaryAnalysis,
     SectionInfo,
     SegmentInfo,
@@ -12,28 +13,40 @@ from launchpad.size.models.common import BaseAppInfo, FileAnalysis
 from launchpad.size.models.insights import StripBinaryInsightResult
 
 
+def _create_binary_analysis(
+    binary_path: str,
+    segments: list[SegmentInfo],
+    strippable_symbols_size: int = 0,
+    symbol_info: SymbolInfo | None = None,
+) -> MachOBinaryAnalysis:
+    """Helper to create MachOBinaryAnalysis with proper architecture_slices."""
+    arch_slice = ArchitectureSlice(
+        arch_name="ARM64",
+        size=sum(s.size for s in segments),
+        segments=segments,
+        load_commands=[],
+        header_size=32,
+        linkedit_info=None,
+        symbol_info=symbol_info,
+    )
+    return MachOBinaryAnalysis(
+        binary_absolute_path=Path(binary_path),
+        binary_relative_path=Path(binary_path),
+        executable_size=sum(s.size for s in segments),
+        is_main_binary=False,
+        architecture_slices=[arch_slice],
+        strippable_symbols_size=strippable_symbols_size,
+    )
+
+
 class TestStripSymbolsInsight:
     def setup_method(self):
         self.insight = StripSymbolsInsight()
 
     def test_generate_with_debug_sections_and_symbols(self):
         """Test that insight is generated when binaries have both debug sections and strippable symbols."""
-        symbol_info = SymbolInfo(
-            symbol_sizes=[],
-            swift_type_groups=[],
-            objc_type_groups=[],
-            cpp_type_groups=[],
-            other_symbols=[],
-            compiler_generated_symbols=[],
-        )
-
-        binary_analysis = MachOBinaryAnalysis(
-            binary_absolute_path=Path("Frameworks/MyFramework.framework/MyFramework"),
-            binary_relative_path=Path("Frameworks/MyFramework.framework/MyFramework"),
-            executable_size=100000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis = _create_binary_analysis(
+            binary_path="Frameworks/MyFramework.framework/MyFramework",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
@@ -55,11 +68,6 @@ class TestStripSymbolsInsight:
                     size=15000,
                 ),
             ],
-            load_commands=[],
-            symbol_info=symbol_info,
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
             strippable_symbols_size=5000,
         )
 
@@ -87,13 +95,8 @@ class TestStripSymbolsInsight:
 
     def test_generate_with_debug_sections_only(self):
         """Test that insight is generated when binaries have only debug sections."""
-        binary_analysis = MachOBinaryAnalysis(
-            binary_absolute_path=Path("MyApp"),
-            binary_relative_path=Path("MyApp"),
-            executable_size=50000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis = _create_binary_analysis(
+            binary_path="MyApp",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
@@ -111,11 +114,6 @@ class TestStripSymbolsInsight:
                     name="__DATA", sections=[SectionInfo(name="__data", size=5000, is_zerofill=False)], size=5000
                 ),
             ],
-            load_commands=[],
-            symbol_info=None,  # No symbol info
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -142,22 +140,8 @@ class TestStripSymbolsInsight:
 
     def test_generate_with_symbols_only(self):
         """Test that insight is generated when binaries have only strippable symbols."""
-        symbol_info = SymbolInfo(
-            symbol_sizes=[],
-            swift_type_groups=[],
-            objc_type_groups=[],
-            cpp_type_groups=[],
-            other_symbols=[],
-            compiler_generated_symbols=[],
-        )
-
-        binary_analysis = MachOBinaryAnalysis(
-            binary_absolute_path=Path("MyApp"),
-            binary_relative_path=Path("MyApp"),
-            executable_size=80000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis = _create_binary_analysis(
+            binary_path="MyApp",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
@@ -170,13 +154,7 @@ class TestStripSymbolsInsight:
                     ],
                     size=30000,
                 ),
-                # No debug sections
             ],
-            load_commands=[],
-            symbol_info=symbol_info,
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
             strippable_symbols_size=15000,
         )
 
@@ -205,22 +183,8 @@ class TestStripSymbolsInsight:
     def test_generate_with_multiple_binaries(self):
         """Test that insight correctly aggregates multiple binaries."""
         # Binary 1: Both debug sections and symbols
-        symbol_info_1 = SymbolInfo(
-            symbol_sizes=[],
-            swift_type_groups=[],
-            objc_type_groups=[],
-            cpp_type_groups=[],
-            other_symbols=[],
-            compiler_generated_symbols=[],
-        )
-
-        binary_analysis_1 = MachOBinaryAnalysis(
-            binary_absolute_path=Path("MyApp"),
-            binary_relative_path=Path("MyApp"),
-            executable_size=100000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis_1 = _create_binary_analysis(
+            binary_path="MyApp",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
@@ -237,22 +201,12 @@ class TestStripSymbolsInsight:
                     name="__DATA", sections=[SectionInfo(name="__data", size=10000, is_zerofill=False)], size=10000
                 ),
             ],
-            load_commands=[],
-            symbol_info=symbol_info_1,
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
             strippable_symbols_size=3000,
         )
 
         # Binary 2: Only debug sections
-        binary_analysis_2 = MachOBinaryAnalysis(
-            binary_absolute_path=Path("Frameworks/TestFramework.framework/TestFramework"),
-            binary_relative_path=Path("Frameworks/TestFramework.framework/TestFramework"),
-            executable_size=50000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis_2 = _create_binary_analysis(
+            binary_path="Frameworks/TestFramework.framework/TestFramework",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
@@ -269,30 +223,11 @@ class TestStripSymbolsInsight:
                     name="__DATA", sections=[SectionInfo(name="__data", size=5000, is_zerofill=False)], size=5000
                 ),
             ],
-            load_commands=[],
-            symbol_info=None,
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
         )
 
         # Binary 3: Only symbols
-        symbol_info_3 = SymbolInfo(
-            symbol_sizes=[],
-            swift_type_groups=[],
-            objc_type_groups=[],
-            cpp_type_groups=[],
-            other_symbols=[],
-            compiler_generated_symbols=[],
-        )
-
-        binary_analysis_3 = MachOBinaryAnalysis(
-            binary_absolute_path=Path("Frameworks/AnotherFramework.framework/AnotherFramework"),
-            binary_relative_path=Path("Frameworks/AnotherFramework.framework/AnotherFramework"),
-            executable_size=60000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis_3 = _create_binary_analysis(
+            binary_path="Frameworks/AnotherFramework.framework/AnotherFramework",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=40000, is_zerofill=False)], size=40000
@@ -300,13 +235,7 @@ class TestStripSymbolsInsight:
                 SegmentInfo(
                     name="__DATA", sections=[SectionInfo(name="__data", size=15000, is_zerofill=False)], size=15000
                 ),
-                # No debug sections
             ],
-            load_commands=[],
-            symbol_info=symbol_info_3,
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
             strippable_symbols_size=8000,
         )
 
@@ -350,13 +279,8 @@ class TestStripSymbolsInsight:
 
     def test_generate_with_no_strippable_content(self):
         """Test that no insight is generated when binaries have no strippable content."""
-        binary_analysis = MachOBinaryAnalysis(
-            binary_absolute_path=Path("MyApp"),
-            binary_relative_path=Path("MyApp"),
-            executable_size=50000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis = _create_binary_analysis(
+            binary_path="MyApp",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
@@ -369,13 +293,7 @@ class TestStripSymbolsInsight:
                     ],
                     size=20000,
                 ),
-                # No debug sections
             ],
-            load_commands=[],
-            symbol_info=None,  # No symbol info
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -391,22 +309,8 @@ class TestStripSymbolsInsight:
 
     def test_generate_with_zero_size_strippable_symbols(self):
         """Test that binaries with zero-size strippable symbols are ignored."""
-        symbol_info = SymbolInfo(
-            symbol_sizes=[],
-            swift_type_groups=[],
-            objc_type_groups=[],
-            cpp_type_groups=[],
-            other_symbols=[],
-            compiler_generated_symbols=[],
-        )
-
-        binary_analysis = MachOBinaryAnalysis(
-            binary_absolute_path=Path("MyApp"),
-            binary_relative_path=Path("MyApp"),
-            executable_size=50000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis = _create_binary_analysis(
+            binary_path="MyApp",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=30000, is_zerofill=False)], size=30000
@@ -419,14 +323,8 @@ class TestStripSymbolsInsight:
                     ],
                     size=20000,
                 ),
-                # No debug sections
             ],
-            load_commands=[],
-            symbol_info=symbol_info,
-            swift_metadata=None,
             strippable_symbols_size=0,
-            is_main_binary=False,
-            header_size=32,
         )
 
         insights_input = InsightsInput(
@@ -442,13 +340,8 @@ class TestStripSymbolsInsight:
 
     def test_debug_sections_detection(self):
         """Test that all debug sections are correctly detected."""
-        binary_analysis = MachOBinaryAnalysis(
-            binary_absolute_path=Path("MyApp"),
-            binary_relative_path=Path("MyApp"),
-            executable_size=100000,
-            architectures=["arm64"],
-            linked_libraries=[],
-            objc_method_names=[],
+        binary_analysis = _create_binary_analysis(
+            binary_path="MyApp",
             segments=[
                 SegmentInfo(
                     name="__TEXT", sections=[SectionInfo(name="__text", size=50000, is_zerofill=False)], size=50000
@@ -474,17 +367,12 @@ class TestStripSymbolsInsight:
                 SegmentInfo(
                     name="__DATA",
                     sections=[
-                        SectionInfo(name="__data", size=10000, is_zerofill=False),  # Non-debug section
-                        SectionInfo(name="__const", size=5000, is_zerofill=False),  # Non-debug section
+                        SectionInfo(name="__data", size=10000, is_zerofill=False),
+                        SectionInfo(name="__const", size=5000, is_zerofill=False),
                     ],
                     size=15000,
                 ),
             ],
-            load_commands=[],
-            symbol_info=None,
-            swift_metadata=None,
-            is_main_binary=False,
-            header_size=32,
         )
 
         insights_input = InsightsInput(

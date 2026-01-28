@@ -34,11 +34,16 @@ class StripSymbolsInsight(Insight[StripBinaryInsightResult]):
             if not isinstance(binary_analysis, MachOBinaryAnalysis):
                 continue
 
+            if not binary_analysis.architecture_slices:
+                continue
+
+            # Sum debug sections across all architecture slices
             debug_section_size = 0
-            for segment in binary_analysis.segments:
-                for section in segment.sections:
-                    if section.name in self.DEBUG_SECTIONS:
-                        debug_section_size += section.size
+            for arch_slice in binary_analysis.architecture_slices:
+                for segment in arch_slice.segments:
+                    for section in segment.sections:
+                        if section.name in self.DEBUG_SECTIONS:
+                            debug_section_size += section.size
 
             symbol_savings = binary_analysis.strippable_symbols_size
 

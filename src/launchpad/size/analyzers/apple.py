@@ -55,7 +55,6 @@ from ..models.apple import (
     MachOBinaryAnalysis,
     SectionInfo,
     SegmentInfo,
-    SwiftMetadata,
     SymbolInfo,
 )
 
@@ -476,51 +475,26 @@ class AppleAppAnalyzer:
 
         # Parse all architecture slices
         architecture_slices: List[ArchitectureSlice] = []
-        primary_slice_index = 0
 
-        # Find primary slice (prefer arm64)
-        for i, slice_binary in enumerate(fat_binary):
+        for slice_binary in fat_binary:
             arch_name = slice_binary.header.cpu_type.name
-            if arch_name == "ARM64":
-                primary_slice_index = i
-                break
-
-        for i, slice_binary in enumerate(fat_binary):
-            arch_name = slice_binary.header.cpu_type.name
-            slice_size = to_nearest_block_size(slice_binary.original_size, APPLE_FILESYSTEM_BLOCK_SIZE)
             slice_parser = MachOParser(slice_binary)
-            slice_segments = self._extract_segments_info(slice_binary)
-            slice_load_commands = self._extract_load_commands_info(slice_binary)
-            slice_linkedit_info = slice_parser.extract_linkedit_info()
-            slice_header_size = slice_parser.get_header_size()
-
             architecture_slices.append(
                 ArchitectureSlice(
                     arch_name=arch_name,
-                    size=slice_size,
-                    segments=slice_segments,
-                    load_commands=slice_load_commands,
-                    header_size=slice_header_size,
-                    linkedit_info=slice_linkedit_info,
+                    size=to_nearest_block_size(slice_binary.original_size, APPLE_FILESYSTEM_BLOCK_SIZE),
+                    segments=self._extract_segments_info(slice_binary),
+                    load_commands=self._extract_load_commands_info(slice_binary),
+                    header_size=slice_parser.get_header_size(),
+                    linkedit_info=slice_parser.extract_linkedit_info(),
                 )
             )
 
-        # Use primary slice for detailed analysis (symbols, objc methods, etc.)
-        binary = fat_binary.at(primary_slice_index)
-        parser = MachOParser(binary)
-        architectures = parser.extract_architectures()
-        linked_libraries = parser.extract_linked_libraries()
-        swift_protocol_conformances: List[str] = []  # parser.parse_swift_protocol_conformances()
-        objc_method_names = parser.parse_objc_method_names()
-        segments = self._extract_segments_info(parser.binary)
-        load_commands = self._extract_load_commands_info(parser.binary)
-        linkedit_info = parser.extract_linkedit_info()
-
-        symbol_info = None
         dwarf_relocations = None
 
-        # Always test symbol removal on the main app binary (not dSYM)
-        strippable_symbols_size = self._check_strip_symbols_removal(binary_path, binary)
+        # Test symbol removal on the main app binary (not dSYM)
+        # Uses first slice for file_type check
+        strippable_symbols_size = self._check_strip_symbols_removal(binary_path, fat_binary.at(0))
 
         if dwarf_binary_path:
             dsym_config = lief.MachO.ParserConfig()
@@ -550,9 +524,6 @@ class AppleAppAnalyzer:
                     else:
                         logger.warning(f"No dSYM slice found for architecture {arch_slice.arch_name}")
 
-                # Set the primary symbol_info for backwards compatibility
-                if architecture_slices and primary_slice_index < len(architecture_slices):
-                    symbol_info = architecture_slices[primary_slice_index].symbol_info
             else:
                 logger.error(
                     "size.apple.skip_symbol_analysis.dwarf_binary_parse_failed",
@@ -576,29 +547,14 @@ class AppleAppAnalyzer:
                 },
             )
 
-        swift_metadata = None
-        if not skip_swift_metadata:
-            swift_metadata = SwiftMetadata(
-                protocol_conformances=swift_protocol_conformances,
-            )
-
         return MachOBinaryAnalysis(
             binary_absolute_path=binary_path,
             binary_relative_path=binary_path.relative_to(app_bundle_path),
             executable_size=executable_size,
-            architectures=architectures,
-            linked_libraries=linked_libraries,
-            swift_metadata=swift_metadata,
-            symbol_info=symbol_info,
-            objc_method_names=objc_method_names,
             is_main_binary=is_main_binary,
-            segments=segments,
-            load_commands=load_commands,
-            header_size=parser.get_header_size(),
+            architecture_slices=architecture_slices,
             dwarf_relocations=dwarf_relocations,
             strippable_symbols_size=strippable_symbols_size,
-            linkedit_info=linkedit_info,
-            architecture_slices=architecture_slices if len(architecture_slices) > 1 else None,
         )
 
     @sentry_sdk.trace

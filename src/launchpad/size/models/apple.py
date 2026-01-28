@@ -178,18 +178,11 @@ class MachOBinaryAnalysis:
     binary_relative_path: Path
     executable_size: int
     is_main_binary: bool
-    architectures: List[str]
-    linked_libraries: List[str]
-    objc_method_names: List[str]
-    segments: List[SegmentInfo]
-    load_commands: List[LoadCommandInfo]
+    architecture_slices: List[ArchitectureSlice]
     swift_metadata: SwiftMetadata | None = None
     symbol_info: SymbolInfo | None = None
-    header_size: int = 0
     dwarf_relocations: DwarfRelocationsData | None = None
     strippable_symbols_size: int = 0
-    linkedit_info: LinkEditInfo | None = None
-    architecture_slices: List[ArchitectureSlice] | None = None
 
 
 @dataclass

@@ -17,11 +17,16 @@ class MainBinaryExportMetadataInsight(Insight[MainBinaryExportMetadataResult]):
             if not analysis.is_main_binary:
                 continue
 
-            linkedit_info = analysis.linkedit_info
-            if linkedit_info is None:
+            if not analysis.architecture_slices:
                 continue
 
-            export_trie_size = linkedit_info.export_trie_size
+            # Sum export trie size across all architecture slices
+            export_trie_size = sum(
+                arch_slice.linkedit_info.export_trie_size
+                for arch_slice in analysis.architecture_slices
+                if arch_slice.linkedit_info
+            )
+
             if export_trie_size >= self.MIN_EXPORTS_THRESHOLD:
                 export_files.append(
                     FileSavingsResult(
