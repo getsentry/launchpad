@@ -23,11 +23,11 @@ logger = get_logger(__name__)
 
 # Mach-O CPU type constants
 CPU_TYPE_NAMES: Dict[int, str] = {
-    0x0000000C: "ARM",
-    0x0100000C: "ARM64",
-    0x0200000C: "ARM64_32",  # watchOS
-    0x00000007: "X86",
-    0x01000007: "X86_64",
+    0x0000000C: "arm",
+    0x0100000C: "arm64",
+    0x0200000C: "arm64_32",  # watchOS
+    0x00000007: "x86",
+    0x01000007: "x86_64",
 }
 
 
