@@ -21,6 +21,26 @@ from .swift_protocol_parser import SwiftProtocolParser
 
 logger = get_logger(__name__)
 
+# Mach-O CPU type constants
+CPU_TYPE_NAMES: Dict[int, str] = {
+    0x0000000C: "ARM",
+    0x0100000C: "ARM64",
+    0x0200000C: "ARM64_32",  # watchOS
+    0x00000007: "X86",
+    0x01000007: "X86_64",
+}
+
+
+def get_cpu_type_name(cpu_type: lief.MachO.Header.CPU_TYPE | int) -> str:
+    """Get architecture name from cpu_type, handling both enum and int cases.
+
+    LIEF sometimes returns cpu_type as an int instead of an enum when it doesn't
+    recognize the CPU type (e.g., ARM64_32 for watchOS).
+    """
+    if isinstance(cpu_type, lief.MachO.Header.CPU_TYPE):
+        return cpu_type.name
+    return CPU_TYPE_NAMES.get(cpu_type, f"UNKNOWN_{cpu_type}")
+
 
 class MachOParser:
     """Parser for Mach-O binaries using LIEF."""
@@ -78,14 +98,8 @@ class MachOParser:
     @sentry_sdk.trace
     def _cpu_type_to_string(self, cpu_type: int) -> str | None:
         """Convert LIEF CPU type to string representation."""
-        # Common CPU types from Mach-O
-        cpu_types = {
-            0x0000000C: "arm",  # ARM
-            0x0100000C: "arm64",  # ARM64
-            0x00000007: "x86",  # i386
-            0x01000007: "x86_64",  # x86_64
-        }
-        return cpu_types.get(cpu_type)
+        result = CPU_TYPE_NAMES.get(cpu_type)
+        return result.lower() if result else None
 
     @sentry_sdk.trace
     def get_section_bytes_at_offset(self, section_name: str, offset: int, size: int) -> bytes | None:

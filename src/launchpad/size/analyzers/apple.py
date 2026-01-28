@@ -19,7 +19,7 @@ from cryptography import x509
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsParser
-from launchpad.parsers.apple.macho_parser import MachOParser
+from launchpad.parsers.apple.macho_parser import MachOParser, get_cpu_type_name
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
@@ -486,7 +486,7 @@ class AppleAppAnalyzer:
         architecture_slices: List[ArchitectureSlice] = []
 
         for slice_binary in fat_binary:
-            arch_name = slice_binary.header.cpu_type.name
+            arch_name = get_cpu_type_name(slice_binary.header.cpu_type)
             slice_parser = MachOParser(slice_binary)
             architecture_slices.append(
                 ArchitectureSlice(
@@ -517,7 +517,7 @@ class AppleAppAnalyzer:
                 # Build a map of architecture name -> dSYM slice index
                 dsym_arch_map: Dict[str, int] = {}
                 for i, dsym_slice in enumerate(dwarf_fat_binary):
-                    dsym_arch_name = dsym_slice.header.cpu_type.name
+                    dsym_arch_name = get_cpu_type_name(dsym_slice.header.cpu_type)
                     dsym_arch_map[dsym_arch_name] = i
 
                 # Symbolicate each architecture slice
