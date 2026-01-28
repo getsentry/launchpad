@@ -126,7 +126,18 @@ class MachOSymbolSizes:
             offset_start = bin.virtual_address_to_offset(start)
             size = 0
             if not isinstance(offset_end, lief.lief_errors) and not isinstance(offset_start, lief.lief_errors):
-                size = offset_end - offset_start
+                raw_size = offset_end - offset_start
+                if raw_size < 0:
+                    logger.warning(
+                        "size.macho.negative_symbol_size",
+                        extra={
+                            "symbol": sym.name,
+                            "offset_start": offset_start,
+                            "offset_end": offset_end,
+                            "section": section_name,
+                        },
+                    )
+                size = max(0, raw_size)
             else:
                 logger.warning(f"Failed to calculate size for symbol {sym.name}")
 
