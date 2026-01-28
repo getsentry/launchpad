@@ -10,6 +10,10 @@ class BaseInsightResult(BaseModel):
 
     total_savings: int = Field(..., ge=0, description="Total potential savings in bytes")
 
+    def get_file_paths(self) -> List[str]:
+        """Return file paths flagged by this insight. Override in subclasses."""
+        return []
+
 
 class FileSavingsResult(BaseModel):
     """File savings information."""
@@ -35,11 +39,17 @@ class FilesInsightResult(BaseInsightResult):
 
     files: List[FileSavingsResult] = Field(..., description="Files with potential savings")
 
+    def get_file_paths(self) -> List[str]:
+        return [f.file_path for f in self.files]
+
 
 class GroupsInsightResult(BaseInsightResult):
     """Base class for insights that return grouped file results."""
 
     groups: List[FileSavingsResultGroup] = Field(..., description="Groups of files with savings information")
+
+    def get_file_paths(self) -> List[str]:
+        return [f.file_path for group in self.groups for f in group.files]
 
 
 class DuplicateFilesInsightResult(GroupsInsightResult):
@@ -194,6 +204,9 @@ class ImageOptimizationInsightResult(BaseInsightResult):
         ..., description="Files that can be optimized with potential savings"
     )
 
+    def get_file_paths(self) -> List[str]:
+        return [f.file_path for f in self.optimizable_files]
+
 
 class StripBinaryFileInfo(BaseModel):
     """Savings information from stripping a Mach-O binary."""
@@ -210,6 +223,9 @@ class StripBinaryInsightResult(BaseInsightResult):
     files: List[StripBinaryFileInfo] = Field(..., description="Files that could save size by stripping the binary")
     total_debug_sections_savings: int = Field(..., ge=0, description="Total potential savings from debug sections")
     total_symbol_table_savings: int = Field(..., ge=0, description="Total potential savings from symbol tables")
+
+    def get_file_paths(self) -> List[str]:
+        return [f.file_path for f in self.files]
 
 
 class AudioCompressionInsightResult(FilesInsightResult):
@@ -234,6 +250,9 @@ class VideoCompressionInsightResult(BaseInsightResult):
     """
 
     files: List[VideoCompressionFileSavingsResult] = Field(..., description="Video files that can be compressed")
+
+    def get_file_paths(self) -> List[str]:
+        return [f.file_path for f in self.files]
 
 
 class MultipleNativeLibraryArchInsightResult(FilesInsightResult):
