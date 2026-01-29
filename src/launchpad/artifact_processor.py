@@ -162,15 +162,15 @@ class ArtifactProcessor:
                     f"Failed to process app icon for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
                 )
                 app_icon_object_id = None
-            info = self._preprocess_artifact(
-                organization_id,
-                project_id,
-                artifact_id,
-                artifact,
-                analyzer,
-                dequeued_at,
-                app_icon_object_id,
-            )
+
+            info = analyzer.preprocess(cast(Any, artifact))
+
+            # We actually always preprocess but we don't always update
+            # the monolith with the results.
+            if PreprodFeature.PRE_PROCESS in requested_features:
+                self._do_preprocess(
+                    organization_id, project_id, artifact_id, artifact, info, dequeued_at, app_icon_object_id
+                )
 
             if PreprodFeature.SIZE_ANALYSIS in requested_features:
                 self._do_size(organization_id, project_id, artifact_id, artifact, analyzer)
@@ -226,19 +226,18 @@ class ArtifactProcessor:
         else:
             raise ValueError(f"Unknown artifact kind {artifact}")
 
-    def _preprocess_artifact(
+    def _do_preprocess(
         self,
         organization_id: str,
         project_id: str,
         artifact_id: str,
         artifact: Artifact,
-        analyzer: AndroidAnalyzer | AppleAppAnalyzer,
+        info: AppleAppInfo | BaseAppInfo,
         dequeued_at: datetime,
         app_icon_id: str | None,
-    ) -> AppleAppInfo | BaseAppInfo:
-        logger.info(f"Preprocessing for {artifact_id} (project: {project_id}, org: {organization_id})")
+    ) -> None:
+        logger.info(f"PREPROCESS for {artifact_id} (project: {project_id}, org: {organization_id})")
         try:
-            info = analyzer.preprocess(cast(Any, artifact))
             update_data = self._prepare_update_data(info, artifact, dequeued_at, app_icon_id)
             self._sentry_client.update_artifact(
                 org=organization_id,
@@ -247,7 +246,7 @@ class ArtifactProcessor:
                 data=update_data,
             )
         except Exception as e:
-            logger.exception(e)
+            logger.exception(f"PREPROCESS for artifact:{artifact_id} project:{project_id} org:{organization_id} failed")
             self._update_artifact_error_from_exception(
                 organization_id,
                 project_id,
@@ -256,9 +255,8 @@ class ArtifactProcessor:
                 error_code=ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
                 error_message=ProcessingErrorMessage.PREPROCESSING_FAILED,
             )
-            raise
         else:
-            return info
+            logger.info(f"PREPROCESS for {artifact_id} (project: {project_id}, org: {organization_id}) succeeded")
 
     def _process_app_icon(
         self,
