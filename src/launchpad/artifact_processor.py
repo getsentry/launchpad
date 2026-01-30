@@ -97,13 +97,6 @@ class ArtifactProcessor:
                 objectstore_client = ObjectstoreClient(service_config.objectstore_url)
             artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
-        requested_features = []
-        for feature in payload.get("requested_features", []):
-            try:
-                requested_features.append(PreprodFeature(feature))
-            except ValueError:
-                logger.exception(f"Unknown feature {feature}")
-
         if service_config and project_id in service_config.projects_to_skip:
             logger.info(f"Skipping processing for project {project_id}")
             return
@@ -127,7 +120,7 @@ class ArtifactProcessor:
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
-                artifact_processor.process_artifact(organization_id, project_id, artifact_id, requested_features)
+                artifact_processor.process_artifact(organization_id, project_id, artifact_id)
             except Exception:
                 statsd.increment("artifact.processing.failed")
                 duration = time.time() - start_time
@@ -146,7 +139,6 @@ class ArtifactProcessor:
         organization_id: str,
         project_id: str,
         artifact_id: str,
-        requested_features: list[PreprodFeature],
     ) -> None:
         """Process an artifact with the requested features."""
         dequeued_at = datetime.now()
@@ -172,10 +164,10 @@ class ArtifactProcessor:
                 app_icon_object_id,
             )
 
-            if PreprodFeature.SIZE_ANALYSIS in requested_features:
+            if PreprodFeature.SIZE_ANALYSIS in server_requested_features:
                 self._do_size(organization_id, project_id, artifact_id, artifact, analyzer)
 
-            if PreprodFeature.BUILD_DISTRIBUTION in requested_features:
+            if PreprodFeature.BUILD_DISTRIBUTION in server_requested_features:
                 self._do_distribution(organization_id, project_id, artifact_id, artifact, info)
 
     @contextlib.contextmanager

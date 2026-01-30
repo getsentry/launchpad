@@ -10,7 +10,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from launchpad.artifact_processor import ArtifactProcessor
-from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC, PreprodFeature
+from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.kafka import LaunchpadKafkaConsumer, create_kafka_consumer, get_kafka_config
 from launchpad.service import LaunchpadService, ServiceConfig, get_service_config
 from launchpad.utils.statsd import FakeStatsd
@@ -214,7 +214,6 @@ class TestMessageProcessingFlow:
                 "test-org",
                 "normal-project",
                 "test-123",
-                [PreprodFeature.SIZE_ANALYSIS],
             )
 
             calls = fake_statsd.calls

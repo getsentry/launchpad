@@ -7,7 +7,6 @@ from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
 
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import (
-    PreprodFeature,
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
@@ -169,7 +168,6 @@ class TestArtifactProcessorMessageHandling:
             "test-org-123",
             "test-project-ios",
             "ios-test-123",
-            [PreprodFeature.SIZE_ANALYSIS],
         )
 
         # Verify metrics were recorded
@@ -210,7 +208,6 @@ class TestArtifactProcessorMessageHandling:
             "test-org-456",
             "test-project-android",
             "android-test-456",
-            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
         )
 
         # Verify metrics were recorded
@@ -254,7 +251,6 @@ class TestArtifactProcessorMessageHandling:
             "test-org",
             "test-project",
             "test-123",
-            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
         )
 
         # Verify the metrics were called correctly
@@ -320,7 +316,6 @@ class TestArtifactProcessorMessageHandling:
             "test-org-123",
             "normal-project",
             "normal-test-123",
-            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
         )
 
         # Verify normal metrics were recorded
