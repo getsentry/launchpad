@@ -24,9 +24,9 @@ make test-unit                 # Unit tests only
 make test-integration          # Integration tests only
 
 # Run a single test
-.venv/bin/python -m pytest tests/unit/path/to/test_file.py::test_function_name -v
-.venv/bin/python -m pytest tests/unit/path/to/test_file.py -v  # whole file
-.venv/bin/python -m pytest -k "test_name_pattern" -v           # by pattern
+uv run pytest tests/unit/path/to/test_file.py::test_function_name -v
+uv run pytest tests/unit/path/to/test_file.py -v               # whole file
+uv run pytest -k "test_name_pattern" -v                        # by pattern
 
 # CLI usage
 launchpad size path/to/app.xcarchive.zip                       # iOS
