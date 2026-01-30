@@ -162,7 +162,7 @@ class ArtifactProcessor:
                     f"Failed to process app icon for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
                 )
                 app_icon_object_id = None
-            info = self._preprocess_artifact(
+            info, server_requested_features = self._preprocess_artifact(
                 organization_id,
                 project_id,
                 artifact_id,
@@ -235,17 +235,21 @@ class ArtifactProcessor:
         analyzer: AndroidAnalyzer | AppleAppAnalyzer,
         dequeued_at: datetime,
         app_icon_id: str | None,
-    ) -> AppleAppInfo | BaseAppInfo:
+    ) -> tuple[AppleAppInfo | BaseAppInfo, list[PreprodFeature]]:
         logger.info(f"Preprocessing for {artifact_id} (project: {project_id}, org: {organization_id})")
         try:
             info = analyzer.preprocess(cast(Any, artifact))
             update_data = self._prepare_update_data(info, artifact, dequeued_at, app_icon_id)
-            self._sentry_client.update_artifact(
+            response = self._sentry_client.update_artifact(
                 org=organization_id,
                 project=project_id,
                 artifact_id=artifact_id,
                 data=update_data,
             )
+            if response.requested_features:
+                logger.info(
+                    f"Requested features for {artifact_id} (project: {project_id}, org: {organization_id}): {response.requested_features}"
+                )
         except Exception as e:
             logger.exception(e)
             self._update_artifact_error_from_exception(
@@ -258,7 +262,7 @@ class ArtifactProcessor:
             )
             raise
         else:
-            return info
+            return info, response.requested_features
 
     def _process_app_icon(
         self,

@@ -13,8 +13,9 @@ import time
 from typing import Any, Dict, Optional, TypeVar
 
 import requests
+import sentry_sdk
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 from pydantic.alias_generators import to_camel
 from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase
@@ -22,6 +23,7 @@ from requests.exceptions import ChunkedEncodingError, ConnectionError, ContentDe
 from urllib3.util.retry import Retry
 
 from launchpad.api.update_api_models import PutSize
+from launchpad.constants import PreprodFeature
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +89,18 @@ class UpdateResponse(BaseModel):
     success: bool
     artifact_id: str
     updated_fields: list[str]
+    requested_features: list[PreprodFeature] = []
+
+    @field_validator("requested_features", mode="before")
+    @classmethod
+    def parse_requested_features(cls, v: list[str]) -> list[PreprodFeature]:
+        features = []
+        for feature in v:
+            try:
+                features.append(PreprodFeature(feature))
+            except ValueError:
+                sentry_sdk.capture_message(f"Unknown feature returned by server: {feature}", level="error")
+        return features
 
 
 class PutSizeResponse(BaseModel):

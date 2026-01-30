@@ -3,12 +3,15 @@
 import hashlib
 import io
 
+from unittest.mock import patch
+
 import pytest
 import responses
 
 from requests.exceptions import ConnectionError
 from responses.matchers import json_params_matcher, multipart_matcher
 
+from launchpad.constants import PreprodFeature
 from launchpad.sentry_client import (
     RETRY_ATTEMPTS,
     ChunkOptionsResponse,
@@ -127,6 +130,48 @@ class TestSentryClientRetry:
         client = SentryClient(base_url="https://example.com", shared_secret="password")
         response = client.update_artifact("test-org", "test-project", "test-artifact", {"version": "1.0"})
         assert response == UpdateResponse(success=True, artifactId="test-artifact", updatedFields=["version"])
+
+    @responses.activate
+    def test_update_artifact_with_requested_features(self):
+        """Test that requested features are parsed into PreprodFeature enums."""
+        responses.add(
+            responses.PUT,
+            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/update/",
+            json={
+                "success": True,
+                "artifactId": "test-artifact",
+                "updatedFields": ["version"],
+                "requestedFeatures": ["size_analysis", "build_distribution"],
+            },
+        )
+
+        client = SentryClient(base_url="https://example.com", shared_secret="password")
+        response = client.update_artifact("test-org", "test-project", "test-artifact", {"version": "1.0"})
+
+        assert response.requested_features == [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION]
+
+    @responses.activate
+    @patch("launchpad.sentry_client.sentry_sdk.capture_message")
+    def test_update_artifact_with_unknown_feature(self, mock_capture_message):
+        """Test that unknown features are captured to Sentry and skipped."""
+        responses.add(
+            responses.PUT,
+            "https://example.com/api/0/internal/test-org/test-project/files/preprodartifacts/test-artifact/update/",
+            json={
+                "success": True,
+                "artifactId": "test-artifact",
+                "updatedFields": ["version"],
+                "requestedFeatures": ["size_analysis", "unknown_feature", "build_distribution"],
+            },
+        )
+
+        client = SentryClient(base_url="https://example.com", shared_secret="password")
+        response = client.update_artifact("test-org", "test-project", "test-artifact", {"version": "1.0"})
+
+        assert response.requested_features == [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION]
+        mock_capture_message.assert_called_once_with(
+            "Unknown feature returned by server: unknown_feature", level="error"
+        )
 
     @responses.activate
     def test_upload_installable_app_previously_uploaded(self):
