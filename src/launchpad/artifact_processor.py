@@ -17,9 +17,6 @@ from objectstore_client import (
 from objectstore_client import (
     Usecase,
 )
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
 
 from launchpad.api.update_api_models import AndroidAppInfo as AndroidAppInfoModel
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
@@ -96,10 +93,10 @@ class ArtifactProcessor:
                 objectstore_client = ObjectstoreClient(service_config.objectstore_url)
             artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
-        requested_features = []
+        features = []
         for feature in requested_features:
             try:
-                requested_features.append(PreprodFeature(feature))
+                features.append(PreprodFeature(feature))
             except ValueError:
                 logger.exception(f"Unknown feature {feature}")
 
@@ -126,7 +123,7 @@ class ArtifactProcessor:
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
-                artifact_processor.process_artifact(organization_id, project_id, artifact_id, requested_features)
+                artifact_processor.process_artifact(organization_id, project_id, artifact_id, features)
             except Exception:
                 statsd.increment("artifact.processing.failed")
                 duration = time.time() - start_time

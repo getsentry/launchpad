@@ -28,6 +28,7 @@ class ArtifactType(Enum):
 # This should match exactly with the definition in:
 # src/sentry/preprod/producer.py
 class PreprodFeature(Enum):
+    PRE_PROCESS = "pre_process"
     SIZE_ANALYSIS = "size_analysis"
     BUILD_DISTRIBUTION = "build_distribution"
 

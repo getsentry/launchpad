@@ -109,12 +109,18 @@ class LaunchpadService:
 
     def is_healthy(self) -> bool:
         """Get overall service health status."""
+        # PRECONDITION - Assume server exists
+        assert self.server
+
         is_server_healthy = self.server.is_healthy()
 
         # TODO - Report worker health too
         return is_server_healthy
 
     def _run_http_server_thread(self) -> None:
+        # PRECONDITION - Assume server exists
+        assert self.server
+
         self._server_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._server_loop)
 
