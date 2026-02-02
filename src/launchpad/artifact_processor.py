@@ -7,7 +7,7 @@ import time
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterator, cast
+from typing import Any, Dict, Iterator, List, cast
 
 import sentry_sdk
 
@@ -66,7 +66,10 @@ class ArtifactProcessor:
 
     @staticmethod
     def process_message(
-        payload: PreprodArtifactEvents,
+        artifact_id: str,
+        project_id: str,
+        organization_id: str,
+        requested_features: List[PreprodFeature],
         service_config=None,
         artifact_processor=None,
         statsd=None,
@@ -84,10 +87,6 @@ class ArtifactProcessor:
 
         initialize_sentry_sdk()
 
-        organization_id = payload["organization_id"]
-        project_id = payload["project_id"]
-        artifact_id = payload["artifact_id"]
-
         if statsd is None:
             statsd = get_statsd()
         if artifact_processor is None:
@@ -98,7 +97,7 @@ class ArtifactProcessor:
             artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
         requested_features = []
-        for feature in payload.get("requested_features", []):
+        for feature in requested_features:
             try:
                 requested_features.append(PreprodFeature(feature))
             except ValueError:
