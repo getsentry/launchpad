@@ -246,10 +246,9 @@ class ArtifactProcessor:
                 artifact_id=artifact_id,
                 data=update_data,
             )
-            if response.requested_features:
-                logger.info(
-                    f"Requested features for {artifact_id} (project: {project_id}, org: {organization_id}): {response.requested_features}"
-                )
+            logger.info(
+                f"Requested features for {artifact_id} (project: {project_id}, org: {organization_id}): {response.requested_features}"
+            )
         except Exception as e:
             logger.exception(e)
             self._update_artifact_error_from_exception(
