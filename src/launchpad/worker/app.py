@@ -29,4 +29,4 @@ app = TaskbrokerApp(
     at_most_once_store=StubAtMostOnce(),
 )
 
-app.set_modules(["tasks"])
+app.set_modules(["launchpad.worker.tasks"])

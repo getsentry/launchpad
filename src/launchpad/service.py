@@ -15,7 +15,6 @@ from launchpad.sentry_client import SentryClient
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
 
-from .kafka import LaunchpadKafkaConsumer
 from .sentry_sdk_init import initialize_sentry_sdk
 from .server import LaunchpadServer, get_server_config
 
@@ -31,7 +30,6 @@ class LaunchpadService:
 
     def __init__(self, statsd: StatsdInterface | None = None) -> None:
         self.server: LaunchpadServer | None = None
-        self.kafka: LaunchpadKafkaConsumer | None = None
         self._server_thread: threading.Thread | None = None
         self._server_loop: asyncio.AbstractEventLoop | None = None
         self._statsd = statsd or NullStatsd()
@@ -59,22 +57,21 @@ class LaunchpadService:
         worker_concurrency = server_config.worker_concurrency
 
         self.worker = TaskWorker(
-            app_module="worker:app",
+            app_module="launchpad.worker.app:app",
             broker_hosts=[worker_rpc_host],
             max_child_task_count=100,
             concurrency=worker_concurrency,
             child_tasks_queue_maxsize=worker_concurrency * 2,
             result_queue_maxsize=worker_concurrency * 2,
             rebalance_after=32,
-            processing_pool_name="examples",  # TODO - I don't know what this is honestly
+            processing_pool_name="launchpad",
             process_type="forkserver",
         )
 
-        # self.kafka = create_kafka_consumer()
         logger.info("Service components initialized")
 
     def start(self) -> None:
-        if not self.server or not self.kafka or not self.worker:
+        if not self.server or not self.worker:
             raise RuntimeError("Service not properly initialized. Call setup() first.")
 
         logger.info("Starting Launchpad service...")
@@ -86,8 +83,6 @@ class LaunchpadService:
 
             logger.info(f"Received signal {signum}, initiating shutdown...")
             self._shutdown_requested = True
-            if self.kafka:
-                self.kafka.stop()
 
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
@@ -115,8 +110,9 @@ class LaunchpadService:
     def is_healthy(self) -> bool:
         """Get overall service health status."""
         is_server_healthy = self.server.is_healthy()
-        is_kafka_healthy = self.kafka.is_healthy()
-        return is_server_healthy and is_kafka_healthy
+
+        # TODO - Report worker health too
+        return is_server_healthy
 
     def _run_http_server_thread(self) -> None:
         self._server_loop = asyncio.new_event_loop()
