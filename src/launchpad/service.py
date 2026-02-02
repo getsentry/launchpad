@@ -9,11 +9,13 @@ import threading
 
 from dataclasses import dataclass
 
+from taskbroker_client.worker import TaskWorker
+
 from launchpad.sentry_client import SentryClient
 from launchpad.utils.logging import get_logger
 from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
 
-from .kafka import LaunchpadKafkaConsumer, create_kafka_consumer
+from .kafka import LaunchpadKafkaConsumer
 from .sentry_sdk_init import initialize_sentry_sdk
 from .server import LaunchpadServer, get_server_config
 
@@ -37,6 +39,7 @@ class LaunchpadService:
         self._service_config: ServiceConfig | None = None
         self._sentry_client: SentryClient | None = None
         self._shutdown_requested = False
+        self.worker: TaskWorker | None = None
 
     def setup(self) -> None:
         initialize_sentry_sdk()
@@ -51,11 +54,27 @@ class LaunchpadService:
             statsd=self._statsd,
         )
 
-        self.kafka = create_kafka_consumer()
+        # Initialize the worker
+        worker_rpc_host = server_config.worker_rpc_host
+        worker_concurrency = server_config.worker_concurrency
+
+        self.worker = TaskWorker(
+            app_module="worker:app",
+            broker_hosts=[worker_rpc_host],
+            max_child_task_count=100,
+            concurrency=worker_concurrency,
+            child_tasks_queue_maxsize=worker_concurrency * 2,
+            result_queue_maxsize=worker_concurrency * 2,
+            rebalance_after=32,
+            processing_pool_name="examples",  # TODO - I don't know what this is honestly
+            process_type="forkserver",
+        )
+
+        # self.kafka = create_kafka_consumer()
         logger.info("Service components initialized")
 
     def start(self) -> None:
-        if not self.server or not self.kafka:
+        if not self.server or not self.kafka or not self.worker:
             raise RuntimeError("Service not properly initialized. Call setup() first.")
 
         logger.info("Starting Launchpad service...")
@@ -83,13 +102,15 @@ class LaunchpadService:
 
         logger.info("Launchpad service started successfully")
 
+        exitcode = 1
         try:
-            # Run Kafka consumer in main thread (blocking)
-            self.kafka.run()
+            exitcode = self.worker.start()
         finally:
             logger.info("Cleaning up service resources...")
             self._shutdown_server()
             logger.info("Service cleanup completed")
+
+            raise SystemExit(exitcode)
 
     def is_healthy(self) -> bool:
         """Get overall service health status."""
