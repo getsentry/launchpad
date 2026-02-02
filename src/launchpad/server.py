@@ -201,6 +201,12 @@ class ServerConfig:
     log_level: str
     access_log: bool
 
+    # The address of the taskbroker the worker connects to
+    worker_rpc_host: str
+
+    # The number of child processes the worker should have
+    worker_concurrency: int
+
 
 def get_server_config() -> ServerConfig:
     """Get server configuration from environment."""
@@ -226,6 +232,21 @@ def get_server_config() -> ServerConfig:
             f"LAUNCHPAD_PORT must be a valid integer, got: {port_str}"
         )
 
+    worker_rpc_host = os.getenv("LAUNCHPAD_WORKER_RPC_HOST")
+    if not worker_rpc_host:
+        raise ValueError("LAUNCHPAD_WORKER_RPC_HOST environment variable required")
+
+    worker_concurrency_str = os.getenv("LAUNCHPAD_WORKER_CONCURRENCY")
+    if not worker_concurrency_str:
+        raise ValueError("LAUNCHPAD_WORKER_CONCURRENCY environment variable required")
+
+    try:
+        worker_concurrency = int(worker_concurrency_str)
+    except ValueError:
+        raise ValueError(  # noqa: E501
+            f"LAUNCHPAD_WORKER_CONCURRENCY must be a valid integer, got: {worker_concurrency_str}"
+        )
+
     sentry_region = os.getenv("SENTRY_REGION", "unknown")
 
     return ServerConfig(
@@ -233,6 +254,8 @@ def get_server_config() -> ServerConfig:
         sentry_region=sentry_region,
         host=host,
         port=port,
+        worker_rpc_host=worker_rpc_host,
+        worker_concurrency=worker_concurrency,
         debug=not is_production,
         log_level="WARNING" if is_production else "DEBUG",
         access_log=not is_production,  # Disable access logs in prod

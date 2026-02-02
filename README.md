@@ -101,7 +101,7 @@ devservices up
 launchpad serve
 ```
 
-And finally use the `sentry-cli` to upload to your local machine:
+And finally use the `sentry-cli` (version 3.0.1 or higher) to upload to your local machine:
 
 ```bash
 sentry-cli --log-level DEBUG \
