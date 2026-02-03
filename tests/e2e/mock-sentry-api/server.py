@@ -170,7 +170,6 @@ async def upload_chunk(
     file: UploadFile,
     authorization: str = Header(None),
 ):
-    """Upload a file chunk."""
     # Read chunk data
     chunk_data = await file.read()
 
