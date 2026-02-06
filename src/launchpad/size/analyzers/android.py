@@ -22,7 +22,7 @@ from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.android import AndroidAnalysisResults, AndroidAppInfo, AndroidInsightResults
 from launchpad.size.models.common import ANDROID_ANALYSIS_VERSION, FileAnalysis, FileInfo
-from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
+from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, FlaggedInsight, TreemapType
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.android_bundle_size import calculate_apk_download_size, calculate_apk_install_size
 from launchpad.size.utils.insight_path_map import build_insight_path_map
@@ -99,7 +99,7 @@ class AndroidAnalyzer:
 
         # Generate insights BEFORE treemap so we can tag nodes with flagged insights
         insights: AndroidInsightResults | None = None
-        insight_path_map: dict[str, list[str]] = {}
+        insight_path_map: dict[str, list[FlaggedInsight]] = {}
 
         if not self.skip_insights:
             logger.info("Generating insights from analysis results")

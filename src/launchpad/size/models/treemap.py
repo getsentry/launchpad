@@ -118,6 +118,15 @@ FILE_TYPE_TO_TREEMAP_TYPE: dict[str, TreemapType] = {
 }
 
 
+class FlaggedInsight(BaseModel):
+    """An insight flagged on a treemap node with its per-file savings."""
+
+    model_config = ConfigDict(frozen=True)
+
+    key: str = Field(..., description="Insight key (e.g. 'image_optimization')")
+    savings: int = Field(..., ge=0, description="Potential savings in bytes for this file")
+
+
 class TreemapElement(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -129,7 +138,9 @@ class TreemapElement(BaseModel):
     """ Some files (like zip files) are not directories but have children. """
     children: List[TreemapElement] = Field(default_factory=list, description="Child elements")
     misc: TreemapElementMisc | None = Field(None, description="Optional miscellaneous data for this element")
-    flagged_insights: List[str] = Field(default_factory=list, description="Flagged insights keys for this element")
+    flagged_insights: List[FlaggedInsight] = Field(
+        default_factory=list, description="Flagged insights with per-file savings"
+    )
 
 
 class TreemapResults(BaseModel):

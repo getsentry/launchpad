@@ -3,7 +3,7 @@ import os
 from typing import Dict, List
 
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.treemap import TreemapElement, TreemapElementMisc
+from launchpad.size.models.treemap import FlaggedInsight, TreemapElement, TreemapElementMisc
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
 from launchpad.utils.file_utils import to_nearest_block_size
 
@@ -12,7 +12,7 @@ class DefaultFileElementBuilder(TreemapElementBuilder):
     def __init__(
         self,
         filesystem_block_size: int,
-        insight_path_map: Dict[str, List[str]] | None = None,
+        insight_path_map: Dict[str, List[FlaggedInsight]] | None = None,
     ) -> None:
         super().__init__(filesystem_block_size=filesystem_block_size)
         self.insight_path_map = insight_path_map or {}

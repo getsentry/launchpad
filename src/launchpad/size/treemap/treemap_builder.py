@@ -12,7 +12,7 @@ from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import HERMES_EXTENSIONS
 from launchpad.size.models.apple import MachOBinaryAnalysis
 from launchpad.size.models.common import FileAnalysis, FileInfo
-from launchpad.size.models.treemap import TreemapElement, TreemapResults, TreemapType
+from launchpad.size.models.treemap import FlaggedInsight, TreemapElement, TreemapResults, TreemapType
 from launchpad.size.treemap.dex_element_builder import DexElementBuilder
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
 from launchpad.utils.file_utils import to_nearest_block_size
@@ -42,7 +42,7 @@ class TreemapBuilder:
         binary_analysis_map: Dict[str, MachOBinaryAnalysis] | None = None,
         class_definitions: list[ClassDefinition] | None = None,
         hermes_reports: Dict[str, HermesReport] | None = None,
-        insight_path_map: Dict[str, List[str]] | None = None,
+        insight_path_map: Dict[str, List[FlaggedInsight]] | None = None,
     ) -> None:
         self.app_name = app_name
         self.platform = platform
@@ -123,7 +123,7 @@ class TreemapBuilder:
         if element is None:
             element = default_element_builder.build_element(file_info, display_name)
 
-        # Tag element with flagged insights
+        # Tag element with flagged insights (covers non-default builders)
         flagged = self.insight_path_map.get(file_info.path, [])
         if flagged:
             element = element.model_copy(update={"flagged_insights": flagged})

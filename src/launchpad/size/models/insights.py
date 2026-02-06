@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,6 +12,10 @@ class BaseInsightResult(BaseModel):
 
     def get_file_paths(self) -> List[str]:
         """Return file paths flagged by this insight. Override in subclasses."""
+        return []
+
+    def get_file_path_savings(self) -> List[Tuple[str, int]]:
+        """Return (file_path, savings) pairs. Override in subclasses."""
         return []
 
 
@@ -42,6 +46,9 @@ class FilesInsightResult(BaseInsightResult):
     def get_file_paths(self) -> List[str]:
         return [f.file_path for f in self.files]
 
+    def get_file_path_savings(self) -> List[Tuple[str, int]]:
+        return [(f.file_path, f.total_savings) for f in self.files]
+
 
 class GroupsInsightResult(BaseInsightResult):
     """Base class for insights that return grouped file results."""
@@ -50,6 +57,9 @@ class GroupsInsightResult(BaseInsightResult):
 
     def get_file_paths(self) -> List[str]:
         return [f.file_path for group in self.groups for f in group.files]
+
+    def get_file_path_savings(self) -> List[Tuple[str, int]]:
+        return [(f.file_path, f.total_savings) for group in self.groups for f in group.files]
 
 
 class DuplicateFilesInsightResult(GroupsInsightResult):
@@ -207,6 +217,9 @@ class ImageOptimizationInsightResult(BaseInsightResult):
     def get_file_paths(self) -> List[str]:
         return [f.file_path for f in self.optimizable_files]
 
+    def get_file_path_savings(self) -> List[Tuple[str, int]]:
+        return [(f.file_path, f.potential_savings) for f in self.optimizable_files]
+
 
 class StripBinaryFileInfo(BaseModel):
     """Savings information from stripping a Mach-O binary."""
@@ -226,6 +239,9 @@ class StripBinaryInsightResult(BaseInsightResult):
 
     def get_file_paths(self) -> List[str]:
         return [f.file_path for f in self.files]
+
+    def get_file_path_savings(self) -> List[Tuple[str, int]]:
+        return [(f.file_path, f.total_savings) for f in self.files]
 
 
 class AudioCompressionInsightResult(FilesInsightResult):
@@ -253,6 +269,9 @@ class VideoCompressionInsightResult(BaseInsightResult):
 
     def get_file_paths(self) -> List[str]:
         return [f.file_path for f in self.files]
+
+    def get_file_path_savings(self) -> List[Tuple[str, int]]:
+        return [(f.file_path, f.total_savings) for f in self.files]
 
 
 class MultipleNativeLibraryArchInsightResult(FilesInsightResult):

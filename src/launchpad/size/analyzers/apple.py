@@ -37,6 +37,7 @@ from launchpad.size.insights.common.large_images import LargeImageFileInsight
 from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import APPLE_ANALYSIS_VERSION
+from launchpad.size.models.treemap import FlaggedInsight
 from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
@@ -190,7 +191,7 @@ class AppleAppAnalyzer:
 
         # Generate insights BEFORE treemap so we can tag nodes with flagged insights
         insights: AppleInsightResults | None = None
-        insight_path_map: Dict[str, List[str]] = {}
+        insight_path_map: Dict[str, List[FlaggedInsight]] = {}
 
         if not self.skip_insights:
             logger.info("size.apple.generate_insights")
