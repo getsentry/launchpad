@@ -22,7 +22,7 @@ x-programs:
 # Assuming we only have remote dependencies (currently the case), then below is only relevant when running launchpad as a dependency of the monolith.
 services:
   launchpad:
-    image: ghcr.io/getsentry/launchpad:latest
+    image: ghcr.io/getsentry/launchpad:nightly
     ports:
       - 127.0.0.1:2218:2218 # Bind to localhost only - no external access
     command:

@@ -41,7 +41,7 @@ jobs:
           dockerfile_path: "./Dockerfile"
           tag_suffix: -${{ matrix.platform }}
           ghcr: true
-          tag_nightly: true
+          tag_nightly: false
           tag_latest: false
 
   create-manifest:
@@ -73,6 +73,5 @@ jobs:
           docker buildx imagetools create \
             --tag ghcr.io/getsentry/launchpad:${{ github.sha }} \
             --tag ghcr.io/getsentry/launchpad:nightly \
-            --tag ghcr.io/getsentry/launchpad:latest \
             ghcr.io/getsentry/launchpad:${{ github.sha }}-amd64 \
             ghcr.io/getsentry/launchpad:${{ github.sha }}-arm64
