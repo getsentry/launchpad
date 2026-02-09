@@ -42,9 +42,9 @@ class HermesDebugInfoInsight(Insight[HermesDebugInfoInsightResult]):
             return None
 
         files_with_debug_info.sort(
-            key=lambda f: input.hermes_reports[f.path]["sections"]["Debug info"]["bytes"]
-            if input.hermes_reports
-            else 0,
+            key=lambda f: (
+                input.hermes_reports[f.path]["sections"]["Debug info"]["bytes"] if input.hermes_reports else 0
+            ),
             reverse=True,
         )
 
