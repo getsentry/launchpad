@@ -5,7 +5,7 @@ import json
 import tempfile
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterator, cast
 
@@ -17,6 +17,7 @@ from objectstore_client import (
 from objectstore_client import (
     Usecase,
 )
+from objectstore_client.metadata import TimeToLive
 from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
     PreprodArtifactEvents,
 )
@@ -147,8 +148,12 @@ class ArtifactProcessor:
             path = stack.enter_context(self._download_artifact(organization_id, project_id, artifact_id))
             artifact = self._parse_artifact(organization_id, project_id, artifact_id, path)
             analyzer = self._create_analyzer(artifact)
+            retention = self._sentry_client.get_retention(organization_id)
+            retention_days = max(retention.size, retention.build_distribution)
             try:
-                app_icon_object_id = self._process_app_icon(organization_id, project_id, artifact_id, artifact)
+                app_icon_object_id = self._process_app_icon(
+                    organization_id, project_id, artifact_id, artifact, retention_days
+                )
             except Exception:
                 logger.exception(
                     f"Failed to process app icon for artifact {artifact_id} (project: {project_id}, org: {organization_id})"
@@ -184,14 +189,14 @@ class ArtifactProcessor:
                 "artifact.download.duration",
                 tags=[f"project_id:{project_id}", f"organization_id:{organization_id}"],
             ):
-                size = self._sentry_client.download_artifact(
+                file_size = self._sentry_client.download_artifact(
                     org=organization_id,
                     project=project_id,
                     artifact_id=artifact_id,
                     out=tf,
                 )
                 logger.info(
-                    f"Downloaded artifact {artifact_id} {size} bytes ({size / 1024 / 1024:.2f} MB) to {tf.name}"
+                    f"Downloaded artifact {artifact_id} {file_size} bytes ({file_size / 1024 / 1024:.2f} MB) to {tf.name}"
                 )
             yield Path(tf.name)
 
@@ -261,6 +266,7 @@ class ArtifactProcessor:
         project_id: str,
         artifact_id: str,
         artifact: Artifact,
+        retention_days: int,
     ) -> str | None:
         if self._objectstore_client is None:
             logger.info(
@@ -278,7 +284,11 @@ class ArtifactProcessor:
         icon_key = f"{organization_id}/{project_id}/{image_id}"
         logger.info(f"Uploading app icon to object store: {icon_key}")
         session = self._objectstore_client.session(self._objectstore_usecase, org=organization_id, project=project_id)
-        session.put(app_icon, key=icon_key)
+        session.put(
+            app_icon,
+            key=icon_key,
+            expiration_policy=TimeToLive(delta=timedelta(days=retention_days)),
+        )
         return image_id
 
     def _do_distribution(

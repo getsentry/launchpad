@@ -93,7 +93,10 @@ async def download_artifact(
     # Handle HEAD request
     if request.method == "HEAD":
         file_size = artifact_path.stat().st_size
-        return Response(headers={"Content-Length": str(file_size)}, status_code=200)
+        return Response(
+            headers={"Content-Length": str(file_size)},
+            status_code=200,
+        )
 
     # Handle Range requests for resumable downloads
     range_header = request.headers.get("range")
@@ -162,6 +165,11 @@ async def get_chunk_options(org: str):
         "compression": ["gzip"],
         "accept": ["*"],
     }
+
+
+@app.get("/api/0/organizations/{org}/preprod/retention/")
+async def get_retention(org: str):
+    return {"size": 90, "buildDistribution": 90}
 
 
 @app.post("/api/0/organizations/{org}/chunk-upload/")

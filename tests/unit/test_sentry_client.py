@@ -507,3 +507,17 @@ class TestSentryClientRetry:
         assert result == 13
         out.seek(0)
         assert out.read() == b"Hello, world!"
+
+    @responses.activate
+    def test_get_retention(self):
+        responses.add(
+            responses.GET,
+            "https://example.com/api/0/organizations/test-org/preprod/retention/",
+            json={"size": 90, "buildDistribution": 30},
+        )
+
+        client = SentryClient(base_url="https://example.com", shared_secret="password")
+        result = client.get_retention("test-org")
+
+        assert result.size == 90
+        assert result.build_distribution == 30

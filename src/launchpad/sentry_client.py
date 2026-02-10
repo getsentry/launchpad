@@ -128,6 +128,12 @@ class AssembleResponse(BaseModel):
     detail: Optional[str] = None
 
 
+class RetentionResponse(BaseModel):
+    model_config = ConfigDict(strict=True, alias_generator=to_camel)
+    size: int
+    build_distribution: int
+
+
 def create_retry_session(max_retries: int = 3) -> requests.Session:
     """Create a requests session with retry configuration."""
     session = requests.Session()
@@ -392,6 +398,10 @@ class SentryClient:
         """Get chunk upload configuration from server."""
         endpoint = f"/api/0/organizations/{org}/chunk-upload/"
         return self._make_json_request("GET", endpoint, ChunkOptionsResponse)
+
+    def get_retention(self, org: str) -> RetentionResponse:
+        endpoint = f"/api/0/organizations/{org}/preprod/retention/"
+        return self._make_json_request("GET", endpoint, RetentionResponse)
 
     def upload_chunk(self, org: str, chunk: bytes) -> bool:
         """Upload a single chunk."""
