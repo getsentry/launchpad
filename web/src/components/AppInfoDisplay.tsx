@@ -25,6 +25,8 @@ const AppInfoDisplay: React.FC<AppInfoDisplayProps> = ({ data }) => {
         return 'Watch App';
       case ComponentType.ANDROID_DYNAMIC_FEATURE:
         return 'Dynamic Feature';
+      case ComponentType.APP_CLIP_ARTIFACT:
+        return 'App Clip';
       case ComponentType.MAIN_ARTIFACT:
         return 'Main App';
       default:

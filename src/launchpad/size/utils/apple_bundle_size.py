@@ -78,9 +78,10 @@ def calculate_bundle_sizes(
     )
 
     watch_sizes = _calculate_watch_component_sizes(bundle_url)
+    app_clip_sizes = _calculate_app_clip_component_sizes(bundle_url)
 
-    main_download = download_size - watch_sizes.total_download
-    main_install = install_size - watch_sizes.total_install
+    main_download = download_size - watch_sizes.total_download - app_clip_sizes.total_download
+    main_install = install_size - watch_sizes.total_install - app_clip_sizes.total_install
 
     app_components: List[AppComponent] = [
         AppComponent(
@@ -115,6 +116,28 @@ def calculate_bundle_sizes(
             },
         )
 
+    for app_clip_path, app_clip_id, app_clip_download_size, app_clip_install_size in app_clip_sizes.components:
+        relative_path = str(app_clip_path.relative_to(bundle_url))
+        app_components.append(
+            AppComponent(
+                component_type=ComponentType.APP_CLIP_ARTIFACT,
+                app_id=app_clip_id,
+                name=app_clip_path.stem,
+                path=relative_path,
+                download_size=app_clip_download_size,
+                install_size=app_clip_install_size,
+            )
+        )
+
+        logger.info(
+            "size.apple.app_clip_sizes",
+            extra={
+                "app_clip_name": app_clip_path.stem,
+                "download_size": app_clip_download_size,
+                "install_size": app_clip_install_size,
+            },
+        )
+
     logger.info(
         "size.apple.bundle_sizes",
         extra={
@@ -122,7 +145,8 @@ def calculate_bundle_sizes(
             "main_app_install_size": main_install,
             "total_download_size": download_size,
             "total_install_size": install_size,
-            "watch_app_count": len(app_components) - 1,
+            "watch_app_count": len(watch_sizes.components),
+            "app_clip_count": len(app_clip_sizes.components),
         },
     )
 
@@ -210,6 +234,72 @@ def _calculate_watch_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
 
         components = updated_components
         total_install += watch_dir_overhead
+
+    return ComponentsWithSizes(
+        total_download=total_download,
+        total_install=total_install,
+        components=components,
+    )
+
+
+def _calculate_app_clip_component_sizes(bundle_path: Path) -> ComponentsWithSizes:
+    """Calculate sizes for all App Clip components in a bundle."""
+
+    app_clips = list(bundle_path.rglob("AppClips/*.app"))
+
+    if not app_clips:
+        return ComponentsWithSizes(total_download=0, total_install=0, components=[])
+
+    components: List[ComponentInfo] = []
+    total_download = 0
+    total_install = 0
+
+    for app_clip_path in app_clips:
+        if not app_clip_path.is_dir():
+            continue
+
+        app_clip_plist_path = app_clip_path / "Info.plist"
+        app_id = ""
+        if app_clip_plist_path.exists():
+            try:
+                with open(app_clip_plist_path, "rb") as f:
+                    app_clip_plist = plistlib.load(f)
+                app_id = app_clip_plist.get("CFBundleIdentifier", "")
+            except Exception:
+                logger.exception("Error reading Info.plist for app clip")
+
+        sizes = _calculate_component_sizes(app_clip_path)
+        components.append(
+            ComponentInfo(
+                path=app_clip_path,
+                app_id=app_id,
+                download_size=sizes.download_size,
+                install_size=sizes.install_size,
+            )
+        )
+        total_download += sizes.download_size
+        total_install += sizes.install_size
+
+    # Calculate AppClips/ directory overhead and divide evenly across app clips
+    app_clips_dir = bundle_path / "AppClips"
+    if app_clips_dir.exists() and components:
+        app_clips_dir_overhead = to_nearest_block_size(get_file_size(app_clips_dir), APPLE_FILESYSTEM_BLOCK_SIZE)
+
+        # Divide overhead evenly, first component gets remainder
+        overhead_per_app = app_clips_dir_overhead // len(components)
+        overhead_remainder = app_clips_dir_overhead % len(components)
+
+        updated_components = []
+        for i, (path, app_id, download, install) in enumerate(components):
+            # First component gets remainder
+            if i == 0:
+                install += overhead_per_app + overhead_remainder
+            else:
+                install += overhead_per_app
+            updated_components.append(ComponentInfo(path, app_id, download, install))
+
+        components = updated_components
+        total_install += app_clips_dir_overhead
 
     return ComponentsWithSizes(
         total_download=total_download,

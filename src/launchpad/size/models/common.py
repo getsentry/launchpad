@@ -105,11 +105,13 @@ class ComponentType(IntEnum):
     """
 
     MAIN_ARTIFACT = 0
-    """The main artifact (not used in app_components list)."""
+    """The main artifact."""
     WATCH_ARTIFACT = 1
     """An embedded watch artifact."""
     ANDROID_DYNAMIC_FEATURE = 2
     """An embedded Android dynamic feature artifact."""
+    APP_CLIP_ARTIFACT = 3
+    """An embedded App Clip artifact."""
 
     @classmethod
     def as_choices(cls) -> tuple[tuple[int, str], ...]:
@@ -118,6 +120,7 @@ class ComponentType(IntEnum):
             (cls.MAIN_ARTIFACT, "main_artifact"),
             (cls.WATCH_ARTIFACT, "watch_artifact"),
             (cls.ANDROID_DYNAMIC_FEATURE, "android_dynamic_feature_artifact"),
+            (cls.APP_CLIP_ARTIFACT, "app_clip_artifact"),
         )
 
     def to_string(self) -> str:
@@ -156,7 +159,7 @@ class BaseAnalysisResults(BaseModel):
     install_size: int = Field(..., description="Total estimated install size in bytes (main app + all components)")
     app_components: List[AppComponent] = Field(
         default_factory=list,
-        description="Breakdown of modular app components (watch apps, extensions, dynamic features). To get main app size: total - sum(component sizes)",
+        description="Breakdown of modular app components (main app, watch apps, app clips, dynamic features).",
     )
 
     def to_dict(self) -> Dict[str, Any]:
