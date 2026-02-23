@@ -1,7 +1,7 @@
 {
     "scripts": {
         "setup": "direnv allow && eval \"$(direnv export zsh)\" && devenv sync",
-        "run": "make serve"
+        "run": "eval \"$(direnv export zsh)\" && make serve"
     },
     "runScriptMode": "nonconcurrent"
 }
