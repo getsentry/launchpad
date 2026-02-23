@@ -354,9 +354,14 @@ class ArtifactProcessor:
             with apk.raw_file() as f:
                 self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         else:
-            # TODO(EME-422): Should call _update_artifact_error here once we
-            # support setting errors just for build.
             logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id} (project: {project_id}, org: {organization_id})")
+            self._update_artifact_error(
+                organization_id,
+                project_id,
+                artifact_id,
+                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE,
+            )
 
     def _do_size(
         self,

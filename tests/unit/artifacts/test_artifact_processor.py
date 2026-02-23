@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from objectstore_client import Client as ObjectstoreClient
 
 from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig
+from launchpad.artifacts.artifact import Artifact
 from launchpad.constants import (
     ProcessingErrorCode,
     ProcessingErrorMessage,
@@ -133,6 +134,29 @@ class TestArtifactProcessorErrorHandling:
         assert ProcessingErrorMessage.PREPROCESSING_FAILED.value == "Failed to extract basic app information"
         assert ProcessingErrorMessage.SIZE_ANALYSIS_FAILED.value == "Failed to perform size analysis"
         assert ProcessingErrorMessage.UNKNOWN_ERROR.value == "An unknown error occurred"
+
+    def test_do_distribution_unknown_artifact_type_reports_error(self):
+        """Test that _do_distribution reports an error for unknown artifact types."""
+        mock_sentry_client = Mock(spec=SentryClient)
+        mock_sentry_client.update_artifact.return_value = None
+        self.processor._sentry_client = mock_sentry_client
+
+        unknown_artifact = Mock(spec=Artifact)
+        mock_info = Mock()
+
+        self.processor._do_distribution(
+            "test-org-id", "test-project-id", "test-artifact-id", unknown_artifact, mock_info
+        )
+
+        mock_sentry_client.update_artifact.assert_called_once_with(
+            org="test-org-id",
+            project="test-project-id",
+            artifact_id="test-artifact-id",
+            data={
+                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
+                "error_message": ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE.value,
+            },
+        )
 
 
 class TestArtifactProcessorMessageHandling:
