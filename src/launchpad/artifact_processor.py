@@ -330,13 +330,32 @@ class ArtifactProcessor:
         logger.info(f"BUILD_DISTRIBUTION for {artifact_id} (project: {project_id}, org: {organization_id})")
         if isinstance(artifact, ZippedXCArchive):
             apple_info = cast(AppleAppInfo, info)
-            if apple_info.is_code_signature_valid and not apple_info.is_simulator:
-                with tempfile.TemporaryDirectory() as temp_dir_str:
-                    temp_dir = Path(temp_dir_str)
-                    ipa_path = temp_dir / "App.ipa"
-                    artifact.generate_ipa(ipa_path)
-                    with open(ipa_path, "rb") as f:
-                        self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+            if not apple_info.is_code_signature_valid:
+                logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: invalid code signature")
+                self._update_artifact_error(
+                    organization_id,
+                    project_id,
+                    artifact_id,
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.INVALID_CODE_SIGNATURE,
+                )
+                return
+            if apple_info.is_simulator:
+                logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: simulator build")
+                self._update_artifact_error(
+                    organization_id,
+                    project_id,
+                    artifact_id,
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
+                    ProcessingErrorMessage.SIMULATOR_BUILD,
+                )
+                return
+            with tempfile.TemporaryDirectory() as temp_dir_str:
+                temp_dir = Path(temp_dir_str)
+                ipa_path = temp_dir / "App.ipa"
+                artifact.generate_ipa(ipa_path)
+                with open(ipa_path, "rb") as f:
+                    self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         elif isinstance(artifact, (AAB, ZippedAAB)):
             with tempfile.TemporaryDirectory() as temp_dir_str:
                 temp_dir = Path(temp_dir_str)

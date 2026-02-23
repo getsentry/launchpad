@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 from objectstore_client import Client as ObjectstoreClient
 
 from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig
+from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
 from launchpad.constants import (
     ProcessingErrorCode,
@@ -157,6 +158,52 @@ class TestArtifactProcessorErrorHandling:
                 "error_message": ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE.value,
             },
         )
+
+    def test_do_distribution_invalid_code_signature_reports_error(self):
+        mock_sentry_client = Mock(spec=SentryClient)
+        mock_sentry_client.update_artifact.return_value = None
+        self.processor._sentry_client = mock_sentry_client
+
+        artifact = Mock(spec=ZippedXCArchive)
+        mock_info = Mock()
+        mock_info.is_code_signature_valid = False
+        mock_info.is_simulator = False
+
+        self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
+
+        mock_sentry_client.update_artifact.assert_called_once_with(
+            org="test-org-id",
+            project="test-project-id",
+            artifact_id="test-artifact-id",
+            data={
+                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
+                "error_message": ProcessingErrorMessage.INVALID_CODE_SIGNATURE.value,
+            },
+        )
+        mock_sentry_client.upload_installable_app.assert_not_called()
+
+    def test_do_distribution_simulator_build_reports_error(self):
+        mock_sentry_client = Mock(spec=SentryClient)
+        mock_sentry_client.update_artifact.return_value = None
+        self.processor._sentry_client = mock_sentry_client
+
+        artifact = Mock(spec=ZippedXCArchive)
+        mock_info = Mock()
+        mock_info.is_code_signature_valid = True
+        mock_info.is_simulator = True
+
+        self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
+
+        mock_sentry_client.update_artifact.assert_called_once_with(
+            org="test-org-id",
+            project="test-project-id",
+            artifact_id="test-artifact-id",
+            data={
+                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
+                "error_message": ProcessingErrorMessage.SIMULATOR_BUILD.value,
+            },
+        )
+        mock_sentry_client.upload_installable_app.assert_not_called()
 
 
 class TestArtifactProcessorMessageHandling:
