@@ -1,0 +1,6 @@
+{
+    "scripts": {
+        "setup": "direnv allow && devenv sync",
+        "run": "make serve"
+    }
+}
