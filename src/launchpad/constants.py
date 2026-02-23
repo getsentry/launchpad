@@ -49,6 +49,8 @@ class ProcessingErrorMessage(Enum):
     SIZE_ANALYSIS_FAILED = "Failed to perform size analysis"
     ARTIFACT_PARSING_FAILED = "Failed to parse artifact file"
     UNSUPPORTED_ARTIFACT_TYPE = "Unsupported artifact type"
+    INVALID_CODE_SIGNATURE = "Cannot distribute app with invalid code signature"
+    SIMULATOR_BUILD = "Cannot distribute simulator builds"
 
     # System-related errors
     TEMP_FILE_CREATION_FAILED = "Failed to create temporary file"
