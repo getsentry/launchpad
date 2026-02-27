@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 from launchpad.size.insights.common.duplicate_files import DuplicateFilesInsight
 from launchpad.size.insights.insight import InsightsInput
-from launchpad.size.models.common import BaseAppInfo, FileAnalysis, FileInfo
+from launchpad.size.models.common import AppComponent, BaseAppInfo, ComponentType, FileAnalysis, FileInfo
 from launchpad.size.models.insights import DuplicateFilesInsightResult
 from launchpad.size.models.treemap import TreemapType
 
@@ -17,14 +17,285 @@ class TestDuplicateFilesInsight:
         """Set up test fixtures."""
         self.insight = DuplicateFilesInsight()
 
-    def _create_insights_input(self, files: list[FileInfo]) -> InsightsInput:
+    def _create_insights_input(
+        self,
+        files: list[FileInfo],
+        *,
+        app_components: list[AppComponent] | None = None,
+    ) -> InsightsInput:
         """Helper method to create InsightsInput for testing."""
         file_analysis = FileAnalysis(items=files)
         return InsightsInput(
             app_info=Mock(spec=BaseAppInfo),
             file_analysis=file_analysis,
             binary_analysis=[],
+            app_components=app_components or [],
         )
+
+    def _apple_components(self) -> list[AppComponent]:
+        return [
+            AppComponent(
+                component_type=ComponentType.MAIN_ARTIFACT,
+                app_id="com.example.app",
+                name="ExampleApp",
+                path=".",
+                download_size=100,
+                install_size=100,
+            ),
+            AppComponent(
+                component_type=ComponentType.APP_CLIP_ARTIFACT,
+                app_id="com.example.app.clip",
+                name="ExampleClip",
+                path="AppClips/ExampleClip.app",
+                download_size=50,
+                install_size=50,
+            ),
+            AppComponent(
+                component_type=ComponentType.WATCH_ARTIFACT,
+                app_id="com.example.app.watch",
+                name="ExampleWatch",
+                path="Watch/ExampleWatch.app",
+                download_size=50,
+                install_size=50,
+            ),
+        ]
+
+    def test_detects_cross_component_duplicates_when_no_components_provided(self):
+        files = [
+            FileInfo(
+                full_path=Path("Resources/icon.png"),
+                path="Resources/icon.png",
+                size=2000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="icon_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/Resources/icon.png"),
+                path="AppClips/ExampleClip.app/Resources/icon.png",
+                size=2000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="icon_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("Watch/ExampleWatch.app/Resources/icon.png"),
+                path="Watch/ExampleWatch.app/Resources/icon.png",
+                size=2000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="icon_hash",
+                is_dir=False,
+            ),
+        ]
+
+        insights_input = self._create_insights_input(files)
+        result = self.insight.generate(insights_input)
+
+        assert isinstance(result, DuplicateFilesInsightResult)
+        assert len(result.groups) == 1
+        assert result.total_savings == 4000
+
+    def test_excludes_cross_component_duplicate_files_for_watch_and_app_clip(self):
+        files = [
+            FileInfo(
+                full_path=Path("Resources/icon.png"),
+                path="Resources/icon.png",
+                size=2000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="icon_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/Resources/icon.png"),
+                path="AppClips/ExampleClip.app/Resources/icon.png",
+                size=2000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="icon_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("Watch/ExampleWatch.app/Resources/icon.png"),
+                path="Watch/ExampleWatch.app/Resources/icon.png",
+                size=2000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="icon_hash",
+                is_dir=False,
+            ),
+        ]
+
+        insights_input = self._create_insights_input(files, app_components=self._apple_components())
+        result = self.insight.generate(insights_input)
+
+        assert result is None
+
+    def test_excludes_cross_component_duplicate_directories_for_watch_and_app_clip(self):
+        directories = [
+            FileInfo(
+                full_path=Path("Shared.bundle"),
+                path="Shared.bundle",
+                size=4096,
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="shared_bundle_hash",
+                is_dir=True,
+                size_including_children=12000,
+            ),
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/Shared.bundle"),
+                path="AppClips/ExampleClip.app/Shared.bundle",
+                size=4096,
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="shared_bundle_hash",
+                is_dir=True,
+                size_including_children=12000,
+            ),
+            FileInfo(
+                full_path=Path("Watch/ExampleWatch.app/Shared.bundle"),
+                path="Watch/ExampleWatch.app/Shared.bundle",
+                size=4096,
+                file_type="directory",
+                treemap_type=TreemapType.OTHER,
+                hash="shared_bundle_hash",
+                is_dir=True,
+                size_including_children=12000,
+            ),
+        ]
+
+        insights_input = self._create_insights_input(directories, app_components=self._apple_components())
+        result = self.insight.generate(insights_input)
+
+        assert result is None
+
+    def test_preserves_within_component_duplicate_detection_when_components_present(self):
+        files = [
+            FileInfo(
+                full_path=Path("Resources/a.png"),
+                path="Resources/a.png",
+                size=1000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="a_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("Backup/a.png"),
+                path="Backup/a.png",
+                size=1000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="a_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/Resources/a.png"),
+                path="AppClips/ExampleClip.app/Resources/a.png",
+                size=1000,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="a_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/Resources/b.png"),
+                path="AppClips/ExampleClip.app/Resources/b.png",
+                size=1500,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="b_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/Backup/b.png"),
+                path="AppClips/ExampleClip.app/Backup/b.png",
+                size=1500,
+                file_type="png",
+                treemap_type=TreemapType.ASSETS,
+                hash="b_hash",
+                is_dir=False,
+            ),
+        ]
+
+        insights_input = self._create_insights_input(files, app_components=self._apple_components())
+        result = self.insight.generate(insights_input)
+
+        assert isinstance(result, DuplicateFilesInsightResult)
+        assert len(result.groups) == 2
+
+        a_group = next(group for group in result.groups if group.name == "a.png")
+        a_paths = {entry.file_path for entry in a_group.files}
+        assert a_paths == {"Resources/a.png", "Backup/a.png"}
+        assert a_group.total_savings == 1000
+
+        b_group = next(group for group in result.groups if group.name == "b.png")
+        b_paths = {entry.file_path for entry in b_group.files}
+        assert b_paths == {
+            "AppClips/ExampleClip.app/Resources/b.png",
+            "AppClips/ExampleClip.app/Backup/b.png",
+        }
+        assert b_group.total_savings == 1500
+
+        assert result.total_savings == 2500
+
+    def test_prefers_longest_matching_component_root(self):
+        app_components = [
+            AppComponent(
+                component_type=ComponentType.MAIN_ARTIFACT,
+                app_id="com.example.app",
+                name="ExampleApp",
+                path=".",
+                download_size=100,
+                install_size=100,
+            ),
+            AppComponent(
+                component_type=ComponentType.APP_CLIP_ARTIFACT,
+                app_id="com.example.app.clip",
+                name="ExampleClip",
+                path="AppClips/ExampleClip.app",
+                download_size=50,
+                install_size=50,
+            ),
+            AppComponent(
+                component_type=ComponentType.WATCH_ARTIFACT,
+                app_id="com.example.app.clip.plugin",
+                name="NestedPlugin",
+                path="AppClips/ExampleClip.app/PlugIns/Nested.appex",
+                download_size=10,
+                install_size=10,
+            ),
+        ]
+
+        files = [
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/Resources/shared.bin"),
+                path="AppClips/ExampleClip.app/Resources/shared.bin",
+                size=1024,
+                file_type="bin",
+                treemap_type=TreemapType.OTHER,
+                hash="shared_hash",
+                is_dir=False,
+            ),
+            FileInfo(
+                full_path=Path("AppClips/ExampleClip.app/PlugIns/Nested.appex/Resources/shared.bin"),
+                path="AppClips/ExampleClip.app/PlugIns/Nested.appex/Resources/shared.bin",
+                size=1024,
+                file_type="bin",
+                treemap_type=TreemapType.OTHER,
+                hash="shared_hash",
+                is_dir=False,
+            ),
+        ]
+
+        insights_input = self._create_insights_input(files, app_components=app_components)
+        result = self.insight.generate(insights_input)
+
+        assert result is None
 
     def test_generate_with_duplicate_directories_prevents_double_counting(self):
         """

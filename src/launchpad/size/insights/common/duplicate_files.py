@@ -1,11 +1,11 @@
 import os
 
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import PurePosixPath
-from typing import Dict, List, Set
 
 from launchpad.size.insights.insight import Insight, InsightsInput
-from launchpad.size.models.common import FileInfo
+from launchpad.size.models.common import AppComponent, FileInfo
 from launchpad.size.models.insights import (
     DuplicateFilesInsightResult,
     FileSavingsResult,
@@ -23,10 +23,45 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         directories = input.file_analysis.directories
         all_files = self._flatten_files(files)
 
-        groups: List[FileSavingsResultGroup] = []
+        component_roots = self._component_roots(input.app_components)
+
+        directories_by_scope: dict[str, list[FileInfo]] = defaultdict(list)
+        files_by_scope: dict[str, list[FileInfo]] = defaultdict(list)
+
+        for directory in directories:
+            scope = self._scope_for_path(directory.path, component_roots)
+            directories_by_scope[scope].append(directory)
+
+        for file_info in all_files:
+            scope = self._scope_for_path(file_info.path, component_roots)
+            files_by_scope[scope].append(file_info)
+
+        groups: list[FileSavingsResultGroup] = []
         total_savings = 0
-        covered_dirs: Set[str] = set()
-        covered_files: Set[str] = set()
+        for scope in sorted(set(directories_by_scope) | set(files_by_scope)):
+            scope_groups, scope_savings = self._generate_in_scope(
+                directories=directories_by_scope[scope],
+                all_files=files_by_scope[scope],
+            )
+            groups.extend(scope_groups)
+            total_savings += scope_savings
+
+        groups.sort(key=lambda g: (-g.total_savings, g.name))
+
+        if groups:
+            return DuplicateFilesInsightResult(groups=groups, total_savings=total_savings)
+        return None
+
+    def _generate_in_scope(
+        self,
+        *,
+        directories: list[FileInfo],
+        all_files: list[FileInfo],
+    ) -> tuple[list[FileSavingsResultGroup], int]:
+        groups: list[FileSavingsResultGroup] = []
+        total_savings = 0
+        covered_dirs: set[str] = set()
+        covered_files: set[str] = set()
 
         # -----------------------------
         # 1) Duplicate DIRECTORIES
@@ -67,7 +102,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         # -----------------------------
         # 2) Duplicate FILES
         # -----------------------------
-        files_by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
+        files_by_hash: dict[str, list[FileInfo]] = defaultdict(list)
         for f in all_files:
             if (
                 not f.path.endswith("/Other")  # Skip synthetic /Other nodes
@@ -100,11 +135,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
             total_savings += savings
             covered_files.update(f.path for f in dup_files if f.children)
 
-        groups.sort(key=lambda g: (-g.total_savings, g.name))
-
-        if groups:
-            return DuplicateFilesInsightResult(groups=groups, total_savings=total_savings)
-        return None
+        return groups, total_savings
 
     # -------------------------------------------------------------------------
     # Helpers
@@ -116,21 +147,21 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         assert d.size_including_children is not None
         return d.size_including_children
 
-    def _flatten_files(self, files: List[FileInfo]) -> List[FileInfo]:
+    def _flatten_files(self, files: list[FileInfo]) -> list[FileInfo]:
         """Recursively flatten files, extracting nested children (e.g., assets within .car files)."""
-        result: List[FileInfo] = []
+        result: list[FileInfo] = []
         for f in files:
             result.append(f)
             if f.children:
                 result.extend(self._flatten_files(f.children))
         return result
 
-    def _directory_duplicate_candidates(self, directories: List[FileInfo]) -> List[List[FileInfo]]:
+    def _directory_duplicate_candidates(self, directories: list[FileInfo]) -> list[list[FileInfo]]:
         """
         Returns a list of duplicate-directory groups (lists of FileInfo) where
         each group shares the same already-computed directory hash and has >= 2 members.
         """
-        by_hash: Dict[str, List[FileInfo]] = defaultdict(list)
+        by_hash: dict[str, list[FileInfo]] = defaultdict(list)
         for f in directories:
             if f.hash and self._dir_size(f) >= self.MIN_DIR_SIZE_BYTES:
                 by_hash[f.hash].append(f)
@@ -141,7 +172,7 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
         return any(file_path.endswith(ext) for ext in self.EXTENSION_ALLOWLIST)
 
     @staticmethod
-    def _is_under_any(path: str, containers: Set[str]) -> bool:
+    def _is_under_any(path: str, containers: set[str]) -> bool:
         """Check if path or any of its parents are in containers (O(path_depth))."""
         if path in containers:
             return True
@@ -153,16 +184,52 @@ class DuplicateFilesInsight(Insight[DuplicateFilesInsightResult]):
                 return True
         return False
 
-    @staticmethod
-    def _any_path_under_any(paths: List[str], containers: Set[str]) -> bool:
-        for p in paths:
-            if DuplicateFilesInsight._is_under_any(p, containers):
-                return True
-        return False
+    @classmethod
+    def _any_path_under_any(cls, paths: list[str], containers: set[str]) -> bool:
+        return any(cls._is_under_any(p, containers) for p in paths)
 
     @staticmethod
-    def _min_depth(paths: List[str]) -> int:
+    def _min_depth(paths: list[str]) -> int:
         def depth(p: str) -> int:
             return 0 if not p else len(PurePosixPath(p).parts)
 
         return min(depth(p) for p in paths) if paths else 0
+
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        normalized = path
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized.rstrip("/")
+
+    @classmethod
+    def _normalize_component_root(cls, root: str) -> str:
+        normalized = cls._normalize_path(root)
+        if normalized == ".":
+            return ""
+        return normalized
+
+    @classmethod
+    def _component_roots(cls, components: Sequence[AppComponent]) -> list[str]:
+        roots = {cls._normalize_component_root(component.path) for component in components} - {""}
+        return sorted(
+            roots,
+            key=lambda root: (
+                -len(PurePosixPath(root).parts),
+                -len(root),
+                root,
+            ),
+        )
+
+    @classmethod
+    def _scope_for_path(cls, path: str, roots: Sequence[str]) -> str:
+        """Return the component root that owns *path*, or ``""`` for the main app.
+
+        *roots* **must** be sorted deepest-first (as returned by
+        ``_component_roots``) so that the longest prefix wins.
+        """
+        normalized_path = cls._normalize_path(path)
+        for root in roots:
+            if normalized_path == root or normalized_path.startswith(f"{root}/"):
+                return root
+        return ""

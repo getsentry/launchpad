@@ -1,10 +1,11 @@
 from abc import abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Dict, Protocol, Sequence, TypeVar
+from typing import Protocol, TypeVar
 
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.models.apple import MachOBinaryAnalysis
-from launchpad.size.models.common import BaseAppInfo, FileAnalysis
+from launchpad.size.models.common import AppComponent, BaseAppInfo, FileAnalysis
 
 T_co = TypeVar("T_co", covariant=True)
 
@@ -14,7 +15,8 @@ class InsightsInput:
     app_info: BaseAppInfo
     file_analysis: FileAnalysis
     binary_analysis: Sequence[MachOBinaryAnalysis]
-    hermes_reports: Dict[str, HermesReport] | None = None
+    hermes_reports: dict[str, HermesReport] | None = None
+    app_components: Sequence[AppComponent] = ()
 
 
 class Insight(Protocol[T_co]):

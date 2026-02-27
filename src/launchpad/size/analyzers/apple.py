@@ -200,6 +200,7 @@ class AppleAppAnalyzer:
                 file_analysis=file_analysis,
                 binary_analysis=binary_analysis,
                 hermes_reports=hermes_reports,
+                app_components=app_components,
             )
             insights = AppleInsightResults(
                 duplicate_files=self._generate_insight_with_tracing(
