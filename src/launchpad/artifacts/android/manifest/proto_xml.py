@@ -395,10 +395,13 @@ class ProtoXmlUtils:
 
             # Key-based lookup failed, fall back to compiled_item ref ID
             logger.debug(f"key-based lookup failed for {value}, trying compiled_item ref")
-            compiled_item = getattr(attribute, "compiled_item", None)
-            if compiled_item and compiled_item.HasField("ref") and compiled_item.ref.id:
+            if (
+                attribute.HasField("compiled_item")
+                and attribute.compiled_item.HasField("ref")
+                and attribute.compiled_item.ref.id
+            ):
                 return ProtoXmlUtils._get_resource_by_id_from_proto_resource_files(
-                    compiled_item.ref.id, proto_res_tables
+                    attribute.compiled_item.ref.id, proto_res_tables
                 )
             return None
 
