@@ -34,6 +34,7 @@ from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact, Artifac
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
     ArtifactType,
+    DistributionState,
     PreprodFeature,
     ProcessingErrorCode,
     ProcessingErrorMessage,
@@ -304,23 +305,11 @@ class ArtifactProcessor:
             apple_info = cast(AppleAppInfo, info)
             if not apple_info.is_code_signature_valid:
                 logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: invalid code signature")
-                self._update_artifact_error(
-                    organization_id,
-                    project_id,
-                    artifact_id,
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.INVALID_CODE_SIGNATURE,
-                )
+                self._update_distribution_skip(organization_id, project_id, artifact_id, "invalid_signature")
                 return
             if apple_info.is_simulator:
                 logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: simulator build")
-                self._update_artifact_error(
-                    organization_id,
-                    project_id,
-                    artifact_id,
-                    ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                    ProcessingErrorMessage.SIMULATOR_BUILD,
-                )
+                self._update_distribution_skip(organization_id, project_id, artifact_id, "simulator")
                 return
             with tempfile.TemporaryDirectory() as temp_dir_str:
                 temp_dir = Path(temp_dir_str)
@@ -345,14 +334,8 @@ class ArtifactProcessor:
             with apk.raw_file() as f:
                 self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         else:
-            logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id} (project: {project_id}, org: {organization_id})")
-            self._update_artifact_error(
-                organization_id,
-                project_id,
-                artifact_id,
-                ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR,
-                ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE,
-            )
+            logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id}: unsupported artifact type")
+            self._update_distribution_skip(organization_id, project_id, artifact_id, "unsupported")
 
     def _do_size(
         self,
@@ -433,6 +416,27 @@ class ArtifactProcessor:
             logger.exception(f"Failed to update artifact with error {message}")
         else:
             logger.info(f"Successfully updated artifact {artifact_id} with error information")
+
+    def _update_distribution_skip(
+        self,
+        organization_id: str,
+        project_id: str,
+        artifact_id: str,
+        skip_reason: str,
+    ) -> None:
+        """Update artifact with distribution skip state."""
+        try:
+            self._sentry_client.update_artifact(
+                org=organization_id,
+                project=project_id,
+                artifact_id=artifact_id,
+                data={
+                    "distribution_state": DistributionState.NOT_RAN.value,
+                    "distribution_skip_reason": skip_reason,
+                },
+            )
+        except SentryClientError:
+            logger.exception(f"Failed to update distribution skip for artifact {artifact_id}")
 
     def _update_size_error_from_exception(
         self,

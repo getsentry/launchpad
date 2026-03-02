@@ -32,6 +32,13 @@ class PreprodFeature(Enum):
     BUILD_DISTRIBUTION = "build_distribution"
 
 
+# Matches PreprodArtifact.DistributionState in sentry
+class DistributionState(Enum):
+    PENDING = 0
+    COMPLETED = 1
+    NOT_RAN = 2
+
+
 # Health check threshold - consider unhealthy if file not touched in 60 seconds
 HEALTHCHECK_MAX_AGE_SECONDS = 60.0
 
@@ -49,8 +56,6 @@ class ProcessingErrorMessage(Enum):
     SIZE_ANALYSIS_FAILED = "Failed to perform size analysis"
     ARTIFACT_PARSING_FAILED = "Failed to parse artifact file"
     UNSUPPORTED_ARTIFACT_TYPE = "Unsupported artifact type"
-    INVALID_CODE_SIGNATURE = "Cannot distribute app with invalid code signature"
-    SIMULATOR_BUILD = "Cannot distribute simulator builds"
 
     # System-related errors
     TEMP_FILE_CREATION_FAILED = "Failed to create temporary file"
