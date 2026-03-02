@@ -6,6 +6,7 @@ from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
 from launchpad.constants import (
+    DistributionState,
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
@@ -136,8 +137,7 @@ class TestArtifactProcessorErrorHandling:
         assert ProcessingErrorMessage.SIZE_ANALYSIS_FAILED.value == "Failed to perform size analysis"
         assert ProcessingErrorMessage.UNKNOWN_ERROR.value == "An unknown error occurred"
 
-    def test_do_distribution_unknown_artifact_type_reports_error(self):
-        """Test that _do_distribution reports an error for unknown artifact types."""
+    def test_do_distribution_unknown_artifact_type_skips(self):
         mock_sentry_client = Mock(spec=SentryClient)
         mock_sentry_client.update_artifact.return_value = None
         self.processor._sentry_client = mock_sentry_client
@@ -154,12 +154,12 @@ class TestArtifactProcessorErrorHandling:
             project="test-project-id",
             artifact_id="test-artifact-id",
             data={
-                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
-                "error_message": ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE.value,
+                "distribution_state": DistributionState.NOT_RAN.value,
+                "distribution_skip_reason": "unsupported",
             },
         )
 
-    def test_do_distribution_invalid_code_signature_reports_error(self):
+    def test_do_distribution_invalid_code_signature_skips(self):
         mock_sentry_client = Mock(spec=SentryClient)
         mock_sentry_client.update_artifact.return_value = None
         self.processor._sentry_client = mock_sentry_client
@@ -176,13 +176,13 @@ class TestArtifactProcessorErrorHandling:
             project="test-project-id",
             artifact_id="test-artifact-id",
             data={
-                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
-                "error_message": ProcessingErrorMessage.INVALID_CODE_SIGNATURE.value,
+                "distribution_state": DistributionState.NOT_RAN.value,
+                "distribution_skip_reason": "invalid_signature",
             },
         )
         mock_sentry_client.upload_installable_app.assert_not_called()
 
-    def test_do_distribution_simulator_build_reports_error(self):
+    def test_do_distribution_simulator_build_skips(self):
         mock_sentry_client = Mock(spec=SentryClient)
         mock_sentry_client.update_artifact.return_value = None
         self.processor._sentry_client = mock_sentry_client
@@ -199,8 +199,8 @@ class TestArtifactProcessorErrorHandling:
             project="test-project-id",
             artifact_id="test-artifact-id",
             data={
-                "error_code": ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR.value,
-                "error_message": ProcessingErrorMessage.SIMULATOR_BUILD.value,
+                "distribution_state": DistributionState.NOT_RAN.value,
+                "distribution_skip_reason": "simulator",
             },
         )
         mock_sentry_client.upload_installable_app.assert_not_called()
