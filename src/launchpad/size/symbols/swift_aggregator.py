@@ -41,46 +41,48 @@ class SwiftSymbolTypeAggregator:
     @sentry_sdk.trace
     def aggregate_symbols(self, symbol_sizes: SwiftSymbolList) -> list[SwiftSymbolTypeGroup]:
         # Demangle all Swift symbols
-        for symbol in symbol_sizes:
-            self.demangler.add_name(symbol.mangled_name)
-        demangled_results = self.demangler.demangle_all()
+        with sentry_sdk.start_span(op="demangle", description=f"cwl_demangle {len(symbol_sizes)} symbols"):
+            for symbol in symbol_sizes:
+                self.demangler.add_name(symbol.mangled_name)
+            demangled_results = self.demangler.demangle_all()
 
         # Group symbols by module/type
-        type_groups: dict[SwiftModuleType, list[SymbolSize]] = {}
+        with sentry_sdk.start_span(op="aggregate", description=f"group {len(symbol_sizes)} symbols by module/type"):
+            type_groups: dict[SwiftModuleType, list[SymbolSize]] = {}
 
-        for symbol in symbol_sizes:
-            demangled_result = demangled_results.get(symbol.mangled_name)
+            for symbol in symbol_sizes:
+                demangled_result = demangled_results.get(symbol.mangled_name)
 
-            if demangled_result:
-                # Use module and type from demangled result
-                module = demangled_result.module or "Unattributed"
-                type_name = demangled_result.typeName or demangled_result.type or "Unattributed"
-            else:
-                # Fallback for symbols that couldn't be demangled
-                module = "Unattributed"
-                type_name = "Unattributed"
+                if demangled_result:
+                    # Use module and type from demangled result
+                    module = demangled_result.module or "Unattributed"
+                    type_name = demangled_result.typeName or demangled_result.type or "Unattributed"
+                else:
+                    # Fallback for symbols that couldn't be demangled
+                    module = "Unattributed"
+                    type_name = "Unattributed"
 
-            key = SwiftModuleType(module=module, type_name=type_name)
-            if key not in type_groups:
-                type_groups[key] = []
-            type_groups[key].append(symbol)
+                key = SwiftModuleType(module=module, type_name=type_name)
+                if key not in type_groups:
+                    type_groups[key] = []
+                type_groups[key].append(symbol)
 
-        result: list[SwiftSymbolTypeGroup] = []
-        for key, symbols in type_groups.items():
-            demangled_result = demangled_results.get(symbols[0].mangled_name)
-            if demangled_result:
-                components = demangled_result.testName
-            else:
-                components = []
-            result.append(
-                SwiftSymbolTypeGroup(
-                    module=key.module,
-                    type_name=key.type_name,
-                    components=components,
-                    symbol_count=len(symbols),
-                    symbols=symbols,
+            result: list[SwiftSymbolTypeGroup] = []
+            for key, symbols in type_groups.items():
+                demangled_result = demangled_results.get(symbols[0].mangled_name)
+                if demangled_result:
+                    components = demangled_result.testName
+                else:
+                    components = []
+                result.append(
+                    SwiftSymbolTypeGroup(
+                        module=key.module,
+                        type_name=key.type_name,
+                        components=components,
+                        symbol_count=len(symbols),
+                        symbols=symbols,
+                    )
                 )
-            )
-        result.sort(key=lambda x: x.total_size, reverse=True)
+            result.sort(key=lambda x: x.total_size, reverse=True)
 
         return result
