@@ -137,7 +137,7 @@ class TestArtifactProcessorErrorHandling:
         assert ProcessingErrorMessage.SIZE_ANALYSIS_FAILED.value == "Failed to perform size analysis"
         assert ProcessingErrorMessage.UNKNOWN_ERROR.value == "An unknown error occurred"
 
-    def test_do_distribution_unknown_artifact_type_skips(self):
+    def test_do_distribution_unknown_artifact_type_reports_error(self):
         mock_sentry_client = Mock(spec=SentryClient)
         mock_sentry_client.update_distribution_error.return_value = None
         self.processor._sentry_client = mock_sentry_client
@@ -152,8 +152,8 @@ class TestArtifactProcessorErrorHandling:
         mock_sentry_client.update_distribution_error.assert_called_once_with(
             org="test-org-id",
             artifact_id="test-artifact-id",
-            error_code=InstallableAppErrorCode.SKIPPED.value,
-            error_message="unsupported",
+            error_code=InstallableAppErrorCode.PROCESSING_ERROR.value,
+            error_message="unsupported artifact type",
         )
 
     def test_do_distribution_invalid_code_signature_skips(self):
