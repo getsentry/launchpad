@@ -129,7 +129,7 @@ class ArtifactProcessor:
             finally:
                 statsd.timing(
                     "artifact.processing.duration",
-                    (time.monotonic() - processing_start) * 1000,
+                    time.monotonic() - processing_start,
                     tags=[
                         f"project_id:{project_id}",
                         f"organization_id:{organization_id}",
