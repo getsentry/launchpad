@@ -252,6 +252,24 @@ class SentryClient:
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/"
         return self._make_json_request("PUT", endpoint, UpdateResponse, data=data)
 
+    def update_distribution_error(self, org: str, artifact_id: str, error_code: int, error_message: str) -> None:
+        """Report distribution error via the dedicated distribution endpoint."""
+        endpoint = f"/api/0/organizations/{org}/preprodartifacts/{artifact_id}/distribution/"
+        url = self._build_url(endpoint)
+        body = json.dumps({"error_code": error_code, "error_message": error_message}).encode("utf-8")
+
+        logger.debug(f"PUT {url}")
+        response = self.session.request(
+            method="PUT",
+            url=url,
+            data=body,
+            auth=self.auth,
+            timeout=30,
+        )
+
+        if response.status_code != 200:
+            raise SentryClientError(response=response)
+
     def upload_size_analysis_file(
         self,
         org: str,

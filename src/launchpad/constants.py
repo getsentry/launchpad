@@ -32,11 +32,12 @@ class PreprodFeature(Enum):
     BUILD_DISTRIBUTION = "build_distribution"
 
 
-# Matches PreprodArtifact.DistributionState in sentry
-class DistributionState(Enum):
-    PENDING = 0
-    COMPLETED = 1
-    NOT_RAN = 2
+# Matches InstallableApp.ErrorCode in sentry
+class InstallableAppErrorCode(Enum):
+    UNKNOWN = 0
+    NO_QUOTA = 1
+    SKIPPED = 2
+    PROCESSING_ERROR = 3
 
 
 # Health check threshold - consider unhealthy if file not touched in 60 seconds
