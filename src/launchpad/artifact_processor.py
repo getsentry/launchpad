@@ -335,7 +335,15 @@ class ArtifactProcessor:
                 self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         else:
             logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id}: unsupported artifact type")
-            self._update_distribution_skip(organization_id, project_id, artifact_id, "unsupported")
+            try:
+                self._sentry_client.update_distribution_error(
+                    org=organization_id,
+                    artifact_id=artifact_id,
+                    error_code=InstallableAppErrorCode.PROCESSING_ERROR.value,
+                    error_message="unsupported artifact type",
+                )
+            except SentryClientError:
+                logger.exception(f"Failed to update distribution error for artifact {artifact_id}")
 
     def _do_size(
         self,
