@@ -173,7 +173,7 @@ class ArtifactProcessor:
             if PreprodFeature.BUILD_DISTRIBUTION in server_requested_features:
                 self._do_distribution(organization_id, project_id, artifact_id, artifact, info)
 
-            return _get_artifact_type(artifact).value
+            return _get_artifact_type(artifact).name.lower()
 
     @contextlib.contextmanager
     def _download_artifact(
