@@ -6,7 +6,7 @@ from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
 from launchpad.constants import (
-    DistributionState,
+    InstallableAppErrorCode,
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
@@ -139,7 +139,7 @@ class TestArtifactProcessorErrorHandling:
 
     def test_do_distribution_unknown_artifact_type_skips(self):
         mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_artifact.return_value = None
+        mock_sentry_client.update_distribution_error.return_value = None
         self.processor._sentry_client = mock_sentry_client
 
         unknown_artifact = Mock(spec=Artifact)
@@ -149,19 +149,16 @@ class TestArtifactProcessorErrorHandling:
             "test-org-id", "test-project-id", "test-artifact-id", unknown_artifact, mock_info
         )
 
-        mock_sentry_client.update_artifact.assert_called_once_with(
+        mock_sentry_client.update_distribution_error.assert_called_once_with(
             org="test-org-id",
-            project="test-project-id",
             artifact_id="test-artifact-id",
-            data={
-                "distribution_state": DistributionState.NOT_RAN.value,
-                "distribution_skip_reason": "unsupported",
-            },
+            error_code=InstallableAppErrorCode.SKIPPED.value,
+            error_message="unsupported",
         )
 
     def test_do_distribution_invalid_code_signature_skips(self):
         mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_artifact.return_value = None
+        mock_sentry_client.update_distribution_error.return_value = None
         self.processor._sentry_client = mock_sentry_client
 
         artifact = Mock(spec=ZippedXCArchive)
@@ -171,20 +168,17 @@ class TestArtifactProcessorErrorHandling:
 
         self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
 
-        mock_sentry_client.update_artifact.assert_called_once_with(
+        mock_sentry_client.update_distribution_error.assert_called_once_with(
             org="test-org-id",
-            project="test-project-id",
             artifact_id="test-artifact-id",
-            data={
-                "distribution_state": DistributionState.NOT_RAN.value,
-                "distribution_skip_reason": "invalid_signature",
-            },
+            error_code=InstallableAppErrorCode.SKIPPED.value,
+            error_message="invalid_signature",
         )
         mock_sentry_client.upload_installable_app.assert_not_called()
 
     def test_do_distribution_simulator_build_skips(self):
         mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_artifact.return_value = None
+        mock_sentry_client.update_distribution_error.return_value = None
         self.processor._sentry_client = mock_sentry_client
 
         artifact = Mock(spec=ZippedXCArchive)
@@ -194,14 +188,11 @@ class TestArtifactProcessorErrorHandling:
 
         self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
 
-        mock_sentry_client.update_artifact.assert_called_once_with(
+        mock_sentry_client.update_distribution_error.assert_called_once_with(
             org="test-org-id",
-            project="test-project-id",
             artifact_id="test-artifact-id",
-            data={
-                "distribution_state": DistributionState.NOT_RAN.value,
-                "distribution_skip_reason": "simulator",
-            },
+            error_code=InstallableAppErrorCode.SKIPPED.value,
+            error_message="simulator",
         )
         mock_sentry_client.upload_installable_app.assert_not_called()
 

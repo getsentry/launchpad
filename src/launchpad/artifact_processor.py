@@ -33,7 +33,7 @@ from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact, Artifac
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.constants import (
     ArtifactType,
-    DistributionState,
+    InstallableAppErrorCode,
     PreprodFeature,
     ProcessingErrorCode,
     ProcessingErrorMessage,
@@ -452,16 +452,13 @@ class ArtifactProcessor:
         artifact_id: str,
         skip_reason: str,
     ) -> None:
-        """Update artifact with distribution skip state."""
+        """Report distribution skip via the dedicated distribution endpoint."""
         try:
-            self._sentry_client.update_artifact(
+            self._sentry_client.update_distribution_error(
                 org=organization_id,
-                project=project_id,
                 artifact_id=artifact_id,
-                data={
-                    "distribution_state": DistributionState.NOT_RAN.value,
-                    "distribution_skip_reason": skip_reason,
-                },
+                error_code=InstallableAppErrorCode.SKIPPED.value,
+                error_message=skip_reason,
             )
         except SentryClientError:
             logger.exception(f"Failed to update distribution skip for artifact {artifact_id}")
