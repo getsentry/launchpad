@@ -101,17 +101,10 @@ class ArtifactProcessor:
             logger.info(f"Skipping processing for project {project_id}")
             return
 
+        artifact_type = "unknown"
         with contextlib.ExitStack() as stack:
             stack.enter_context(request_context())
-            stack.enter_context(
-                statsd.timed(
-                    "artifact.processing.duration",
-                    tags=[
-                        f"project_id:{project_id}",
-                        f"organization_id:{organization_id}",
-                    ],
-                )
-            )
+            processing_start = time.monotonic()
             scope = stack.enter_context(sentry_sdk.new_scope())
             scope.set_tag("launchpad.project_id", project_id)
             scope.set_tag("launchpad.organization_id", organization_id)
@@ -120,7 +113,7 @@ class ArtifactProcessor:
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
-                artifact_processor.process_artifact(organization_id, project_id, artifact_id)
+                artifact_type = artifact_processor.process_artifact(organization_id, project_id, artifact_id)
             except Exception:
                 statsd.increment("artifact.processing.failed")
                 duration = time.time() - start_time
@@ -133,14 +126,24 @@ class ArtifactProcessor:
                 logger.info(
                     f"Processing complete for artifact {artifact_id} (project: {project_id}, org: {organization_id}) in {duration:.2f}s"
                 )
+            finally:
+                statsd.timing(
+                    "artifact.processing.duration",
+                    (time.monotonic() - processing_start) * 1000,
+                    tags=[
+                        f"project_id:{project_id}",
+                        f"organization_id:{organization_id}",
+                        f"artifact_type:{artifact_type}",
+                    ],
+                )
 
     def process_artifact(
         self,
         organization_id: str,
         project_id: str,
         artifact_id: str,
-    ) -> None:
-        """Process an artifact with the requested features."""
+    ) -> str:
+        """Process an artifact with the requested features. Returns the artifact type string."""
         dequeued_at = datetime.now()
 
         with contextlib.ExitStack() as stack:
@@ -169,6 +172,8 @@ class ArtifactProcessor:
 
             if PreprodFeature.BUILD_DISTRIBUTION in server_requested_features:
                 self._do_distribution(organization_id, project_id, artifact_id, artifact, info)
+
+            return _get_artifact_type(artifact).value
 
     @contextlib.contextmanager
     def _download_artifact(
@@ -462,16 +467,6 @@ class ArtifactProcessor:
         dequeued_at: datetime,
         app_icon_id: str | None,
     ) -> Dict[str, Any]:
-        def _get_artifact_type(artifact: Artifact) -> ArtifactType:
-            if isinstance(artifact, ZippedXCArchive):
-                return ArtifactType.XCARCHIVE
-            elif isinstance(artifact, (AAB, ZippedAAB)):
-                return ArtifactType.AAB
-            elif isinstance(artifact, (APK, ZippedAPK)):
-                return ArtifactType.APK
-            else:
-                raise ValueError(f"Unsupported artifact type: {type(artifact)}")
-
         build_number = int(app_info.build) if app_info.build.isdigit() else None
 
         apple_app_info = None
@@ -543,6 +538,17 @@ class ArtifactProcessor:
             raise e
         else:
             logger.info(f"Successfully uploaded analysis results for artifact {artifact_id}")
+
+
+def _get_artifact_type(artifact: Artifact) -> ArtifactType:
+    if isinstance(artifact, ZippedXCArchive):
+        return ArtifactType.XCARCHIVE
+    elif isinstance(artifact, (AAB, ZippedAAB)):
+        return ArtifactType.AAB
+    elif isinstance(artifact, (APK, ZippedAPK)):
+        return ArtifactType.APK
+    else:
+        raise ValueError(f"Unsupported artifact type: {type(artifact)}")
 
 
 def _guess_message(code: ProcessingErrorCode, e: Exception) -> ProcessingErrorMessage:
