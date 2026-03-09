@@ -342,7 +342,7 @@ class ArtifactProcessor:
                     error_code=InstallableAppErrorCode.PROCESSING_ERROR.value,
                     error_message="unsupported artifact type",
                 )
-            except SentryClientError:
+            except Exception:
                 logger.exception(f"Failed to update distribution error for artifact {artifact_id}")
 
     def _do_size(
@@ -440,7 +440,7 @@ class ArtifactProcessor:
                 error_code=InstallableAppErrorCode.SKIPPED.value,
                 error_message=skip_reason,
             )
-        except SentryClientError:
+        except Exception:
             logger.exception(f"Failed to update distribution skip for artifact {artifact_id}")
 
     def _update_size_error_from_exception(
