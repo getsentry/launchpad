@@ -433,6 +433,15 @@ class ArtifactProcessor:
         skip_reason: str,
     ) -> None:
         """Report distribution skip via the dedicated distribution endpoint."""
+        self._statsd.increment(
+            "artifact.distribution.skipped",
+            tags=[
+                f"skip_reason:{skip_reason}",
+                f"project_id:{project_id}",
+                f"organization_id:{organization_id}",
+            ],
+        )
+
         try:
             self._sentry_client.update_distribution_error(
                 org=organization_id,
