@@ -148,6 +148,13 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
     if not environment:
         raise ValueError("LAUNCHPAD_ENV environment variable is required")
 
+    # When all RunTaskInThreads threads are busy, Arroyo retries submit()
+    # in a backoff loop without calling consumer.poll(). If this exceeds
+    # max.poll.interval.ms (default 5min), the broker evicts the consumer,
+    # triggering a rebalance loop. Set it higher than the task timeout.
+    task_timeout = int(os.getenv("KAFKA_TASK_TIMEOUT_SECONDS", "720"))
+    max_poll_interval_ms = (task_timeout + 120) * 1000  # task timeout + 2 min buffer
+
     consumer_config = {
         "bootstrap.servers": config.bootstrap_servers,
         "group.id": config.group_id,
@@ -156,6 +163,7 @@ def create_kafka_consumer() -> LaunchpadKafkaConsumer:
         "enable.auto.commit": False,
         "enable.auto.offset.store": False,
         "security.protocol": config.security_protocol,
+        "max.poll.interval.ms": max_poll_interval_ms,
     }
 
     # SASL is used in some prod environments.
