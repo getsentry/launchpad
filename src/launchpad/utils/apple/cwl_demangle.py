@@ -1,5 +1,4 @@
 import json
-import multiprocessing
 import os
 import shutil
 import subprocess
@@ -7,6 +6,7 @@ import tempfile
 import time
 import uuid
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
@@ -102,28 +102,15 @@ class CwlDemangler:
         return self._demangle_parallel(chunks) if do_in_parallel else self._demangle_sequential(chunks)
 
     def _demangle_parallel(self, chunks: List[Tuple[List[str], int]]) -> Dict[str, CwlDemangleResult]:
-        """Demangle chunks in parallel using multiprocessing"""
+        """Demangle chunks in parallel using threads"""
         results: Dict[str, CwlDemangleResult] = {}
 
         try:
-            # Prepare arguments for starmap
-            worker_args = [
-                (chunk, chunk_idx, self.is_type, self.continue_on_error, self.uuid) for chunk, chunk_idx in chunks
-            ]
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(self._demangle_chunk, chunk, chunk_idx) for chunk, chunk_idx in chunks]
 
-            # Process chunks in parallel
-            # NOTE: starmap pickles the function and arguments to send to worker processes.
-            # Current arguments are all safe to pickle:
-            # - chunk: List[str] (standard containers with primitives)
-            # - chunk_idx: int (primitive)
-            # - is_type: bool (primitive)
-            # - continue_on_error: bool (primitive)
-            # - uuid: str (primitive)
-            with multiprocessing.Pool(processes=4) as pool:
-                chunk_results = pool.starmap(_demangle_chunk_worker, worker_args)
-
-            for chunk_result in chunk_results:
-                results.update(chunk_result)
+            for future in futures:
+                results.update(future.result())
 
         except Exception:
             logger.exception("Parallel demangling failed, falling back to sequential")
@@ -141,79 +128,70 @@ class CwlDemangler:
 
         return results
 
-    def _demangle_chunk(self, names: List[str], i: int) -> Dict[str, CwlDemangleResult]:
-        return _demangle_chunk_worker(names, i, self.is_type, self.continue_on_error, self.uuid)
-
-
-def _demangle_chunk_worker(
-    chunk: List[str],
-    chunk_idx: int,
-    is_type: bool,
-    continue_on_error: bool,
-    demangle_uuid: str,
-) -> Dict[str, CwlDemangleResult]:
-    """Demangle a chunk of symbols. Arguments must be picklable for multiprocessing."""
-    if not chunk:
-        return {}
-
-    start_time = time.time()
-
-    binary_path = shutil.which("cwl-demangle")
-    if binary_path is None:
-        logger.error("cwl-demangle binary not found in PATH")
-        return {}
-
-    chunk_set = set(chunk)
-    results: Dict[str, CwlDemangleResult] = {}
-
-    with tempfile.NamedTemporaryFile(
-        mode="w", prefix=f"cwl-demangle-{demangle_uuid}-chunk-{chunk_idx}-", suffix=".txt"
-    ) as temp_file:
-        temp_file.write("\n".join(chunk))
-        temp_file.flush()
-
-        command_parts = [
-            binary_path,
-            "batch",
-            "--input",
-            temp_file.name,
-            "--json",
-        ]
-
-        if is_type:
-            command_parts.append("--isType")
-
-        if continue_on_error:
-            command_parts.append("--continue-on-error")
-
-        try:
-            result = subprocess.run(
-                command_parts, capture_output=True, text=True, check=True, timeout=DEFAULT_DEMANGLE_TIMEOUT
-            )
-        except subprocess.TimeoutExpired:
-            elapsed = time.time() - start_time
-            logger.exception("cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
-            return {}
-        except subprocess.CalledProcessError:
-            elapsed = time.time() - start_time
-            logger.exception("cwl-demangle subprocess failed", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
+    def _demangle_chunk(self, chunk: List[str], chunk_idx: int) -> Dict[str, CwlDemangleResult]:
+        if not chunk:
             return {}
 
-        batch_result = json.loads(result.stdout)
+        start_time = time.time()
 
-        for symbol_result in batch_result.get("results", []):
-            mangled = symbol_result.get("mangled", "")
-            if mangled in chunk_set:
-                demangle_result = CwlDemangleResult(
-                    name=symbol_result["name"],
-                    type=symbol_result["type"],
-                    identifier=symbol_result["identifier"],
-                    module=symbol_result["module"],
-                    testName=symbol_result["testName"],
-                    typeName=symbol_result["typeName"],
-                    description=symbol_result["description"],
-                    mangled=mangled,
+        binary_path = shutil.which("cwl-demangle")
+        if binary_path is None:
+            logger.error("cwl-demangle binary not found in PATH")
+            return {}
+
+        chunk_set = set(chunk)
+        results: Dict[str, CwlDemangleResult] = {}
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", prefix=f"cwl-demangle-{self.uuid}-chunk-{chunk_idx}-", suffix=".txt"
+        ) as temp_file:
+            temp_file.write("\n".join(chunk))
+            temp_file.flush()
+
+            command_parts = [
+                binary_path,
+                "batch",
+                "--input",
+                temp_file.name,
+                "--json",
+            ]
+
+            if self.is_type:
+                command_parts.append("--isType")
+
+            if self.continue_on_error:
+                command_parts.append("--continue-on-error")
+
+            try:
+                result = subprocess.run(
+                    command_parts, capture_output=True, text=True, check=True, timeout=DEFAULT_DEMANGLE_TIMEOUT
                 )
-                results[mangled] = demangle_result
+            except subprocess.TimeoutExpired:
+                elapsed = time.time() - start_time
+                logger.exception(
+                    "cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed}
+                )
+                return {}
+            except subprocess.CalledProcessError:
+                elapsed = time.time() - start_time
+                logger.exception("cwl-demangle subprocess failed", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
+                return {}
 
-        return results
+            batch_result = json.loads(result.stdout)
+
+            for symbol_result in batch_result.get("results", []):
+                mangled = symbol_result.get("mangled", "")
+                if mangled in chunk_set:
+                    demangle_result = CwlDemangleResult(
+                        name=symbol_result["name"],
+                        type=symbol_result["type"],
+                        identifier=symbol_result["identifier"],
+                        module=symbol_result["module"],
+                        testName=symbol_result["testName"],
+                        typeName=symbol_result["typeName"],
+                        description=symbol_result["description"],
+                        mangled=mangled,
+                    )
+                    results[mangled] = demangle_result
+
+            return results
