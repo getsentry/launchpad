@@ -3,7 +3,6 @@ from unittest.mock import Mock, patch
 from objectstore_client import Client as ObjectstoreClient
 
 from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig
-from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
 from launchpad.constants import (
     InstallableAppErrorCode,
@@ -155,46 +154,6 @@ class TestArtifactProcessorErrorHandling:
             error_code=InstallableAppErrorCode.PROCESSING_ERROR.value,
             error_message="unsupported artifact type",
         )
-
-    def test_do_distribution_invalid_code_signature_skips(self):
-        mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_distribution_error.return_value = None
-        self.processor._sentry_client = mock_sentry_client
-
-        artifact = Mock(spec=ZippedXCArchive)
-        mock_info = Mock()
-        mock_info.is_code_signature_valid = False
-        mock_info.is_simulator = False
-
-        self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
-
-        mock_sentry_client.update_distribution_error.assert_called_once_with(
-            org="test-org-id",
-            artifact_id="test-artifact-id",
-            error_code=InstallableAppErrorCode.SKIPPED.value,
-            error_message="invalid_signature",
-        )
-        mock_sentry_client.upload_installable_app.assert_not_called()
-
-    def test_do_distribution_simulator_build_skips(self):
-        mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_distribution_error.return_value = None
-        self.processor._sentry_client = mock_sentry_client
-
-        artifact = Mock(spec=ZippedXCArchive)
-        mock_info = Mock()
-        mock_info.is_code_signature_valid = True
-        mock_info.is_simulator = True
-
-        self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
-
-        mock_sentry_client.update_distribution_error.assert_called_once_with(
-            org="test-org-id",
-            artifact_id="test-artifact-id",
-            error_code=InstallableAppErrorCode.SKIPPED.value,
-            error_message="simulator",
-        )
-        mock_sentry_client.upload_installable_app.assert_not_called()
 
 
 class TestArtifactProcessorMessageHandling:

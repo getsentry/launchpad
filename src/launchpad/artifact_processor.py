@@ -331,20 +331,13 @@ class ArtifactProcessor:
         logger.info(f"BUILD_DISTRIBUTION for {artifact_id} (project: {project_id}, org: {organization_id})")
         if isinstance(artifact, ZippedXCArchive):
             apple_info = cast(AppleAppInfo, info)
-            if not apple_info.is_code_signature_valid:
-                logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: invalid code signature")
-                self._update_distribution_skip(organization_id, project_id, artifact_id, "invalid_signature")
-                return
-            if apple_info.is_simulator:
-                logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: simulator build")
-                self._update_distribution_skip(organization_id, project_id, artifact_id, "simulator")
-                return
-            with tempfile.TemporaryDirectory() as temp_dir_str:
-                temp_dir = Path(temp_dir_str)
-                ipa_path = temp_dir / "App.ipa"
-                artifact.generate_ipa(ipa_path)
-                with open(ipa_path, "rb") as f:
-                    self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
+            if apple_info.is_code_signature_valid and not apple_info.is_simulator:
+                with tempfile.TemporaryDirectory() as temp_dir_str:
+                    temp_dir = Path(temp_dir_str)
+                    ipa_path = temp_dir / "App.ipa"
+                    artifact.generate_ipa(ipa_path)
+                    with open(ipa_path, "rb") as f:
+                        self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         elif isinstance(artifact, (AAB, ZippedAAB)):
             with tempfile.TemporaryDirectory() as temp_dir_str:
                 temp_dir = Path(temp_dir_str)
@@ -452,24 +445,6 @@ class ArtifactProcessor:
             logger.exception(f"Failed to update artifact with error {message}")
         else:
             logger.info(f"Successfully updated artifact {artifact_id} with error information")
-
-    def _update_distribution_skip(
-        self,
-        organization_id: str,
-        project_id: str,
-        artifact_id: str,
-        skip_reason: str,
-    ) -> None:
-        """Report distribution skip via the dedicated distribution endpoint."""
-        try:
-            self._sentry_client.update_distribution_error(
-                org=organization_id,
-                artifact_id=artifact_id,
-                error_code=InstallableAppErrorCode.SKIPPED.value,
-                error_message=skip_reason,
-            )
-        except Exception:
-            logger.exception(f"Failed to update distribution skip for artifact {artifact_id}")
 
     def _update_size_error_from_exception(
         self,
