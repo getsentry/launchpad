@@ -72,6 +72,8 @@ class ArtifactFactory:
 
             except BadZipFile as e:
                 raise ValueError("File appears to be a corrupted ZIP archive") from e
+            except OSError:
+                raise
             except Exception as e:
                 raise ValueError("Failed to read ZIP archive") from e
 
