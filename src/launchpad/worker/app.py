@@ -21,7 +21,7 @@ def _convert_tags(tags: Tags | None) -> list[str] | None:
     return [f"{k}:{v}" for k, v in tags.items()]
 
 
-class DatadogMetricsBackend(MetricsBackend):
+class TaskworkerMetricsBackend(MetricsBackend):
     def __init__(self) -> None:
         host = os.getenv("STATSD_HOST", "127.0.0.1")
         port_str = os.getenv("STATSD_PORT", "8125")
@@ -111,7 +111,7 @@ app = TaskbrokerApp(
     name="launchpad",
     producer_factory=producer_factory,
     router_class=CustomRouter(),
-    metrics_class=DatadogMetricsBackend(),
+    metrics_class=TaskworkerMetricsBackend(),
 )
 
 app.set_modules(["launchpad.worker.tasks"])
