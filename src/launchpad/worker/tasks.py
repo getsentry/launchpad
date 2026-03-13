@@ -17,7 +17,7 @@ def process_artifact(artifact_id: str, project_id: str, organization_id: str, re
         f"Params: artifact_id={artifact_id}, project_id={project_id}, "
         f"organization_id={organization_id}, requested_features={requested_features}"
     )
-    if not is_taskworker_only_project(project_id):
+    if not is_taskworker_only_project(str(project_id)):
         logger.info("Skipping TaskWorker processing for project %s (not in taskworker-only list)", project_id)
         return
     ArtifactProcessor.process_message(artifact_id, project_id, organization_id, requested_features)
