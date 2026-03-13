@@ -48,7 +48,7 @@ class TestTaskworkerOnlyProjectSkip:
     def test_skips_project_in_taskworker_only_list(self):
         decoded = _make_decoded(project_id="42")
 
-        with patch.dict("os.environ", {"PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING": "42"}):
+        with patch("launchpad.config._TASKWORKER_ONLY_PROJECT_IDS", {"42"}):
             mock_proc_cls = _call_process(decoded)
 
         mock_proc_cls.assert_not_called()
@@ -56,7 +56,7 @@ class TestTaskworkerOnlyProjectSkip:
     def test_skips_with_multiple_projects_in_list(self):
         decoded = _make_decoded(project_id="99")
 
-        with patch.dict("os.environ", {"PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING": "42, 99, 7"}):
+        with patch("launchpad.config._TASKWORKER_ONLY_PROJECT_IDS", {"42", "99", "7"}):
             mock_proc_cls = _call_process(decoded)
 
         mock_proc_cls.assert_not_called()
@@ -64,7 +64,7 @@ class TestTaskworkerOnlyProjectSkip:
     def test_processes_project_not_in_list(self):
         decoded = _make_decoded(project_id="123")
 
-        with patch.dict("os.environ", {"PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING": "42,99"}):
+        with patch("launchpad.config._TASKWORKER_ONLY_PROJECT_IDS", {"42", "99"}):
             mock_proc_cls = _call_process(decoded)
 
         mock_proc_cls.assert_called_once()
@@ -72,7 +72,7 @@ class TestTaskworkerOnlyProjectSkip:
     def test_processes_when_env_var_empty(self):
         decoded = _make_decoded(project_id="123")
 
-        with patch.dict("os.environ", {"PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING": ""}):
+        with patch("launchpad.config._TASKWORKER_ONLY_PROJECT_IDS", set()):
             mock_proc_cls = _call_process(decoded)
 
         mock_proc_cls.assert_called_once()
@@ -80,10 +80,7 @@ class TestTaskworkerOnlyProjectSkip:
     def test_processes_when_env_var_unset(self):
         decoded = _make_decoded(project_id="123")
 
-        with patch.dict("os.environ", {}, clear=False):
-            import os
-
-            os.environ.pop("PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING", None)
+        with patch("launchpad.config._TASKWORKER_ONLY_PROJECT_IDS", set()):
             mock_proc_cls = _call_process(decoded)
 
         mock_proc_cls.assert_called_once()
@@ -92,7 +89,7 @@ class TestTaskworkerOnlyProjectSkip:
         decoded = _make_decoded()
         decoded["project_id"] = 42
 
-        with patch.dict("os.environ", {"PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING": "42"}):
+        with patch("launchpad.config._TASKWORKER_ONLY_PROJECT_IDS", {"42"}):
             mock_proc_cls = _call_process(decoded)
 
         mock_proc_cls.assert_not_called()
