@@ -145,6 +145,7 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     logging.getLogger("arroyo.processing.strategies.run_task_with_multiprocessing").setLevel(logging.INFO)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("sentry.taskworker").setLevel(logging.INFO)
 
 
 def get_logger(name: str) -> logging.Logger:

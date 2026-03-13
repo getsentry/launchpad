@@ -37,6 +37,12 @@ DEFAULT_TASK_TIMEOUT_SECONDS = 720  # 12 minutes
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
 
 
+def _should_skip_kafka_processing(project_id: str) -> bool:
+    raw = os.getenv("PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING", "")
+    taskworker_only = {p.strip() for p in raw.split(",") if p.strip()}
+    return project_id in taskworker_only
+
+
 def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queue[Any]) -> None:
     """Worker function that runs in subprocess."""
     root_logger = logging.getLogger()
@@ -93,6 +99,11 @@ def process_kafka_message_with_service(
         raise
 
     artifact_id = decoded.get("artifact_id", "unknown")
+    project_id = str(decoded.get("project_id", ""))
+
+    if _should_skip_kafka_processing(project_id):
+        logger.info("Skipping Kafka processing for project %s (taskworker-only)", project_id)
+        return None  # type: ignore[return-value]
 
     # Spawn actual processing in a subprocess
     process = multiprocessing.Process(target=_process_in_subprocess, args=(decoded, log_queue))
