@@ -51,7 +51,7 @@ def run_worker() -> None:
         concurrency=config.concurrency,
         child_tasks_queue_maxsize=config.concurrency * 2,
         result_queue_maxsize=config.concurrency * 2,
-        rebalance_after=32,
+        rebalance_after=16,
         processing_pool_name="launchpad",
         process_type="forkserver",
     )
