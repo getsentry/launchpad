@@ -24,6 +24,7 @@ from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
+from launchpad.config import is_taskworker_only_project
 from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.tracing import RequestLogFilter
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
@@ -35,12 +36,6 @@ DEFAULT_TASK_TIMEOUT_SECONDS = 720  # 12 minutes
 
 # Schema codec for preprod artifact events
 PREPROD_ARTIFACT_SCHEMA = get_codec(PREPROD_ARTIFACT_EVENTS_TOPIC)
-
-
-def _should_skip_kafka_processing(project_id: str) -> bool:
-    raw = os.getenv("PROJECT_IDS_TO_ONLY_TRY_TASKWORKER_PROCESSING", "")
-    taskworker_only = {p.strip() for p in raw.split(",") if p.strip()}
-    return project_id in taskworker_only
 
 
 def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queue[Any]) -> None:
@@ -101,7 +96,7 @@ def process_kafka_message_with_service(
     artifact_id = decoded.get("artifact_id", "unknown")
     project_id = str(decoded.get("project_id", ""))
 
-    if _should_skip_kafka_processing(project_id):
+    if is_taskworker_only_project(project_id):
         logger.info("Skipping Kafka processing for project %s (taskworker-only)", project_id)
         return None  # type: ignore[return-value]
 

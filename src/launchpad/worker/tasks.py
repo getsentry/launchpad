@@ -1,5 +1,5 @@
 from launchpad.artifact_processor import ArtifactProcessor
-from launchpad.constants import PreprodFeature
+from launchpad.config import is_taskworker_only_project
 from launchpad.utils.logging import get_logger, setup_logging
 
 from .app import app
@@ -10,14 +10,15 @@ default = app.taskregistry.create_namespace("default")
 
 
 @default.register(name="process_artifact")
-def process_artifact(
-    artifact_id: str, project_id: str, organization_id: str, requested_features: list[PreprodFeature]
-) -> None:
+def process_artifact(artifact_id: str, project_id: str, organization_id: str, requested_features: list[str]) -> None:
     setup_logging()
     logger.info(f"Processing artifact {artifact_id}")
     logger.info(
         f"Params: artifact_id={artifact_id}, project_id={project_id}, "
         f"organization_id={organization_id}, requested_features={requested_features}"
     )
+    if not is_taskworker_only_project(project_id):
+        logger.info("Skipping TaskWorker processing for project %s (not in taskworker-only list)", project_id)
+        return
     ArtifactProcessor.process_message(artifact_id, project_id, organization_id, requested_features)
     logger.info(f"Processed artifact {artifact_id}")
