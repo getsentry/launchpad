@@ -55,3 +55,6 @@ output/
 # gocd generated output
 gocd/templates/vendor/
 gocd/generated-pipelines/
+
+# uv
+uv.lock

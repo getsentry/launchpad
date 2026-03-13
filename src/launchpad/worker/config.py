@@ -12,10 +12,14 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
+DEFAULT_HEALTH_CHECK_FILE_PATH = "/tmp/health"
+
+
 @dataclass
 class WorkerConfig:
     rpc_hosts: list[str]
     concurrency: int
+    health_check_file_path: str
 
 
 def get_worker_config() -> WorkerConfig:
@@ -34,16 +38,20 @@ def get_worker_config() -> WorkerConfig:
     except ValueError:
         raise ValueError(f"LAUNCHPAD_WORKER_CONCURRENCY must be a valid integer, got: {concurrency_str}")
 
-    return WorkerConfig(rpc_hosts=rpc_hosts, concurrency=concurrency)
+    health_check_file_path = os.getenv("LAUNCHPAD_WORKER_HEALTH_CHECK_FILE_PATH", DEFAULT_HEALTH_CHECK_FILE_PATH)
+
+    return WorkerConfig(rpc_hosts=rpc_hosts, concurrency=concurrency, health_check_file_path=health_check_file_path)
 
 
 def run_worker() -> None:
     initialize_sentry_sdk()
     config = get_worker_config()
 
-    logger.info(f"Starting TaskWorker (rpc_hosts={config.rpc_hosts}, concurrency={config.concurrency})")
+    logger.info(
+        f"Starting TaskWorker (rpc_hosts={config.rpc_hosts}, concurrency={config.concurrency}, "
+        f"health_check_file_path={config.health_check_file_path})"
+    )
 
-    # TODO: Should we explore setting health_check_file_path for K8s file-based liveness probes (TaskWorker has no HTTP server)
     worker = TaskWorker(
         app_module="launchpad.worker.app:app",
         broker_hosts=config.rpc_hosts,
@@ -54,6 +62,7 @@ def run_worker() -> None:
         rebalance_after=16,
         processing_pool_name="launchpad",
         process_type="forkserver",
+        health_check_file_path=config.health_check_file_path,
     )
 
     exitcode = worker.start()
