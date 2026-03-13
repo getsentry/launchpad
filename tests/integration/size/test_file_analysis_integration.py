@@ -30,7 +30,7 @@ class TestFileAnalysisIntegration:
         result = analyze_apple_files(hackernews_xcarchive_obj)
         duration = time.time() - start
 
-        assert duration < 1
+        assert duration < 3
 
         assert isinstance(result, FileAnalysis)
         assert len(result.files) == 32

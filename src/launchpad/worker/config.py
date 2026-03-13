@@ -47,7 +47,7 @@ def run_worker() -> None:
     worker = TaskWorker(
         app_module="launchpad.worker.app:app",
         broker_hosts=config.rpc_hosts,
-        max_child_task_count=100,
+        max_child_task_count=1000,
         concurrency=config.concurrency,
         child_tasks_queue_maxsize=config.concurrency * 2,
         result_queue_maxsize=config.concurrency * 2,

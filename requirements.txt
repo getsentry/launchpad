@@ -19,6 +19,6 @@ sentry-arroyo==2.34.0
 sentry-kafka-schemas==2.1.2
 sentry-sdk>=2.36.0
 sortedcontainers>=2.4.0
-taskbroker-client @ git+https://github.com/getsentry/taskbroker.git@main#subdirectory=clients/python
+taskbroker-client>=0.1.5
 typing-extensions>=4.15.0
 zipfile-zstd==0.0.4
