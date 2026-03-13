@@ -49,7 +49,11 @@ def _process_in_subprocess(decoded_message: Any, log_queue: multiprocessing.Queu
     root_logger.setLevel(logging.DEBUG)
 
     try:
-        ArtifactProcessor.process_message(decoded_message)
+        ArtifactProcessor.process_message(
+            artifact_id=decoded_message["artifact_id"],
+            project_id=decoded_message["project_id"],
+            organization_id=decoded_message["organization_id"],
+        )
     except Exception:
         logger.exception("Error processing message in subprocess")
         sys.exit(1)

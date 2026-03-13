@@ -7,7 +7,7 @@ import time
 
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterator, cast
+from typing import Any, Iterator, cast
 
 import sentry_sdk
 
@@ -18,9 +18,6 @@ from objectstore_client import (
     Usecase,
 )
 from objectstore_client.metadata import TimeToLive
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
 
 from launchpad.api.update_api_models import AndroidAppInfo as AndroidAppInfoModel
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
@@ -67,7 +64,9 @@ class ArtifactProcessor:
 
     @staticmethod
     def process_message(
-        payload: PreprodArtifactEvents,
+        artifact_id: str,
+        project_id: str,
+        organization_id: str,
         service_config=None,
         artifact_processor=None,
         statsd=None,
@@ -84,10 +83,6 @@ class ArtifactProcessor:
             service_config = get_service_config()
 
         initialize_sentry_sdk()
-
-        organization_id = payload["organization_id"]
-        project_id = payload["project_id"]
-        artifact_id = payload["artifact_id"]
 
         if statsd is None:
             statsd = get_statsd()
@@ -144,7 +139,7 @@ class ArtifactProcessor:
         project_id: str,
         artifact_id: str,
     ) -> str:
-        """Process an artifact with the requested features. Returns the artifact type string."""
+        """Process an artifact and return the artifact type string."""
         dequeued_at = datetime.now()
 
         with contextlib.ExitStack() as stack:
@@ -476,7 +471,7 @@ class ArtifactProcessor:
         artifact: Artifact,
         dequeued_at: datetime,
         app_icon_id: str | None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         build_number = int(app_info.build) if app_info.build.isdigit() else None
 
         apple_app_info = None
@@ -545,7 +540,7 @@ class ArtifactProcessor:
                 ProcessingErrorMessage.UPLOAD_FAILED,
                 e.user_facing_message(),
             )
-            raise e
+            raise
         else:
             logger.info(f"Successfully uploaded analysis results for artifact {artifact_id}")
 
@@ -565,13 +560,7 @@ def _guess_message(code: ProcessingErrorCode, e: Exception) -> ProcessingErrorMe
     if code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR:
         if isinstance(e, NotImplementedError):
             return ProcessingErrorMessage.UNSUPPORTED_ARTIFACT_TYPE
-
-    # If we can't guess from the exception but the code is set to
-    # something useful return the matching message.
-    if code == ProcessingErrorCode.ARTIFACT_PROCESSING_ERROR:
         return ProcessingErrorMessage.ARTIFACT_PARSING_FAILED
     elif code == ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT:
         return ProcessingErrorMessage.PROCESSING_TIMEOUT
-    else:
-        # If all else fails return unknown
-        return ProcessingErrorMessage.UNKNOWN_ERROR
+    return ProcessingErrorMessage.UNKNOWN_ERROR
