@@ -1,4 +1,5 @@
 import os
+import platform
 import resource
 import time
 
@@ -10,6 +11,8 @@ from datadog.dogstatsd.base import DogStatsd
 from taskbroker_client.app import TaskbrokerApp
 from taskbroker_client.metrics import MetricsBackend, Tags
 from taskbroker_client.router import TaskRouter
+
+_RUSAGE_TO_BYTES = 1 if platform.system() == "Darwin" else 1024
 
 
 def _convert_tags(tags: Tags | None) -> list[str] | None:
@@ -86,7 +89,7 @@ class DatadogMetricsBackend(MetricsBackend):
             yield
         finally:
             after = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            self.distribution(key, after - before, tags=tags, unit="byte")
+            self.distribution(key, (after - before) * _RUSAGE_TO_BYTES, tags=tags, unit="byte")
 
 
 class CustomRouter(TaskRouter):
