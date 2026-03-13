@@ -113,6 +113,10 @@ serve:  ## Start the Launchpad server with proper Kafka configuration
 	@echo "Starting Launchpad server..."
 	$(PYTHON_VENV) -m launchpad.cli serve --verbose
 
+worker:  ## Start the Launchpad TaskWorker (no HTTP server)
+	@echo "Starting Launchpad TaskWorker..."
+	$(PYTHON_VENV) -m launchpad.cli worker --verbose
+
 test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
 	$(PYTHON_VENV) scripts/test_kafka.py --count 1
 

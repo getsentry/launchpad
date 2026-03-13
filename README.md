@@ -26,8 +26,11 @@ If you don't have devenv installed, [follow these instructions](https://github.c
 # Start dependency containers (e.g. Kafka)
 devservices up
 
-# Begin listening for messages
-launchpad serve
+# Begin listening for messages (Kafka mode)
+make serve
+
+# Or run the TaskWorker instead
+make worker
 
 # Stop containers
 devservices down
@@ -35,7 +38,31 @@ devservices down
 
 ## Usage
 
-Launchpad is primarily designed to run as a Kafka consumer alongside the [Sentry monolith](https://github.com/getsentry/sentry) codebase via `launchpad serve`.
+Launchpad can run in two operational modes:
+
+- **Kafka mode** (`launchpad serve`): HTTP server + Kafka consumer. This is the existing production mode that runs alongside the [Sentry monolith](https://github.com/getsentry/sentry).
+- **TaskWorker mode** (`launchpad worker`): TaskWorker only, no HTTP server. This is a lighter-weight mode that receives work via the TaskBroker RPC interface instead of Kafka.
+
+### Running in Kafka mode
+
+```bash
+devservices up
+make serve
+# or: launchpad serve --dev
+```
+
+### Running in TaskWorker mode
+
+Requires `LAUNCHPAD_WORKER_RPC_HOST` and `LAUNCHPAD_WORKER_CONCURRENCY` environment variables (already configured in `.envrc`).
+
+The TaskBroker handles task distribution and dispatches work to the worker via RPC. A single worker instance processes tasks in parallel — `LAUNCHPAD_WORKER_CONCURRENCY` controls how many child processes run simultaneously (e.g., 32 means up to 32 artifacts processed in parallel).
+
+```bash
+make worker
+# or: launchpad worker -v
+```
+
+### One-off analysis
 
 Alternatively for a one-off analysis, such as a local size analysis, you can invoke our various CLI subcommands.
 
@@ -94,14 +121,18 @@ devservices up --mode ingest
 devservices serve --workers
 ```
 
-Next run `launchpad` in another terminal:
+Next run `launchpad` in another terminal using either mode:
 
 ```bash
+# Kafka mode (HTTP server + Kafka consumer)
 devservices up
-launchpad serve
+make serve
+
+# TaskWorker mode (TaskWorker only, no HTTP server)
+make worker
 ```
 
-And finally use the `sentry-cli` to upload to your local machine:
+And finally use the `sentry-cli` (version 3.0.1 or higher) to upload to your local machine:
 
 ```bash
 sentry-cli --log-level DEBUG \

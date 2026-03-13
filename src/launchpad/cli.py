@@ -82,6 +82,35 @@ def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
         raise click.Abort()
 
 
+@cli.command()
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
+def worker(verbose: bool) -> None:
+    """Start the Launchpad TaskWorker.
+
+    Runs the TaskWorker only, without an HTTP server.
+    Requires LAUNCHPAD_WORKER_RPC_HOST and LAUNCHPAD_WORKER_CONCURRENCY env vars.
+    """
+    from .worker.config import run_worker
+
+    setup_logging(verbose=verbose, quiet=False)
+
+    console.print(f"[bold blue]Launchpad TaskWorker v{__version__}[/bold blue]")
+    console.print("Press Ctrl+C to stop the worker")
+    console.print()
+
+    try:
+        run_worker()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Worker stopped by user[/yellow]")
+    except SystemExit:
+        raise
+    except Exception as e:
+        console.print(f"[bold red]Worker error:[/bold red] {e}")
+        if verbose:
+            console.print_exception()
+        raise click.Abort()
+
+
 cli.add_command(size_command)
 cli.add_command(app_icon_command)
 cli.add_command(distribution_command)

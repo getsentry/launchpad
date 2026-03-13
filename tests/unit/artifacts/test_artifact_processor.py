@@ -1,12 +1,10 @@
 from unittest.mock import Mock, patch
 
 from objectstore_client import Client as ObjectstoreClient
-from sentry_kafka_schemas.schema_types.preprod_artifact_events_v1 import (
-    PreprodArtifactEvents,
-)
 
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import (
+    PreprodFeature,
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
@@ -152,22 +150,20 @@ class TestArtifactProcessorMessageHandling:
             objectstore_url="http://test.objectstore.io",
         )
 
-        # Create a payload for iOS artifact
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "ios-test-123",
-            "project_id": "test-project-ios",
-            "organization_id": "test-org-123",
-            "requested_features": ["size_analysis"],
-        }
+        ArtifactProcessor.process_message(
+            artifact_id="ios-test-123",
+            project_id="test-project-ios",
+            organization_id="test-org-123",
+            requested_features=["size_analysis"],
+            service_config=service_config,
+            statsd=fake_statsd,
+        )
 
-        # Call the static method
-        ArtifactProcessor.process_message(payload, service_config=service_config, statsd=fake_statsd)
-
-        # Verify process_artifact was called with correct args
         mock_process.assert_called_once_with(
             "test-org-123",
             "test-project-ios",
             "ios-test-123",
+            [PreprodFeature.SIZE_ANALYSIS],
         )
 
         # Verify metrics were recorded
@@ -192,22 +188,20 @@ class TestArtifactProcessorMessageHandling:
             objectstore_url="http://test.objectstore.io",
         )
 
-        # Create a payload for Android artifact
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "android-test-456",
-            "project_id": "test-project-android",
-            "organization_id": "test-org-456",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
+        ArtifactProcessor.process_message(
+            artifact_id="android-test-456",
+            project_id="test-project-android",
+            organization_id="test-org-456",
+            requested_features=["size_analysis", "build_distribution"],
+            service_config=service_config,
+            statsd=fake_statsd,
+        )
 
-        # Call the static method
-        ArtifactProcessor.process_message(payload, service_config=service_config, statsd=fake_statsd)
-
-        # Verify process_artifact was called with correct args
         mock_process.assert_called_once_with(
             "test-org-456",
             "test-project-android",
             "android-test-456",
+            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
         )
 
         # Verify metrics were recorded
@@ -232,25 +226,22 @@ class TestArtifactProcessorMessageHandling:
             objectstore_url="http://test.objectstore.io",
         )
 
-        # Make process_artifact raise an exception
         mock_process.side_effect = RuntimeError("Download failed: HTTP 404")
 
-        # Create a valid payload
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "test-123",
-            "project_id": "test-project",
-            "organization_id": "test-org",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
+        ArtifactProcessor.process_message(
+            artifact_id="test-123",
+            project_id="test-project",
+            organization_id="test-org",
+            requested_features=["size_analysis", "build_distribution"],
+            service_config=service_config,
+            statsd=fake_statsd,
+        )
 
-        # This should not raise (error handling catches all exceptions)
-        ArtifactProcessor.process_message(payload, service_config=service_config, statsd=fake_statsd)
-
-        # Verify process_artifact was called
         mock_process.assert_called_once_with(
             "test-org",
             "test-project",
             "test-123",
+            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
         )
 
         # Verify the metrics were called correctly
@@ -271,21 +262,17 @@ class TestArtifactProcessorMessageHandling:
             objectstore_url="http://test.objectstore.io",
         )
 
-        # Create a payload for a project that should be skipped
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "skip-test-123",
-            "project_id": "skip-project-1",
-            "organization_id": "test-org-123",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
+        ArtifactProcessor.process_message(
+            artifact_id="skip-test-123",
+            project_id="skip-project-1",
+            organization_id="test-org-123",
+            requested_features=["size_analysis", "build_distribution"],
+            service_config=service_config,
+            statsd=fake_statsd,
+        )
 
-        # process_message should return early and not process
-        ArtifactProcessor.process_message(payload, service_config=service_config, statsd=fake_statsd)
-
-        # Verify process_artifact was NOT called
         mock_process.assert_not_called()
 
-        # Verify no metrics were recorded (since processing was skipped entirely)
         calls = fake_statsd.calls
         assert len(calls) == 0
 
@@ -300,22 +287,20 @@ class TestArtifactProcessorMessageHandling:
             objectstore_url="http://test.objectstore.io",
         )
 
-        # Create a payload for a project that should NOT be skipped
-        payload: PreprodArtifactEvents = {
-            "artifact_id": "normal-test-123",
-            "project_id": "normal-project",
-            "organization_id": "test-org-123",
-            "requested_features": ["size_analysis", "build_distribution"],
-        }
+        ArtifactProcessor.process_message(
+            artifact_id="normal-test-123",
+            project_id="normal-project",
+            organization_id="test-org-123",
+            requested_features=["size_analysis", "build_distribution"],
+            service_config=service_config,
+            statsd=fake_statsd,
+        )
 
-        # process_message should process normally
-        ArtifactProcessor.process_message(payload, service_config=service_config, statsd=fake_statsd)
-
-        # Verify process_artifact was called
         mock_process.assert_called_once_with(
             "test-org-123",
             "normal-project",
             "normal-test-123",
+            [PreprodFeature.SIZE_ANALYSIS, PreprodFeature.BUILD_DISTRIBUTION],
         )
 
         # Verify normal metrics were recorded

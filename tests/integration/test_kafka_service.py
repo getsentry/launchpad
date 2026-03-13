@@ -10,7 +10,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
 from launchpad.artifact_processor import ArtifactProcessor
-from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
+from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC, PreprodFeature
 from launchpad.kafka import LaunchpadKafkaConsumer, create_kafka_consumer, get_kafka_config
 from launchpad.service import LaunchpadService, ServiceConfig, get_service_config
 from launchpad.utils.statsd import FakeStatsd
@@ -179,15 +179,15 @@ class TestMessageProcessingFlow:
             objectstore_url="http://test.objectstore.io",
         )
 
-        test_message = {
-            "artifact_id": "test-123",
-            "project_id": "skip-project",
-            "organization_id": "test-org",
-            "requested_features": ["size_analysis"],
-        }
-
         with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
-            ArtifactProcessor.process_message(test_message, service_config=service_config, statsd=fake_statsd)
+            ArtifactProcessor.process_message(
+                artifact_id="test-123",
+                project_id="skip-project",
+                organization_id="test-org",
+                requested_features=["size_analysis"],
+                service_config=service_config,
+                statsd=fake_statsd,
+            )
             mock_process.assert_not_called()
 
     def test_process_message_with_allowed_project(self):
@@ -200,20 +200,21 @@ class TestMessageProcessingFlow:
             objectstore_url="http://test.objectstore.io",
         )
 
-        test_message = {
-            "artifact_id": "test-123",
-            "project_id": "normal-project",
-            "organization_id": "test-org",
-            "requested_features": ["size_analysis"],
-        }
-
         with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
-            ArtifactProcessor.process_message(test_message, service_config=service_config, statsd=fake_statsd)
+            ArtifactProcessor.process_message(
+                artifact_id="test-123",
+                project_id="normal-project",
+                organization_id="test-org",
+                requested_features=["size_analysis"],
+                service_config=service_config,
+                statsd=fake_statsd,
+            )
 
             mock_process.assert_called_once_with(
                 "test-org",
                 "normal-project",
                 "test-123",
+                [PreprodFeature.SIZE_ANALYSIS],
             )
 
             calls = fake_statsd.calls
@@ -230,15 +231,15 @@ class TestMessageProcessingFlow:
             objectstore_url="http://test.objectstore.io",
         )
 
-        test_message = {
-            "artifact_id": "test-123",
-            "project_id": "test-project",
-            "organization_id": "test-org",
-            "requested_features": ["size_analysis"],
-        }
-
         with patch.object(ArtifactProcessor, "process_artifact", side_effect=RuntimeError("Test error")):
-            ArtifactProcessor.process_message(test_message, service_config=service_config, statsd=fake_statsd)
+            ArtifactProcessor.process_message(
+                artifact_id="test-123",
+                project_id="test-project",
+                organization_id="test-org",
+                requested_features=["size_analysis"],
+                service_config=service_config,
+                statsd=fake_statsd,
+            )
 
             calls = fake_statsd.calls
             increment_calls = [call for call in calls if call[0] == "increment"]
