@@ -7,10 +7,11 @@ from collections.abc import Generator
 from contextlib import contextmanager
 
 from arroyo.backends.kafka import KafkaProducer
-from datadog.dogstatsd.base import DogStatsd
 from taskbroker_client.app import TaskbrokerApp
 from taskbroker_client.metrics import MetricsBackend, Tags
 from taskbroker_client.router import TaskRouter
+
+from launchpad.utils.statsd import create_dogstatsd_client
 
 _RUSAGE_TO_BYTES = 1 if platform.system() == "Darwin" else 1024
 
@@ -23,20 +24,7 @@ def _convert_tags(tags: Tags | None) -> list[str] | None:
 
 class TaskworkerMetricsBackend(MetricsBackend):
     def __init__(self) -> None:
-        host = os.getenv("STATSD_HOST", "127.0.0.1")
-        port_str = os.getenv("STATSD_PORT", "8125")
-        try:
-            port = int(port_str)
-        except ValueError:
-            raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
-
-        self._dogstatsd = DogStatsd(
-            host=host,
-            port=port,
-            namespace="launchpad.taskworker",
-            disable_telemetry=True,
-            origin_detection_enabled=False,
-        )
+        self._dogstatsd = create_dogstatsd_client("launchpad.taskworker")
 
     def incr(
         self,

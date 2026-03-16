@@ -137,6 +137,22 @@ class DogStatsdWrapper(StatsdInterface):
             yield
 
 
+def create_dogstatsd_client(namespace: str) -> DogStatsd:
+    host = os.getenv("STATSD_HOST", "127.0.0.1")
+    port_str = os.getenv("STATSD_PORT", "8125")
+    try:
+        port = int(port_str)
+    except ValueError:
+        raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
+    return DogStatsd(
+        host=host,
+        port=port,
+        namespace=namespace,
+        disable_telemetry=True,
+        origin_detection_enabled=False,
+    )
+
+
 _namespace_to_statsd: dict[str, StatsdInterface] = {}
 
 
@@ -146,25 +162,6 @@ def get_statsd(namespace_suffix: Literal[None, "consumer"] = None) -> StatsdInte
     if namespace in _namespace_to_statsd:
         return _namespace_to_statsd[namespace]
 
-    disable_telemetry = True
-    origin_detection_enabled = False
-
-    host = os.getenv("STATSD_HOST", "127.0.0.1")
-    port_str = os.getenv("STATSD_PORT", "8125")
-
-    try:
-        port = int(port_str)
-    except ValueError:
-        raise ValueError(f"STATSD_PORT must be a valid integer, got: {port_str}")
-
-    wrapper = DogStatsdWrapper(
-        DogStatsd(
-            host=host,
-            port=port,
-            namespace=namespace,
-            disable_telemetry=disable_telemetry,
-            origin_detection_enabled=origin_detection_enabled,
-        )
-    )
+    wrapper = DogStatsdWrapper(create_dogstatsd_client(namespace))
     _namespace_to_statsd[namespace] = wrapper
     return wrapper
