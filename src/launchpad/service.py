@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from launchpad.sentry_client import SentryClient
 from launchpad.utils.logging import get_logger
+from launchpad.utils.objectstore import ObjectstoreConfig
 from launchpad.utils.statsd import NullStatsd, StatsdInterface, get_statsd
 
 from .kafka import LaunchpadKafkaConsumer, create_kafka_consumer
@@ -127,7 +128,7 @@ class ServiceConfig:
 
     sentry_base_url: str
     projects_to_skip: list[str]
-    objectstore_url: str | None
+    objectstore_config: ObjectstoreConfig
 
 
 def get_service_config() -> ServiceConfig:
@@ -135,7 +136,14 @@ def get_service_config() -> ServiceConfig:
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
     projects_to_skip_str = os.getenv("PROJECT_IDS_TO_SKIP")
     projects_to_skip = projects_to_skip_str.split(",") if projects_to_skip_str else []
-    objectstore_url = os.getenv("OBJECTSTORE_URL")
+
+    objectstore_config = ObjectstoreConfig(
+        objectstore_url=os.getenv("OBJECTSTORE_URL"),
+        key_id=os.getenv("OBJECTSTORE_SIGNING_KEY_ID"),
+        key_file=os.getenv("OBJECTSTORE_SIGNING_KEY_FILE"),
+    )
+    if expiry_seconds := os.getenv("OBJECTSTORE_TOKEN_EXPIRY_SECONDS"):
+        objectstore_config.token_expiry_seconds = int(expiry_seconds)
 
     if sentry_base_url is None:
         sentry_base_url = "http://getsentry.default"
@@ -143,7 +151,7 @@ def get_service_config() -> ServiceConfig:
     return ServiceConfig(
         sentry_base_url=sentry_base_url,
         projects_to_skip=projects_to_skip,
-        objectstore_url=objectstore_url,
+        objectstore_config=objectstore_config,
     )
 
 

@@ -8,7 +8,7 @@ from launchpad.constants import (
     ProcessingErrorMessage,
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
-from launchpad.service import ServiceConfig
+from launchpad.service import ObjectstoreConfig, ServiceConfig
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -146,7 +146,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         ArtifactProcessor.process_message(
@@ -182,7 +182,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         ArtifactProcessor.process_message(
@@ -218,7 +218,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         mock_process.side_effect = RuntimeError("Download failed: HTTP 404")
@@ -252,7 +252,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["skip-project-1", "skip-project-2"],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         ArtifactProcessor.process_message(
@@ -276,7 +276,7 @@ class TestArtifactProcessorMessageHandling:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["other-project"],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         ArtifactProcessor.process_message(

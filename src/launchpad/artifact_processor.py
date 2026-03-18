@@ -45,6 +45,7 @@ from launchpad.size.models.common import BaseAppInfo
 from launchpad.tracing import request_context
 from launchpad.utils.file_utils import IdPrefix, id_from_bytes
 from launchpad.utils.logging import get_logger
+from launchpad.utils.objectstore import create_objectstore_client
 from launchpad.utils.statsd import StatsdInterface, get_statsd
 
 logger = get_logger(__name__)
@@ -88,9 +89,7 @@ class ArtifactProcessor:
             statsd = get_statsd()
         if artifact_processor is None:
             sentry_client = SentryClient(base_url=service_config.sentry_base_url)
-            objectstore_client = None
-            if service_config.objectstore_url is not None:
-                objectstore_client = ObjectstoreClient(service_config.objectstore_url)
+            objectstore_client = create_objectstore_client(service_config.objectstore_config)
             artifact_processor = ArtifactProcessor(sentry_client, statsd, objectstore_client)
 
         if service_config and project_id in service_config.projects_to_skip:

@@ -12,7 +12,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from launchpad.artifact_processor import ArtifactProcessor
 from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.kafka import LaunchpadKafkaConsumer, create_kafka_consumer, get_kafka_config
-from launchpad.service import LaunchpadService, ServiceConfig, get_service_config
+from launchpad.service import LaunchpadService, ObjectstoreConfig, ServiceConfig, get_service_config
 from launchpad.utils.statsd import FakeStatsd
 
 
@@ -176,7 +176,7 @@ class TestMessageProcessingFlow:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["skip-project"],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
@@ -196,7 +196,7 @@ class TestMessageProcessingFlow:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=["other-project"],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         with patch.object(ArtifactProcessor, "process_artifact") as mock_process:
@@ -225,7 +225,7 @@ class TestMessageProcessingFlow:
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
             projects_to_skip=[],
-            objectstore_url="http://test.objectstore.io",
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
         )
 
         with patch.object(ArtifactProcessor, "process_artifact", side_effect=RuntimeError("Test error")):
