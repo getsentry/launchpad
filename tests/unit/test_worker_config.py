@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from launchpad.worker.config import WorkerConfig, get_worker_config
+from launchpad.worker.config import DEFAULT_HEALTH_CHECK_FILE_PATH, WorkerConfig, get_worker_config
 
 
 class TestGetWorkerConfig:
@@ -17,7 +17,23 @@ class TestGetWorkerConfig:
             },
         ):
             config = get_worker_config()
-            assert config == WorkerConfig(rpc_hosts=["localhost:50051"], concurrency=8)
+            assert config == WorkerConfig(
+                rpc_hosts=["localhost:50051"],
+                concurrency=8,
+                health_check_file_path=DEFAULT_HEALTH_CHECK_FILE_PATH,
+            )
+
+    def test_custom_health_check_file_path(self):
+        with patch.dict(
+            os.environ,
+            {
+                "LAUNCHPAD_WORKER_RPC_HOST": "localhost:50051",
+                "LAUNCHPAD_WORKER_CONCURRENCY": "8",
+                "LAUNCHPAD_WORKER_HEALTH_CHECK_FILE_PATH": "/custom/health",
+            },
+        ):
+            config = get_worker_config()
+            assert config.health_check_file_path == "/custom/health"
 
     def test_comma_separated_hosts(self):
         with patch.dict(
