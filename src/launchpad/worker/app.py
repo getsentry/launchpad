@@ -82,7 +82,7 @@ class TaskworkerMetricsBackend(MetricsBackend):
 
 class CustomRouter(TaskRouter):
     def route_namespace(self, name: str) -> str:
-        return os.getenv("TASKWORKER_NAMESPACE", "taskworker")
+        return os.getenv("TASKWORKER_TOPIC", "taskworker")
 
 
 def producer_factory(topic: str) -> KafkaProducer:
