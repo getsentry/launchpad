@@ -26,7 +26,6 @@ services:
     ports:
       - 127.0.0.1:2218:2218 # Bind to localhost only - no external access
     command:
-      - launchpad
       - serve
       - --verbose
     healthcheck:
