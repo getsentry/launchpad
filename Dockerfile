@@ -112,8 +112,5 @@ EXPOSE 2218
 ARG LAUNCHPAD_VERSION_SHA
 ENV LAUNCHPAD_VERSION_SHA=$LAUNCHPAD_VERSION_SHA
 
-# ENTRYPOINT/CMD split allows K8s deployments to override the subcommand via `args`.
-# - Serve mode (deployment.yaml): uses default CMD -> "launchpad serve"
-# - Worker mode (taskworker-deployment.yaml): overrides CMD via args -> "launchpad worker ..."
-ENTRYPOINT ["launchpad"]
-CMD ["serve"]
+# Default command
+CMD ["launchpad", "serve"]
