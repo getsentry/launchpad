@@ -117,7 +117,7 @@ jobs:
             -e KAFKA_BOOTSTRAP_SERVERS="kafka:9093" \
             -e KAFKA_GROUP_ID="launchpad-test-ci" \
             -e KAFKA_TOPICS="preprod-artifact-events" \
-            --entrypoint python launchpad-test -m pytest -n auto tests/ --ignore=tests/e2e -v
+            launchpad-test python -m pytest -n auto tests/ --ignore=tests/e2e -v
 
       - name: Show Kafka logs on failure
         if: failure()
@@ -133,7 +133,7 @@ jobs:
             -e LAUNCHPAD_ENV=development \
             -e LAUNCHPAD_HOST=localhost \
             -e LAUNCHPAD_PORT=2218 \
-            launchpad-test --help
+            launchpad-test launchpad --help
 
   e2e:
     runs-on: ubuntu-latest
