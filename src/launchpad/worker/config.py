@@ -43,7 +43,7 @@ def get_worker_config() -> WorkerConfig:
     return WorkerConfig(rpc_hosts=rpc_hosts, concurrency=concurrency, health_check_file_path=health_check_file_path)
 
 
-def run_worker() -> None:
+def run_worker(processing_pool_name: str = "launchpad") -> None:
     initialize_sentry_sdk()
     config = get_worker_config()
 
@@ -60,7 +60,7 @@ def run_worker() -> None:
         child_tasks_queue_maxsize=config.concurrency * 2,
         result_queue_maxsize=config.concurrency * 2,
         rebalance_after=16,
-        processing_pool_name="launchpad",
+        processing_pool_name=processing_pool_name,
         process_type="forkserver",
         health_check_file_path=config.health_check_file_path,
     )

@@ -113,4 +113,5 @@ ARG LAUNCHPAD_VERSION_SHA
 ENV LAUNCHPAD_VERSION_SHA=$LAUNCHPAD_VERSION_SHA
 
 # Default command
-CMD ["launchpad", "serve"]
+ENTRYPOINT ["launchpad"]
+CMD ["serve"]
