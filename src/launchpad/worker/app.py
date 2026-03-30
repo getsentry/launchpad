@@ -24,7 +24,7 @@ def _convert_tags(tags: Tags | None) -> list[str] | None:
 
 class TaskworkerMetricsBackend(MetricsBackend):
     def __init__(self) -> None:
-        self._dogstatsd = create_dogstatsd_client("launchpad.taskworker")
+        self._dogstatsd = create_dogstatsd_client("launchpad")
 
     def incr(
         self,
