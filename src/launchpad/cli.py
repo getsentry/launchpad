@@ -93,6 +93,13 @@ def worker(processing_pool_name: str, verbose: bool) -> None:
     """
     from .worker.config import run_worker
 
+    region = os.getenv("SENTRY_REGION", None)
+    mode = "development" if region is None else "production"
+    os.environ["LAUNCHPAD_ENV"] = mode
+
+    if not verbose and mode == "development":
+        verbose = True
+
     setup_logging(verbose=verbose, quiet=False)
 
     console.print(f"[bold blue]Launchpad TaskWorker v{__version__}[/bold blue]")
