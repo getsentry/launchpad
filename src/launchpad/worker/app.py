@@ -1,3 +1,4 @@
+import json
 import os
 import platform
 import resource
@@ -101,8 +102,14 @@ app = TaskbrokerApp(
     router_class=CustomRouter(),
     metrics_class=TaskworkerMetricsBackend(),
 )
+
+rpc_secret: str | None = None
+env_secret = os.getenv("LAUNCHPAD_GRPC_SHARED_SECRET")
+if env_secret:
+    rpc_secret = json.dumps([env_secret])
+
 app.set_config({
-    "rpc_secret": os.getenv("TASKWORKER_SHARED_SECRET"),
+    "rpc_secret": rpc_secret,
 })
 
 app.set_modules(["launchpad.worker.tasks"])
