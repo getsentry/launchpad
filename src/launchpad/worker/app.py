@@ -102,4 +102,10 @@ app = TaskbrokerApp(
     metrics_class=TaskworkerMetricsBackend(),
 )
 
+app.set_config(
+    {
+        "rpc_secret": os.getenv("TASKWORKER_SHARED_SECRET", None),
+    }
+)
+
 app.set_modules(["launchpad.worker.tasks"])
