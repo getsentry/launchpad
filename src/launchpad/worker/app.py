@@ -103,14 +103,9 @@ app = TaskbrokerApp(
     metrics_class=TaskworkerMetricsBackend(),
 )
 
-rpc_secret: str | None = None
-env_secret = os.getenv("LAUNCHPAD_GRPC_SHARED_SECRET")
-if env_secret:
-    rpc_secret = json.dumps([env_secret])
-
 app.set_config(
     {
-        "rpc_secret": rpc_secret,
+        "rpc_secret": os.getenv("TASKWORKER_SHARED_SECRET", None),
     }
 )
 
