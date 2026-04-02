@@ -24,7 +24,6 @@ from arroyo.types import Commit, Partition
 from sentry_kafka_schemas import get_codec
 
 from launchpad.artifact_processor import ArtifactProcessor
-from launchpad.config import is_taskworker_only_project
 from launchpad.constants import PREPROD_ARTIFACT_EVENTS_TOPIC
 from launchpad.tracing import RequestLogFilter
 from launchpad.utils.arroyo_metrics import DatadogMetricsBackend
@@ -94,11 +93,6 @@ def process_kafka_message_with_service(
         raise
 
     artifact_id = decoded.get("artifact_id", "unknown")
-    project_id = str(decoded.get("project_id", ""))
-
-    if is_taskworker_only_project(project_id):
-        logger.info("Skipping Kafka processing for project %s (taskworker-only)", project_id)
-        return None  # type: ignore[return-value]
 
     # Spawn actual processing in a subprocess
     process = multiprocessing.Process(target=_process_in_subprocess, args=(decoded, log_queue))
