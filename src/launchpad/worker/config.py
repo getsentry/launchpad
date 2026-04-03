@@ -15,11 +15,15 @@ logger = get_logger(__name__)
 DEFAULT_HEALTH_CHECK_FILE_PATH = "/tmp/health"
 
 
+DEFAULT_MAX_CHILD_TASK_COUNT = 1
+
+
 @dataclass
 class WorkerConfig:
     rpc_hosts: list[str]
     concurrency: int
     health_check_file_path: str
+    max_child_task_count: int
 
 
 def get_worker_config() -> WorkerConfig:
@@ -39,8 +43,14 @@ def get_worker_config() -> WorkerConfig:
         raise ValueError(f"LAUNCHPAD_WORKER_CONCURRENCY must be a valid integer, got: {concurrency_str}")
 
     health_check_file_path = os.getenv("LAUNCHPAD_WORKER_HEALTH_CHECK_FILE_PATH", DEFAULT_HEALTH_CHECK_FILE_PATH)
+    max_child_task_count = int(os.getenv("LAUNCHPAD_WORKER_MAX_CHILD_TASK_COUNT", str(DEFAULT_MAX_CHILD_TASK_COUNT)))
 
-    return WorkerConfig(rpc_hosts=rpc_hosts, concurrency=concurrency, health_check_file_path=health_check_file_path)
+    return WorkerConfig(
+        rpc_hosts=rpc_hosts,
+        concurrency=concurrency,
+        health_check_file_path=health_check_file_path,
+        max_child_task_count=max_child_task_count,
+    )
 
 
 def run_worker(processing_pool_name: str = "launchpad") -> None:
@@ -55,7 +65,7 @@ def run_worker(processing_pool_name: str = "launchpad") -> None:
     worker = TaskWorker(
         app_module="launchpad.worker.app:app",
         broker_hosts=config.rpc_hosts,
-        max_child_task_count=1000,
+        max_child_task_count=config.max_child_task_count,
         concurrency=config.concurrency,
         child_tasks_queue_maxsize=config.concurrency * 2,
         result_queue_maxsize=config.concurrency * 2,
