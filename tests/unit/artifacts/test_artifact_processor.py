@@ -2,13 +2,13 @@ from unittest.mock import Mock, patch
 
 from objectstore_client import Client as ObjectstoreClient
 
-from launchpad.artifact_processor import ArtifactProcessor
+from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig
 from launchpad.constants import (
     ProcessingErrorCode,
     ProcessingErrorMessage,
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
-from launchpad.service import ObjectstoreConfig, ServiceConfig
+from launchpad.utils.objectstore import ObjectstoreConfig
 from launchpad.utils.statsd import FakeStatsd
 
 

@@ -2,9 +2,6 @@
 
 from enum import Enum
 
-# Kafka topic names
-PREPROD_ARTIFACT_EVENTS_TOPIC = "preprod-artifact-events"
-
 
 # Error code constants (matching the Django model)
 class ProcessingErrorCode(Enum):

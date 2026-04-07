@@ -114,4 +114,4 @@ ENV LAUNCHPAD_VERSION_SHA=$LAUNCHPAD_VERSION_SHA
 
 # Default command
 ENTRYPOINT ["launchpad"]
-CMD ["serve"]
+CMD ["worker"]

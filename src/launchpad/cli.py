@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import logging
 import os
 
 import click
 
 from . import __version__
 from .distribution.cli import distribution_command
-from .service import run_service
 from .size.cli import app_icon_command, profile_dex_parsing_command, size_command
 from .utils.console import console
 from .utils.logging import setup_logging
@@ -24,62 +22,6 @@ def cli(ctx: click.Context, version: bool) -> None:
 
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
-
-
-@cli.command()
-@click.option("--host", default="0.0.0.0", help="Host to bind the server to.", show_default=True)
-@click.option("--port", default=2218, help="Port to bind the server to.", show_default=True)
-@click.option("--dev", "mode", flag_value="development", help="Run in development mode (default).")
-@click.option("--prod", "mode", flag_value="production", help="Run in production mode.")
-@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
-def serve(host: str, port: int, mode: str | None, verbose: bool) -> None:
-    """Start the Launchpad server.
-
-    Runs the HTTP server with health check endpoints and Kafka consumer
-    for processing analysis requests.
-    """
-
-    # If SENTRY_REGION is set we are in a production environment. This
-    # isn't the correct way to do this (what about self-hosted?) but
-    # it's better than what we had previously where we ended up
-    # assuming development mode in production.
-    if mode is None:
-        region = os.getenv("SENTRY_REGION", None)
-        mode = "development" if region is None else "production"
-
-    # If verbose wasn't explicitly set and we're in development mode, enable verbose
-    if not verbose and mode == "development":
-        verbose = True
-
-    # Set environment variables for configuration
-    os.environ["LAUNCHPAD_ENV"] = mode
-    os.environ["LAUNCHPAD_HOST"] = host
-    os.environ["LAUNCHPAD_PORT"] = str(port)
-
-    setup_logging(verbose=verbose, quiet=False)
-
-    if not verbose:
-        # Reduce noise from some libraries
-        logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
-
-    mode_display = "Development" if mode == "development" else "Production"
-    console.print(f"[bold blue]Launchpad {mode_display} Server v{__version__}[/bold blue]")
-    console.print(f"Starting server on [cyan]http://{host}:{port}[/cyan]")
-
-    mode_color = "green" if mode == "development" else "yellow"
-    console.print(f"Mode: [{mode_color}]{mode}[/{mode_color}]")
-    console.print("Press Ctrl+C to stop the server")
-    console.print()
-
-    try:
-        run_service()
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Server stopped by user[/yellow]")
-    except Exception as e:
-        console.print(f"[bold red]Server error:[/bold red] {e}")
-        if verbose:
-            console.print_exception()
-        raise click.Abort()
 
 
 @cli.command()

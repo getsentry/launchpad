@@ -1,5 +1,4 @@
-# Note: This E2E setup leverages your existing devservices Kafka
-# Run `devservices up` before starting these tests
+# E2E test setup for Launchpad
 
 services:
   # MinIO for ObjectStore (S3-compatible)
@@ -46,7 +45,6 @@ services:
       - mock-api-data:/app/data
     networks:
       - launchpad-e2e
-      - devservices
 
   # Launchpad service
   launchpad:
@@ -54,34 +52,23 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        TEST_BUILD: "true"  # Include test fixtures
-    ports:
-      - "2218:2218"
+        TEST_BUILD: "true"
     environment:
       PYTHONUNBUFFERED: "1"
-      KAFKA_BOOTSTRAP_SERVERS: "kafka:9093"
-      KAFKA_GROUP_ID: "launchpad-e2e-test"
-      KAFKA_TOPICS: "preprod-artifact-events"
-      KAFKA_AUTO_OFFSET_RESET: "earliest"
-      LAUNCHPAD_HOST: "0.0.0.0"
-      LAUNCHPAD_PORT: "2218"
       LAUNCHPAD_ENV: "e2e-test"
       SENTRY_BASE_URL: "http://mock-sentry-api:8000"
       OBJECTSTORE_URL: "http://minio:9000"
       LAUNCHPAD_RPC_SHARED_SECRET: "test-secret-key-for-e2e"
-      SENTRY_DSN: ""  # Disable Sentry SDK in tests
+      LAUNCHPAD_WORKER_RPC_HOST: "host.docker.internal:50051"
+      LAUNCHPAD_WORKER_CONCURRENCY: "1"
+      SENTRY_DSN: ""
     depends_on:
       mock-sentry-api:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2218/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    extra_hosts:
+      host.docker.internal: host-gateway
     networks:
       - launchpad-e2e
-      - devservices
 
   # Test orchestrator
   e2e-tests:
@@ -89,7 +76,6 @@ services:
       context: .
       dockerfile: tests/e2e/Dockerfile.test-runner
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: "kafka:9093"
       MOCK_API_URL: "http://mock-sentry-api:8000"
       LAUNCHPAD_URL: "http://launchpad:2218"
       MINIO_ENDPOINT: "http://minio:9000"
@@ -97,8 +83,6 @@ services:
       MINIO_SECRET_KEY: "minioadmin"
       LAUNCHPAD_RPC_SHARED_SECRET: "test-secret-key-for-e2e"
     depends_on:
-      launchpad:
-        condition: service_healthy
       mock-sentry-api:
         condition: service_healthy
     volumes:
@@ -106,7 +90,6 @@ services:
     command: pytest e2e_tests/test_e2e_flow.py -v --tb=short
     networks:
       - launchpad-e2e
-      - devservices
 
 volumes:
   minio-data:
@@ -115,6 +98,3 @@ volumes:
 networks:
   launchpad-e2e:
     name: launchpad-e2e
-  devservices:
-    name: devservices
-    external: true
