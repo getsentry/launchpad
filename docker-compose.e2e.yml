@@ -104,6 +104,7 @@ services:
       TASKWORKER_SHARED_SECRET: '["test-secret-key-for-e2e"]'
       LAUNCHPAD_WORKER_RPC_HOST: "taskbroker:50051"
       LAUNCHPAD_WORKER_CONCURRENCY: "1"
+      LAUNCHPAD_WORKER_MAX_CHILD_TASK_COUNT: "10"
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
       TASKWORKER_TOPIC: "taskworker-launchpad"
       SENTRY_DSN: ""

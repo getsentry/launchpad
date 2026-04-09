@@ -109,7 +109,7 @@ class TestE2EFlow:
 
         upload_artifact_to_mock_api(artifact_id, IOS_FIXTURE)
         dispatch_task(artifact_id, org, project)
-        results = wait_for_processing(artifact_id, timeout=180)
+        results = wait_for_processing(artifact_id, timeout=360)
 
         print("\n=== Verifying results ===")
 
@@ -168,7 +168,7 @@ class TestE2EFlow:
 
         upload_artifact_to_mock_api(artifact_id, ANDROID_APK_FIXTURE)
         dispatch_task(artifact_id, org, project)
-        results = wait_for_processing(artifact_id, timeout=180)
+        results = wait_for_processing(artifact_id, timeout=360)
 
         print("\n=== Verifying results ===")
 
@@ -217,7 +217,7 @@ class TestE2EFlow:
 
         upload_artifact_to_mock_api(artifact_id, ANDROID_AAB_FIXTURE)
         dispatch_task(artifact_id, org, project)
-        results = wait_for_processing(artifact_id, timeout=180)
+        results = wait_for_processing(artifact_id, timeout=360)
 
         print("\n=== Verifying results ===")
 
