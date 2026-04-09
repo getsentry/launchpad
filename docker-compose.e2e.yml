@@ -1,7 +1,49 @@
-# Note: This E2E setup leverages your existing devservices Kafka
-# Run `devservices up` before starting these tests
+# E2E test setup for Launchpad (fully self-contained, no devservices needed)
 
 services:
+  # Kafka (KRaft mode, no Zookeeper)
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_PROCESS_ROLES: broker,controller
+      CLUSTER_ID: e2e-test-cluster-id-001
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 1
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - launchpad-e2e
+
+  # TaskBroker (gRPC bridge between Kafka and workers)
+  taskbroker:
+    image: ghcr.io/getsentry/taskbroker:nightly
+    environment:
+      TASKBROKER_KAFKA_CLUSTER: "kafka:9092"
+      TASKBROKER_KAFKA_TOPIC: "taskworker-launchpad"
+      TASKBROKER_KAFKA_DEADLETTER_TOPIC: "taskworker-launchpad-dlq"
+      TASKBROKER_KAFKA_CONSUMER_GROUP: "taskbroker-launchpad"
+      TASKBROKER_CREATE_MISSING_TOPICS: "true"
+      TASKBROKER_GRPC_SHARED_SECRET: '["test-secret-key-for-e2e"]'
+    depends_on:
+      kafka:
+        condition: service_healthy
+    platform: linux/amd64
+    networks:
+      - launchpad-e2e
+
   # MinIO for ObjectStore (S3-compatible)
   minio:
     image: minio/minio:latest
@@ -46,56 +88,54 @@ services:
       - mock-api-data:/app/data
     networks:
       - launchpad-e2e
-      - devservices
 
-  # Launchpad service
+  # Launchpad worker (connects to TaskBroker via gRPC)
   launchpad:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        TEST_BUILD: "true"  # Include test fixtures
-    ports:
-      - "2218:2218"
+        TEST_BUILD: "true"
     environment:
       PYTHONUNBUFFERED: "1"
-      KAFKA_BOOTSTRAP_SERVERS: "kafka:9093"
-      KAFKA_GROUP_ID: "launchpad-e2e-test"
-      KAFKA_TOPICS: "preprod-artifact-events"
-      KAFKA_AUTO_OFFSET_RESET: "earliest"
-      LAUNCHPAD_HOST: "0.0.0.0"
-      LAUNCHPAD_PORT: "2218"
       LAUNCHPAD_ENV: "e2e-test"
       SENTRY_BASE_URL: "http://mock-sentry-api:8000"
       OBJECTSTORE_URL: "http://minio:9000"
       LAUNCHPAD_RPC_SHARED_SECRET: "test-secret-key-for-e2e"
-      SENTRY_DSN: ""  # Disable Sentry SDK in tests
-    depends_on:
-      mock-sentry-api:
-        condition: service_healthy
+      TASKWORKER_SHARED_SECRET: '["test-secret-key-for-e2e"]'
+      LAUNCHPAD_WORKER_RPC_HOST: "taskbroker:50051"
+      LAUNCHPAD_WORKER_CONCURRENCY: "3"
+      LAUNCHPAD_WORKER_MAX_CHILD_TASK_COUNT: "10"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      TASKWORKER_TOPIC: "taskworker-launchpad"
+      SENTRY_DSN: ""
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2218/health"]
+      test: ["CMD-SHELL", "[ -f /tmp/health ]"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    depends_on:
+      taskbroker:
+        condition: service_started
+      mock-sentry-api:
+        condition: service_healthy
     networks:
       - launchpad-e2e
-      - devservices
 
-  # Test orchestrator
+  # Test runner (dispatches tasks via taskbroker-client)
   e2e-tests:
     build:
       context: .
       dockerfile: tests/e2e/Dockerfile.test-runner
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: "kafka:9093"
       MOCK_API_URL: "http://mock-sentry-api:8000"
-      LAUNCHPAD_URL: "http://launchpad:2218"
       MINIO_ENDPOINT: "http://minio:9000"
       MINIO_ACCESS_KEY: "minioadmin"
       MINIO_SECRET_KEY: "minioadmin"
-      LAUNCHPAD_RPC_SHARED_SECRET: "test-secret-key-for-e2e"
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      TASKWORKER_TOPIC: "taskworker-launchpad"
+      TASKWORKER_SHARED_SECRET: '["test-secret-key-for-e2e"]'
     depends_on:
       launchpad:
         condition: service_healthy
@@ -106,7 +146,6 @@ services:
     command: pytest e2e_tests/test_e2e_flow.py -v --tb=short
     networks:
       - launchpad-e2e
-      - devservices
 
 volumes:
   minio-data:
@@ -115,6 +154,3 @@ volumes:
 networks:
   launchpad-e2e:
     name: launchpad-e2e
-  devservices:
-    name: devservices
-    external: true

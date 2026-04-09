@@ -64,75 +64,20 @@ jobs:
       - name: Install dependencies
         run: make install-dev
 
-      - name: Start Kafka with devservices
-        run: |
-          .venv/bin/devservices up --mode default
-
-          echo "Waiting for Kafka to be ready..."
-          KAFKA_READY=false
-          for i in {1..30}; do
-            KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
-            if [ -z "$KAFKA_CONTAINER" ]; then
-              echo "Waiting for Kafka container to start... attempt $i/30"
-              sleep 2
-              continue
-            fi
-
-            HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $KAFKA_CONTAINER 2>/dev/null || echo "none")
-            if [ "$HEALTH_STATUS" = "healthy" ]; then
-              echo "Kafka is ready!"
-              KAFKA_READY=true
-              break
-            fi
-            echo "Waiting for Kafka health check (status: $HEALTH_STATUS)... attempt $i/30"
-            sleep 2
-          done
-
-          if [ "$KAFKA_READY" = "false" ]; then
-            echo "ERROR: Kafka failed to become healthy after 60 seconds"
-            echo "=== Docker containers ==="
-            docker ps -a
-            echo "=== Kafka logs ==="
-            docker logs $(docker ps -aqf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
-            exit 1
-          fi
-
-          docker ps
-
       - name: Build Docker image with test fixtures
         run: docker build --build-arg TEST_BUILD=true -t launchpad-test .
 
       - name: Run all tests in Docker
         run: |
-          # Get Kafka container info for network connectivity
-          KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
-          KAFKA_NETWORK=$(docker inspect $KAFKA_CONTAINER --format='{{range $net,$v := .NetworkSettings.Networks}}{{$net}}{{end}}')
-
           docker run --rm \
-            --network $KAFKA_NETWORK \
             -e LAUNCHPAD_ENV=development \
-            -e LAUNCHPAD_HOST=localhost \
-            -e LAUNCHPAD_PORT=2218 \
             -e LAUNCHPAD_RPC_SHARED_SECRET="launchpad-test-secret" \
-            -e KAFKA_BOOTSTRAP_SERVERS="kafka:9093" \
-            -e KAFKA_GROUP_ID="launchpad-test-ci" \
-            -e KAFKA_TOPICS="preprod-artifact-events" \
             --entrypoint python launchpad-test -m pytest -n auto tests/ --ignore=tests/e2e -v
-
-      - name: Show Kafka logs on failure
-        if: failure()
-        run: |
-          if docker ps -qf "name=kafka" >/dev/null 2>&1; then
-            echo "=== Kafka logs ==="
-            docker logs $(docker ps -qf "name=kafka") --tail 100
-          fi
 
       - name: Test CLI installation and basic functionality in Docker
         run: |
           docker run --rm \
             -e LAUNCHPAD_ENV=development \
-            -e LAUNCHPAD_HOST=localhost \
-            -e LAUNCHPAD_PORT=2218 \
             launchpad-test --help
 
   e2e:
@@ -141,106 +86,76 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
-      - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.13"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
-        with:
-          enable-cache: true
-          cache-dependency-glob: pyproject.toml
-
-      - name: Install dependencies
-        run: make install-dev
-
-      - name: Start Kafka with devservices
-        run: |
-          .venv/bin/devservices up --mode default
-
-          echo "Waiting for Kafka to be ready..."
-          KAFKA_READY=false
-          for i in {1..30}; do
-            KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
-            if [ -z "$KAFKA_CONTAINER" ]; then
-              echo "Waiting for Kafka container to start... attempt $i/30"
-              sleep 2
-              continue
-            fi
-
-            HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $KAFKA_CONTAINER 2>/dev/null || echo "none")
-            if [ "$HEALTH_STATUS" = "healthy" ]; then
-              echo "Kafka is ready!"
-              KAFKA_READY=true
-              break
-            fi
-            echo "Waiting for Kafka health check (status: $HEALTH_STATUS)... attempt $i/30"
-            sleep 2
-          done
-
-          if [ "$KAFKA_READY" = "false" ]; then
-            echo "ERROR: Kafka failed to become healthy after 60 seconds"
-            echo "=== Docker containers ==="
-            docker ps -a
-            echo "=== Kafka logs ==="
-            docker logs $(docker ps -aqf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
-            exit 1
-          fi
-
-          docker ps
-
-      - name: Create Kafka topic
-        run: |
-          KAFKA_CONTAINER=$(docker ps -qf "name=kafka")
-          echo "Creating preprod-artifact-events topic..."
-          docker exec $KAFKA_CONTAINER kafka-topics --bootstrap-server localhost:9092 --create --topic preprod-artifact-events --partitions 1 --replication-factor 1 --if-not-exists
-          echo "Topic created successfully"
-
       - name: Build E2E Docker images
         run: docker compose -f docker-compose.e2e.yml build
 
       - name: Start E2E services
         run: |
-          # Start services in detached mode (minio, mock-sentry-api, launchpad)
-          docker compose -f docker-compose.e2e.yml up -d minio mock-sentry-api launchpad
+          docker compose -f docker-compose.e2e.yml up -d kafka
+          echo "Waiting for Kafka to be healthy..."
+          for i in {1..30}; do
+            if docker compose -f docker-compose.e2e.yml ps kafka | grep -q "healthy"; then
+              echo "Kafka is ready!"
+              break
+            fi
+            echo "Waiting for Kafka... attempt $i/30"
+            sleep 3
+          done
+          if ! docker compose -f docker-compose.e2e.yml ps kafka | grep -q "healthy"; then
+            echo "ERROR: Kafka failed to become healthy"
+            docker compose -f docker-compose.e2e.yml logs kafka
+            exit 1
+          fi
 
-          # Wait for launchpad to be healthy
-          echo "Waiting for Launchpad to be healthy..."
-          LAUNCHPAD_READY=false
+          docker compose -f docker-compose.e2e.yml up -d taskbroker minio mock-sentry-api
+          echo "Waiting for mock-sentry-api to be healthy..."
+          for i in {1..20}; do
+            if docker compose -f docker-compose.e2e.yml ps mock-sentry-api | grep -q "healthy"; then
+              echo "Mock Sentry API is ready!"
+              break
+            fi
+            echo "Waiting for Mock API... attempt $i/20"
+            sleep 3
+          done
+          if ! docker compose -f docker-compose.e2e.yml ps mock-sentry-api | grep -q "healthy"; then
+            echo "ERROR: Mock Sentry API failed to become healthy"
+            docker compose -f docker-compose.e2e.yml logs mock-sentry-api
+            exit 1
+          fi
+
+          docker compose -f docker-compose.e2e.yml up -d launchpad
+          echo "Waiting for Launchpad worker to be healthy..."
           for i in {1..30}; do
             if docker compose -f docker-compose.e2e.yml ps launchpad | grep -q "healthy"; then
               echo "Launchpad is ready!"
-              LAUNCHPAD_READY=true
               break
             fi
             echo "Waiting for Launchpad... attempt $i/30"
             sleep 5
           done
-
-          if [ "$LAUNCHPAD_READY" = "false" ]; then
-            echo "ERROR: Launchpad failed to become healthy"
+          if ! docker compose -f docker-compose.e2e.yml ps launchpad | grep -q "healthy"; then
+            echo "ERROR: Launchpad worker failed to become healthy"
             docker compose -f docker-compose.e2e.yml logs launchpad
             exit 1
           fi
 
-          # Show running services
           docker compose -f docker-compose.e2e.yml ps
 
       - name: Run E2E tests
-        run: |
-          docker compose -f docker-compose.e2e.yml run --rm e2e-tests
-        timeout-minutes: 10
+        run: docker compose -f docker-compose.e2e.yml run --rm e2e-tests pytest e2e_tests/test_e2e_flow.py -v --tb=short
+        timeout-minutes: 5
 
       - name: Show service logs on failure
         if: failure()
         run: |
           echo "=== Launchpad logs ==="
           docker compose -f docker-compose.e2e.yml logs launchpad
+          echo "=== TaskBroker logs ==="
+          docker compose -f docker-compose.e2e.yml logs taskbroker
           echo "=== Mock API logs ==="
           docker compose -f docker-compose.e2e.yml logs mock-sentry-api
           echo "=== Kafka logs ==="
-          docker logs $(docker ps -qf "name=kafka") --tail 100 || echo "Could not get Kafka logs"
+          docker compose -f docker-compose.e2e.yml logs kafka
 
       - name: Cleanup E2E environment
         if: always()

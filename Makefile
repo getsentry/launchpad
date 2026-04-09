@@ -29,15 +29,7 @@ test-unit:
 test-integration:
 	$(PYTHON_VENV) -m pytest -n auto tests/integration/ -v
 
-test-e2e:  ## Run E2E tests with Docker Compose (requires devservices up)
-	@echo "Ensuring devservices Kafka is running..."
-	@if ! docker ps | grep -q kafka; then \
-		echo "Starting devservices..."; \
-		devservices up --mode default; \
-		sleep 10; \
-	else \
-		echo "Kafka already running"; \
-	fi
+test-e2e:  ## Run E2E tests with Docker Compose
 	@echo "Starting E2E test environment..."
 	docker compose -f docker-compose.e2e.yml up --build --abort-on-container-exit --exit-code-from e2e-tests
 	@echo "Cleaning up E2E environment..."
@@ -107,21 +99,9 @@ run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments, DEBUG=1 to run 
 		$(PYTHON_VENV) -m launchpad.cli $(ARGS); \
 	fi
 
-serve:  ## Start the Launchpad server with proper Kafka configuration
-	@echo "Ensuring Kafka topics exist..."
-	$(PYTHON_VENV) scripts/ensure_kafka_topics.py
-	@echo "Starting Launchpad server..."
-	$(PYTHON_VENV) -m launchpad.cli serve --verbose
-
-worker:  ## Start the Launchpad TaskWorker (no HTTP server)
+worker:  ## Start the Launchpad TaskWorker
 	@echo "Starting Launchpad TaskWorker..."
 	$(PYTHON_VENV) -m launchpad.cli worker --verbose
-
-test-kafka-message:  ## Send a test message to Kafka (requires Kafka running)
-	$(PYTHON_VENV) scripts/test_kafka.py --count 1
-
-test-kafka-multiple:  ## Send multiple test messages to Kafka
-	$(PYTHON_VENV) scripts/test_kafka.py --count 5 --interval 0
 
 test-download-artifact:
 	$(PYTHON_VENV) scripts/test_download_artifact.py --verbose
@@ -131,31 +111,6 @@ test-artifact-update:
 
 test-artifact-size-analysis-upload:
 	$(PYTHON_VENV) scripts/test_artifact_size_analysis_upload.py --verbose
-
-test-service-integration:  ## Run full integration test with devservices
-	@echo "Starting Kafka services via devservices..."
-	@devservices up
-	@echo "Waiting for Kafka to be ready..."
-	@sleep 10
-	@echo "Starting Launchpad server in background..."
-	@set -e; \
-	$(PYTHON_VENV) -m launchpad.cli serve --verbose & \
-	LAUNCHPAD_PID=$$!; \
-	echo "Launchpad started with PID: $$LAUNCHPAD_PID"; \
-	sleep 5; \
-	echo "Sending test messages..."; \
-	$(PYTHON_VENV) scripts/test_kafka.py --count 3 --interval 1; \
-	sleep 5; \
-	echo "Stopping Launchpad gracefully..."; \
-	kill -TERM $$LAUNCHPAD_PID 2>/dev/null && echo "SIGTERM sent" || echo "Process not found"; \
-	sleep 8; \
-	if kill -0 $$LAUNCHPAD_PID 2>/dev/null; then \
-		echo "Process still running, sending SIGKILL..."; \
-		kill -KILL $$LAUNCHPAD_PID 2>/dev/null || true; \
-		sleep 2; \
-	fi; \
-	echo "Stopping devservices..."; \
-	devservices down
 
 # Show current status
 status:

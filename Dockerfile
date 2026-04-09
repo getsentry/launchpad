@@ -106,12 +106,9 @@ RUN chown -R app:app /app
 # Switch to app user
 USER app
 
-# Expose ports
-EXPOSE 2218
-
 ARG LAUNCHPAD_VERSION_SHA
 ENV LAUNCHPAD_VERSION_SHA=$LAUNCHPAD_VERSION_SHA
 
 # Default command
 ENTRYPOINT ["launchpad"]
-CMD ["serve"]
+CMD ["worker"]

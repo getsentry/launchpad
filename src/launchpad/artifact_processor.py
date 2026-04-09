@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import tempfile
 import time
 
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterator, cast
@@ -45,10 +47,40 @@ from launchpad.size.models.common import BaseAppInfo
 from launchpad.tracing import request_context
 from launchpad.utils.file_utils import IdPrefix, id_from_bytes
 from launchpad.utils.logging import get_logger
-from launchpad.utils.objectstore import create_objectstore_client
+from launchpad.utils.objectstore import ObjectstoreConfig, create_objectstore_client
 from launchpad.utils.statsd import StatsdInterface, get_statsd
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class ServiceConfig:
+    sentry_base_url: str
+    projects_to_skip: list[str]
+    objectstore_config: ObjectstoreConfig
+
+
+def get_service_config() -> ServiceConfig:
+    sentry_base_url = os.getenv("SENTRY_BASE_URL")
+    projects_to_skip_str = os.getenv("PROJECT_IDS_TO_SKIP")
+    projects_to_skip = projects_to_skip_str.split(",") if projects_to_skip_str else []
+
+    objectstore_config = ObjectstoreConfig(
+        objectstore_url=os.getenv("OBJECTSTORE_URL"),
+        key_id=os.getenv("OBJECTSTORE_SIGNING_KEY_ID"),
+        key_file=os.getenv("OBJECTSTORE_SIGNING_KEY_FILE"),
+    )
+    if expiry_seconds := os.getenv("OBJECTSTORE_TOKEN_EXPIRY_SECONDS"):
+        objectstore_config.token_expiry_seconds = int(expiry_seconds)
+
+    if sentry_base_url is None:
+        sentry_base_url = "http://getsentry.default"
+
+    return ServiceConfig(
+        sentry_base_url=sentry_base_url,
+        projects_to_skip=projects_to_skip,
+        objectstore_config=objectstore_config,
+    )
 
 
 class ArtifactProcessor:
@@ -73,14 +105,11 @@ class ArtifactProcessor:
         statsd=None,
     ):
         """Process an artifact message with proper context and metrics.
-        This is used by the Kafka workers and so has to set up the context from scratch.
         If components are not provided, they will be created.
         """
         start_time = time.time()
 
         if service_config is None:
-            from launchpad.service import get_service_config
-
             service_config = get_service_config()
 
         initialize_sentry_sdk()

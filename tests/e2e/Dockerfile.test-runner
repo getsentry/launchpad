@@ -2,7 +2,7 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install system dependencies including build tools for confluent-kafka
+# Install system dependencies (librdkafka needed by confluent-kafka via taskbroker-client)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gcc \
@@ -13,10 +13,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python test dependencies
 RUN pip install --no-cache-dir \
     pytest==8.3.3 \
-    pytest-asyncio==0.24.0 \
-    confluent-kafka==2.5.3 \
     requests==2.32.3 \
     boto3==1.35.0
+
+# Install launchpad package (gives us process_artifact.delay() via taskbroker-client)
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY src/ /tmp/src/
+COPY pyproject.toml /tmp/pyproject.toml
+COPY README.md /tmp/README.md
+COPY LICENSE /tmp/LICENSE
+RUN pip install --no-cache-dir /tmp/
 
 # Copy only E2E test files (not the main test suite)
 # Copy to root to avoid pytest finding parent conftest.py
