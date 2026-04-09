@@ -5,7 +5,7 @@ from .app import app
 
 logger = get_logger(__name__)
 
-default = app.taskregistry.create_namespace("default")
+default = app.taskregistry.create_namespace("default", processing_deadline_duration=60 * 12)
 
 
 @default.register(name="process_artifact")
