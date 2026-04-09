@@ -27,6 +27,12 @@ services:
       LAUNCHPAD_RPC_SHARED_SECRET: "launchpad-also-very-long-value-haha"
       LAUNCHPAD_WORKER_RPC_HOST: "host.docker.internal:50051"
       LAUNCHPAD_WORKER_CONCURRENCY: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /tmp/health ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     platform: linux/amd64
     extra_hosts:
       host.docker.internal: host-gateway

@@ -5,6 +5,7 @@ The full artifact processing flow tests need to be updated to use
 TaskWorker-based triggering instead of Kafka.
 """
 
+import json
 import os
 import time
 
@@ -57,8 +58,6 @@ def wait_for_processing(artifact_id: str, timeout: int = 120, check_interval: in
             if results.get("artifact_metadata") and results.get("has_size_analysis_file"):
                 print(f"[OK] Processing completed for {artifact_id}")
                 return results
-
-            import json
 
             current_status = json.dumps(results, sort_keys=True)
             if current_status != last_status:
