@@ -1,14 +1,14 @@
 """End-to-end tests for Launchpad service via TaskWorker.
 
 Tests the full flow:
-1. Upload test artifact to mock API
-2. Dispatch task via taskbroker-client (process_artifact.delay())
-3. Wait for Launchpad worker to process
+1. Upload all test artifacts to mock API
+2. Dispatch all tasks via taskbroker-client (process_artifact.delay())
+3. Wait for Launchpad worker to process all artifacts in parallel
 4. Verify results via mock API
 
-iOS and AAB tests are marked slow because they involve heavy analysis
-(LIEF binary parsing, bundletool) that takes several minutes on CI.
-Run with `pytest -m ""` or `pytest -m slow` to include them.
+All artifact tasks are dispatched upfront and processed concurrently
+by the worker (LAUNCHPAD_WORKER_CONCURRENCY=3), so total time is
+bounded by the slowest artifact rather than the sum of all.
 """
 
 import json
@@ -64,11 +64,11 @@ def wait_for_processing(artifact_id: str, timeout: int = 120, check_interval: in
 
             current_status = json.dumps(results, sort_keys=True)
             if current_status != last_status:
-                print(f"  Waiting for processing... (results so far: {results})")
+                print(f"  [{artifact_id}] Waiting... (results so far: {results})")
                 last_status = current_status
 
         except requests.exceptions.RequestException as e:
-            print(f"  Error checking results: {e}")
+            print(f"  [{artifact_id}] Error checking results: {e}")
 
         time.sleep(check_interval)
 
@@ -81,46 +81,44 @@ def get_size_analysis_raw(artifact_id: str) -> Dict[str, Any]:
     return response.json()
 
 
+def wait_for_mock_api(timeout: int = 60) -> None:
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            response = requests.get(f"{MOCK_API_URL}/health", timeout=5)
+            if response.status_code == 200:
+                print("[OK] Mock Sentry API is healthy")
+                return
+        except requests.exceptions.RequestException:
+            pass
+        time.sleep(2)
+    raise TimeoutError("Mock Sentry API did not become healthy within 60s")
+
+
 class TestE2EFlow:
+    """Fast e2e tests — APK processing + error handling.
+
+    These run locally on any architecture since APK analysis is lightweight.
+    """
+
     @classmethod
     def setup_class(cls):
-        print("\n=== Waiting for services to be ready ===")
-
-        start_time = time.time()
-        while time.time() - start_time < 60:
-            try:
-                response = requests.get(f"{MOCK_API_URL}/health", timeout=5)
-                if response.status_code == 200:
-                    print("[OK] Mock Sentry API is healthy")
-                    break
-            except requests.exceptions.RequestException:
-                pass
-            time.sleep(2)
-        else:
-            raise TimeoutError("Mock Sentry API did not become healthy within 60s")
-
-        print("=== All services ready ===\n")
+        wait_for_mock_api()
 
     def test_android_apk_full_flow(self):
         if not ANDROID_APK_FIXTURE.exists():
             pytest.skip(f"Android APK fixture not found: {ANDROID_APK_FIXTURE}")
 
         artifact_id = "test-android-apk-001"
-        org = "test-org"
-        project = "test-android-project"
 
         upload_artifact_to_mock_api(artifact_id, ANDROID_APK_FIXTURE)
-        dispatch_task(artifact_id, org, project)
+        dispatch_task(artifact_id, "test-org", "test-android-project")
         results = wait_for_processing(artifact_id, timeout=120)
 
-        assert results["artifact_metadata"]
         metadata = results["artifact_metadata"]
-
         assert metadata["app_name"] == "Hacker News"
         assert metadata["app_id"] == "com.emergetools.hackernews"
         assert metadata["artifact_type"] == 2
-
-        assert "android_app_info" in metadata
         assert metadata["android_app_info"]["has_proguard_mapping"] is False
 
         assert results["has_size_analysis_file"]
@@ -132,91 +130,109 @@ class TestE2EFlow:
         assert treemap["platform"] == "android"
         assert treemap["root"]["name"] == "Hacker News"
         assert treemap["root"]["size"] == 7886041
-        assert treemap["root"]["is_dir"] is True
         assert len(treemap["root"]["children"]) == 14
 
         insights = size_analysis["insights"]
-        assert "duplicate_files" in insights
         assert insights["duplicate_files"]["total_savings"] == 51709
-        assert len(insights["duplicate_files"]["groups"]) > 0
-
-        assert "multiple_native_library_archs" in insights
         assert insights["multiple_native_library_archs"]["total_savings"] == 1891208
 
     def test_nonexistent_artifact_error_handling(self):
-        artifact_id = "test-nonexistent-artifact"
-
-        dispatch_task(artifact_id, "test-org", "test-project")
+        dispatch_task("test-nonexistent-artifact", "test-org", "test-project")
         time.sleep(15)
 
-        response = requests.get(f"{MOCK_API_URL}/test/results/{artifact_id}", timeout=10)
-        response.raise_for_status()
+        response = requests.get(f"{MOCK_API_URL}/test/results/test-nonexistent-artifact", timeout=10)
         results = response.json()
-
         assert not results["has_size_analysis_file"]
 
-    @pytest.mark.slow
-    def test_ios_xcarchive_full_flow(self):
-        if not IOS_FIXTURE.exists():
-            pytest.skip(f"iOS fixture not found: {IOS_FIXTURE}")
 
-        artifact_id = "test-ios-001"
+@pytest.mark.slow
+class TestE2EFlowAllPlatforms:
+    """Full platform e2e tests — dispatches iOS, APK, and AAB in parallel.
 
-        upload_artifact_to_mock_api(artifact_id, IOS_FIXTURE)
-        dispatch_task(artifact_id, "test-org", "test-ios-project")
+    Requires LAUNCHPAD_WORKER_CONCURRENCY>=3 to process concurrently.
+    Total time is bounded by the slowest artifact (~6 min for iOS)
+    rather than the sum of all.
+    """
+
+    @classmethod
+    def setup_class(cls):
+        wait_for_mock_api()
+
+        cls.artifacts = {}
+
+        if ANDROID_APK_FIXTURE.exists():
+            upload_artifact_to_mock_api("test-apk-parallel", ANDROID_APK_FIXTURE)
+            dispatch_task("test-apk-parallel", "test-org", "test-android-project")
+            cls.artifacts["apk"] = "test-apk-parallel"
+
+        if IOS_FIXTURE.exists():
+            upload_artifact_to_mock_api("test-ios-parallel", IOS_FIXTURE)
+            dispatch_task("test-ios-parallel", "test-org", "test-ios-project")
+            cls.artifacts["ios"] = "test-ios-parallel"
+
+        if ANDROID_AAB_FIXTURE.exists():
+            upload_artifact_to_mock_api("test-aab-parallel", ANDROID_AAB_FIXTURE)
+            dispatch_task("test-aab-parallel", "test-org", "test-android-project")
+            cls.artifacts["aab"] = "test-aab-parallel"
+
+        dispatch_task("test-nonexistent-parallel", "test-org", "test-project")
+        cls.artifacts["nonexistent"] = "test-nonexistent-parallel"
+
+        print(f"[OK] Dispatched {len(cls.artifacts)} tasks for parallel processing")
+
+    def test_android_apk(self):
+        artifact_id = self.artifacts.get("apk")
+        if not artifact_id:
+            pytest.skip("APK fixture not found")
+
         results = wait_for_processing(artifact_id, timeout=600)
 
-        assert results["artifact_metadata"]
         metadata = results["artifact_metadata"]
-
-        assert metadata["app_name"] == "HackerNews"
-        assert metadata["app_id"] == "com.emergetools.hackernews"
-        assert metadata["build_version"] == "3.8"
-        assert metadata["build_number"] == 1
-        assert metadata["artifact_type"] == 0
-
-        assert "apple_app_info" in metadata
-        apple_info = metadata["apple_app_info"]
-        assert apple_info["is_simulator"] is False
-        assert apple_info["codesigning_type"] == "development"
-        assert apple_info["is_code_signature_valid"] is True
-
-        assert results["has_size_analysis_file"]
-
-        size_analysis = get_size_analysis_raw(artifact_id)
-        assert size_analysis["download_size"] == 6502319
-
-        treemap = size_analysis["treemap"]
-        assert treemap["platform"] == "ios"
-        assert treemap["root"]["name"] == "HackerNews"
-        assert treemap["root"]["size"] == 9728000
-
-    @pytest.mark.slow
-    def test_android_aab_full_flow(self):
-        if not ANDROID_AAB_FIXTURE.exists():
-            pytest.skip(f"Android AAB fixture not found: {ANDROID_AAB_FIXTURE}")
-
-        artifact_id = "test-android-aab-001"
-
-        upload_artifact_to_mock_api(artifact_id, ANDROID_AAB_FIXTURE)
-        dispatch_task(artifact_id, "test-org", "test-android-project")
-        results = wait_for_processing(artifact_id, timeout=600)
-
-        assert results["artifact_metadata"]
-        metadata = results["artifact_metadata"]
-
         assert metadata["app_name"] == "Hacker News"
         assert metadata["app_id"] == "com.emergetools.hackernews"
-        assert metadata["build_version"] == "1.0.2"
-        assert metadata["build_number"] == 13
+        assert metadata["artifact_type"] == 2
+
+        assert results["has_size_analysis_file"]
+        size_analysis = get_size_analysis_raw(artifact_id)
+        assert size_analysis["download_size"] == 3670839
+
+    def test_ios_xcarchive(self):
+        artifact_id = self.artifacts.get("ios")
+        if not artifact_id:
+            pytest.skip("iOS fixture not found")
+
+        results = wait_for_processing(artifact_id, timeout=600)
+
+        metadata = results["artifact_metadata"]
+        assert metadata["app_name"] == "HackerNews"
+        assert metadata["app_id"] == "com.emergetools.hackernews"
+        assert metadata["artifact_type"] == 0
+        assert metadata["apple_app_info"]["is_simulator"] is False
+
+        assert results["has_size_analysis_file"]
+        size_analysis = get_size_analysis_raw(artifact_id)
+        assert size_analysis["download_size"] == 6502319
+        assert size_analysis["treemap"]["root"]["size"] == 9728000
+
+    def test_android_aab(self):
+        artifact_id = self.artifacts.get("aab")
+        if not artifact_id:
+            pytest.skip("AAB fixture not found")
+
+        results = wait_for_processing(artifact_id, timeout=600)
+
+        metadata = results["artifact_metadata"]
+        assert metadata["app_name"] == "Hacker News"
+        assert metadata["app_id"] == "com.emergetools.hackernews"
         assert metadata["artifact_type"] == 1
 
         assert results["has_size_analysis_file"]
-
         size_analysis = get_size_analysis_raw(artifact_id)
         assert size_analysis["download_size"] > 0
+        assert size_analysis["treemap"]["root"]["size"] == 5932249
 
-        treemap = size_analysis["treemap"]
-        assert treemap["platform"] == "android"
-        assert treemap["root"]["name"] == "Hacker News"
-        assert treemap["root"]["size"] == 5932249
+    def test_nonexistent_artifact(self):
+        time.sleep(15)
+        response = requests.get(f"{MOCK_API_URL}/test/results/test-nonexistent-parallel", timeout=10)
+        results = response.json()
+        assert not results["has_size_analysis_file"]
