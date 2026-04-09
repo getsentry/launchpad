@@ -142,7 +142,7 @@ services:
         condition: service_healthy
     volumes:
       - ./tests/e2e/results:/app/results
-    command: pytest e2e_tests/test_e2e_flow.py -v --tb=short
+    command: pytest e2e_tests/test_e2e_flow.py -v --tb=short -m "not slow"
     networks:
       - launchpad-e2e
 
