@@ -101,6 +101,11 @@ jobs:
             echo "Waiting for Kafka... attempt $i/30"
             sleep 3
           done
+          if ! docker compose -f docker-compose.e2e.yml ps kafka | grep -q "healthy"; then
+            echo "ERROR: Kafka failed to become healthy"
+            docker compose -f docker-compose.e2e.yml logs kafka
+            exit 1
+          fi
 
           docker compose -f docker-compose.e2e.yml up -d taskbroker minio mock-sentry-api
           echo "Waiting for mock-sentry-api to be healthy..."
@@ -112,6 +117,11 @@ jobs:
             echo "Waiting for Mock API... attempt $i/20"
             sleep 3
           done
+          if ! docker compose -f docker-compose.e2e.yml ps mock-sentry-api | grep -q "healthy"; then
+            echo "ERROR: Mock Sentry API failed to become healthy"
+            docker compose -f docker-compose.e2e.yml logs mock-sentry-api
+            exit 1
+          fi
 
           docker compose -f docker-compose.e2e.yml up -d launchpad
           echo "Waiting for Launchpad worker to be healthy..."
@@ -123,6 +133,11 @@ jobs:
             echo "Waiting for Launchpad... attempt $i/30"
             sleep 5
           done
+          if ! docker compose -f docker-compose.e2e.yml ps launchpad | grep -q "healthy"; then
+            echo "ERROR: Launchpad worker failed to become healthy"
+            docker compose -f docker-compose.e2e.yml logs launchpad
+            exit 1
+          fi
 
           docker compose -f docker-compose.e2e.yml ps
 
