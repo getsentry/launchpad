@@ -35,9 +35,7 @@ services:
       TASKBROKER_KAFKA_DEADLETTER_TOPIC: "taskworker-launchpad-dlq"
       TASKBROKER_KAFKA_CONSUMER_GROUP: "taskbroker-launchpad"
       TASKBROKER_CREATE_MISSING_TOPICS: "true"
-      TASKBROKER_GRPC_SHARED_SECRET: "test-secret-key-for-e2e"
-    ports:
-      - "127.0.0.1:50051:50051"
+      TASKBROKER_GRPC_SHARED_SECRET: '["test-secret-key-for-e2e"]'
     depends_on:
       kafka:
         condition: service_healthy
@@ -103,7 +101,7 @@ services:
       SENTRY_BASE_URL: "http://mock-sentry-api:8000"
       OBJECTSTORE_URL: "http://minio:9000"
       LAUNCHPAD_RPC_SHARED_SECRET: "test-secret-key-for-e2e"
-      TASKWORKER_SHARED_SECRET: "test-secret-key-for-e2e"
+      TASKWORKER_SHARED_SECRET: '["test-secret-key-for-e2e"]'
       LAUNCHPAD_WORKER_RPC_HOST: "taskbroker:50051"
       LAUNCHPAD_WORKER_CONCURRENCY: "1"
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
@@ -135,7 +133,7 @@ services:
       MINIO_SECRET_KEY: "minioadmin"
       KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
       TASKWORKER_TOPIC: "taskworker-launchpad"
-      TASKWORKER_SHARED_SECRET: "test-secret-key-for-e2e"
+      TASKWORKER_SHARED_SECRET: '["test-secret-key-for-e2e"]'
     depends_on:
       launchpad:
         condition: service_healthy
