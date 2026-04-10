@@ -57,4 +57,14 @@ def create_objectstore_client(config: ObjectstoreConfig) -> ObjectstoreClient | 
                 TOKEN_PERMISSIONS,
             )
 
+    logger.info(
+        "Creating Objectstore client",
+        extra={
+            "url": config.objectstore_url,
+            "key_id": config.key_id,
+            "key_file": config.key_file,
+            "expiry": config.token_expiry_seconds,
+            "has_token": token_generator is not None,
+        },
+    )
     return ObjectstoreClient(config.objectstore_url, token=token_generator)
