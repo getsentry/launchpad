@@ -134,6 +134,10 @@ class RetentionResponse(BaseModel):
     build_distribution: int
 
 
+class EmptyResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+
 def create_retry_session(max_retries: int = 3) -> requests.Session:
     """Create a requests session with retry configuration."""
     session = requests.Session()
@@ -252,10 +256,10 @@ class SentryClient:
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/"
         return self._make_json_request("PUT", endpoint, UpdateResponse, data=data)
 
-    def update_distribution(self, org: str, artifact_id: str, data: Dict[str, Any]) -> None:
+    def update_distribution(self, org: str, artifact_id: str, data: Dict[str, Any]) -> EmptyResponse:
         """Update preprod artifact distribution."""
         endpoint = f"/api/0/organizations/{org}/preprodartifacts/{artifact_id}/distribution/"
-        self._make_json_request("PUT", endpoint, data=data)
+        return self._make_json_request("PUT", endpoint, EmptyResponse, data=data)
 
     def upload_size_analysis_file(
         self,
@@ -371,10 +375,10 @@ class SentryClient:
         self,
         method: str,
         endpoint: str,
-        model: ResponseModel | None = None,
+        model: ResponseModel,
         data: Dict[str, Any] | None = None,
         timeout: int = 30,
-    ) -> ResponseModel | None:
+    ) -> ResponseModel:
         """Make a JSON request with standard error handling."""
         url = self._build_url(endpoint)
         body = json.dumps(data).encode("utf-8") if data else b""
@@ -389,8 +393,6 @@ class SentryClient:
         )
 
         if response.status_code == 200:
-            if model is None:
-                return None
             try:
                 j = response.json()
                 return model.model_validate(j)
