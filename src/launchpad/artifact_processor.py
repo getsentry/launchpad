@@ -333,11 +333,15 @@ class ArtifactProcessor:
             apple_info = cast(AppleAppInfo, info)
             if not apple_info.is_code_signature_valid:
                 logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: invalid code signature")
-                self._report_distribution_skip(organization_id, artifact_id, "invalid_signature")
+                self._update_distribution_error(
+                    organization_id, artifact_id, InstallableAppErrorCode.SKIPPED, "invalid_signature"
+                )
                 return
             if apple_info.is_simulator:
                 logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: simulator build")
-                self._report_distribution_skip(organization_id, artifact_id, "simulator")
+                self._update_distribution_error(
+                    organization_id, artifact_id, InstallableAppErrorCode.SKIPPED, "simulator"
+                )
                 return
             with tempfile.TemporaryDirectory() as temp_dir_str:
                 temp_dir = Path(temp_dir_str)
@@ -363,15 +367,9 @@ class ArtifactProcessor:
                 self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         else:
             logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id}: unsupported artifact type")
-            try:
-                self._sentry_client.update_distribution_error(
-                    org=organization_id,
-                    artifact_id=artifact_id,
-                    error_code=InstallableAppErrorCode.PROCESSING_ERROR.value,
-                    error_message="unsupported artifact type",
-                )
-            except Exception:
-                logger.exception(f"Failed to update distribution error for artifact {artifact_id}")
+            self._update_distribution_error(
+                organization_id, artifact_id, InstallableAppErrorCode.PROCESSING_ERROR, "unsupported artifact type"
+            )
 
     def _do_size(
         self,
@@ -453,22 +451,38 @@ class ArtifactProcessor:
         else:
             logger.info(f"Successfully updated artifact {artifact_id} with error information")
 
-    def _report_distribution_skip(
+    def _update_distribution_error(
         self,
         organization_id: str,
         artifact_id: str,
-        skip_reason: str,
+        error_code: InstallableAppErrorCode,
+        error_message: str,
     ) -> None:
-        """Report distribution skip via the dedicated distribution endpoint."""
+        """Update distribution with error/skip information."""
+        logger.info(f"Updating distribution for {artifact_id} with error code {error_code.value}")
+
+        self._statsd.increment(
+            "distribution.processing.error",
+            tags=[
+                f"error_code:{error_code.value}",
+                f"error_message:{error_message}",
+                f"organization_id:{organization_id}",
+            ],
+        )
+
         try:
-            self._sentry_client.update_distribution_error(
+            self._sentry_client.update_distribution(
                 org=organization_id,
                 artifact_id=artifact_id,
-                error_code=InstallableAppErrorCode.SKIPPED.value,
-                error_message=skip_reason,
+                data={
+                    "error_code": error_code.value,
+                    "error_message": error_message,
+                },
             )
-        except Exception:
-            logger.exception(f"Failed to report distribution skip for artifact {artifact_id}")
+        except SentryClientError:
+            logger.exception(f"Failed to update distribution error for artifact {artifact_id}")
+        else:
+            logger.info(f"Successfully updated distribution for {artifact_id} with error information")
 
     def _update_size_error_from_exception(
         self,

@@ -139,8 +139,10 @@ class TestArtifactProcessorErrorHandling:
 
     def test_do_distribution_unknown_artifact_type_reports_error(self):
         mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_distribution_error.return_value = None
+        mock_sentry_client.update_distribution.return_value = None
+        mock_statsd = Mock()
         self.processor._sentry_client = mock_sentry_client
+        self.processor._statsd = mock_statsd
 
         unknown_artifact = Mock(spec=Artifact)
         mock_info = Mock()
@@ -149,17 +151,29 @@ class TestArtifactProcessorErrorHandling:
             "test-org-id", "test-project-id", "test-artifact-id", unknown_artifact, mock_info
         )
 
-        mock_sentry_client.update_distribution_error.assert_called_once_with(
+        mock_sentry_client.update_distribution.assert_called_once_with(
             org="test-org-id",
             artifact_id="test-artifact-id",
-            error_code=InstallableAppErrorCode.PROCESSING_ERROR.value,
-            error_message="unsupported artifact type",
+            data={
+                "error_code": InstallableAppErrorCode.PROCESSING_ERROR.value,
+                "error_message": "unsupported artifact type",
+            },
+        )
+        mock_statsd.increment.assert_called_once_with(
+            "distribution.processing.error",
+            tags=[
+                f"error_code:{InstallableAppErrorCode.PROCESSING_ERROR.value}",
+                "error_message:unsupported artifact type",
+                "organization_id:test-org-id",
+            ],
         )
 
     def test_do_distribution_invalid_code_signature_reports_skip(self):
         mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_distribution_error.return_value = None
+        mock_sentry_client.update_distribution.return_value = None
+        mock_statsd = Mock()
         self.processor._sentry_client = mock_sentry_client
+        self.processor._statsd = mock_statsd
 
         artifact = Mock(spec=ZippedXCArchive)
         mock_info = Mock()
@@ -168,18 +182,30 @@ class TestArtifactProcessorErrorHandling:
 
         self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
 
-        mock_sentry_client.update_distribution_error.assert_called_once_with(
+        mock_sentry_client.update_distribution.assert_called_once_with(
             org="test-org-id",
             artifact_id="test-artifact-id",
-            error_code=InstallableAppErrorCode.SKIPPED.value,
-            error_message="invalid_signature",
+            data={
+                "error_code": InstallableAppErrorCode.SKIPPED.value,
+                "error_message": "invalid_signature",
+            },
+        )
+        mock_statsd.increment.assert_called_once_with(
+            "distribution.processing.error",
+            tags=[
+                f"error_code:{InstallableAppErrorCode.SKIPPED.value}",
+                "error_message:invalid_signature",
+                "organization_id:test-org-id",
+            ],
         )
         mock_sentry_client.upload_installable_app.assert_not_called()
 
     def test_do_distribution_simulator_build_reports_skip(self):
         mock_sentry_client = Mock(spec=SentryClient)
-        mock_sentry_client.update_distribution_error.return_value = None
+        mock_sentry_client.update_distribution.return_value = None
+        mock_statsd = Mock()
         self.processor._sentry_client = mock_sentry_client
+        self.processor._statsd = mock_statsd
 
         artifact = Mock(spec=ZippedXCArchive)
         mock_info = Mock()
@@ -188,11 +214,21 @@ class TestArtifactProcessorErrorHandling:
 
         self.processor._do_distribution("test-org-id", "test-project-id", "test-artifact-id", artifact, mock_info)
 
-        mock_sentry_client.update_distribution_error.assert_called_once_with(
+        mock_sentry_client.update_distribution.assert_called_once_with(
             org="test-org-id",
             artifact_id="test-artifact-id",
-            error_code=InstallableAppErrorCode.SKIPPED.value,
-            error_message="simulator",
+            data={
+                "error_code": InstallableAppErrorCode.SKIPPED.value,
+                "error_message": "simulator",
+            },
+        )
+        mock_statsd.increment.assert_called_once_with(
+            "distribution.processing.error",
+            tags=[
+                f"error_code:{InstallableAppErrorCode.SKIPPED.value}",
+                "error_message:simulator",
+                "organization_id:test-org-id",
+            ],
         )
         mock_sentry_client.upload_installable_app.assert_not_called()
 
