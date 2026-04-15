@@ -56,9 +56,9 @@ make worker                    # Start Launchpad worker (TaskWorker mode)
 
 ### Key Data Models
 - `AppleAnalysisResults` / `AndroidAnalysisResults`: Platform analysis output
-- `BinaryComponent`: Individual binary analysis with symbols and sections
+- `AppComponent`: Individual app component with size and type info
 - `TreemapElement`: Hierarchical size data for visualization
-- `InsightResult`: Optimization recommendation with potential savings
+- `BaseInsightResult`: Optimization recommendation with potential savings
 
 ## Code Style
 
@@ -83,8 +83,8 @@ A feature is not complete until:
 
 ## Adding New Insights
 
-1. Create class in `insights/apple/` or `insights/android/`
-2. Inherit from `Insight` base class
-3. Implement `analyze()` returning `InsightResult`
+1. Create class in `insights/apple/`, `insights/android/`, or `insights/common/`
+2. Implement the `Insight` protocol
+3. Implement `analyze()` returning a subclass of `BaseInsightResult`
 4. Register in platform analyzer's insight list
 5. Add integration tests
