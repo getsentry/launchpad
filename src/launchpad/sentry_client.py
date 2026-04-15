@@ -134,8 +134,9 @@ class RetentionResponse(BaseModel):
     build_distribution: int
 
 
-class EmptyResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
+class DistributionResponse(BaseModel):
+    model_config = ConfigDict(strict=True, alias_generator=to_camel)
+    artifact_id: str
 
 
 def create_retry_session(max_retries: int = 3) -> requests.Session:
@@ -256,10 +257,10 @@ class SentryClient:
         endpoint = f"/api/0/internal/{org}/{project}/files/preprodartifacts/{artifact_id}/update/"
         return self._make_json_request("PUT", endpoint, UpdateResponse, data=data)
 
-    def update_distribution(self, org: str, artifact_id: str, data: Dict[str, Any]) -> EmptyResponse:
+    def update_distribution(self, org: str, artifact_id: str, data: Dict[str, Any]) -> DistributionResponse:
         """Update preprod artifact distribution."""
         endpoint = f"/api/0/organizations/{org}/preprodartifacts/{artifact_id}/distribution/"
-        return self._make_json_request("PUT", endpoint, EmptyResponse, data=data)
+        return self._make_json_request("PUT", endpoint, DistributionResponse, data=data)
 
     def upload_size_analysis_file(
         self,
