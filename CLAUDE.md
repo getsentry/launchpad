@@ -34,17 +34,14 @@ launchpad size path/to/app.apk                                 # Android
 launchpad size app.xcarchive.zip --skip-swift-metadata --skip-symbols  # faster
 
 # Service development
-devservices up                 # Start Kafka infrastructure
-make serve                     # Start Launchpad server (Kafka mode: HTTP + Kafka consumer)
-make worker                    # Start Launchpad worker (TaskWorker mode: no HTTP server)
+make worker                    # Start Launchpad worker (TaskWorker mode)
 ```
 
 ## Architecture
 
 ### Core Components
-- **CLI** (`src/launchpad/cli.py`): Main entry point, uses Click. Two service commands: `serve` (Kafka mode) and `worker` (TaskWorker mode)
-- **Service** (`src/launchpad/service.py`): Kafka consumer + HTTP server for production (`launchpad serve`)
-- **Worker** (`src/launchpad/worker/`): TaskWorker mode — receives tasks via TaskBroker RPC, no HTTP server (`launchpad worker`)
+- **CLI** (`src/launchpad/cli.py`): Main entry point, uses Click
+- **Worker** (`src/launchpad/worker/`): TaskWorker — receives tasks via TaskBroker RPC (`launchpad worker`)
 - **Analyzers** (`src/launchpad/size/analyzers/`): Platform-specific analysis engines (AppleAppAnalyzer, AndroidAnalyzer)
 - **Parsers** (`src/launchpad/parsers/`): Binary parsing - Mach-O via LIEF, custom DEX parsers
 - **Insights** (`src/launchpad/size/insights/`): Optimization recommendations (image compression, symbol stripping, etc.)
