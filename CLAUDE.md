@@ -34,17 +34,14 @@ launchpad size path/to/app.apk                                 # Android
 launchpad size app.xcarchive.zip --skip-swift-metadata --skip-symbols  # faster
 
 # Service development
-devservices up                 # Start Kafka infrastructure
-make serve                     # Start Launchpad server (Kafka mode: HTTP + Kafka consumer)
-make worker                    # Start Launchpad worker (TaskWorker mode: no HTTP server)
+make worker                    # Start Launchpad worker (TaskWorker mode)
 ```
 
 ## Architecture
 
 ### Core Components
-- **CLI** (`src/launchpad/cli.py`): Main entry point, uses Click. Two service commands: `serve` (Kafka mode) and `worker` (TaskWorker mode)
-- **Service** (`src/launchpad/service.py`): Kafka consumer + HTTP server for production (`launchpad serve`)
-- **Worker** (`src/launchpad/worker/`): TaskWorker mode — receives tasks via TaskBroker RPC, no HTTP server (`launchpad worker`)
+- **CLI** (`src/launchpad/cli.py`): Main entry point, uses Click
+- **Worker** (`src/launchpad/worker/`): TaskWorker — receives tasks via TaskBroker RPC (`launchpad worker`)
 - **Analyzers** (`src/launchpad/size/analyzers/`): Platform-specific analysis engines (AppleAppAnalyzer, AndroidAnalyzer)
 - **Parsers** (`src/launchpad/parsers/`): Binary parsing - Mach-O via LIEF, custom DEX parsers
 - **Insights** (`src/launchpad/size/insights/`): Optimization recommendations (image compression, symbol stripping, etc.)
@@ -59,9 +56,9 @@ make worker                    # Start Launchpad worker (TaskWorker mode: no HTT
 
 ### Key Data Models
 - `AppleAnalysisResults` / `AndroidAnalysisResults`: Platform analysis output
-- `BinaryComponent`: Individual binary analysis with symbols and sections
+- `AppComponent`: Individual app component with size and type info
 - `TreemapElement`: Hierarchical size data for visualization
-- `InsightResult`: Optimization recommendation with potential savings
+- `BaseInsightResult`: Optimization recommendation with potential savings
 
 ## Code Style
 
@@ -86,8 +83,8 @@ A feature is not complete until:
 
 ## Adding New Insights
 
-1. Create class in `insights/apple/` or `insights/android/`
-2. Inherit from `Insight` base class
-3. Implement `analyze()` returning `InsightResult`
+1. Create class in `insights/apple/`, `insights/android/`, or `insights/common/`
+2. Implement the `Insight` protocol
+3. Implement `analyze()` returning a subclass of `BaseInsightResult`
 4. Register in platform analyzer's insight list
 5. Add integration tests

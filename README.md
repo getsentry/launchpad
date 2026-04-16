@@ -18,42 +18,9 @@ devenv sync
 
 If you don't have devenv installed, [follow these instructions](https://github.com/getsentry/devenv#install).
 
-### Using devservices
+### Running the worker
 
-[devservices](https://github.com/getsentry/devservices) manages the dependencies used by Launchpad:
-
-```bash
-# Start dependency containers (e.g. Kafka)
-devservices up
-
-# Begin listening for messages (Kafka mode)
-make serve
-
-# Or run the TaskWorker instead
-make worker
-
-# Stop containers
-devservices down
-```
-
-## Usage
-
-Launchpad can run in two operational modes:
-
-- **Kafka mode** (`launchpad serve`): HTTP server + Kafka consumer. This is the existing production mode that runs alongside the [Sentry monolith](https://github.com/getsentry/sentry).
-- **TaskWorker mode** (`launchpad worker`): TaskWorker only, no HTTP server. This is a lighter-weight mode that receives work via the TaskBroker RPC interface instead of Kafka.
-
-### Running in Kafka mode
-
-```bash
-devservices up
-make serve
-# or: launchpad serve --dev
-```
-
-### Running in TaskWorker mode
-
-Requires `LAUNCHPAD_WORKER_RPC_HOST` and `LAUNCHPAD_WORKER_CONCURRENCY` environment variables (already configured in `.envrc`).
+Launchpad runs as a TaskWorker that receives work via the TaskBroker RPC interface. Requires `LAUNCHPAD_WORKER_RPC_HOST` and `LAUNCHPAD_WORKER_CONCURRENCY` environment variables (already configured in `.envrc`).
 
 The TaskBroker handles task distribution and dispatches work to the worker via RPC. A single worker instance processes tasks in parallel — `LAUNCHPAD_WORKER_CONCURRENCY` controls how many child processes run simultaneously (e.g., 16 means up to 16 artifacts processed in parallel).
 
@@ -121,14 +88,9 @@ devservices up --mode ingest
 devservices serve --workers
 ```
 
-Next run `launchpad` in another terminal using either mode:
+Next run `launchpad` in another terminal:
 
 ```bash
-# Kafka mode (HTTP server + Kafka consumer)
-devservices up
-make serve
-
-# TaskWorker mode (TaskWorker only, no HTTP server)
 make worker
 ```
 
@@ -154,9 +116,6 @@ make test-unit
 
 # Integration tests only
 make test-integration
-
-# Integration test with devservices
-make test-service-integration
 ```
 
 ### Code Quality
