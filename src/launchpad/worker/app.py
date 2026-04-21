@@ -51,6 +51,18 @@ class TaskworkerMetricsBackend(MetricsBackend):
             kwargs["sample_rate"] = sample_rate
         self._dogstatsd.distribution(name, value, **kwargs)
 
+    def gauge(
+        self,
+        name: str,
+        value: int | float,
+        tags: Tags | None = None,
+        sample_rate: float | None = None,
+    ) -> None:
+        kwargs: dict = {"tags": _convert_tags(tags)}
+        if sample_rate is not None:
+            kwargs["sample_rate"] = sample_rate
+        self._dogstatsd.gauge(name, value, **kwargs)
+
     @contextmanager
     def timer(
         self,
