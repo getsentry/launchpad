@@ -35,6 +35,11 @@ class InstallableAppErrorCode(Enum):
     NO_QUOTA = 1
     SKIPPED = 2
     PROCESSING_ERROR = 3
+    DISTRIBUTION_DISABLED = 4
+    DISTRIBUTION_FILTERED = 5
+    INVALID_CODE_SIGNATURE = 6
+    SIMULATOR_BUILD = 7
+    UNSUPPORTED_ARTIFACT_TYPE = 8
 
 
 # Health check threshold - consider unhealthy if file not touched in 60 seconds
