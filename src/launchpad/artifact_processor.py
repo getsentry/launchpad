@@ -334,13 +334,19 @@ class ArtifactProcessor:
             if not apple_info.is_code_signature_valid:
                 logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: invalid code signature")
                 self._update_distribution_error(
-                    organization_id, artifact_id, InstallableAppErrorCode.INVALID_CODE_SIGNATURE, ""
+                    organization_id,
+                    artifact_id,
+                    InstallableAppErrorCode.INVALID_CODE_SIGNATURE,
+                    "The build's code signature could not be verified.",
                 )
                 return
             if apple_info.is_simulator:
                 logger.warning(f"BUILD_DISTRIBUTION skipped for {artifact_id}: simulator build")
                 self._update_distribution_error(
-                    organization_id, artifact_id, InstallableAppErrorCode.SIMULATOR_BUILD, ""
+                    organization_id,
+                    artifact_id,
+                    InstallableAppErrorCode.SIMULATOR_BUILD,
+                    "Simulator builds cannot be distributed.",
                 )
                 return
             with tempfile.TemporaryDirectory() as temp_dir_str:
@@ -368,7 +374,10 @@ class ArtifactProcessor:
         else:
             logger.error(f"BUILD_DISTRIBUTION failed for {artifact_id}: unsupported artifact type")
             self._update_distribution_error(
-                organization_id, artifact_id, InstallableAppErrorCode.UNSUPPORTED_ARTIFACT_TYPE, ""
+                organization_id,
+                artifact_id,
+                InstallableAppErrorCode.UNSUPPORTED_ARTIFACT_TYPE,
+                "This artifact type is not supported for distribution.",
             )
 
     def _do_size(

@@ -156,14 +156,14 @@ class TestArtifactProcessorErrorHandling:
             artifact_id="test-artifact-id",
             data={
                 "error_code": InstallableAppErrorCode.UNSUPPORTED_ARTIFACT_TYPE.value,
-                "error_message": "",
+                "error_message": "This artifact type is not supported for distribution.",
             },
         )
         mock_statsd.increment.assert_called_once_with(
             "distribution.processing.error",
             tags=[
                 f"error_code:{InstallableAppErrorCode.UNSUPPORTED_ARTIFACT_TYPE.value}",
-                "error_message:",
+                "error_message:This artifact type is not supported for distribution.",
                 "organization_id:test-org-id",
             ],
         )
@@ -187,14 +187,14 @@ class TestArtifactProcessorErrorHandling:
             artifact_id="test-artifact-id",
             data={
                 "error_code": InstallableAppErrorCode.INVALID_CODE_SIGNATURE.value,
-                "error_message": "",
+                "error_message": "The build's code signature could not be verified.",
             },
         )
         mock_statsd.increment.assert_called_once_with(
             "distribution.processing.error",
             tags=[
                 f"error_code:{InstallableAppErrorCode.INVALID_CODE_SIGNATURE.value}",
-                "error_message:",
+                "error_message:The build's code signature could not be verified.",
                 "organization_id:test-org-id",
             ],
         )
@@ -219,14 +219,14 @@ class TestArtifactProcessorErrorHandling:
             artifact_id="test-artifact-id",
             data={
                 "error_code": InstallableAppErrorCode.SIMULATOR_BUILD.value,
-                "error_message": "",
+                "error_message": "Simulator builds cannot be distributed.",
             },
         )
         mock_statsd.increment.assert_called_once_with(
             "distribution.processing.error",
             tags=[
                 f"error_code:{InstallableAppErrorCode.SIMULATOR_BUILD.value}",
-                "error_message:",
+                "error_message:Simulator builds cannot be distributed.",
                 "organization_id:test-org-id",
             ],
         )
