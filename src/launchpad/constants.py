@@ -3,10 +3,7 @@
 from enum import Enum
 
 
-# Error code constants (matching the Django model)
 class ProcessingErrorCode(Enum):
-    """Error codes for artifact processing (matching the Django model)."""
-
     UNKNOWN = 0
     UPLOAD_TIMEOUT = 1
     ARTIFACT_PROCESSING_TIMEOUT = 2
@@ -29,7 +26,6 @@ class PreprodFeature(Enum):
     BUILD_DISTRIBUTION = "build_distribution"
 
 
-# Matches InstallableApp.ErrorCode in sentry
 class InstallableAppErrorCode(Enum):
     UNKNOWN = 0
     NO_QUOTA = 1

@@ -474,7 +474,6 @@ class ArtifactProcessor:
             "distribution.processing.error",
             tags=[
                 f"error_code:{error_code.value}",
-                f"error_message:{error_message}",
                 f"organization_id:{organization_id}",
             ],
         )
