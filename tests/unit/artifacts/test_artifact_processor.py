@@ -155,15 +155,14 @@ class TestArtifactProcessorErrorHandling:
             org="test-org-id",
             artifact_id="test-artifact-id",
             data={
-                "error_code": InstallableAppErrorCode.PROCESSING_ERROR.value,
-                "error_message": "unsupported artifact type",
+                "error_code": InstallableAppErrorCode.UNSUPPORTED_ARTIFACT_TYPE.value,
+                "error_message": "This artifact type is not supported for distribution.",
             },
         )
         mock_statsd.increment.assert_called_once_with(
             "distribution.processing.error",
             tags=[
-                f"error_code:{InstallableAppErrorCode.PROCESSING_ERROR.value}",
-                "error_message:unsupported artifact type",
+                f"error_code:{InstallableAppErrorCode.UNSUPPORTED_ARTIFACT_TYPE.value}",
                 "organization_id:test-org-id",
             ],
         )
@@ -186,15 +185,14 @@ class TestArtifactProcessorErrorHandling:
             org="test-org-id",
             artifact_id="test-artifact-id",
             data={
-                "error_code": InstallableAppErrorCode.SKIPPED.value,
-                "error_message": "invalid_signature",
+                "error_code": InstallableAppErrorCode.INVALID_CODE_SIGNATURE.value,
+                "error_message": "The build's code signature could not be verified.",
             },
         )
         mock_statsd.increment.assert_called_once_with(
             "distribution.processing.error",
             tags=[
-                f"error_code:{InstallableAppErrorCode.SKIPPED.value}",
-                "error_message:invalid_signature",
+                f"error_code:{InstallableAppErrorCode.INVALID_CODE_SIGNATURE.value}",
                 "organization_id:test-org-id",
             ],
         )
@@ -218,15 +216,14 @@ class TestArtifactProcessorErrorHandling:
             org="test-org-id",
             artifact_id="test-artifact-id",
             data={
-                "error_code": InstallableAppErrorCode.SKIPPED.value,
-                "error_message": "simulator",
+                "error_code": InstallableAppErrorCode.SIMULATOR_BUILD.value,
+                "error_message": "Simulator builds cannot be distributed.",
             },
         )
         mock_statsd.increment.assert_called_once_with(
             "distribution.processing.error",
             tags=[
-                f"error_code:{InstallableAppErrorCode.SKIPPED.value}",
-                "error_message:simulator",
+                f"error_code:{InstallableAppErrorCode.SIMULATOR_BUILD.value}",
                 "organization_id:test-org-id",
             ],
         )

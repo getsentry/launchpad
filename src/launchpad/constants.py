@@ -3,10 +3,8 @@
 from enum import Enum
 
 
-# Error code constants (matching the Django model)
+# Must stay in sync with PreprodArtifact.ErrorCode in sentry.
 class ProcessingErrorCode(Enum):
-    """Error codes for artifact processing (matching the Django model)."""
-
     UNKNOWN = 0
     UPLOAD_TIMEOUT = 1
     ARTIFACT_PROCESSING_TIMEOUT = 2
@@ -29,12 +27,19 @@ class PreprodFeature(Enum):
     BUILD_DISTRIBUTION = "build_distribution"
 
 
-# Matches InstallableApp.ErrorCode in sentry
+# Must stay in sync with PreprodArtifact.InstallableAppErrorCode in sentry.
+# Adding a value here without adding it on the sentry side will make the
+# distribution PUT 400 on pydantic validation.
 class InstallableAppErrorCode(Enum):
     UNKNOWN = 0
     NO_QUOTA = 1
     SKIPPED = 2
     PROCESSING_ERROR = 3
+    DISTRIBUTION_DISABLED = 4
+    DISTRIBUTION_FILTERED = 5
+    INVALID_CODE_SIGNATURE = 6
+    SIMULATOR_BUILD = 7
+    UNSUPPORTED_ARTIFACT_TYPE = 8
 
 
 # Health check threshold - consider unhealthy if file not touched in 60 seconds
