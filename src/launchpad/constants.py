@@ -3,6 +3,7 @@
 from enum import Enum
 
 
+# Must stay in sync with PreprodArtifact.ErrorCode in sentry.
 class ProcessingErrorCode(Enum):
     UNKNOWN = 0
     UPLOAD_TIMEOUT = 1
@@ -26,6 +27,9 @@ class PreprodFeature(Enum):
     BUILD_DISTRIBUTION = "build_distribution"
 
 
+# Must stay in sync with PreprodArtifact.InstallableAppErrorCode in sentry.
+# Adding a value here without adding it on the sentry side will make the
+# distribution PUT 400 on pydantic validation.
 class InstallableAppErrorCode(Enum):
     UNKNOWN = 0
     NO_QUOTA = 1
