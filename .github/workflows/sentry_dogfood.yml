@@ -33,73 +33,107 @@ jobs:
           mv "$EXTRACTED_PATH" ./HackerNews.xcarchive
 
       - name: Upload iOS app to Sentry
+        env:
+          # Environment variables for pull_request context
+          HEAD_SHA_PR: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA_PR: ${{ github.event.pull_request.base.sha }}
+          HEAD_REPO_NAME_PR: ${{ github.repository }}
+          BASE_REPO_NAME_PR: ${{ github.repository }}
+          HEAD_REF_PR: ${{ github.head_ref }}
+          BASE_REF_PR: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.number }}
+          # Environment variables for push context
+          HEAD_SHA_PUSH: ${{ github.sha }}
+          HEAD_REPO_NAME_PUSH: ${{ github.repository }}
+          HEAD_REF_PUSH: ${{ github.ref_name }}
+          # Event name for conditional logic
+          EVENT_NAME: ${{ github.event_name }}
+          # Secret token
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ "$EVENT_NAME" == "pull_request" ]; then
             sentry-cli \
              --log-level=debug \
-             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             --auth-token "$SENTRY_AUTH_TOKEN" \
              build \
              upload \
              ./HackerNews.xcarchive \
              --org sentry \
              --project launchpad-test-ios \
-             --head-sha ${{ github.event.pull_request.head.sha }} \
-             --base-sha ${{ github.event.pull_request.base.sha }} \
+             --head-sha "$HEAD_SHA_PR" \
+             --base-sha "$BASE_SHA_PR" \
              --vcs-provider github \
-             --head-repo-name ${{ github.repository }} \
-             --base-repo-name ${{ github.repository }} \
-             --head-ref ${{ github.head_ref }} \
-             --base-ref ${{ github.base_ref }} \
-             --pr-number ${{ github.event.number }} \
+             --head-repo-name "$HEAD_REPO_NAME_PR" \
+             --base-repo-name "$BASE_REPO_NAME_PR" \
+             --head-ref "$HEAD_REF_PR" \
+             --base-ref "$BASE_REF_PR" \
+             --pr-number "$PR_NUMBER" \
              --build-configuration Release
           else
             sentry-cli \
              --log-level=debug \
-             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             --auth-token "$SENTRY_AUTH_TOKEN" \
              build \
              upload \
              ./HackerNews.xcarchive \
              --org sentry \
              --project launchpad-test-ios \
-             --head-sha ${{ github.sha }} \
+             --head-sha "$HEAD_SHA_PUSH" \
              --vcs-provider github \
-             --head-repo-name ${{ github.repository }} \
-             --head-ref ${{ github.ref_name }} \
+             --head-repo-name "$HEAD_REPO_NAME_PUSH" \
+             --head-ref "$HEAD_REF_PUSH" \
              --build-configuration Release
           fi
 
       - name: Upload Android app to Sentry
+        env:
+          # Environment variables for pull_request context
+          HEAD_SHA_PR: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA_PR: ${{ github.event.pull_request.base.sha }}
+          HEAD_REPO_NAME_PR: ${{ github.repository }}
+          BASE_REPO_NAME_PR: ${{ github.repository }}
+          HEAD_REF_PR: ${{ github.head_ref }}
+          BASE_REF_PR: ${{ github.base_ref }}
+          PR_NUMBER: ${{ github.event.number }}
+          # Environment variables for push context
+          HEAD_SHA_PUSH: ${{ github.sha }}
+          HEAD_REPO_NAME_PUSH: ${{ github.repository }}
+          HEAD_REF_PUSH: ${{ github.ref_name }}
+          # Event name for conditional logic
+          EVENT_NAME: ${{ github.event_name }}
+          # Secret token
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
+          if [ "$EVENT_NAME" == "pull_request" ]; then
             sentry-cli \
              --log-level=debug \
-             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             --auth-token "$SENTRY_AUTH_TOKEN" \
              build \
              upload \
              ./tests/_fixtures/android/hn.aab \
              --org sentry \
              --project launchpad-test-android \
-             --head-sha ${{ github.event.pull_request.head.sha }} \
-             --base-sha ${{ github.event.pull_request.base.sha }} \
+             --head-sha "$HEAD_SHA_PR" \
+             --base-sha "$BASE_SHA_PR" \
              --vcs-provider github \
-             --head-repo-name ${{ github.repository }} \
-             --base-repo-name ${{ github.repository }} \
-             --head-ref ${{ github.head_ref }} \
-             --base-ref ${{ github.base_ref }} \
-             --pr-number ${{ github.event.number }} \
+             --head-repo-name "$HEAD_REPO_NAME_PR" \
+             --base-repo-name "$BASE_REPO_NAME_PR" \
+             --head-ref "$HEAD_REF_PR" \
+             --base-ref "$BASE_REF_PR" \
+             --pr-number "$PR_NUMBER" \
              --build-configuration Release
           else
             sentry-cli \
              --log-level=debug \
-             --auth-token ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }} \
+             --auth-token "$SENTRY_AUTH_TOKEN" \
              build \
              upload \
              ./tests/_fixtures/android/hn.aab \
              --org sentry \
              --project launchpad-test-android \
-             --head-sha ${{ github.sha }} \
+             --head-sha "$HEAD_SHA_PUSH" \
              --vcs-provider github \
-             --head-repo-name ${{ github.repository }} \
-             --head-ref ${{ github.ref_name }} \
+             --head-repo-name "$HEAD_REPO_NAME_PUSH" \
+             --head-ref "$HEAD_REF_PUSH" \
              --build-configuration Release
           fi
