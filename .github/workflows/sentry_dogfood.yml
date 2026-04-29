@@ -22,7 +22,7 @@ jobs:
 
       - name: Install Sentry CLI
         run: |
-          curl -L -o sentry-cli https://github.com/getsentry/sentry-cli/releases/download/2.53.0-alpha/sentry-cli-Darwin-universal
+          curl -L -o sentry-cli https://github.com/getsentry/sentry-cli/releases/download/3.4.1/sentry-cli-Darwin-universal
           chmod +x sentry-cli
           sudo mv sentry-cli /usr/local/bin/
 
