@@ -1,0 +1,11 @@
+.devenv/
+output/
+.venv/
+venv/
+.git/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ty_cache/
+.DS_Store
