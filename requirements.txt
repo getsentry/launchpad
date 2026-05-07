@@ -1,12 +1,9 @@
 aiohttp>=3.12.15
 asn1crypto>=1.5.0
-build>=1.3.0
 click>=8.1.0
 confluent-kafka>=2.13.2
 cryptography>=45.0.7
 datadog==0.52.1
-google-api-core==2.25.1
-google-api-python-client==2.181.0
 lief==0.17.2
 lzfse>=0.4.2
 objectstore-client>=0.1.0
