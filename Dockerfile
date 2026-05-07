@@ -48,7 +48,7 @@ RUN apt-get update && \
     curl \
     git \
     build-essential \
-    openjdk-17-jdk \
+    openjdk-17-jre-headless \
     unzip \
     zip \
     file \
@@ -66,7 +66,11 @@ WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+RUN if [ "$TEST_BUILD" = "true" ]; then \
+    pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt; \
+    else \
+    pip install --no-cache-dir -r requirements.txt; \
+    fi
 
 # Copy source code, tests, and scripts
 COPY src/ ./src/
@@ -98,7 +102,8 @@ RUN if [ "$TEST_BUILD" = "true" ]; then \
 
 RUN pip install -e .
 
-RUN python scripts/deps --install --local-architecture=x86_64 --local-system=linux
+RUN python scripts/deps --install --local-architecture=x86_64 --local-system=linux && \
+    rm -rf /app/.devenv
 
 # Change ownership to app user
 RUN chown -R app:app /app
