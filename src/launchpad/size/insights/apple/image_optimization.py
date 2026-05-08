@@ -88,7 +88,7 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                         results.append(result)
                 except Exception:  # pragma: no cover
                     logger.exception("Failed to analyze image in thread pool")
-                if time.monotonic() >= deadline:
+                if completed < len(files) and time.monotonic() >= deadline:
                     timed_out = True
                     logger.warning(
                         "size.insight.image_optimization.timeout | completed=%d/%d timeout=%ds",
