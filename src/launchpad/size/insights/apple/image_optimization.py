@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import time
 
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -46,6 +47,7 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
     TARGET_JPEG_QUALITY = 85
     TARGET_HEIC_QUALITY = 85
     _MAX_WORKERS = 4
+    _TIMEOUT_SECONDS = 300
 
     @abstractmethod
     def _find_images(self, input: InsightsInput) -> List[FileInfo]:
@@ -73,17 +75,32 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             return None
 
         results: List[OptimizableImageFile] = []
+        timed_out = False
+        completed = 0
+        deadline = time.monotonic() + self._TIMEOUT_SECONDS
         with ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(files))) as executor:
             future_to_file = {executor.submit(self._analyze_image_optimization, f): f for f in files}
             for future in as_completed(future_to_file):
+                completed += 1
                 try:
                     result = future.result()
                     if result and result.potential_savings >= self.MIN_SAVINGS_THRESHOLD:
                         results.append(result)
                 except Exception:  # pragma: no cover
                     logger.exception("Failed to analyze image in thread pool")
+                if time.monotonic() >= deadline:
+                    timed_out = True
+                    logger.warning(
+                        "size.insight.image_optimization.timeout | completed=%d/%d timeout=%ds",
+                        completed,
+                        len(files),
+                        self._TIMEOUT_SECONDS,
+                    )
+                    for fut in future_to_file:
+                        fut.cancel()
+                    break
 
-        if not results:
+        if not results and not timed_out:
             return None
 
         results.sort(key=lambda x: x.potential_savings, reverse=True)
@@ -92,6 +109,7 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
         return ImageOptimizationInsightResult(
             optimizable_files=results,
             total_savings=total_savings,
+            timed_out=timed_out,
         )
 
     def _analyze_image_optimization(

@@ -213,6 +213,7 @@ class ImageOptimizationInsightResult(BaseInsightResult):
     optimizable_files: List[OptimizableImageFile] = Field(
         ..., description="Files that can be optimized with potential savings"
     )
+    timed_out: bool = Field(False, description="Whether analysis was cut short due to timeout")
 
     def get_file_paths(self) -> List[str]:
         return [f.file_path for f in self.optimizable_files]
