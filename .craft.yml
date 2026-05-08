@@ -1,0 +1,26 @@
+minVersion: "2.21.4"
+changelog:
+  policy: auto
+versioning:
+  policy: calver
+artifactProvider:
+  name: none
+statusProvider:
+  name: github
+  config:
+    contexts:
+      - 'build-arm64'
+      - 'build-amd64'
+      - 'Create multi-platform manifest'
+preReleaseCommand: ""
+targets:
+  - id: release
+    name: docker
+    source: ghcr.io/getsentry/launchpad
+    target: ghcr.io/getsentry/launchpad
+  - id: latest
+    name: docker
+    source: ghcr.io/getsentry/launchpad
+    target: ghcr.io/getsentry/launchpad
+    targetFormat: '{{{target}}}:latest'
+  - name: github
