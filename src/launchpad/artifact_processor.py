@@ -20,6 +20,7 @@ from objectstore_client import (
     Usecase,
 )
 from objectstore_client.metadata import TimeToLive
+from taskbroker_client.worker.workerchild import ProcessingDeadlineExceeded
 
 from launchpad.api.update_api_models import AndroidAppInfo as AndroidAppInfoModel
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
@@ -139,6 +140,21 @@ class ArtifactProcessor:
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:
                 artifact_type = artifact_processor.process_artifact(organization_id, project_id, artifact_id)
+            except ProcessingDeadlineExceeded:
+                statsd.increment("artifact.processing.failed")
+                statsd.increment("artifact.processing.timeout")
+                duration = time.time() - start_time
+                logger.error(
+                    f"Processing timed out for artifact {artifact_id} (project: {project_id}, org: {organization_id}) after {duration:.2f}s"
+                )
+                artifact_processor._update_artifact_error(
+                    organization_id,
+                    project_id,
+                    artifact_id,
+                    ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT,
+                    ProcessingErrorMessage.PROCESSING_TIMEOUT,
+                )
+                raise
             except Exception:
                 statsd.increment("artifact.processing.failed")
                 duration = time.time() - start_time
