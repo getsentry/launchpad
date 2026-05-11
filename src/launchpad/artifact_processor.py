@@ -147,7 +147,7 @@ class ArtifactProcessor:
                 logger.error(
                     f"Processing timed out for artifact {artifact_id} (project: {project_id}, org: {organization_id}) after {duration:.2f}s"
                 )
-                artifact_processor._update_size_error(
+                artifact_processor._update_artifact_error(
                     organization_id,
                     project_id,
                     artifact_id,
