@@ -184,11 +184,10 @@ class ZippedXCArchive(AppleArtifact):
         primary_icon = bundle_icons.get("CFBundlePrimaryIcon", {})
         if isinstance(primary_icon, dict):
             primary_icon_name = primary_icon.get("CFBundleIconName")
-
-        # CFBundleIconFiles lists the base names of icon files (without extensions or resolution modifiers)
-        icon_files = primary_icon.get("CFBundleIconFiles", [])
-        if isinstance(icon_files, list):
-            primary_icon_files = icon_files
+            # CFBundleIconFiles lists the base names of icon files (without extensions or resolution modifiers)
+            icon_files = primary_icon.get("CFBundleIconFiles", [])
+            if isinstance(icon_files, list):
+                primary_icon_files = icon_files
 
         alternate_icons = bundle_icons.get("CFBundleAlternateIcons", {})
         if isinstance(alternate_icons, dict):
