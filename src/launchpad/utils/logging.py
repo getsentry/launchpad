@@ -85,7 +85,7 @@ class JSONFormatter(logging.Formatter):
 
         try:
             return json.dumps(log_entry, default=str, ensure_ascii=False)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             log_entry["message"] = str(record.getMessage())
             return json.dumps(log_entry, default=str, ensure_ascii=False)
 
