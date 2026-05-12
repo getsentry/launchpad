@@ -286,7 +286,7 @@ class AppleAppAnalyzer:
             try:
                 dt = datetime.fromisoformat(date_value)
                 return dt.isoformat()
-            except (ValueError, AttributeError):
+            except ValueError, AttributeError:
                 logger.debug(f"Could not parse date string: {date_value}")
                 return date_value
 

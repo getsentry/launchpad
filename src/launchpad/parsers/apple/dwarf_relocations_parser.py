@@ -75,7 +75,7 @@ class DwarfRelocationsParser:
                     try:
                         relocation = DwarfRelocation.from_dict(reloc_dict)
                         relocations.append(relocation)
-                    except (KeyError, TypeError):
+                    except KeyError, TypeError:
                         logger.exception("Failed to parse relocation entry")
                         continue
 
