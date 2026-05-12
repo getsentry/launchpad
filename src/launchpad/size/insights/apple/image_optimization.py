@@ -47,7 +47,7 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
     TARGET_JPEG_QUALITY = 85
     TARGET_HEIC_QUALITY = 85
     _MAX_WORKERS = 4
-    _TIMEOUT_SECONDS = 300
+    _TIMEOUT_SECONDS = 240
 
     @abstractmethod
     def _find_images(self, input: InsightsInput) -> List[FileInfo]:
@@ -73,6 +73,7 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
         files = self._find_images(input)
         if not files:
             return None
+        files.sort(key=lambda f: f.size, reverse=True)
 
         results: List[OptimizableImageFile] = []
         timed_out = False
