@@ -134,7 +134,7 @@ class ArtifactProcessor:
             scope = stack.enter_context(sentry_sdk.new_scope())
             scope.set_tag("launchpad.project_id", project_id)
             scope.set_tag("launchpad.organization_id", organization_id)
-            scope.set_tag("launchpad.artifact_id", artifact_id)
+            scope.set_tag("launchpad.preprod_artifact_id", artifact_id)
             stack.enter_context(scope.start_transaction(op="subprocess", name="launchpad.process_message"))
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
