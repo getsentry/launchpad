@@ -2,6 +2,9 @@ import tempfile
 
 from pathlib import Path
 
+import pytest
+
+from launchpad.artifacts.providers.zip_provider import UnsafePathError
 from launchpad.parsers.android.icon.icon_parser import IconParser
 
 
@@ -11,5 +14,8 @@ class TestIconParserFindFile:
             extract_dir = Path(tmpdir)
             parser = IconParser(extract_dir)
 
-            assert parser._find_file("../../etc/passwd") is None
-            assert parser._find_file("/etc/passwd") is None
+            with pytest.raises(UnsafePathError):
+                parser._find_file("../../etc/passwd")
+
+            with pytest.raises(UnsafePathError):
+                parser._find_file("/etc/passwd")
