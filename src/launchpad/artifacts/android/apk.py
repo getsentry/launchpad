@@ -18,7 +18,7 @@ from ...parsers.android.dex.dex_file_parser import DexFileParser
 from ...parsers.android.dex.types import ClassDefinition
 from ...utils.logging import get_logger
 from ..artifact import AndroidArtifact
-from ..providers.zip_provider import ZipProvider
+from ..providers.zip_provider import UnsafePathError, ZipProvider, is_safe_path
 from .manifest.axml import AxmlUtils
 from .manifest.manifest import AndroidManifest
 from .resources.binary import BinaryResourceTable
@@ -127,6 +127,9 @@ class APK(AndroidArtifact):
         if not icon_path_str:
             logger.info("No icon path found in manifest")
             return None
+
+        if not is_safe_path(self._extract_dir, icon_path_str):
+            raise UnsafePathError(f"Unsafe icon path in manifest: {icon_path_str}")
 
         icon_path = self._extract_dir / icon_path_str
 

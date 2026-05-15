@@ -10,6 +10,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from launchpad.artifacts.providers.zip_provider import is_safe_path
 from launchpad.parsers.android.binary.types import XmlNode
 from launchpad.utils.logging import get_logger
 
@@ -458,6 +459,10 @@ class IconParser:
         return None
 
     def _find_file(self, filename: str) -> Path | None:
+        if not is_safe_path(self.extract_dir, filename):
+            logger.warning("Unsafe file path rejected", extra={"file_name": filename})
+            return None
+
         # Try exact match first
         exact_path = self.extract_dir / filename
         if exact_path.exists():
