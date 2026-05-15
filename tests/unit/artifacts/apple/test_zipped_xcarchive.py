@@ -1,10 +1,14 @@
 import json
+import plistlib
 import tempfile
 
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.providers.zip_provider import UnsafePathError
 
 
 class TestZippedXCArchive:
@@ -145,3 +149,92 @@ class TestZippedXCArchive:
                     assert not wrong_path.exists(), "Image should NOT exist at top-level"
 
                     assert "MyFramework.bundle" in str(element.full_path)
+
+    def test_get_binary_path_rejects_path_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_bundle_path = Path(tmpdir) / "Test.app"
+            app_bundle_path.mkdir()
+
+            with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
+                archive = ZippedXCArchive(Path("dummy"))
+
+                with (
+                    patch.object(archive, "get_app_bundle_path", return_value=app_bundle_path),
+                    patch.object(archive, "get_plist", return_value={"CFBundleExecutable": "../../../etc/passwd"}),
+                ):
+                    with pytest.raises(UnsafePathError):
+                        archive.get_binary_path()
+
+    def test_get_main_binary_path_rejects_path_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_bundle_path = Path(tmpdir) / "Test.app"
+            app_bundle_path.mkdir()
+
+            with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
+                archive = ZippedXCArchive(Path("dummy"))
+
+                with (
+                    patch.object(archive, "get_app_bundle_path", return_value=app_bundle_path),
+                    patch.object(archive, "get_plist", return_value={"CFBundleExecutable": "../../../etc/passwd"}),
+                ):
+                    with pytest.raises(UnsafePathError):
+                        archive._get_main_binary_path()
+
+    def test_discover_extension_binaries_rejects_path_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_bundle_path = Path(tmpdir) / "Test.app"
+            extension_path = app_bundle_path / "PlugIns" / "Malicious.appex"
+            extension_path.mkdir(parents=True)
+            with open(extension_path / "Info.plist", "wb") as f:
+                plistlib.dump({"CFBundleExecutable": "../../../etc/passwd"}, f)
+
+            with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
+                archive = ZippedXCArchive(Path("dummy"))
+                with pytest.raises(UnsafePathError):
+                    archive._discover_extension_binaries(app_bundle_path)
+
+    def test_discover_watch_binaries_rejects_path_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_bundle_path = Path(tmpdir) / "Test.app"
+            watch_path = app_bundle_path / "Watch" / "Malicious.app"
+            watch_path.mkdir(parents=True)
+            with open(watch_path / "Info.plist", "wb") as f:
+                plistlib.dump({"CFBundleExecutable": "../../../etc/passwd"}, f)
+
+            with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
+                archive = ZippedXCArchive(Path("dummy"))
+                with pytest.raises(UnsafePathError):
+                    archive._discover_watch_binaries(app_bundle_path)
+
+    def test_asset_catalog_rejects_path_traversal_in_image_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            xcarchive_dir = tmpdir_path / "Test.xcarchive"
+            parsed_assets_dir = xcarchive_dir / "ParsedAssets" / "Products" / "Applications" / "Test.app"
+            parsed_assets_dir.mkdir(parents=True)
+
+            assets_json = parsed_assets_dir / "Assets.json"
+            assets_data = [
+                {
+                    "name": "icon.png",
+                    "imageId": "../../../etc/passwd",
+                    "size": 1024,
+                    "type": 0,
+                    "vector": False,
+                    "filename": "icon.png",
+                }
+            ]
+            assets_json.write_text(json.dumps(assets_data))
+
+            with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
+                archive = ZippedXCArchive(Path("dummy"))
+                archive._extract_dir = tmpdir_path
+
+                with patch.object(
+                    archive,
+                    "get_app_bundle_path",
+                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                ):
+                    with pytest.raises(UnsafePathError):
+                        archive.get_asset_catalog_details(Path("Assets.car"))
