@@ -168,7 +168,7 @@ class AppleAppAnalyzer:
                 )
                 if binary_info.dsym_path:
                     logger.debug(
-                        f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(artifact.get_extract_dir())}"
+                        f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(artifact.get_extract_dir().path)}"
                     )
                 binary = self._analyze_binary(binary_info, app_bundle_path, lief_cache)
                 if binary is not None:

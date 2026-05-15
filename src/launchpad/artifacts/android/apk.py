@@ -18,7 +18,7 @@ from ...parsers.android.dex.dex_file_parser import DexFileParser
 from ...parsers.android.dex.types import ClassDefinition
 from ...utils.logging import get_logger
 from ..artifact import AndroidArtifact
-from ..providers.zip_provider import UnsafePathError, ZipProvider, is_safe_path
+from ..providers.zip_provider import UnsafePathError, ZipProvider
 from .manifest.axml import AxmlUtils
 from .manifest.manifest import AndroidManifest
 from .resources.binary import BinaryResourceTable
@@ -54,7 +54,7 @@ class APK(AndroidArtifact):
         if self._manifest is not None:
             return self._manifest
 
-        manifest_files = list(self._extract_dir.rglob("AndroidManifest.xml"))
+        manifest_files = list(self._extract_dir.path.rglob("AndroidManifest.xml"))
         if len(manifest_files) > 1:
             raise ValueError("Multiple AndroidManifest.xml files found in APK")
 
@@ -74,7 +74,7 @@ class APK(AndroidArtifact):
         if self._resource_table is not None:
             return [self._resource_table]
 
-        arsc_files = list(self._extract_dir.rglob("resources.arsc"))
+        arsc_files = list(self._extract_dir.path.rglob("resources.arsc"))
         if len(arsc_files) > 1:
             raise ValueError("Multiple resources.arsc files found in APK")
 
@@ -95,7 +95,7 @@ class APK(AndroidArtifact):
             return self._class_definitions
 
         self._class_definitions = []
-        dex_files = list(self._extract_dir.rglob("classes*.dex"))
+        dex_files = list(self._extract_dir.path.rglob("classes*.dex"))
         for dex_file in dex_files:
             try:
                 with open(dex_file, "rb") as f:
@@ -110,7 +110,7 @@ class APK(AndroidArtifact):
         return self._class_definitions
 
     def get_extract_path(self) -> Path:
-        return self._extract_dir
+        return self._extract_dir.path
 
     def get_apksigner_certs(self) -> str:
         apksigner = Apksigner()
@@ -128,10 +128,7 @@ class APK(AndroidArtifact):
             logger.info("No icon path found in manifest")
             return None
 
-        if not is_safe_path(self._extract_dir, icon_path_str):
-            raise UnsafePathError(f"Unsafe icon path in manifest: {icon_path_str}")
-
-        icon_path = self._extract_dir / icon_path_str
+        icon_path = self._extract_dir.resolve(icon_path_str)
 
         if not icon_path.exists():
             logger.info(f"Icon not found in APK: {icon_path_str}")

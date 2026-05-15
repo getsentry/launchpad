@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.artifacts.providers.zip_provider import UnsafePathError
 
 
@@ -16,7 +17,7 @@ class TestZippedXCArchive:
 
     def test_top_level_asset_catalog_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
+            tmpdir_path = Path(tmpdir).resolve()
 
             xcarchive_dir = tmpdir_path / "Test.xcarchive"
             parsed_assets_dir = xcarchive_dir / "ParsedAssets" / "Products" / "Applications" / "Test.app"
@@ -40,7 +41,7 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,
@@ -60,7 +61,7 @@ class TestZippedXCArchive:
 
     def test_nested_bundle_asset_catalog_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
+            tmpdir_path = Path(tmpdir).resolve()
 
             xcarchive_dir = tmpdir_path / "Test.xcarchive"
             parsed_assets_dir = xcarchive_dir / "ParsedAssets" / "Products" / "Applications" / "Test.app"
@@ -85,7 +86,7 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,
@@ -106,7 +107,7 @@ class TestZippedXCArchive:
 
     def test_framework_bundle_asset_catalog_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
+            tmpdir_path = Path(tmpdir).resolve()
 
             xcarchive_dir = tmpdir_path / "Test.xcarchive"
             parsed_assets_dir = xcarchive_dir / "ParsedAssets" / "Products" / "Applications" / "Test.app"
@@ -131,7 +132,7 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,

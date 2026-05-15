@@ -19,7 +19,7 @@ from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AndroidArtifact
-from ..providers.zip_provider import UnsafePathError, ZipProvider, is_safe_path
+from ..providers.zip_provider import UnsafePathError, ZipProvider
 from .apk import APK
 from .manifest.manifest import AndroidManifest
 from .manifest.proto_xml import ProtoXmlUtils
@@ -44,7 +44,7 @@ class AAB(AndroidArtifact):
         if self._manifest is not None:
             return self._manifest
 
-        manifest_files = list(self._extract_dir.rglob("base/manifest/AndroidManifest.xml"))
+        manifest_files = list(self._extract_dir.path.rglob("base/manifest/AndroidManifest.xml"))
         if len(manifest_files) > 1:
             raise ValueError("Multiple AndroidManifest.xml files found in AAB")
 
@@ -64,7 +64,7 @@ class AAB(AndroidArtifact):
         if self._resource_table is not None:
             return [self._resource_table]
 
-        arsc_files = list(self._extract_dir.rglob("base/resources.pb"))
+        arsc_files = list(self._extract_dir.path.rglob("base/resources.pb"))
         if len(arsc_files) > 1:
             raise ValueError("Multiple resources.pb files found in AAB")
 
@@ -132,7 +132,7 @@ class AAB(AndroidArtifact):
         if self._dex_mapping is not None:
             return self._dex_mapping
 
-        dex_mapping_files = list(self._extract_dir.rglob("proguard.map"))
+        dex_mapping_files = list(self._extract_dir.path.rglob("proguard.map"))
         if len(dex_mapping_files) > 1:
             raise ValueError("Multiple proguard.map files found in AAB")
 
@@ -156,11 +156,8 @@ class AAB(AndroidArtifact):
             logger.info("No icon path found in manifest")
             return None
 
-        base_dir = self._extract_dir / "base"
-        if not is_safe_path(base_dir, icon_path_str):
-            raise UnsafePathError(f"Unsafe icon path in manifest: {icon_path_str}")
-
-        icon_path = base_dir / icon_path_str
+        base_dir = self._extract_dir.child("base")
+        icon_path = base_dir.resolve(icon_path_str)
 
         if not icon_path.exists():
             logger.info(f"Icon not found in AAB: {icon_path_str}")
@@ -171,7 +168,7 @@ class AAB(AndroidArtifact):
             try:
                 proto_res_tables = self.get_resource_tables()
 
-                proto_xml_drawable_parser = ProtoXmlDrawableParser(self._extract_dir / "base", proto_res_tables)
+                proto_xml_drawable_parser = ProtoXmlDrawableParser(self._extract_dir.child("base"), proto_res_tables)
 
                 icon = proto_xml_drawable_parser.render_from_path(icon_path)
                 if icon:

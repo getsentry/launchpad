@@ -10,7 +10,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from launchpad.artifacts.providers.zip_provider import UnsafePathError, is_safe_path
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
+from launchpad.artifacts.providers.zip_provider import UnsafePathError
 from launchpad.parsers.android.binary.types import XmlNode
 from launchpad.utils.logging import get_logger
 
@@ -57,8 +58,11 @@ DEFAULT_ICON_SIZE = 108
 
 
 class IconParser:
-    def __init__(self, extract_dir: Path) -> None:
-        self.extract_dir = extract_dir
+    def __init__(self, extract_dir: Path | SafeDirectory) -> None:
+        if isinstance(extract_dir, SafeDirectory):
+            self._safe_dir = extract_dir
+        else:
+            self._safe_dir = SafeDirectory(extract_dir)
 
     def _get_attr_value(self, attributes: list, name: str, required: bool = False) -> str | None:
         raise NotImplementedError
@@ -461,23 +465,19 @@ class IconParser:
         return None
 
     def _find_file(self, filename: str) -> Path | None:
-        if not is_safe_path(self.extract_dir, filename):
-            raise UnsafePathError(f"Unsafe file path in drawable: {filename}")
-
-        # Try exact match first
-        exact_path = self.extract_dir / filename
+        exact_path = self._safe_dir.resolve(filename)
         if exact_path.exists():
             return exact_path
 
         # Try with res/ prefix
         if not filename.startswith("res/"):
-            res_path = self.extract_dir / "res" / filename
+            res_path = self._safe_dir.resolve("res/" + filename)
             if res_path.exists():
                 return res_path
 
         # Search recursively (last resort)
         filename_lower = filename.lower()
-        for file_path in self.extract_dir.rglob("*"):
+        for file_path in self._safe_dir.path.rglob("*"):
             if file_path.is_file() and str(file_path).lower().endswith(filename_lower):
                 return file_path
 

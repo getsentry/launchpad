@@ -6,22 +6,13 @@ from typing import List
 from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
 
+from .exceptions import UnreasonableZipError, UnsafePathError
+from .safe_directory import SafeDirectory
+
 logger = get_logger(__name__)
 
 DEFAULT_MAX_FILE_COUNT = 100000
 DEFAULT_MAX_UNCOMPRESSED_SIZE = 10 * 1024 * 1024 * 1024
-
-
-class UnreasonableZipError(ValueError):
-    """Raised when a zip file exceeds reasonable limits."""
-
-    pass
-
-
-class UnsafePathError(ValueError):
-    """Raised when a zip file contains unsafe path entries that could lead to path traversal attacks."""
-
-    pass
 
 
 def check_reasonable_zip(
@@ -80,13 +71,13 @@ class ZipProvider:
         self.path = path
         self._temp_dirs: List[Path] = []
 
-    def extract_to_temp_directory(self) -> Path:
+    def extract_to_temp_directory(self) -> SafeDirectory:
         """Extract the zip contents to a temporary directory.
         Creates a temporary directory and extracts the zip contents to it.
         A new temporary directory is created for each call to this method.
 
         Returns:
-            Path to the temporary directory containing extracted files
+            SafeDirectory wrapping the temporary directory containing extracted files
         """
         temp_dir = create_temp_directory("zip-extract-")
         self._temp_dirs.append(temp_dir)
@@ -94,7 +85,7 @@ class ZipProvider:
         self._safe_extract(str(self.path), str(temp_dir))
         logger.debug(f"Extracted zip contents to {temp_dir}")
 
-        return temp_dir
+        return SafeDirectory(temp_dir)
 
     def _safe_extract(self, zip_path: str, extract_path: str):
         """Extract the zip contents to a temporary directory, ensuring that the paths are safe from path traversal attacks.
