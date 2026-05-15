@@ -179,6 +179,8 @@ class AAB(AndroidArtifact):
 
                 logger.info(f"Could not process XML drawable for icon: {icon_path_str}")
                 return None
+            except UnsafePathError:
+                raise
             except Exception:
                 logger.exception(f"Error processing XML drawable for icon: {icon_path_str}")
                 return None

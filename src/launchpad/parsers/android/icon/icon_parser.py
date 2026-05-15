@@ -80,6 +80,8 @@ class IconParser:
                 return self._render_adaptive_icon(root_node)
 
             return self._render_vector_drawable(root_node)
+        except UnsafePathError:
+            raise
         except Exception:
             logger.exception("Error rendering icon from path")
             return None
