@@ -287,6 +287,9 @@ class ZippedXCArchive(AppleArtifact):
         if not executable_name:
             return None
 
+        if not is_safe_path(app_bundle_path, executable_name):
+            raise UnsafePathError(f"Unsafe CFBundleExecutable in plist: {executable_name}")
+
         return app_bundle_path / executable_name
 
     @sentry_sdk.trace
@@ -394,6 +397,8 @@ class ZippedXCArchive(AppleArtifact):
                 data = json.load(f)
 
             return [self._parse_asset_element(item, parent_path) for item in data]
+        except UnsafePathError:
+            raise
         except Exception:
             logger.exception(f"Failed to get asset catalog details for {relative_path}")
             return []
@@ -421,11 +426,17 @@ class ZippedXCArchive(AppleArtifact):
                             extension_plist = plistlib.load(f)
                         extension_executable = extension_plist.get("CFBundleExecutable")
                         if extension_executable:
+                            if not is_safe_path(extension_path, extension_executable):
+                                raise UnsafePathError(
+                                    f"Unsafe CFBundleExecutable in extension plist: {extension_executable}"
+                                )
                             extension_binary_path = extension_path / extension_executable
                             if extension_binary_path.exists():
                                 extension_binaries.append(extension_binary_path)
                             else:
                                 logger.warning("Extension binary not found", extra={"path": extension_binary_path})
+                    except UnsafePathError:
+                        raise
                     except Exception:
                         logger.exception(f"Failed to read extension Info.plist at {extension_path}")
         return extension_binaries
@@ -441,11 +452,15 @@ class ZippedXCArchive(AppleArtifact):
                             watch_plist = plistlib.load(f)
                         watch_executable = watch_plist.get("CFBundleExecutable")
                         if watch_executable:
+                            if not is_safe_path(watch_path, watch_executable):
+                                raise UnsafePathError(f"Unsafe CFBundleExecutable in Watch plist: {watch_executable}")
                             watch_binary_path = watch_path / watch_executable
                             if watch_binary_path.exists():
                                 watch_binaries.append(watch_binary_path)
                             else:
                                 logger.warning("Watch binary not found", extra={"path": watch_binary_path})
+                    except UnsafePathError:
+                        raise
                     except Exception:
                         logger.exception(f"Failed to read Watch app Info.plist at {watch_path}")
         return watch_binaries
@@ -469,6 +484,8 @@ class ZippedXCArchive(AppleArtifact):
         main_executable = self.get_plist().get("CFBundleExecutable")
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
+        if not is_safe_path(app_bundle_path, main_executable):
+            raise UnsafePathError(f"Unsafe CFBundleExecutable in plist: {main_executable}")
         return Path(os.path.join(str(app_bundle_path), main_executable))
 
     def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
@@ -486,7 +503,10 @@ class ZippedXCArchive(AppleArtifact):
 
         file_extension = Path(filename).suffix.lower()
         if filename and file_extension in {".png", ".jpg", ".jpeg", ".heic", ".heif", ".pdf", ".svg"}:
-            potential_path = parent_path / f"{image_id}{file_extension}"
+            candidate = f"{image_id}{file_extension}"
+            if not is_safe_path(parent_path, candidate):
+                raise UnsafePathError(f"Unsafe asset imageId in catalog: {image_id}")
+            potential_path = parent_path / candidate
             if potential_path.exists():
                 full_path = potential_path
             else:
