@@ -10,6 +10,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from launchpad.artifacts.providers.zip_provider import UnsafePathError, is_safe_path
 from launchpad.parsers.android.binary.types import XmlNode
 from launchpad.utils.logging import get_logger
 
@@ -79,6 +80,8 @@ class IconParser:
                 return self._render_adaptive_icon(root_node)
 
             return self._render_vector_drawable(root_node)
+        except UnsafePathError:
+            raise
         except Exception:
             logger.exception("Error rendering icon from path")
             return None
@@ -458,6 +461,9 @@ class IconParser:
         return None
 
     def _find_file(self, filename: str) -> Path | None:
+        if not is_safe_path(self.extract_dir, filename):
+            raise UnsafePathError(f"Unsafe file path in drawable: {filename}")
+
         # Try exact match first
         exact_path = self.extract_dir / filename
         if exact_path.exists():

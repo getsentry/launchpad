@@ -17,7 +17,7 @@ from launchpad.parsers.apple.crushed_png import decode_crushed_png
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AppleArtifact
-from ..providers.zip_provider import ZipProvider
+from ..providers.zip_provider import UnsafePathError, ZipProvider, is_safe_path
 
 logger = get_logger(__name__)
 
@@ -130,6 +130,9 @@ class ZippedXCArchive(AppleArtifact):
         app_bundle_path = self.get_app_bundle_path()
 
         for icon_name in icon_info.primary_icon_files:
+            if not is_safe_path(app_bundle_path, icon_name):
+                raise UnsafePathError(f"Unsafe icon name in plist: {icon_name}")
+
             # iOS lists base names without extensions or resolution modifiers (@2x, @3x, ~ipad)
             # Search for files matching the base name with any suffix
             # e.g., "AppIcon60x60" matches "AppIcon60x60@2x.png" or "AppIcon60x60.png"

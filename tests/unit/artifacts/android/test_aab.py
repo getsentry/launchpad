@@ -1,8 +1,11 @@
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from launchpad.artifacts.android.aab import AAB
+from launchpad.artifacts.android.manifest.manifest import AndroidApplication, AndroidManifest
+from launchpad.artifacts.providers.zip_provider import UnsafePathError
 
 
 @pytest.fixture
@@ -32,3 +35,10 @@ class TestAAB:
         assert len(icon) > 0
         assert icon.startswith(b"\x89PNG")
         assert icon.endswith(b"IEND\xae\x42\x60\x82")
+
+    def test_get_app_icon_rejects_path_traversal(self, test_aab: AAB) -> None:
+        malicious_app = AndroidApplication.model_construct(icon_path="../../../etc/passwd")
+        malicious_manifest = AndroidManifest.model_construct(application=malicious_app)
+        with patch.object(test_aab, "get_manifest", return_value=malicious_manifest):
+            with pytest.raises(UnsafePathError):
+                test_aab.get_app_icon()
