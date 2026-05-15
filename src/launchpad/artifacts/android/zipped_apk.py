@@ -29,7 +29,7 @@ class ZippedAPK(AndroidArtifact):
         if self._primary_apk is not None:
             return self._primary_apk
 
-        for path in self._extract_dir.path.rglob("*.apk"):
+        for path in self._extract_dir.rglob("*.apk"):
             if path.is_file():
                 tmp_dir = Path(tempfile.mkdtemp())
                 new_path = tmp_dir / path.name
@@ -37,7 +37,7 @@ class ZippedAPK(AndroidArtifact):
                 self._primary_apk = APK(new_path, None, cleanup=lambda: shutil.rmtree(tmp_dir))
                 return self._primary_apk
 
-        raise FileNotFoundError(f"No primary APK found in {self._extract_dir.path}")
+        raise FileNotFoundError(f"No primary APK found in {self._extract_dir}")
 
     def get_app_icon(self) -> bytes | None:
         return self.get_primary_apk().get_app_icon()

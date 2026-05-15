@@ -30,7 +30,7 @@ class ZippedAAB(AndroidArtifact):
         if self._aab is not None:
             return self._aab
 
-        for path in self._extract_dir.path.rglob("*.aab"):
+        for path in self._extract_dir.rglob("*.aab"):
             if path.is_file():
                 tmp_dir = Path(tempfile.mkdtemp())
                 new_path = tmp_dir / path.name
@@ -38,7 +38,7 @@ class ZippedAAB(AndroidArtifact):
                 self._aab = AAB(new_path, cleanup=lambda: shutil.rmtree(tmp_dir))
                 return self._aab
 
-        raise FileNotFoundError(f"No AAB found in {self._extract_dir.path}")
+        raise FileNotFoundError(f"No AAB found in {self._extract_dir}")
 
     def get_primary_apks(self) -> list[APK]:
         return self.get_aab().get_primary_apks()

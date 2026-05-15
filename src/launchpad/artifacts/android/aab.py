@@ -44,7 +44,7 @@ class AAB(AndroidArtifact):
         if self._manifest is not None:
             return self._manifest
 
-        manifest_files = list(self._extract_dir.path.rglob("base/manifest/AndroidManifest.xml"))
+        manifest_files = list(self._extract_dir.rglob("base/manifest/AndroidManifest.xml"))
         if len(manifest_files) > 1:
             raise ValueError("Multiple AndroidManifest.xml files found in AAB")
 
@@ -64,7 +64,7 @@ class AAB(AndroidArtifact):
         if self._resource_table is not None:
             return [self._resource_table]
 
-        arsc_files = list(self._extract_dir.path.rglob("base/resources.pb"))
+        arsc_files = list(self._extract_dir.rglob("base/resources.pb"))
         if len(arsc_files) > 1:
             raise ValueError("Multiple resources.pb files found in AAB")
 
@@ -132,7 +132,7 @@ class AAB(AndroidArtifact):
         if self._dex_mapping is not None:
             return self._dex_mapping
 
-        dex_mapping_files = list(self._extract_dir.path.rglob("proguard.map"))
+        dex_mapping_files = list(self._extract_dir.rglob("proguard.map"))
         if len(dex_mapping_files) > 1:
             raise ValueError("Multiple proguard.map files found in AAB")
 

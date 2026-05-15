@@ -58,11 +58,8 @@ DEFAULT_ICON_SIZE = 108
 
 
 class IconParser:
-    def __init__(self, extract_dir: Path | SafeDirectory) -> None:
-        if isinstance(extract_dir, SafeDirectory):
-            self._safe_dir = extract_dir
-        else:
-            self._safe_dir = SafeDirectory(extract_dir)
+    def __init__(self, extract_dir: SafeDirectory) -> None:
+        self._safe_dir = extract_dir
 
     def _get_attr_value(self, attributes: list, name: str, required: bool = False) -> str | None:
         raise NotImplementedError
@@ -477,7 +474,7 @@ class IconParser:
 
         # Search recursively (last resort)
         filename_lower = filename.lower()
-        for file_path in self._safe_dir.path.rglob("*"):
+        for file_path in self._safe_dir.rglob("*"):
             if file_path.is_file() and str(file_path).lower().endswith(filename_lower):
                 return file_path
 

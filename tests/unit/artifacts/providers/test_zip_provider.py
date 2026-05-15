@@ -36,10 +36,10 @@ class TestZipProvider:
         safe_dir = provider.extract_to_temp_directory()
 
         assert isinstance(safe_dir, SafeDirectory)
-        assert safe_dir.path.exists()
-        assert safe_dir.path.is_dir()
+        assert safe_dir.exists()
+        assert safe_dir.is_dir()
         assert len(provider._temp_dirs) == 1
-        extracted_files = list(safe_dir.path.rglob("*"))
+        extracted_files = list(safe_dir.rglob("*"))
         assert len(extracted_files) > 0
 
     def test_extract_to_temp_directory_android(self, zipped_apk: Path) -> None:
@@ -47,11 +47,11 @@ class TestZipProvider:
         safe_dir = provider.extract_to_temp_directory()
 
         assert isinstance(safe_dir, SafeDirectory)
-        assert safe_dir.path.exists()
-        assert safe_dir.path.is_dir()
+        assert safe_dir.exists()
+        assert safe_dir.is_dir()
         assert len(provider._temp_dirs) == 1
 
-        extracted_files = list(safe_dir.path.rglob("*"))
+        extracted_files = list(safe_dir.rglob("*"))
         assert len(extracted_files) > 0
 
     def test_multiple_extractions(self, hackernews_xcarchive: Path) -> None:
@@ -62,8 +62,8 @@ class TestZipProvider:
 
         assert safe_dir1.path != safe_dir2.path
         assert len(provider._temp_dirs) == 2
-        assert safe_dir1.path.exists()
-        assert safe_dir2.path.exists()
+        assert safe_dir1.exists()
+        assert safe_dir2.exists()
 
     def test_safe_extract_blocks_traversal(self, malicious_zip: Path) -> None:
         provider = ZipProvider(malicious_zip)
@@ -147,6 +147,30 @@ class TestSafeDirectory:
             safe_dir = SafeDirectory(Path(tmpdir))
             assert safe_dir.path == Path(tmpdir).resolve()
 
+    def test_truediv_delegates_to_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            result = safe_dir / "subdir" / "file.txt"
+            assert result == Path(tmpdir).resolve() / "subdir" / "file.txt"
+            assert isinstance(result, Path)
+
+    def test_glob_and_rglob(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "a.txt").write_text("a")
+            (base / "sub").mkdir()
+            (base / "sub" / "b.txt").write_text("b")
+            safe_dir = SafeDirectory(base)
+            assert len(list(safe_dir.glob("*.txt"))) == 1
+            assert len(list(safe_dir.rglob("*.txt"))) == 2
+
+    def test_fspath(self) -> None:
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            assert os.fspath(safe_dir) == str(Path(tmpdir).resolve())
+
 
 class TestCheckReasonableZip:
     def test_reasonable_zip_passes(self, hackernews_xcarchive: Path) -> None:
@@ -178,8 +202,8 @@ class TestCheckReasonableZip:
                 provider = ZipProvider(temp_path)
                 safe_dir = provider.extract_to_temp_directory()
 
-                assert safe_dir.path.exists()
-                assert (safe_dir.path / "test.txt").exists()
-                assert (safe_dir.path / "test.txt").read_text() == "content"
+                assert safe_dir.exists()
+                assert (safe_dir / "test.txt").exists()
+                assert (safe_dir / "test.txt").read_text() == "content"
             finally:
                 temp_path.unlink(missing_ok=True)

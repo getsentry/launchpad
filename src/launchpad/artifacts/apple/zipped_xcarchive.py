@@ -101,9 +101,9 @@ class ZippedXCArchive(AppleArtifact):
         if self._archive_plist is not None:
             return self._archive_plist
 
-        xcarchive_dirs = list(self._extract_dir.path.glob("*.xcarchive"))
+        xcarchive_dirs = list(self._extract_dir.glob("*.xcarchive"))
         if not xcarchive_dirs:
-            logger.debug(f"No .xcarchive directory found in {self._extract_dir.path}")
+            logger.debug(f"No .xcarchive directory found in {self._extract_dir}")
             return None
 
         xcarchive_dir = xcarchive_dirs[0]
@@ -128,8 +128,7 @@ class ZippedXCArchive(AppleArtifact):
             logger.warning("No icon files found in CFBundleIconFiles")
             return None
 
-        app_bundle_path = self.get_app_bundle_path()
-        app_bundle = SafeDirectory(app_bundle_path)
+        app_bundle = SafeDirectory(self.get_app_bundle_path())
 
         for icon_name in icon_info.primary_icon_files:
             app_bundle.resolve(icon_name)
@@ -137,7 +136,7 @@ class ZippedXCArchive(AppleArtifact):
             # iOS lists base names without extensions or resolution modifiers (@2x, @3x, ~ipad)
             # Search for files matching the base name with any suffix
             # e.g., "AppIcon60x60" matches "AppIcon60x60@2x.png" or "AppIcon60x60.png"
-            matching_files = list(app_bundle_path.glob(f"{icon_name}*.png"))
+            matching_files = list(app_bundle.glob(f"{icon_name}*.png"))
 
             if not matching_files:
                 continue
@@ -299,12 +298,12 @@ class ZippedXCArchive(AppleArtifact):
         if self._app_bundle_path is not None:
             return self._app_bundle_path
 
-        for path in self._extract_dir.path.rglob("*.xcarchive/Products/**/*.app"):
+        for path in self._extract_dir.rglob("*.xcarchive/Products/**/*.app"):
             if path.is_dir() and "__MACOSX" not in str(path):
                 logger.debug(f"Found Apple app bundle: {path}")
                 return path
 
-        raise FileNotFoundError(f"No .app bundle found in {self._extract_dir.path}")
+        raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
 
     @sentry_sdk.trace
     def get_main_binary_uuid(self) -> str | None:
@@ -381,7 +380,7 @@ class ZippedXCArchive(AppleArtifact):
         try:
             app_bundle_path = self.get_app_bundle_path()
             json_name = relative_path.with_suffix(".json")
-            xcarchive_dir = list(self._extract_dir.path.glob("*.xcarchive"))[0]
+            xcarchive_dir = list(self._extract_dir.glob("*.xcarchive"))[0]
             app_bundle_path = app_bundle_path.relative_to(xcarchive_dir)
 
             parent_path = xcarchive_dir / "ParsedAssets" / app_bundle_path / relative_path.parent
@@ -390,7 +389,7 @@ class ZippedXCArchive(AppleArtifact):
             if not file_path.exists():
                 logger.warning(
                     "size.apple.assets_json_not_found",
-                    extra={"file_path": file_path.relative_to(self._extract_dir.path)},
+                    extra={"file_path": file_path.relative_to(self._extract_dir)},
                 )
                 return []
 
@@ -621,7 +620,7 @@ class ZippedXCArchive(AppleArtifact):
         dsym_info: dict[str, DsymInfo] = {}
 
         dsyms_dir = None
-        for path in self._extract_dir.path.rglob("dSYMs"):
+        for path in self._extract_dir.rglob("dSYMs"):
             if path.is_dir():
                 dsyms_dir = path
                 break
