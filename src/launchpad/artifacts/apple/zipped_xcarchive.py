@@ -17,8 +17,9 @@ from launchpad.parsers.apple.crushed_png import decode_crushed_png
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AppleArtifact
+from ..providers.exceptions import UnsafePathError
 from ..providers.safe_directory import SafeDirectory
-from ..providers.zip_provider import ZipProvider
+from ..providers.zip_provider import ZipProvider, is_safe_path
 
 logger = get_logger(__name__)
 
