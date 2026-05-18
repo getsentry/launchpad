@@ -34,7 +34,7 @@ def analyze_apple_files(
 
     logger.debug("Analyzing files in app bundle")
 
-    app_bundle_path = xcarchive.get_app_bundle_path()
+    app_bundle_path = xcarchive.get_app_bundle_path().path
 
     files: Dict[str, FileInfo] = {}
     dirs: Dict[str, FileInfo] = {}
@@ -42,7 +42,7 @@ def analyze_apple_files(
 
     # register root
     root_rel = ""
-    dirs[root_rel] = _make_directory_info(app_bundle_path.path, root_rel)
+    dirs[root_rel] = _make_directory_info(app_bundle_path, root_rel)
 
     # inode de-dup (dirs + files)
     seen_dir_inodes: Set[Tuple[int, int]] = set()

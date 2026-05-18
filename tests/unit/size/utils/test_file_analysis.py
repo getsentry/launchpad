@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from launchpad.artifacts.apple.zipped_xcarchive import AssetCatalogElement, ZippedXCArchive
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import FileAnalysis
 from launchpad.size.models.treemap import TreemapType
@@ -61,7 +62,7 @@ class TestAnalyzeAppleFiles:
             (resources_dir / "image.png").write_bytes(b"fake_png_data" * 20)
             (resources_dir / "data.json").write_text('{"key": "value"}')
 
-            yield app_path
+            yield SafeDirectory(app_path)
 
     def test_basic_file_analysis(self, mock_xcarchive, temp_app_bundle):
         """Test basic file and directory analysis."""
@@ -292,8 +293,8 @@ class TestAnalyzeAppleFiles:
     def test_empty_bundle(self, mock_xcarchive):
         """Test analysis of an empty app bundle."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            empty_bundle = Path(temp_dir) / "Empty.app"
-            empty_bundle.mkdir()
+            empty_bundle = SafeDirectory(Path(temp_dir) / "Empty.app")
+            empty_bundle.path.mkdir()
 
             mock_xcarchive.get_app_bundle_path.return_value = empty_bundle
             mock_xcarchive.get_asset_catalog_details.return_value = []
