@@ -42,7 +42,7 @@ def analyze_apple_files(
 
     # register root
     root_rel = ""
-    dirs[root_rel] = _make_directory_info(app_bundle_path, root_rel)
+    dirs[root_rel] = _make_directory_info(app_bundle_path.path, root_rel)
 
     # inode de-dup (dirs + files)
     seen_dir_inodes: Set[Tuple[int, int]] = set()
