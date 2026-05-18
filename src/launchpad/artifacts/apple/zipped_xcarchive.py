@@ -1,5 +1,4 @@
 import json
-import os
 import plistlib
 import shutil
 import subprocess
@@ -19,7 +18,7 @@ from launchpad.utils.logging import get_logger
 from ..artifact import AppleArtifact
 from ..providers.exceptions import UnsafePathError
 from ..providers.safe_directory import SafeDirectory
-from ..providers.zip_provider import ZipProvider, is_safe_path
+from ..providers.zip_provider import ZipProvider
 
 logger = get_logger(__name__)
 
@@ -288,10 +287,7 @@ class ZippedXCArchive(AppleArtifact):
         if not executable_name:
             return None
 
-        if not is_safe_path(app_bundle_path, executable_name):
-            raise UnsafePathError(f"Unsafe CFBundleExecutable in plist: {executable_name}")
-
-        return app_bundle_path / executable_name
+        return SafeDirectory(app_bundle_path).resolve(executable_name)
 
     @sentry_sdk.trace
     def get_app_bundle_path(self) -> Path:
@@ -427,11 +423,7 @@ class ZippedXCArchive(AppleArtifact):
                             extension_plist = plistlib.load(f)
                         extension_executable = extension_plist.get("CFBundleExecutable")
                         if extension_executable:
-                            if not is_safe_path(extension_path, extension_executable):
-                                raise UnsafePathError(
-                                    f"Unsafe CFBundleExecutable in extension plist: {extension_executable}"
-                                )
-                            extension_binary_path = extension_path / extension_executable
+                            extension_binary_path = SafeDirectory(extension_path).resolve(extension_executable)
                             if extension_binary_path.exists():
                                 extension_binaries.append(extension_binary_path)
                             else:
@@ -453,9 +445,7 @@ class ZippedXCArchive(AppleArtifact):
                             watch_plist = plistlib.load(f)
                         watch_executable = watch_plist.get("CFBundleExecutable")
                         if watch_executable:
-                            if not is_safe_path(watch_path, watch_executable):
-                                raise UnsafePathError(f"Unsafe CFBundleExecutable in Watch plist: {watch_executable}")
-                            watch_binary_path = watch_path / watch_executable
+                            watch_binary_path = SafeDirectory(watch_path).resolve(watch_executable)
                             if watch_binary_path.exists():
                                 watch_binaries.append(watch_binary_path)
                             else:
@@ -485,9 +475,7 @@ class ZippedXCArchive(AppleArtifact):
         main_executable = self.get_plist().get("CFBundleExecutable")
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
-        if not is_safe_path(app_bundle_path, main_executable):
-            raise UnsafePathError(f"Unsafe CFBundleExecutable in plist: {main_executable}")
-        return Path(os.path.join(str(app_bundle_path), main_executable))
+        return SafeDirectory(app_bundle_path).resolve(main_executable)
 
     def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
         """Parse a dictionary item into an AssetCatalogElement."""
@@ -505,9 +493,7 @@ class ZippedXCArchive(AppleArtifact):
         file_extension = Path(filename).suffix.lower()
         if filename and file_extension in {".png", ".jpg", ".jpeg", ".heic", ".heif", ".pdf", ".svg"}:
             candidate = f"{image_id}{file_extension}"
-            if not is_safe_path(parent_path, candidate):
-                raise UnsafePathError(f"Unsafe asset imageId in catalog: {image_id}")
-            potential_path = parent_path / candidate
+            potential_path = SafeDirectory(parent_path).resolve(candidate)
             if potential_path.exists():
                 full_path = potential_path
             else:
