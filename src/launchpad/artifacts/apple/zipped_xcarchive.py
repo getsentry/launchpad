@@ -543,6 +543,10 @@ class ZippedXCArchive(AppleArtifact):
                 logger.warning(f"Binary path does not exist: {binary_path}")
                 continue
 
+            if binary_path.is_symlink():
+                logger.warning(f"Skipping symlink binary: {binary_path}")
+                continue
+
             try:
                 with open(binary_path, "rb") as f:
                     fat_binary: lief.MachO.FatBinary | None = lief.MachO.parse(f, config)  # type: ignore

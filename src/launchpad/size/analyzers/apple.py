@@ -464,6 +464,10 @@ class AppleAppAnalyzer:
             logger.warning(f"Binary not found: {binary_path}")
             return None
 
+        if binary_path.is_symlink():
+            logger.warning(f"Skipping symlink binary: {binary_path}")
+            return None
+
         logger.debug(f"Analyzing binary: {binary_path}")
 
         # Only binaries with dSYMs are pre-cached. Pop from cache to free memory immediately.
@@ -480,7 +484,8 @@ class AppleAppAnalyzer:
                 fat_binary = lief.MachO.parse(f, config)  # type: ignore
 
         if fat_binary is None or fat_binary.size == 0:
-            raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
+            logger.warning(f"Skipping binary, LIEF failed to parse: {binary_path}")
+            return None
 
         executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
 
