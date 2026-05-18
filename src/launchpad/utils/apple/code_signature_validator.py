@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import lief
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.parsers.apple.code_signature_parser import CodeSignInformation
 from launchpad.parsers.apple.macho_parser import MachOParser
 
@@ -84,7 +85,7 @@ class CodeSignatureValidator:
         self.archive = archive
         self.plist = self.archive.get_plist()
         self.executable_name: str = self.archive.get_plist().get("CFBundleExecutable", "")
-        self.app_root: Path = self.archive.get_app_bundle_path()
+        self.app_root: SafeDirectory = self.archive.get_app_bundle_path()
         self.macho_parser: Optional[MachOParser] = None
 
     def validate(self) -> Tuple[bool, List[str]]:

@@ -67,7 +67,7 @@ class ZippedXCArchive(AppleArtifact):
         super().__init__(path)
         self._zip_provider = ZipProvider(path)
         self._extract_dir = self._zip_provider.extract_to_temp_directory()
-        self._app_bundle_path: Path | None = None
+        self._app_bundle_path: SafeDirectory | None = None
         self._plist: dict[str, Any] | None = None
         self._archive_plist: dict[str, Any] | None = None
         self._provisioning_profile: dict[str, Any] | None = None
@@ -128,7 +128,7 @@ class ZippedXCArchive(AppleArtifact):
             logger.warning("No icon files found in CFBundleIconFiles")
             return None
 
-        app_bundle = SafeDirectory(self.get_app_bundle_path())
+        app_bundle = self.get_app_bundle_path()
 
         for icon_name in icon_info.primary_icon_files:
             # Validate the plist-supplied name before globbing with it
@@ -288,10 +288,10 @@ class ZippedXCArchive(AppleArtifact):
         if not executable_name:
             return None
 
-        return SafeDirectory(app_bundle_path).resolve(executable_name)
+        return app_bundle_path.resolve(executable_name)
 
     @sentry_sdk.trace
-    def get_app_bundle_path(self) -> Path:
+    def get_app_bundle_path(self) -> SafeDirectory:
         """Get the path to the .app bundle."""
         if self._app_bundle_path is not None:
             return self._app_bundle_path
@@ -299,7 +299,8 @@ class ZippedXCArchive(AppleArtifact):
         for path in self._extract_dir.rglob("*.xcarchive/Products/**/*.app"):
             if path.is_dir() and "__MACOSX" not in str(path):
                 logger.debug(f"Found Apple app bundle: {path}")
-                return path
+                self._app_bundle_path = SafeDirectory(path)
+                return self._app_bundle_path
 
         raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
 
@@ -401,7 +402,7 @@ class ZippedXCArchive(AppleArtifact):
             logger.exception(f"Failed to get asset catalog details for {relative_path}")
             return []
 
-    def _discover_framework_binaries(self, app_bundle_path: Path) -> List[Path]:
+    def _discover_framework_binaries(self, app_bundle_path: SafeDirectory) -> List[Path]:
         framework_binaries: List[Path] = []
         for framework_path in app_bundle_path.rglob("*.framework"):
             if framework_path.is_dir():
@@ -413,7 +414,7 @@ class ZippedXCArchive(AppleArtifact):
                     logger.warning("Framework binary not found", extra={"path": framework_binary_path})
         return framework_binaries
 
-    def _discover_extension_binaries(self, app_bundle_path: Path) -> List[Path]:
+    def _discover_extension_binaries(self, app_bundle_path: SafeDirectory) -> List[Path]:
         extension_binaries: List[Path] = []
         for extension_path in app_bundle_path.rglob("*.appex"):
             if extension_path.is_dir():
@@ -435,7 +436,7 @@ class ZippedXCArchive(AppleArtifact):
                         logger.exception(f"Failed to read extension Info.plist at {extension_path}")
         return extension_binaries
 
-    def _discover_watch_binaries(self, app_bundle_path: Path) -> List[Path]:
+    def _discover_watch_binaries(self, app_bundle_path: SafeDirectory) -> List[Path]:
         watch_binaries: List[Path] = []
         for watch_path in app_bundle_path.rglob("Watch/*.app"):
             if watch_path.is_dir():
@@ -476,7 +477,7 @@ class ZippedXCArchive(AppleArtifact):
         main_executable = self.get_plist().get("CFBundleExecutable")
         if main_executable is None:
             raise RuntimeError("CFBundleExecutable not found in Info.plist")
-        return SafeDirectory(app_bundle_path).resolve(main_executable)
+        return app_bundle_path.resolve(main_executable)
 
     def _parse_asset_element(self, item: dict[str, Any], parent_path: Path) -> AssetCatalogElement:
         """Parse a dictionary item into an AssetCatalogElement."""

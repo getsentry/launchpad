@@ -7,11 +7,11 @@ from .exceptions import UnsafePathError
 
 
 class SafeDirectory:
-    """A directory wrapper that validates untrusted paths stay within bounds.
+    """A directory wrapper that validates all path construction stays within bounds.
 
-    Use .resolve(untrusted) for attacker-controlled input (manifest values,
-    plist entries, zip member names). Trusted Path operations (glob, rglob,
-    iterdir, /, etc.) are delegated directly.
+    Every path built via / or .resolve() is checked against the base directory.
+    glob, rglob, and iterdir return raw Paths (they come from the filesystem
+    and are inherently within bounds).
     """
 
     def __init__(self, base: Path) -> None:
@@ -38,10 +38,14 @@ class SafeDirectory:
         """Return a new SafeDirectory scoped to a validated subdirectory."""
         return SafeDirectory(self.resolve(untrusted))
 
-    # -- Trusted Path delegations --
-
     def __truediv__(self, other: str | os.PathLike[str]) -> Path:
-        return self._base / other
+        try:
+            result = (self._base / other).resolve()
+        except RuntimeError:
+            raise UnsafePathError(f"Path traversal attempt: {other}")
+        if not result.is_relative_to(self._base):
+            raise UnsafePathError(f"Path traversal attempt: {other}")
+        return result
 
     def __str__(self) -> str:
         return str(self._base)

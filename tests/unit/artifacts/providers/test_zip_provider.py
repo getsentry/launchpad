@@ -126,12 +126,20 @@ class TestSafeDirectory:
             safe_dir = SafeDirectory(Path(tmpdir))
             assert safe_dir.path == Path(tmpdir).resolve()
 
-    def test_truediv_delegates_to_path(self) -> None:
+    def test_truediv_validates_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             safe_dir = SafeDirectory(Path(tmpdir))
             result = safe_dir / "subdir" / "file.txt"
             assert result == Path(tmpdir).resolve() / "subdir" / "file.txt"
             assert isinstance(result, Path)
+
+    def test_truediv_rejects_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            with pytest.raises(UnsafePathError):
+                safe_dir / "../../../etc/passwd"
+            with pytest.raises(UnsafePathError):
+                safe_dir / "/etc/passwd"
 
     def test_glob_and_rglob(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -153,8 +153,8 @@ class TestZippedXCArchive:
 
     def test_get_binary_path_rejects_path_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_bundle_path = Path(tmpdir) / "Test.app"
-            app_bundle_path.mkdir()
+            app_bundle_path = SafeDirectory(Path(tmpdir) / "Test.app")
+            app_bundle_path.path.mkdir()
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
@@ -168,8 +168,8 @@ class TestZippedXCArchive:
 
     def test_get_main_binary_path_rejects_path_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_bundle_path = Path(tmpdir) / "Test.app"
-            app_bundle_path.mkdir()
+            app_bundle_path = SafeDirectory(Path(tmpdir) / "Test.app")
+            app_bundle_path.path.mkdir()
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
