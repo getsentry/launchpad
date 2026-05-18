@@ -70,11 +70,12 @@ make worker                    # Start Launchpad worker (TaskWorker mode)
 
 ## Security: Path Traversal Prevention
 
-When handling paths derived from untrusted input (zip member names, plist values, manifest entries, user-supplied filenames), use `SafeDirectory` from `launchpad.artifacts.providers.safe_directory` — never use raw `Path` operations or `is_safe_path()`.
+When handling paths derived from untrusted input (zip member names, plist values, manifest entries, user-supplied filenames), use `SafeDirectory` from `launchpad.artifacts.providers.safe_directory` — never use raw `Path` operations.
 
 - **`SafeDirectory(base).resolve(untrusted)`** — validates and returns a safe `Path`, raises `UnsafePathError` on traversal attempts
 - **`SafeDirectory(base).child(untrusted)`** — returns a new `SafeDirectory` scoped to a validated subdirectory
 - Trusted operations (glob, `/`, iterdir) are delegated directly and don't need validation
+- Import `UnsafePathError` from `launchpad.artifacts.providers.exceptions`
 
 ## Testing Strategy
 
