@@ -39,12 +39,14 @@ class SafeDirectory:
         return SafeDirectory(self.resolve(untrusted))
 
     def __truediv__(self, other: str | os.PathLike[str]) -> Path:
+        result = self._base / other
         try:
-            result = (self._base / other).resolve()
+            resolved = result.resolve()
         except RuntimeError:
             raise UnsafePathError(f"Path traversal attempt: {other}")
-        if not result.is_relative_to(self._base):
+        if not resolved.is_relative_to(self._base):
             raise UnsafePathError(f"Path traversal attempt: {other}")
+        # Return the non-resolved path so callers can still detect symlinks
         return result
 
     def __str__(self) -> str:
