@@ -65,6 +65,9 @@ class SafeDirectory:
     def iterdir(self) -> Generator[Path, None, None]:
         return self._base.iterdir()
 
+    def stat(self) -> os.stat_result:
+        return self._base.stat()
+
     def exists(self) -> bool:
         return self._base.exists()
 
