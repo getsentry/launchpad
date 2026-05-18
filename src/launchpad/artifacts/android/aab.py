@@ -19,7 +19,8 @@ from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AndroidArtifact
-from ..providers.zip_provider import UnsafePathError, ZipProvider
+from ..providers.exceptions import UnsafePathError
+from ..providers.zip_provider import ZipProvider
 from .apk import APK
 from .manifest.manifest import AndroidManifest
 from .manifest.proto_xml import ProtoXmlUtils

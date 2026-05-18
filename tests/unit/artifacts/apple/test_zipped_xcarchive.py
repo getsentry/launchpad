@@ -8,8 +8,8 @@ from unittest.mock import patch
 import pytest
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.artifacts.providers.exceptions import UnsafePathError
 from launchpad.artifacts.providers.safe_directory import SafeDirectory
-from launchpad.artifacts.providers.zip_provider import UnsafePathError
 
 
 class TestZippedXCArchive:

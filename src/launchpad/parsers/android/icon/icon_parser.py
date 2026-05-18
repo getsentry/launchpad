@@ -10,8 +10,8 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from launchpad.artifacts.providers.exceptions import UnsafePathError
 from launchpad.artifacts.providers.safe_directory import SafeDirectory
-from launchpad.artifacts.providers.zip_provider import UnsafePathError
 from launchpad.parsers.android.binary.types import XmlNode
 from launchpad.utils.logging import get_logger
 

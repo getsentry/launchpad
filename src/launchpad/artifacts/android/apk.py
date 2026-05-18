@@ -18,8 +18,9 @@ from ...parsers.android.dex.dex_file_parser import DexFileParser
 from ...parsers.android.dex.types import ClassDefinition
 from ...utils.logging import get_logger
 from ..artifact import AndroidArtifact
+from ..providers.exceptions import UnsafePathError
 from ..providers.safe_directory import SafeDirectory
-from ..providers.zip_provider import UnsafePathError, ZipProvider
+from ..providers.zip_provider import ZipProvider
 from .manifest.axml import AxmlUtils
 from .manifest.manifest import AndroidManifest
 from .resources.binary import BinaryResourceTable

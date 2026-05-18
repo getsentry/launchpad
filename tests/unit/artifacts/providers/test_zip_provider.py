@@ -5,13 +5,12 @@ from pathlib import Path
 
 import pytest
 
+from launchpad.artifacts.providers.exceptions import UnsafePathError
 from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.artifacts.providers.zip_provider import (
     UnreasonableZipError,
-    UnsafePathError,
     ZipProvider,
     check_reasonable_zip,
-    is_safe_path,
 )
 
 
@@ -68,7 +67,7 @@ class TestZipProvider:
     def test_safe_extract_blocks_traversal(self, malicious_zip: Path) -> None:
         provider = ZipProvider(malicious_zip)
 
-        with pytest.raises(UnsafePathError, match="Potential path traversal attack"):
+        with pytest.raises(UnsafePathError, match="Path traversal attempt"):
             provider.extract_to_temp_directory()
 
     def test_nonexistent_zip_file(self) -> None:
@@ -87,26 +86,6 @@ class TestZipProvider:
 
             with pytest.raises(zipfile.BadZipFile):
                 provider.extract_to_temp_directory()
-
-
-class TestIsSafePath:
-    def test_valid_paths(self) -> None:
-        base_dir = Path("/tmp/test")
-        assert is_safe_path(base_dir, "file.txt")
-        assert is_safe_path(base_dir, "subdir/file.txt")
-        assert is_safe_path(base_dir, "a/b/c/file.txt")
-
-    def test_path_traversal_attempts(self) -> None:
-        base_dir = Path("/tmp/test")
-        assert not is_safe_path(base_dir, "../file.txt")
-        assert not is_safe_path(base_dir, "../../file.txt")
-        assert not is_safe_path(base_dir, "../../../etc/passwd")
-        assert not is_safe_path(base_dir, "subdir/../../file.txt")
-
-    def test_absolute_paths(self) -> None:
-        base_dir = Path("/tmp/test")
-        assert not is_safe_path(base_dir, "/etc/passwd")
-        assert not is_safe_path(base_dir, "/tmp/other/file.txt")
 
 
 class TestSafeDirectory:

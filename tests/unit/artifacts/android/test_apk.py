@@ -5,7 +5,7 @@ import pytest
 
 from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.manifest.manifest import AndroidApplication, AndroidManifest
-from launchpad.artifacts.providers.zip_provider import UnsafePathError
+from launchpad.artifacts.providers.exceptions import UnsafePathError
 
 
 @pytest.fixture
