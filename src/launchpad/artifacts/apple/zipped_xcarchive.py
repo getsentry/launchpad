@@ -131,6 +131,7 @@ class ZippedXCArchive(AppleArtifact):
         app_bundle = SafeDirectory(self.get_app_bundle_path())
 
         for icon_name in icon_info.primary_icon_files:
+            # Validate the plist-supplied name before globbing with it
             app_bundle.resolve(icon_name)
 
             # iOS lists base names without extensions or resolution modifiers (@2x, @3x, ~ipad)
