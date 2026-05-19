@@ -10,8 +10,8 @@ class SafeDirectory:
     """A directory wrapper that validates all path construction stays within bounds.
 
     Every path built via / or .resolve() is checked against the base directory.
-    glob, rglob, and iterdir return raw Paths (they come from the filesystem
-    and are inherently within bounds).
+    glob and rglob validate that each result resolves within the base directory,
+    since glob patterns containing ".." can escape via recursive wildcards.
     """
 
     def __init__(self, base: Path) -> None:
@@ -59,10 +59,14 @@ class SafeDirectory:
         return str(self._base)
 
     def glob(self, pattern: str) -> Generator[Path, None, None]:
-        return self._base.glob(pattern)
+        for path in self._base.glob(pattern):
+            if path.resolve().is_relative_to(self._base):
+                yield path
 
     def rglob(self, pattern: str) -> Generator[Path, None, None]:
-        return self._base.rglob(pattern)
+        for path in self._base.rglob(pattern):
+            if path.resolve().is_relative_to(self._base):
+                yield path
 
     def iterdir(self) -> Generator[Path, None, None]:
         return self._base.iterdir()

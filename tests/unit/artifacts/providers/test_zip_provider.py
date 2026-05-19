@@ -151,6 +151,19 @@ class TestSafeDirectory:
             assert len(list(safe_dir.glob("*.txt"))) == 1
             assert len(list(safe_dir.rglob("*.txt"))) == 2
 
+    def test_glob_filters_escaped_paths(self) -> None:
+        """Glob patterns with recursive wildcards and .. must not escape the base."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            inner = base / "inner"
+            inner.mkdir()
+            (base / "outside.txt").write_text("should not appear")
+            (inner / "inside.txt").write_text("ok")
+            safe_dir = SafeDirectory(inner)
+            results = list(safe_dir.glob("../*.txt"))
+            assert all(p.resolve().is_relative_to(inner.resolve()) for p in results)
+            assert not any("outside" in p.name for p in results)
+
     def test_fspath(self) -> None:
         import os
 

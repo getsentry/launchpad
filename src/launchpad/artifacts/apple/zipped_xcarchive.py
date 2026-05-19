@@ -131,7 +131,10 @@ class ZippedXCArchive(AppleArtifact):
         app_bundle = self.get_app_bundle_path()
 
         for icon_name in icon_info.primary_icon_files:
-            # Validate the plist-supplied name before globbing with it
+            if any(c in icon_name for c in ("*", "?", "[", "]")):
+                logger.warning(f"Skipping icon name with glob metacharacters: {icon_name}")
+                continue
+
             app_bundle.resolve(icon_name)
 
             # iOS lists base names without extensions or resolution modifiers (@2x, @3x, ~ipad)
