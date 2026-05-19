@@ -46,7 +46,7 @@ class TestZippedXCArchive:
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     elements = archive.get_asset_catalog_details(Path("Assets.car"))
 
@@ -91,7 +91,7 @@ class TestZippedXCArchive:
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     elements = archive.get_asset_catalog_details(Path("PlugIns/TestExtension.appex/Assets.car"))
 
@@ -137,7 +137,7 @@ class TestZippedXCArchive:
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     elements = archive.get_asset_catalog_details(Path("MyFramework.bundle/Assets.car"))
 
@@ -230,12 +230,12 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     with pytest.raises(UnsafePathError):
                         archive.get_asset_catalog_details(Path("Assets.car"))
