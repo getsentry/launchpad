@@ -69,7 +69,9 @@ class SafeDirectory:
                 yield path
 
     def iterdir(self) -> Generator[Path, None, None]:
-        return self._base.iterdir()
+        for path in self._base.iterdir():
+            if path.resolve().is_relative_to(self._base):
+                yield path
 
     def stat(self) -> os.stat_result:
         return self._base.stat()
