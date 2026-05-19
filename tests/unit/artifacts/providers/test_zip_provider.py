@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
+from launchpad.artifacts.providers.exceptions import UnsafePathError
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.artifacts.providers.zip_provider import (
     UnreasonableZipError,
-    UnsafePathError,
     ZipProvider,
     check_reasonable_zip,
-    is_safe_path,
 )
 
 
@@ -32,43 +32,42 @@ class TestZipProvider:
 
     def test_extract_to_temp_directory_ios(self, hackernews_xcarchive: Path) -> None:
         provider = ZipProvider(hackernews_xcarchive)
-        temp_dir = provider.extract_to_temp_directory()
+        safe_dir = provider.extract_to_temp_directory()
 
-        assert temp_dir.exists()
-        assert temp_dir.is_dir()
+        assert isinstance(safe_dir, SafeDirectory)
+        assert safe_dir.exists()
+        assert safe_dir.is_dir()
         assert len(provider._temp_dirs) == 1
-        assert provider._temp_dirs[0] == temp_dir
-        extracted_files = list(temp_dir.rglob("*"))
+        extracted_files = list(safe_dir.rglob("*"))
         assert len(extracted_files) > 0
 
     def test_extract_to_temp_directory_android(self, zipped_apk: Path) -> None:
         provider = ZipProvider(zipped_apk)
-        temp_dir = provider.extract_to_temp_directory()
+        safe_dir = provider.extract_to_temp_directory()
 
-        assert temp_dir.exists()
-        assert temp_dir.is_dir()
+        assert isinstance(safe_dir, SafeDirectory)
+        assert safe_dir.exists()
+        assert safe_dir.is_dir()
         assert len(provider._temp_dirs) == 1
 
-        extracted_files = list(temp_dir.rglob("*"))
+        extracted_files = list(safe_dir.rglob("*"))
         assert len(extracted_files) > 0
 
     def test_multiple_extractions(self, hackernews_xcarchive: Path) -> None:
         provider = ZipProvider(hackernews_xcarchive)
 
-        temp_dir1 = provider.extract_to_temp_directory()
-        temp_dir2 = provider.extract_to_temp_directory()
+        safe_dir1 = provider.extract_to_temp_directory()
+        safe_dir2 = provider.extract_to_temp_directory()
 
-        assert temp_dir1 != temp_dir2
+        assert safe_dir1.path != safe_dir2.path
         assert len(provider._temp_dirs) == 2
-        assert temp_dir1 in provider._temp_dirs
-        assert temp_dir2 in provider._temp_dirs
-        assert temp_dir1.exists()
-        assert temp_dir2.exists()
+        assert safe_dir1.exists()
+        assert safe_dir2.exists()
 
     def test_safe_extract_blocks_traversal(self, malicious_zip: Path) -> None:
         provider = ZipProvider(malicious_zip)
 
-        with pytest.raises(UnsafePathError, match="Potential path traversal attack"):
+        with pytest.raises(UnsafePathError, match="Path traversal attempt"):
             provider.extract_to_temp_directory()
 
     def test_nonexistent_zip_file(self) -> None:
@@ -89,24 +88,88 @@ class TestZipProvider:
                 provider.extract_to_temp_directory()
 
 
-class TestIsSafePath:
-    def test_valid_paths(self) -> None:
-        base_dir = Path("/tmp/test")
-        assert is_safe_path(base_dir, "file.txt")
-        assert is_safe_path(base_dir, "subdir/file.txt")
-        assert is_safe_path(base_dir, "a/b/c/file.txt")
+class TestSafeDirectory:
+    def test_resolve_valid_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            assert safe_dir.resolve("file.txt") == Path(tmpdir).resolve() / "file.txt"
+            assert safe_dir.resolve("subdir/file.txt") == Path(tmpdir).resolve() / "subdir" / "file.txt"
 
-    def test_path_traversal_attempts(self) -> None:
-        base_dir = Path("/tmp/test")
-        assert not is_safe_path(base_dir, "../file.txt")
-        assert not is_safe_path(base_dir, "../../file.txt")
-        assert not is_safe_path(base_dir, "../../../etc/passwd")
-        assert not is_safe_path(base_dir, "subdir/../../file.txt")
+    def test_resolve_rejects_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            with pytest.raises(UnsafePathError):
+                safe_dir.resolve("../file.txt")
+            with pytest.raises(UnsafePathError):
+                safe_dir.resolve("../../etc/passwd")
+            with pytest.raises(UnsafePathError):
+                safe_dir.resolve("subdir/../../file.txt")
 
-    def test_absolute_paths(self) -> None:
-        base_dir = Path("/tmp/test")
-        assert not is_safe_path(base_dir, "/etc/passwd")
-        assert not is_safe_path(base_dir, "/tmp/other/file.txt")
+    def test_resolve_rejects_absolute_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            with pytest.raises(UnsafePathError):
+                safe_dir.resolve("/etc/passwd")
+
+    def test_child_creates_scoped_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "sub").mkdir()
+            safe_dir = SafeDirectory(base)
+            child = safe_dir.child("sub")
+            assert child.path == base.resolve() / "sub"
+            with pytest.raises(UnsafePathError):
+                child.resolve("../../etc/passwd")
+
+    def test_path_property(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            assert safe_dir.path == Path(tmpdir).resolve()
+
+    def test_truediv_validates_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            result = safe_dir / "subdir" / "file.txt"
+            assert result == Path(tmpdir).resolve() / "subdir" / "file.txt"
+            assert isinstance(result, Path)
+
+    def test_truediv_rejects_traversal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            with pytest.raises(UnsafePathError):
+                safe_dir / "../../../etc/passwd"
+            with pytest.raises(UnsafePathError):
+                safe_dir / "/etc/passwd"
+
+    def test_glob_and_rglob(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            (base / "a.txt").write_text("a")
+            (base / "sub").mkdir()
+            (base / "sub" / "b.txt").write_text("b")
+            safe_dir = SafeDirectory(base)
+            assert len(list(safe_dir.glob("*.txt"))) == 1
+            assert len(list(safe_dir.rglob("*.txt"))) == 2
+
+    def test_glob_filters_escaped_paths(self) -> None:
+        """Glob patterns with recursive wildcards and .. must not escape the base."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            inner = base / "inner"
+            inner.mkdir()
+            (base / "outside.txt").write_text("should not appear")
+            (inner / "inside.txt").write_text("ok")
+            safe_dir = SafeDirectory(inner)
+            results = list(safe_dir.glob("../*.txt"))
+            assert all(p.resolve().is_relative_to(inner.resolve()) for p in results)
+            assert not any("outside" in p.name for p in results)
+
+    def test_fspath(self) -> None:
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            safe_dir = SafeDirectory(Path(tmpdir))
+            assert os.fspath(safe_dir) == str(Path(tmpdir).resolve())
 
 
 class TestCheckReasonableZip:
@@ -137,10 +200,10 @@ class TestCheckReasonableZip:
 
             try:
                 provider = ZipProvider(temp_path)
-                temp_dir = provider.extract_to_temp_directory()
+                safe_dir = provider.extract_to_temp_directory()
 
-                assert temp_dir.exists()
-                assert (temp_dir / "test.txt").exists()
-                assert (temp_dir / "test.txt").read_text() == "content"
+                assert safe_dir.exists()
+                assert (safe_dir / "test.txt").exists()
+                assert (safe_dir / "test.txt").read_text() == "content"
             finally:
                 temp_path.unlink(missing_ok=True)

@@ -34,7 +34,7 @@ def analyze_apple_files(
 
     logger.debug("Analyzing files in app bundle")
 
-    app_bundle_path = xcarchive.get_app_bundle_path()
+    app_bundle_path = xcarchive.get_app_bundle_path().path
 
     files: Dict[str, FileInfo] = {}
     dirs: Dict[str, FileInfo] = {}

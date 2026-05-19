@@ -8,7 +8,8 @@ from unittest.mock import patch
 import pytest
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
-from launchpad.artifacts.providers.zip_provider import UnsafePathError
+from launchpad.artifacts.providers.exceptions import UnsafePathError
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 
 
 class TestZippedXCArchive:
@@ -16,7 +17,7 @@ class TestZippedXCArchive:
 
     def test_top_level_asset_catalog_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
+            tmpdir_path = Path(tmpdir).resolve()
 
             xcarchive_dir = tmpdir_path / "Test.xcarchive"
             parsed_assets_dir = xcarchive_dir / "ParsedAssets" / "Products" / "Applications" / "Test.app"
@@ -40,12 +41,12 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     elements = archive.get_asset_catalog_details(Path("Assets.car"))
 
@@ -60,7 +61,7 @@ class TestZippedXCArchive:
 
     def test_nested_bundle_asset_catalog_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
+            tmpdir_path = Path(tmpdir).resolve()
 
             xcarchive_dir = tmpdir_path / "Test.xcarchive"
             parsed_assets_dir = xcarchive_dir / "ParsedAssets" / "Products" / "Applications" / "Test.app"
@@ -85,12 +86,12 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     elements = archive.get_asset_catalog_details(Path("PlugIns/TestExtension.appex/Assets.car"))
 
@@ -106,7 +107,7 @@ class TestZippedXCArchive:
 
     def test_framework_bundle_asset_catalog_parsing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir_path = Path(tmpdir)
+            tmpdir_path = Path(tmpdir).resolve()
 
             xcarchive_dir = tmpdir_path / "Test.xcarchive"
             parsed_assets_dir = xcarchive_dir / "ParsedAssets" / "Products" / "Applications" / "Test.app"
@@ -131,12 +132,12 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     elements = archive.get_asset_catalog_details(Path("MyFramework.bundle/Assets.car"))
 
@@ -152,8 +153,8 @@ class TestZippedXCArchive:
 
     def test_get_binary_path_rejects_path_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_bundle_path = Path(tmpdir) / "Test.app"
-            app_bundle_path.mkdir()
+            app_bundle_path = SafeDirectory(Path(tmpdir) / "Test.app")
+            app_bundle_path.path.mkdir()
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
@@ -167,8 +168,8 @@ class TestZippedXCArchive:
 
     def test_get_main_binary_path_rejects_path_traversal(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            app_bundle_path = Path(tmpdir) / "Test.app"
-            app_bundle_path.mkdir()
+            app_bundle_path = SafeDirectory(Path(tmpdir) / "Test.app")
+            app_bundle_path.path.mkdir()
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
@@ -229,12 +230,12 @@ class TestZippedXCArchive:
 
             with patch.object(ZippedXCArchive, "__init__", lambda self, path: None):
                 archive = ZippedXCArchive(Path("dummy"))
-                archive._extract_dir = tmpdir_path
+                archive._extract_dir = SafeDirectory(tmpdir_path)
 
                 with patch.object(
                     archive,
                     "get_app_bundle_path",
-                    return_value=xcarchive_dir / "Products" / "Applications" / "Test.app",
+                    return_value=SafeDirectory(xcarchive_dir / "Products" / "Applications" / "Test.app"),
                 ):
                     with pytest.raises(UnsafePathError):
                         archive.get_asset_catalog_details(Path("Assets.car"))

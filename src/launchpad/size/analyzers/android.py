@@ -276,7 +276,7 @@ class AndroidAnalyzer:
         all_reports: dict[str, HermesReport] = {}
         for apk in apks:
             extract_path = apk.get_extract_path()
-            apk_reports = make_hermes_reports(extract_path)
+            apk_reports = make_hermes_reports(extract_path.path)
             for relative_path, report in apk_reports.items():
                 if relative_path in all_reports:
                     logger.warning(f"Duplicate Hermes report key found: {relative_path}, overwriting")

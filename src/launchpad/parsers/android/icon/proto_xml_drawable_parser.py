@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from launchpad.artifacts.android.manifest.proto_xml import ProtoXmlUtils
 from launchpad.artifacts.android.resources.proto import ProtobufResourceTable
 from launchpad.artifacts.android.resources.protos.Resources_pb2 import (  # type: ignore[attr-defined]
@@ -13,6 +11,7 @@ from launchpad.artifacts.android.resources.protos.Resources_pb2 import (
 from launchpad.artifacts.android.resources.protos.Resources_pb2 import (
     XmlNode as PbXmlNode,  # type: ignore[attr-defined]
 )
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.parsers.android.binary.types import (
     NodeType,
     TypedValue,
@@ -27,7 +26,7 @@ logger = get_logger(__name__)
 
 
 class ProtoXmlDrawableParser(IconParser):
-    def __init__(self, extract_dir: Path, proto_res_tables: list[ProtobufResourceTable]) -> None:
+    def __init__(self, extract_dir: SafeDirectory, proto_res_tables: list[ProtobufResourceTable]) -> None:
         super().__init__(extract_dir)
         self.proto_res_tables = proto_res_tables
 

@@ -19,7 +19,8 @@ from launchpad.utils.file_utils import cleanup_directory, create_temp_directory
 from launchpad.utils.logging import get_logger
 
 from ..artifact import AndroidArtifact
-from ..providers.zip_provider import UnsafePathError, ZipProvider, is_safe_path
+from ..providers.exceptions import UnsafePathError
+from ..providers.zip_provider import ZipProvider
 from .apk import APK
 from .manifest.manifest import AndroidManifest
 from .manifest.proto_xml import ProtoXmlUtils
@@ -156,11 +157,8 @@ class AAB(AndroidArtifact):
             logger.info("No icon path found in manifest")
             return None
 
-        base_dir = self._extract_dir / "base"
-        if not is_safe_path(base_dir, icon_path_str):
-            raise UnsafePathError(f"Unsafe icon path in manifest: {icon_path_str}")
-
-        icon_path = base_dir / icon_path_str
+        base_dir = self._extract_dir.child("base")
+        icon_path = base_dir.resolve(icon_path_str)
 
         if not icon_path.exists():
             logger.info(f"Icon not found in AAB: {icon_path_str}")
@@ -171,7 +169,7 @@ class AAB(AndroidArtifact):
             try:
                 proto_res_tables = self.get_resource_tables()
 
-                proto_xml_drawable_parser = ProtoXmlDrawableParser(self._extract_dir / "base", proto_res_tables)
+                proto_xml_drawable_parser = ProtoXmlDrawableParser(self._extract_dir.child("base"), proto_res_tables)
 
                 icon = proto_xml_drawable_parser.render_from_path(icon_path)
                 if icon:

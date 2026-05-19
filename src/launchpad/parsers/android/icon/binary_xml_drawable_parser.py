@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from launchpad.artifacts.android.manifest.axml import AxmlUtils
 from launchpad.artifacts.android.resources.binary import BinaryResourceTable
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.parsers.android.binary.android_binary_parser import AndroidBinaryParser
 from launchpad.parsers.android.binary.types import XmlNode
 from launchpad.utils.logging import get_logger
@@ -16,7 +15,7 @@ logger = get_logger(__name__)
 class BinaryXmlDrawableParser(IconParser):
     def __init__(
         self,
-        extract_dir: Path,
+        extract_dir: SafeDirectory,
         binary_res_tables: list[BinaryResourceTable],
     ) -> None:
         super().__init__(extract_dir)
