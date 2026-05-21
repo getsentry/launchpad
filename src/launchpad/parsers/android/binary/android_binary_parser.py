@@ -42,9 +42,13 @@ class AndroidBinaryParser:
         chunk_type = self.buffer_wrapper.read_u16()
         header_size = self.buffer_wrapper.read_u16()
         chunk_size = self.buffer_wrapper.read_u32()
+        try:
+            parsed_chunk_type: ChunkType | int = ChunkType(chunk_type)
+        except ValueError:
+            parsed_chunk_type = chunk_type
         return ChunkHeader(
             start_offset=start_offset,
-            chunk_type=ChunkType(chunk_type),
+            chunk_type=parsed_chunk_type,
             header_size=header_size,
             chunk_size=chunk_size,
         )

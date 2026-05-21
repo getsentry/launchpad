@@ -23,6 +23,9 @@ class ChunkType(IntEnum):
     TABLE_TYPE = 0x0201
     TABLE_TYPE_SPEC = 0x0202
     TABLE_LIBRARY = 0x0203
+    TABLE_OVERLAYABLE = 0x0204
+    TABLE_OVERLAYABLE_POLICY = 0x0205
+    TABLE_STAGED_ALIAS = 0x0206
 
 
 class NodeType(IntEnum):
@@ -83,7 +86,7 @@ class ChunkHeader:
     """Header for a binary chunk."""
 
     start_offset: int
-    chunk_type: ChunkType
+    chunk_type: Union[ChunkType, int]
     header_size: int
     chunk_size: int
 
