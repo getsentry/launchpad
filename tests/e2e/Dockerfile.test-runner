@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.14.4-slim-bookworm
 
 # Install uv
 RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.11.17'

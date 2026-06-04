@@ -27,7 +27,7 @@ RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
     make install
 
 # Use Python 3.14 slim image
-FROM python:3.14-slim-bookworm
+FROM python:3.14.4-slim-bookworm
 
 # Build argument to determine if this is a test build
 ARG TEST_BUILD=false
