@@ -5,29 +5,21 @@ help:
 	@echo "Available targets:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# Python and virtual environment setup
 VENV_DIR := .venv
-UV := uv
-PYTHON_VENV := $(VENV_DIR)/bin/python
 
-# Create virtual environment and install dependencies with uv
-$(VENV_DIR):
-	$(UV) venv
-
-install-dev: $(VENV_DIR)
-	$(UV) pip install -r requirements-dev.txt
-	$(UV) pip install -e .
-	$(PYTHON_VENV) scripts/deps
+install-dev: ## Install all dependencies including dev tools
+	uv sync --group dev
+	$(VENV_DIR)/bin/python scripts/deps
 	$(VENV_DIR)/bin/pre-commit install
 
 test:
-	$(PYTHON_VENV) -m pytest -n auto tests/unit/ tests/integration/ -v
+	uv run pytest -n auto tests/unit/ tests/integration/ -v
 
 test-unit:
-	$(PYTHON_VENV) -m pytest -n auto tests/unit/ -v
+	uv run pytest -n auto tests/unit/ -v
 
 test-integration:
-	$(PYTHON_VENV) -m pytest -n auto tests/integration/ -v
+	uv run pytest -n auto tests/integration/ -v
 
 test-e2e:  ## Run E2E tests with Docker Compose
 	@echo "Starting E2E test environment..."
@@ -45,32 +37,31 @@ test-e2e-logs:  ## Show logs from E2E environment
 	docker compose -f docker-compose.e2e.yml logs -f
 
 coverage:
-	$(PYTHON_VENV) -m pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml
+	uv run pytest tests/unit/ tests/integration/ -v --cov --cov-branch --cov-report=xml --junitxml=junit.xml
 
 # Code quality targets (using ruff and ty)
 check-lint:
-	$(PYTHON_VENV) -m ruff check src/ tests/
+	uv run ruff check src/ tests/
 
 check-format:  ## Check code format without modifying files
-	$(PYTHON_VENV) -m ruff format --check src/ tests/
+	uv run ruff format --check src/ tests/
 
 check-types:  ## Run type checking with ty
-	$(PYTHON_VENV) -m ty check --error-on-warning src
+	uv run ty check --error-on-warning src
 
 check-deps:
-	$(PYTHON_VENV) scripts/deps --check
+	uv run python scripts/deps --check
 
 fix:  ## Auto-fix code issues (format, remove unused imports, fix line endings)
-	$(PYTHON_VENV) -m ruff format src/ tests/
-	$(PYTHON_VENV) -m ruff check --fix src/ tests/
+	uv run ruff format src/ tests/
+	uv run ruff check --fix src/ tests/
 
 # Build targets
-build: clean $(VENV_DIR)  ## Build the package
-	$(UV) pip install build
-	$(PYTHON_VENV) -m build
+build: clean  ## Build the package
+	uv build
 
 build-wheel:  ## Build wheel only
-	$(PYTHON_VENV) -m build --wheel
+	uv build --wheel
 
 # Maintenance targets
 clean:
@@ -94,30 +85,30 @@ all: clean install-dev check test build
 
 run-cli:  ## Run the CLI tool (use ARGS="..." to pass arguments, DEBUG=1 to run with debugger)
 	@if [ "$(DEBUG)" = "1" ]; then \
-		$(PYTHON_VENV) -m debugpy --listen 5678 --wait-for-client -m launchpad.cli $(ARGS); \
+		uv run python -m debugpy --listen 5678 --wait-for-client -m launchpad.cli $(ARGS); \
 	else \
-		$(PYTHON_VENV) -m launchpad.cli $(ARGS); \
+		uv run launchpad $(ARGS); \
 	fi
 
 worker:  ## Start the Launchpad TaskWorker
 	@echo "Starting Launchpad TaskWorker..."
-	$(PYTHON_VENV) -m launchpad.cli worker --verbose
+	uv run launchpad worker --verbose
 
 test-download-artifact:
-	$(PYTHON_VENV) scripts/test_download_artifact.py --verbose
+	uv run python scripts/test_download_artifact.py --verbose
 
 test-artifact-update:
-	$(PYTHON_VENV) scripts/test_artifact_update.py --build-version "1.0.0" --build-number 42 --verbose
+	uv run python scripts/test_artifact_update.py --build-version "1.0.0" --build-number 42 --verbose
 
 test-artifact-size-analysis-upload:
-	$(PYTHON_VENV) scripts/test_artifact_size_analysis_upload.py --verbose
+	uv run python scripts/test_artifact_size_analysis_upload.py --verbose
 
 # Show current status
 status:
-	@echo "Python version: $$($(PYTHON_VENV) --version)"
+	@echo "Python version: $$(uv run python --version)"
 	@echo "Virtual environment: $$(if [ -d $(VENV_DIR) ]; then echo 'exists'; else echo 'missing'; fi)"
 	@echo "Pre-commit hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"
-	@echo "UV version: $$($(UV) --version 2>/dev/null || echo 'not installed')"
+	@echo "UV version: $$(uv --version 2>/dev/null || echo 'not installed')"
 
 
 gocd: ## Build GoCD pipelines

@@ -1,5 +1,10 @@
 FROM python:3.13-slim
 
+# Install uv
+RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.11.17'
+
+ENV UV_SYSTEM_PYTHON=1
+
 WORKDIR /app
 
 # Install system dependencies
@@ -8,12 +13,8 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-RUN pip install --no-cache-dir \
-    fastapi==0.115.0 \
-    uvicorn[standard]==0.32.0 \
-    pydantic==2.9.2 \
-    boto3==1.35.0 \
-    python-multipart==0.0.20
+COPY tests/e2e/mock-sentry-api/pyproject.toml tests/e2e/mock-sentry-api/uv.lock ./
+RUN uv sync --frozen --no-install-project
 
 # Copy mock API server code
 COPY tests/e2e/mock-sentry-api/server.py .

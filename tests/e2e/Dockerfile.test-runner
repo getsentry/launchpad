@@ -1,5 +1,10 @@
 FROM python:3.14-slim
 
+# Install uv
+RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.11.17'
+
+ENV UV_SYSTEM_PYTHON=1
+
 WORKDIR /app
 
 # Install system dependencies (librdkafka needed by confluent-kafka via taskbroker-client)
@@ -10,21 +15,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librdkafka-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python test dependencies
-RUN pip install --no-cache-dir \
-    pytest==8.3.3 \
-    requests==2.32.3 \
-    boto3==1.35.0
+# Copy dependency manifests first for layer caching
+COPY pyproject.toml uv.lock ./
 
-# Install launchpad package (gives us process_artifact.delay() via taskbroker-client)
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+# Install launchpad dependencies + e2e test deps, skip dev tools
+RUN uv sync --frozen --no-dev --group e2e --no-install-project
 
-COPY src/ /tmp/src/
-COPY pyproject.toml /tmp/pyproject.toml
-COPY README.md /tmp/README.md
-COPY LICENSE /tmp/LICENSE
-RUN pip install --no-cache-dir /tmp/
+# Copy source and install the project
+COPY src/ ./src/
+COPY README.md LICENSE ./
+RUN uv sync --frozen --no-dev --group e2e
 
 # Copy only E2E test files (not the main test suite)
 # Copy to root to avoid pytest finding parent conftest.py
