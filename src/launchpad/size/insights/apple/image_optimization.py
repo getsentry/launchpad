@@ -12,7 +12,7 @@ from typing import List
 
 import pillow_heif  # type: ignore
 
-from PIL import Image, ImageFile
+from PIL import Image, ImageFile, UnidentifiedImageError
 
 from launchpad.size.insights.insight import Insight, InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
@@ -121,6 +121,10 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             logger.info("Skipping %s because it has no full path", file_info.path)
             return None
 
+        if file_info.size == 0:
+            logger.info("Skipping %s because it is empty (0 bytes)", file_info.path)
+            return None
+
         try:
             with Image.open(file_info.full_path) as img:
                 img.load()  # type: ignore
@@ -159,6 +163,9 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                     idiom=file_info.idiom,
                     colorspace=file_info.colorspace,
                 )
+        except UnidentifiedImageError:
+            logger.warning("Skipping %s: cannot identify image format", file_info.path)
+            return None
         except Exception:
             logger.exception("Failed to open or process image file")
             return None
