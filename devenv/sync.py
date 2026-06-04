@@ -1,22 +1,23 @@
 import os
+import shutil
 import subprocess
-import sys
 
-from devenv import constants
-from devenv.lib import proc, config, venv, fs, uv # type: ignore
+from devenv.lib import proc, config, venv, fs # type: ignore
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def main(context: dict[str, str]) -> int:
     reporoot = context["reporoot"]
-    cfg = config.get_repo(reporoot)
 
-    uv.install(
-        cfg["uv"]["version"],
-        cfg["uv"][constants.SYSTEM_MACHINE],
-        cfg["uv"][f"{constants.SYSTEM_MACHINE}_sha256"],
-        reporoot,
-    )
+    if os.path.exists(f"{reporoot}/.devenv/bin/uv"):
+        os.remove(f"{reporoot}/.devenv/bin/uv")
+
+    if os.path.exists(f"{reporoot}/.devenv/bin/uvx"):
+        os.remove(f"{reporoot}/.devenv/bin/uvx")
+
+    if not shutil.which("uv"):
+        print("\n\n\ndevenv is no longer managing uv; please run `brew install uv`.\n\n\n")
+        return 1
 
     venv_dir, python_version, requirements, editable_paths, bins = venv.get(reporoot, "launchpad")  # type: ignore
     url, sha256 = config.get_python(reporoot, python_version)  # type: ignore
