@@ -27,7 +27,7 @@ RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
     make install
 
 # Use Python 3.14 slim image
-FROM python:3.14-slim-bookworm
+FROM python:3.14.4-slim-bookworm
 
 # Build argument to determine if this is a test build
 ARG TEST_BUILD=false
@@ -35,8 +35,13 @@ ARG TEST_BUILD=false
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PATH="/.venv/bin:$PATH" \
+    UV_PROJECT_ENVIRONMENT=/.venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_NO_CACHE=1
+
+# Install uv
+RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.11.17'
 
 # Create app user and group
 RUN groupadd --gid 1000 app && \
@@ -64,12 +69,14 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt requirements-dev.txt ./
+# Copy dependency manifests first for better layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install Python dependencies (excluding the project itself)
 RUN if [ "$TEST_BUILD" = "true" ]; then \
-    pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt; \
+    uv sync --frozen --no-install-project --group dev; \
     else \
-    pip install --no-cache-dir -r requirements.txt; \
+    uv sync --frozen --no-install-project --no-dev; \
     fi
 
 # Copy source code, tests, and scripts
@@ -77,7 +84,6 @@ COPY src/ ./src/
 COPY tests/ ./tests/
 COPY scripts/ ./scripts/
 COPY devservices/ ./devservices/
-COPY pyproject.toml .
 COPY README.md .
 COPY LICENSE .
 
@@ -100,7 +106,12 @@ RUN if [ "$TEST_BUILD" = "true" ]; then \
     rm -rf tests/_fixtures; \
     fi
 
-RUN pip install -e .
+# Install the project itself
+RUN if [ "$TEST_BUILD" = "true" ]; then \
+    uv sync --frozen --group dev; \
+    else \
+    uv sync --frozen --no-dev; \
+    fi
 
 RUN python scripts/deps --install --local-architecture=x86_64 --local-system=linux && \
     rm -rf /app/.devenv

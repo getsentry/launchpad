@@ -8,9 +8,6 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Virtual environments
-venv/
 .venv/
 env/
 
@@ -56,5 +53,3 @@ output/
 gocd/templates/vendor/
 gocd/generated-pipelines/
 
-# uv
-uv.lock

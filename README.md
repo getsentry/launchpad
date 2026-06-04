@@ -12,8 +12,8 @@ A service for analyzing iOS and Android apps.
 git clone https://github.com/getsentry/launchpad.git
 cd launchpad
 
-# Installs our local dependencies
-devenv sync
+direnv allow
+devenv sync  (or just uv sync then ./scripts/deps)
 ```
 
 If you don't have devenv installed, [follow these instructions](https://github.com/getsentry/devenv#install).
