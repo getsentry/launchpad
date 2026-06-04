@@ -71,7 +71,7 @@ COPY pyproject.toml uv.lock ./
 
 # Install Python dependencies (excluding the project itself)
 RUN if [ "$TEST_BUILD" = "true" ]; then \
-    uv sync --frozen --no-install-project; \
+    uv sync --frozen --no-install-project --group dev; \
     else \
     uv sync --frozen --no-install-project --no-dev; \
     fi
@@ -105,7 +105,7 @@ RUN if [ "$TEST_BUILD" = "true" ]; then \
 
 # Install the project itself
 RUN if [ "$TEST_BUILD" = "true" ]; then \
-    uv sync --frozen; \
+    uv sync --frozen --group dev; \
     else \
     uv sync --frozen --no-dev; \
     fi
