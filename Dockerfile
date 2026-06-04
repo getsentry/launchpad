@@ -35,7 +35,10 @@ ARG TEST_BUILD=false
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    UV_SYSTEM_PYTHON=1
+    PATH="/.venv/bin:$PATH" \
+    UV_PROJECT_ENVIRONMENT=/.venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_NO_CACHE=1
 
 # Install uv
 RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.11.17'
