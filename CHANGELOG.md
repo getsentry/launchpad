@@ -8,6 +8,16 @@
 
 - (security) Add SafeDirectory to enforce path traversal checks by @runningcode in [#623](https://github.com/getsentry/launchpad/pull/623)
 
+## 26.6.0
+
+### Bug Fixes 🐛
+
+- (size) Skip empty image files and demote UnidentifiedImageError logging by @sentry in [#629](https://github.com/getsentry/launchpad/pull/629)
+
+### Internal Changes 🔧
+
+- Brew-managed uv, requirements -> uv.lock, pin 3.14.4-slim-bookworm by @kenzoengineer in [#631](https://github.com/getsentry/launchpad/pull/631)
+
 ## 26.5.2
 
 ### Internal Changes 🔧
