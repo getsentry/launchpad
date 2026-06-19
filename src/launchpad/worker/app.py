@@ -2,9 +2,8 @@ import os
 
 from arroyo.backends.kafka import KafkaProducer
 from taskbroker_client.app import TaskbrokerApp
-from taskbroker_client.metrics import MetricsBackend, DatadogMetrics
+from taskbroker_client.metrics import DatadogMetrics, MetricsBackend
 from taskbroker_client.router import TaskRouter
-
 
 
 class CustomRouter(TaskRouter):
