@@ -44,7 +44,7 @@ dependencies = [
     "sentry-arroyo>=2.38.7",
     "sentry-sdk>=2.36.0",
     "sortedcontainers>=2.4.0",
-    "taskbroker-client>=0.19.3,<1",
+    "taskbroker-client>=0.20.1,<1",
     "typing-extensions>=4.15.0",
     "zipfile-zstd==0.0.4",
 ]
