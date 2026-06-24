@@ -856,7 +856,7 @@ requires-dist = [
     { name = "sentry-arroyo", specifier = ">=2.38.7" },
     { name = "sentry-sdk", specifier = ">=2.36.0" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
-    { name = "taskbroker-client", specifier = ">=0.20.0,<1" },
+    { name = "taskbroker-client", specifier = ">=0.20.1,<1" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
     { name = "zipfile-zstd", specifier = "==0.0.4" },
 ]
@@ -1944,7 +1944,7 @@ wheels = [
 
 [[package]]
 name = "taskbroker-client"
-version = "0.20.0"
+version = "0.20.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "confluent-kafka" },
@@ -1960,9 +1960,9 @@ dependencies = [
     { name = "sentry-sdk", extra = ["http2"] },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0f/66/d54064c888d14680a037c982aaa2357241c933b565e6c0a6311f9fef5904/taskbroker_client-0.20.0.tar.gz", hash = "sha256:2c98838536974599f2b3d502e00a4d650c82da658fb4b8ede0f57aaf001c3a97", size = 38462, upload-time = "2026-06-19T18:48:03.639Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/d0/f431bddc5439bc4380f974a0fb6bb48039ef9de2db9ebd263d27a21aee00/taskbroker_client-0.20.1.tar.gz", hash = "sha256:72c96ced88d699bf110f5fa91483a55a2facd5862a1b889036e4a6683a222504", size = 38598, upload-time = "2026-06-22T16:30:05.21Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4b/45/0cc0a6e21a11e9b5e154c734fcd06ee0cc1d3aa02b14072d62e8c125a90f/taskbroker_client-0.20.0-py3-none-any.whl", hash = "sha256:0c7af97508162af86f3d925ded28101c4a4266437f382a5d8212cdb889cfc9fa", size = 49395, upload-time = "2026-06-19T18:48:02.48Z" },
+    { url = "https://files.pythonhosted.org/packages/05/54/bfa8cb55b7befbae37de85d1895b11583cb1e967966c0bee9c69f0a6a596/taskbroker_client-0.20.1-py3-none-any.whl", hash = "sha256:56c9de6d8d2f2a483516cebe27c27704a4613c96335b124ecdbf485c363a77d8", size = 49540, upload-time = "2026-06-22T16:30:04.147Z" },
 ]
 
 [[package]]
