@@ -34,7 +34,6 @@ def create_metrics() -> MetricsBackend:
         processing_pool="launchpad",
         statsd_host=host,
         statsd_port=port,
-        enable_prefixed_metrics=True,
     )
 
 
