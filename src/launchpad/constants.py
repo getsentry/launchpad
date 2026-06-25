@@ -42,10 +42,6 @@ class InstallableAppErrorCode(Enum):
     UNSUPPORTED_ARTIFACT_TYPE = 8
 
 
-# Health check threshold - consider unhealthy if file not touched in 60 seconds
-HEALTHCHECK_MAX_AGE_SECONDS = 60.0
-
-
 class ProcessingErrorMessage(Enum):
     """Fixed set of error messages for artifact processing."""
 
