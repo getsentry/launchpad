@@ -26,7 +26,7 @@ class WorkerConfig:
     health_check_file_path: str
     max_child_task_count: int
     pod_name: str
-    worker_rpc_port: str
+    worker_rpc_port: int
     push_mode: bool
     push_timeout_sec: int
 
