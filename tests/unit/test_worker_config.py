@@ -103,6 +103,7 @@ class TestGetWorkerConfig:
             os.environ,
             {
                 "LAUNCHPAD_WORKER_RPC_HOST_SERVICE": "localhost:50051",
+                "LAUNCHPAD_WORKER_CONCURRENCY": "8",
             },
         ):
             config = get_worker_config()
