@@ -89,7 +89,9 @@ def run_worker(
         f"max_child_task_count={config.max_child_task_count}, health_check_file_path={config.health_check_file_path})"
     )
     if config.push_mode:
-        assert config.rpc_host_service, "LAUNCHPAD_WORKER_RPC_HOST_SERVICE environment variable is required when push mode is enabled"
+        assert config.rpc_host_service, (
+            "LAUNCHPAD_WORKER_RPC_HOST_SERVICE environment variable is required when push mode is enabled"
+        )
         worker: PushTaskWorker | TaskWorker = BatchPushTaskWorker(
             app_module="launchpad.worker.app:app",
             broker_service=config.rpc_host_service,
