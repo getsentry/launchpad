@@ -31,7 +31,9 @@ def get_worker_config() -> WorkerConfig:
     rpc_host = os.getenv("LAUNCHPAD_WORKER_RPC_HOST")
     rpc_host_service = os.getenv("LAUNCHPAD_WORKER_RPC_HOST_SERVICE", "")
     if not rpc_host and not rpc_host_service:
-        raise ValueError("LAUNCHPAD_WORKER_RPC_HOST or LAUNCHPAD_WORKER_RPC_HOST_SERVICE environment variable is required")
+        raise ValueError(
+            "LAUNCHPAD_WORKER_RPC_HOST or LAUNCHPAD_WORKER_RPC_HOST_SERVICE environment variable is required"
+        )
 
     rpc_hosts = [h.strip() for h in rpc_host.split(",")] if rpc_host else []
 
@@ -63,7 +65,13 @@ def get_worker_config() -> WorkerConfig:
     )
 
 
-def run_worker(processing_pool_name: str = "launchpad", pod_name: str = "", worker_rpc_port: str = "50052", push_mode: bool = False, push_timeout_sec: int = 5) -> None:
+def run_worker(
+    processing_pool_name: str = "launchpad",
+    pod_name: str = "",
+    worker_rpc_port: str = "50052",
+    push_mode: bool = False,
+    push_timeout_sec: int = 5,
+) -> None:
     initialize_sentry_sdk()
     config = get_worker_config()
 
