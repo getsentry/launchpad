@@ -27,7 +27,11 @@ def cli(ctx: click.Context, version: bool) -> None:
 @cli.command()
 @click.option("--processing-pool-name", default="launchpad", help="Name of the processing pool.", show_default=True)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
-def worker(processing_pool_name: str, verbose: bool) -> None:
+@click.option("--pod-name", default="", help="Name of the pod.", show_default=True)
+@click.option("--worker-rpc-port", default="50052", help="Port of the worker RPC server.", show_default=True)
+@click.option("--push-mode", is_flag=True, help="Enable push mode.")
+@click.option("--push-timeout-sec", default=5, help="Timeout for push mode.", show_default=True)
+def worker(processing_pool_name: str, verbose: bool, pod_name: str, worker_rpc_port: str, push_mode: bool, push_timeout_sec: int) -> None:
     """Start the Launchpad TaskWorker.
 
     Runs the TaskWorker only, without an HTTP server.
@@ -49,7 +53,7 @@ def worker(processing_pool_name: str, verbose: bool) -> None:
     console.print()
 
     try:
-        run_worker(processing_pool_name=processing_pool_name)
+        run_worker(processing_pool_name=processing_pool_name, pod_name=pod_name, worker_rpc_port=worker_rpc_port, push_mode=push_mode, push_timeout_sec=push_timeout_sec)
     except KeyboardInterrupt:
         console.print("\n[yellow]Worker stopped by user[/yellow]")
     except SystemExit:

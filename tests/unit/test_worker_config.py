@@ -24,6 +24,7 @@ class TestGetWorkerConfig:
             config = get_worker_config()
             assert config == WorkerConfig(
                 rpc_hosts=["localhost:50051"],
+                rpc_host_service="",
                 concurrency=8,
                 health_check_file_path=DEFAULT_HEALTH_CHECK_FILE_PATH,
                 max_child_task_count=DEFAULT_MAX_CHILD_TASK_COUNT,
@@ -96,3 +97,13 @@ class TestGetWorkerConfig:
         ):
             with pytest.raises(ValueError, match="LAUNCHPAD_WORKER_MAX_CHILD_TASK_COUNT must be a valid integer"):
                 get_worker_config()
+
+    def test_rpc_host_service(self):
+        with patch.dict(
+            os.environ,
+            {
+                "LAUNCHPAD_WORKER_RPC_HOST_SERVICE": "localhost:50051",
+            },
+        ):
+            config = get_worker_config()
+            assert config.rpc_host_service == "localhost:50051"
