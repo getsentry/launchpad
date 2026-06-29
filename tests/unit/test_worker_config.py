@@ -28,6 +28,10 @@ class TestGetWorkerConfig:
                 concurrency=8,
                 health_check_file_path=DEFAULT_HEALTH_CHECK_FILE_PATH,
                 max_child_task_count=DEFAULT_MAX_CHILD_TASK_COUNT,
+                pod_name="",
+                worker_rpc_port="50052",
+                push_mode=False,
+                push_timeout_sec=5,
             )
 
     def test_custom_health_check_file_path(self):
