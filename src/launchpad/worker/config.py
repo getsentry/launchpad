@@ -61,9 +61,19 @@ def get_worker_config() -> WorkerConfig:
         )
 
     pod_name = os.getenv("LAUNCHPAD_WORKER_POD_NAME", "")
-    worker_rpc_port = os.getenv("LAUNCHPAD_WORKER_RPC_PORT", "50052")
+    try:
+        worker_rpc_port = int(os.getenv("LAUNCHPAD_WORKER_RPC_PORT", "50052"))
+    except ValueError:
+        raise ValueError(
+            f"LAUNCHPAD_WORKER_RPC_PORT must be a valid integer, got: {os.getenv('LAUNCHPAD_WORKER_RPC_PORT', '50052')}"
+        )
     push_mode = os.getenv("LAUNCHPAD_WORKER_PUSH_MODE", "false") == "true"
-    push_timeout_sec = int(os.getenv("LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC", "5"))
+    try:
+        push_timeout_sec = int(os.getenv("LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC", "5"))
+    except ValueError:
+        raise ValueError(
+            f"LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC must be a valid integer, got: {os.getenv('LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC', '5')}"
+        )
 
     return WorkerConfig(
         rpc_hosts=rpc_hosts,
