@@ -27,7 +27,10 @@ def cli(ctx: click.Context, version: bool) -> None:
 @cli.command()
 @click.option("--processing-pool-name", default="launchpad", help="Name of the processing pool.", show_default=True)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
-def worker(processing_pool_name: str, verbose: bool) -> None:
+def worker(
+    processing_pool_name: str,
+    verbose: bool,
+) -> None:
     """Start the Launchpad TaskWorker.
 
     Runs the TaskWorker only, without an HTTP server.
@@ -49,7 +52,9 @@ def worker(processing_pool_name: str, verbose: bool) -> None:
     console.print()
 
     try:
-        run_worker(processing_pool_name=processing_pool_name)
+        run_worker(
+            processing_pool_name=processing_pool_name,
+        )
     except KeyboardInterrupt:
         console.print("\n[yellow]Worker stopped by user[/yellow]")
     except SystemExit:
