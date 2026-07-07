@@ -26,7 +26,6 @@ class WorkerConfig:
     health_check_file_path: str
     max_child_task_count: int
     pod_name: str
-    worker_rpc_port: int
     push_mode: bool
     push_timeout_sec: int
 
@@ -61,12 +60,6 @@ def get_worker_config() -> WorkerConfig:
         )
 
     pod_name = os.getenv("LAUNCHPAD_WORKER_POD_NAME", "")
-    try:
-        worker_rpc_port = int(os.getenv("LAUNCHPAD_WORKER_RPC_PORT", "50052"))
-    except ValueError:
-        raise ValueError(
-            f"LAUNCHPAD_WORKER_RPC_PORT must be a valid integer, got: {os.getenv('LAUNCHPAD_WORKER_RPC_PORT', '50052')}"
-        )
     push_mode = os.getenv("LAUNCHPAD_WORKER_PUSH_MODE", "false") == "true"
     try:
         push_timeout_sec = int(os.getenv("LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC", "5"))
@@ -82,7 +75,6 @@ def get_worker_config() -> WorkerConfig:
         health_check_file_path=health_check_file_path,
         max_child_task_count=max_child_task_count,
         pod_name=pod_name,
-        worker_rpc_port=worker_rpc_port,
         push_mode=push_mode,
         push_timeout_sec=push_timeout_sec,
     )
