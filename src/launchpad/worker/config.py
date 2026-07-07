@@ -114,7 +114,6 @@ def run_worker(
             process_type="forkserver",
             health_check_file_path=config.health_check_file_path,
             pod_name=config.pod_name,
-            worker_rpc_port=config.worker_rpc_port,
             update_in_batches=True,
             push_task_timeout=config.push_timeout_sec,
         )
