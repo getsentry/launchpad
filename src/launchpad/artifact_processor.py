@@ -680,6 +680,16 @@ def _parse_build_number(build: str) -> int | None:
     zero-padding each component, which preserves correct ordering as long as no
     component reaches 10**_BUILD_NUMBER_COMPONENT_WIDTH. Anything else
     (non-numeric, malformed) returns None, same as today.
+
+    Known limitation: plain-integer values are left small while packed dotted
+    values are much larger, so if the same app_id/build_version ever has builds
+    in both conventions, this int alone is not a reliable ordering between them.
+    We can't fix that here — a single artifact update has no visibility into
+    sibling artifacts' formats, and unifying the magnitude would break backward
+    compatibility with every already-stored plain-integer build_number. Sentry's
+    tiebreak query should treat this as a fast, common-case sort key and fall
+    back to comparing the raw build string (build_number_raw) directly when it
+    needs to be authoritative across mixed formats.
     """
     if build.isdigit():
         return int(build)
