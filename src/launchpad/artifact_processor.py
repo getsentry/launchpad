@@ -665,22 +665,28 @@ def _guess_message(code: ProcessingErrorCode, e: Exception) -> ProcessingErrorMe
     return ProcessingErrorMessage.UNKNOWN_ERROR
 
 
-def _parse_build_number(build: str, component_width: int = 6) -> int | None:
+# Zero-padding width per CFBundleVersion component when packing it into a single
+# sortable int. 6 digits comfortably covers any realistic CI build counter while
+# leaving the packed value well under BoundedBigIntegerField's max (bigint).
+_BUILD_NUMBER_COMPONENT_WIDTH = 6
+
+
+def _parse_build_number(build: str) -> int | None:
     """Parse a raw build identifier (e.g. CFBundleVersion) into a sortable int.
 
     Plain integer builds (the common case, e.g. Android versionCode) pass through
     unchanged. Apple's CFBundleVersion also allows up to three dot-separated
     non-negative integers (e.g. "1.2.3"); those are packed into a single int by
-    zero-padding each component to `component_width` digits, which preserves
-    correct ordering as long as no component reaches 10**component_width.
-    Anything else (non-numeric, malformed) returns None, same as today.
+    zero-padding each component, which preserves correct ordering as long as no
+    component reaches 10**_BUILD_NUMBER_COMPONENT_WIDTH. Anything else
+    (non-numeric, malformed) returns None, same as today.
     """
     if build.isdigit():
         return int(build)
 
     parts = build.split(".")
-    if 2 <= len(parts) <= 3 and all(p.isdigit() and len(p) <= component_width for p in parts):
+    if 2 <= len(parts) <= 3 and all(p.isdigit() and len(p) <= _BUILD_NUMBER_COMPONENT_WIDTH for p in parts):
         parts += ["0"] * (3 - len(parts))
-        return sum(int(part) * 10 ** (component_width * (2 - i)) for i, part in enumerate(parts))
+        return sum(int(part) * 10 ** (_BUILD_NUMBER_COMPONENT_WIDTH * (2 - i)) for i, part in enumerate(parts))
 
     return None
