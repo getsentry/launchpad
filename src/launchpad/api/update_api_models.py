@@ -65,6 +65,9 @@ class UpdateData(BaseModel):
     app_id: str
     build_version: str
     build_number: Optional[int]
+    build_number_raw: Optional[str] = Field(
+        None, description="Unparsed build identifier (e.g. raw CFBundleVersion) for display purposes"
+    )
     artifact_type: int
     apple_app_info: Optional[AppleAppInfo] = None
     android_app_info: Optional[AndroidAppInfo] = None

@@ -570,7 +570,7 @@ class ArtifactProcessor:
         dequeued_at: datetime,
         app_icon_id: str | None,
     ) -> dict[str, Any]:
-        build_number = int(app_info.build) if app_info.build.isdigit() else None
+        build_number = _parse_build_number(app_info.build)
 
         apple_app_info = None
         if isinstance(app_info, AppleAppInfo):
@@ -602,6 +602,7 @@ class ArtifactProcessor:
             app_id=app_info.app_id,
             build_version=app_info.version,
             build_number=build_number,
+            build_number_raw=app_info.build,
             artifact_type=_get_artifact_type(artifact).value,
             apple_app_info=apple_app_info,
             android_app_info=android_app_info,
@@ -662,3 +663,24 @@ def _guess_message(code: ProcessingErrorCode, e: Exception) -> ProcessingErrorMe
     elif code == ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT:
         return ProcessingErrorMessage.PROCESSING_TIMEOUT
     return ProcessingErrorMessage.UNKNOWN_ERROR
+
+
+def _parse_build_number(build: str, component_width: int = 6) -> int | None:
+    """Parse a raw build identifier (e.g. CFBundleVersion) into a sortable int.
+
+    Plain integer builds (the common case, e.g. Android versionCode) pass through
+    unchanged. Apple's CFBundleVersion also allows up to three dot-separated
+    non-negative integers (e.g. "1.2.3"); those are packed into a single int by
+    zero-padding each component to `component_width` digits, which preserves
+    correct ordering as long as no component reaches 10**component_width.
+    Anything else (non-numeric, malformed) returns None, same as today.
+    """
+    if build.isdigit():
+        return int(build)
+
+    parts = build.split(".")
+    if 2 <= len(parts) <= 3 and all(p.isdigit() and len(p) <= component_width for p in parts):
+        parts += ["0"] * (3 - len(parts))
+        return sum(int(part) * 10 ** (component_width * (2 - i)) for i, part in enumerate(parts))
+
+    return None
