@@ -1,8 +1,12 @@
+from datetime import datetime
 from unittest.mock import Mock, patch
+
+import pytest
 
 from objectstore_client import Client as ObjectstoreClient
 
-from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig
+from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig, _parse_build_number
+from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
 from launchpad.constants import (
@@ -11,6 +15,7 @@ from launchpad.constants import (
     ProcessingErrorMessage,
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
+from launchpad.size.models.android import AndroidAppInfo
 from launchpad.utils.objectstore import ObjectstoreConfig
 from launchpad.utils.statsd import FakeStatsd
 
@@ -398,3 +403,85 @@ class TestArtifactProcessorMessageHandling:
             "increment",
             {"metric": "artifact.processing.completed", "value": 1, "tags": None},
         ) in calls
+
+
+class TestParseBuildNumber:
+    @pytest.mark.parametrize(
+        "build,expected",
+        [
+            # Plain integers (e.g. Android versionCode) pass through unchanged
+            ("9999", 9999),
+            ("0", 0),
+            ("1", 1),
+            # Apple CFBundleVersion: up to three dot-separated non-negative integers
+            ("1.2.3", 1_000_002_000_003),
+            ("1.2", 1_000_002_000_000),
+            # Malformed or unsupported shapes fall back to None, same as before
+            ("1.2.a", None),
+            ("abc", None),
+            ("1.2.3.4", None),
+            ("", None),
+            # A component too wide for the padding width is refused rather than
+            # silently corrupting the ordering of adjacent components
+            ("1234567.2.3", None),
+        ],
+    )
+    def test_parse_build_number(self, build, expected):
+        assert _parse_build_number(build) == expected
+
+    def test_dotted_builds_sort_correctly_within_a_version(self):
+        # Naive "strip the dots and parse as one number" concatenation would rank
+        # 1.99 ("199") above 2.0 ("20"), even though 1.99 is the earlier build.
+        assert _parse_build_number("1.99") < _parse_build_number("2.0")
+
+    def test_distinguishes_builds_that_naive_concatenation_would_collide(self):
+        # "1.2.3", "12.3", and "1.23" would all naively concatenate to "123".
+        assert _parse_build_number("1.2.3") != _parse_build_number("12.3")
+        assert _parse_build_number("1.2.3") != _parse_build_number("1.23")
+
+
+class TestPrepareUpdateData:
+    def setup_method(self):
+        """Set up test fixtures."""
+        mock_sentry_client = Mock(spec=SentryClient)
+        mock_statsd = Mock()
+        mock_objectstore_client = Mock(spec=ObjectstoreClient)
+        self.processor = ArtifactProcessor(mock_sentry_client, mock_statsd, mock_objectstore_client)
+
+    def test_dotted_build_number_is_parsed_and_raw_value_preserved(self):
+        app_info = AndroidAppInfo(
+            name="My App",
+            version="1.2.300",
+            build="1.2.3",
+            app_id="com.example.app",
+            has_proguard_mapping=False,
+        )
+
+        update_data = self.processor._prepare_update_data(
+            app_info=app_info,
+            artifact=Mock(spec=AAB),
+            dequeued_at=datetime(2026, 1, 1),
+            app_icon_id=None,
+        )
+
+        assert update_data["build_number"] == 1_000_002_000_003
+        assert update_data["build_number_raw"] == "1.2.3"
+
+    def test_plain_build_number_still_parses_as_int(self):
+        app_info = AndroidAppInfo(
+            name="My App",
+            version="1.2.300",
+            build="9999",
+            app_id="com.example.app",
+            has_proguard_mapping=False,
+        )
+
+        update_data = self.processor._prepare_update_data(
+            app_info=app_info,
+            artifact=Mock(spec=AAB),
+            dequeued_at=datetime(2026, 1, 1),
+            app_icon_id=None,
+        )
+
+        assert update_data["build_number"] == 9999
+        assert update_data["build_number_raw"] == "9999"
