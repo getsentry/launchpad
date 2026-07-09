@@ -570,7 +570,7 @@ class ArtifactProcessor:
         dequeued_at: datetime,
         app_icon_id: str | None,
     ) -> dict[str, Any]:
-        build_number = int(app_info.build) if app_info.build.isdigit() else None
+        build_number = _parse_build_number(app_info.build)
 
         apple_app_info = None
         if isinstance(app_info, AppleAppInfo):
@@ -602,6 +602,7 @@ class ArtifactProcessor:
             app_id=app_info.app_id,
             build_version=app_info.version,
             build_number=build_number,
+            build_number_raw=app_info.build,
             artifact_type=_get_artifact_type(artifact).value,
             apple_app_info=apple_app_info,
             android_app_info=android_app_info,
@@ -662,3 +663,40 @@ def _guess_message(code: ProcessingErrorCode, e: Exception) -> ProcessingErrorMe
     elif code == ProcessingErrorCode.ARTIFACT_PROCESSING_TIMEOUT:
         return ProcessingErrorMessage.PROCESSING_TIMEOUT
     return ProcessingErrorMessage.UNKNOWN_ERROR
+
+
+# Zero-padding width per CFBundleVersion component when packing it into a single
+# sortable int. 6 digits comfortably covers any realistic CI build counter while
+# leaving the packed value well under BoundedBigIntegerField's max (bigint).
+_BUILD_NUMBER_COMPONENT_WIDTH = 6
+
+
+def _parse_build_number(build: str) -> int | None:
+    """Parse a raw build identifier (e.g. CFBundleVersion) into a sortable int.
+
+    Plain integer builds (the common case, e.g. Android versionCode) pass through
+    unchanged. Apple's CFBundleVersion also allows up to three dot-separated
+    non-negative integers (e.g. "1.2.3"); those are packed into a single int by
+    zero-padding each component, which preserves correct ordering as long as no
+    component reaches 10**_BUILD_NUMBER_COMPONENT_WIDTH. Anything else
+    (non-numeric, malformed) returns None, same as today.
+
+    Known limitation: plain-integer values are left small while packed dotted
+    values are much larger, so if the same app_id/build_version ever has builds
+    in both conventions, this int alone is not a reliable ordering between them.
+    We can't fix that here — a single artifact update has no visibility into
+    sibling artifacts' formats, and unifying the magnitude would break backward
+    compatibility with every already-stored plain-integer build_number. Sentry's
+    tiebreak query should treat this as a fast, common-case sort key and fall
+    back to comparing the raw build string (build_number_raw) directly when it
+    needs to be authoritative across mixed formats.
+    """
+    if build.isdigit():
+        return int(build)
+
+    parts = build.split(".")
+    if 2 <= len(parts) <= 3 and all(p.isdigit() and len(p) <= _BUILD_NUMBER_COMPONENT_WIDTH for p in parts):
+        parts += ["0"] * (3 - len(parts))
+        return sum(int(part) * 10 ** (_BUILD_NUMBER_COMPONENT_WIDTH * (2 - i)) for i, part in enumerate(parts))
+
+    return None
