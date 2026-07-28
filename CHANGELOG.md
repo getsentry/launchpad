@@ -8,6 +8,12 @@
 
 - (security) Add SafeDirectory to enforce path traversal checks by @runningcode in [#623](https://github.com/getsentry/launchpad/pull/623)
 
+## 26.7.2
+
+### Internal Changes 🔧
+
+- (gocd) Bump gocd-jsonnet to 3.0.7 by @dmajere in [#648](https://github.com/getsentry/launchpad/pull/648)
+
 ## 26.7.0
 
 ### Bug Fixes 🐛
