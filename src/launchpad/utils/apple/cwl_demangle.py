@@ -15,10 +15,13 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Default timeout for cwl-demangle subprocess (in seconds)
-DEFAULT_DEMANGLE_TIMEOUT = int(os.environ.get("LAUNCHPAD_DEMANGLE_TIMEOUT", "10"))
+# Large binaries (200k+ symbols) can have many chunks running in parallel,
+# and CPU contention between parallel cwl-demangle processes requires generous timeouts.
+DEFAULT_DEMANGLE_TIMEOUT = int(os.environ.get("LAUNCHPAD_DEMANGLE_TIMEOUT", "120"))
 
 # Default chunk size for batching symbols
-DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "500"))
+# Larger chunks reduce subprocess overhead and CPU contention from parallel workers.
+DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "5000"))
 
 
 @dataclass
