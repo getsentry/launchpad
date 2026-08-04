@@ -35,7 +35,7 @@ dependencies = [
     "lief==0.17.2",
     "lzfse>=0.4.2",
     "objectstore-client>=0.1.0",
-    "pillow>=11.3.0",
+    "pillow>=12.3.0",
     "pillow_heif>=1.1.0",
     "protobuf>=5.29.5,<6",
     "pydantic>=2.10.0,<3",
