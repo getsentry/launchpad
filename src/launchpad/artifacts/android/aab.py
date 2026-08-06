@@ -86,25 +86,30 @@ class AAB(AndroidArtifact):
         apks_dir = create_temp_directory("apks-")
         try:
             bundletool = Bundletool()
-            bundletool.build_apks(bundle_path=self.path, output_dir=apks_dir, device_spec=device_spec)
+            with sentry_sdk.start_span(op="aab", description="aab.build_primary_apks"):
+                bundletool.build_apks(bundle_path=self.path, output_dir=apks_dir, device_spec=device_spec)
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
                 tmp_dir = Path(tempfile.mkdtemp())
                 new_apk_path = tmp_dir / apk_path.name
-                shutil.copyfile(apk_path, new_apk_path)
-                apks.append(
-                    APK(
-                        new_apk_path,
-                        self.get_dex_mapping(),
-                        cleanup=lambda: shutil.rmtree(tmp_dir),
+                with sentry_sdk.start_span(op="file.copy", description="aab.copy_primary_apk") as span:
+                    span.set_data("apk.size", apk_path.stat().st_size)
+                    shutil.copyfile(apk_path, new_apk_path)
+                with sentry_sdk.start_span(op="aab", description="aab.initialize_primary_apk"):
+                    apks.append(
+                        APK(
+                            new_apk_path,
+                            self.get_dex_mapping(),
+                            cleanup=lambda: shutil.rmtree(tmp_dir),
+                        )
                     )
-                )
 
             self._primary_apks = apks
             return apks
         finally:
-            cleanup_directory(apks_dir)
+            with sentry_sdk.start_span(op="file.cleanup", description="aab.cleanup_primary_apks"):
+                cleanup_directory(apks_dir)
 
     @sentry_sdk.trace
     def get_universal_apk(self, apk_dir: Path, device_spec: DeviceSpec = DeviceSpec()) -> APK:

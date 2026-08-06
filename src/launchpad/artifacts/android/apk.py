@@ -38,7 +38,8 @@ class APK(AndroidArtifact):
         super().__init__(path, cleanup=cleanup)
         self._dex_mapping = dex_mapping
         self._zip_provider = ZipProvider(path)
-        self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        with sentry_sdk.start_span(op="file.extract", description="apk.extract"):
+            self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
         self._class_definitions: list[ClassDefinition] | None = None
