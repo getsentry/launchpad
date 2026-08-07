@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 
+from functools import partial
 from pathlib import Path
 from typing import Callable
 
@@ -101,7 +102,7 @@ class AAB(AndroidArtifact):
                         APK(
                             new_apk_path,
                             self.get_dex_mapping(),
-                            cleanup=lambda: shutil.rmtree(tmp_dir),
+                            cleanup=partial(shutil.rmtree, tmp_dir),
                         )
                     )
 
