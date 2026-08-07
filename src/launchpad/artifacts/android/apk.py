@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Callable, Iterator
@@ -15,7 +17,7 @@ from launchpad.parsers.android.icon.binary_xml_drawable_parser import (
 from launchpad.utils.android.apksigner import Apksigner
 
 from ...parsers.android.dex.dex_file_parser import DexFileParser
-from ...parsers.android.dex.types import ClassDefinition
+from ...parsers.android.dex.types import ClassDefinition, DexStats
 from ...utils.logging import get_logger
 from ..artifact import AndroidArtifact
 from ..providers.exceptions import UnsafePathError
@@ -99,16 +101,46 @@ class APK(AndroidArtifact):
 
         self._class_definitions = []
         dex_files = list(self._extract_dir.rglob("classes*.dex"))
+        dex_stats = DexStats()
         for dex_file in dex_files:
             try:
+                read_started_at = time.perf_counter()
                 with open(dex_file, "rb") as f:
                     dex_buffer = f.read()
-                dex_file_parser = DexFileParser(dex_buffer, self._dex_mapping)
+                dex_stats.read_duration_ms += (time.perf_counter() - read_started_at) * 1000
+
+                parser_started_at = time.perf_counter()
+                dex_file_parser = DexFileParser(
+                    dex_buffer,
+                    self._dex_mapping,
+                    stats=dex_stats,
+                )
                 class_definitions = dex_file_parser.get_class_definitions()
+                dex_stats.parser_duration_ms += (time.perf_counter() - parser_started_at) * 1000
                 self._class_definitions.extend(class_definitions)
             except (OSError, IOError) as e:
                 logger.error(f"Failed to read DEX file {dex_file}: {e}")
                 continue
+
+        if (span := sentry_sdk.get_current_span()) is not None:
+            span.set_data("dex_stats.file_count", dex_stats.file_count)
+            span.set_data("dex_stats.total_bytes", dex_stats.total_bytes)
+            span.set_data("dex_stats.read_duration_ms", dex_stats.read_duration_ms)
+            span.set_data("dex_stats.parser.duration_ms", dex_stats.parser_duration_ms)
+            span.set_data("dex_stats.parser.method_duration_ms", dex_stats.parser_method_duration_ms)
+            span.set_data("dex_stats.parser.field_duration_ms", dex_stats.parser_field_duration_ms)
+            span.set_data("dex_stats.parser.class_count", dex_stats.parser_class_count)
+            span.set_data("dex_stats.parser.method_count", dex_stats.parser_method_count)
+            span.set_data("dex_stats.parser.field_count", dex_stats.parser_field_count)
+            span.set_data(
+                "dex_stats.parser.method_annotation_scan_steps",
+                dex_stats.parser_method_annotation_scan_steps,
+            )
+            span.set_data(
+                "dex_stats.parser.field_annotation_scan_steps",
+                dex_stats.parser_field_annotation_scan_steps,
+            )
+            span.set_data("dex_stats.parser.mapping_present", dex_stats.parser_mapping_present)
 
         return self._class_definitions
 
