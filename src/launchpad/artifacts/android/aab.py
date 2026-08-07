@@ -5,6 +5,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 
+from functools import partial
 from pathlib import Path
 from typing import Callable
 
@@ -101,7 +102,7 @@ class AAB(AndroidArtifact):
                         APK(
                             new_apk_path,
                             self.get_dex_mapping(),
-                            cleanup=lambda: shutil.rmtree(tmp_dir),
+                            cleanup=partial(shutil.rmtree, tmp_dir),
                         )
                     )
 
@@ -148,7 +149,8 @@ class AAB(AndroidArtifact):
         dex_mapping_file = dex_mapping_files[0]
         with open(dex_mapping_file, "rb") as f:
             dex_mapping_buffer = f.read()
-        return DexMapping(dex_mapping_buffer)
+        self._dex_mapping = DexMapping(dex_mapping_buffer)
+        return self._dex_mapping
 
     @sentry_sdk.trace
     def get_app_icon(self) -> bytes | None:

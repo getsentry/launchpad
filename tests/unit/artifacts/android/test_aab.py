@@ -42,3 +42,9 @@ class TestAAB:
         with patch.object(test_aab, "get_manifest", return_value=malicious_manifest):
             with pytest.raises(UnsafePathError):
                 test_aab.get_app_icon()
+
+    def test_get_dex_mapping_caches_mapping(self, test_aab: AAB) -> None:
+        dex_mapping = test_aab.get_dex_mapping()
+
+        assert dex_mapping is not None
+        assert test_aab.get_dex_mapping() is dex_mapping
