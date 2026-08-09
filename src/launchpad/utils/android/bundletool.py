@@ -14,7 +14,6 @@ from typing import Any, Sequence
 
 from pydantic import BaseModel, Field
 
-from ..file_utils import create_temp_directory
 from ..logging import get_logger
 
 logger = get_logger(__name__)
@@ -168,36 +167,37 @@ class Bundletool:
         Raises:
             BundletoolError: If build command fails
         """
-        temp_apks_path = create_temp_directory("apks-") / "apks.apks"
-        build_apks_command = [
-            "build-apks",
-            f"--bundle={bundle_path}",
-            f"--output={temp_apks_path}",
-        ]
+        with tempfile.TemporaryDirectory(prefix="bundletool-") as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            temp_apks_path = temp_dir_path / "apks.apks"
+            build_apks_command = [
+                "build-apks",
+                f"--bundle={bundle_path}",
+                f"--output={temp_apks_path}",
+            ]
 
-        if universal_apk:
-            build_apks_command.append("--mode=universal")
+            if universal_apk:
+                build_apks_command.append("--mode=universal")
 
-        # Generate keystore and sign APKs if requested
-        if sign_apks:
-            keystore_path = create_temp_directory("keystore-") / "signing.keystore"
-            keystore_password, key_alias = self._generate_keystore(keystore_path)
+            # Generate keystore and sign APKs if requested
+            if sign_apks:
+                keystore_path = temp_dir_path / "signing.keystore"
+                keystore_password, key_alias = self._generate_keystore(keystore_path)
 
-            # Add signing arguments to build command
-            build_apks_command.extend(
-                [
-                    f"--ks={keystore_path}",
-                    f"--ks-key-alias={key_alias}",
-                    f"--ks-pass=pass:{keystore_password}",
-                ]
-            )
+                # Add signing arguments to build command
+                build_apks_command.extend(
+                    [
+                        f"--ks={keystore_path}",
+                        f"--ks-key-alias={key_alias}",
+                        f"--ks-pass=pass:{keystore_password}",
+                    ]
+                )
 
-            logger.debug("APKs will be signed with generated keystore")
+                logger.debug("APKs will be signed with generated keystore")
 
-        # Create a temporary file for the device spec JSON
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as temp_file:
-            json.dump(device_spec.model_dump(by_alias=True), temp_file)
-            temp_file.flush()  # Ensure data is written to disk
+            device_spec_path = temp_dir_path / "device-spec.json"
+            with open(device_spec_path, "w", encoding="utf-8") as device_spec_file:
+                json.dump(device_spec.model_dump(by_alias=True), device_spec_file)
 
             self._run_command(build_apks_command)
 
@@ -206,7 +206,7 @@ class Bundletool:
                 "extract-apks",
                 f"--apks={temp_apks_path}",
                 f"--output-dir={output_dir}",
-                f"--device-spec={temp_file.name}",
+                f"--device-spec={device_spec_path}",
             ]
             self._run_command(extract_command)
 
