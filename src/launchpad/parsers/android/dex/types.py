@@ -21,6 +21,22 @@ class DexFileHeader:
 
 
 @dataclass
+class DexStats:
+    file_count: int = 0
+    total_bytes: int = 0
+    read_duration_ms: float = 0.0
+    parser_duration_ms: float = 0.0
+    parser_method_duration_ms: float = 0.0
+    parser_field_duration_ms: float = 0.0
+    parser_class_count: int = 0
+    parser_method_count: int = 0
+    parser_field_count: int = 0
+    parser_method_annotation_scan_steps: int = 0
+    parser_field_annotation_scan_steps: int = 0
+    parser_mapping_present: bool = False
+
+
+@dataclass
 class Prototype:
     shorty_descriptor: str
     return_type: str

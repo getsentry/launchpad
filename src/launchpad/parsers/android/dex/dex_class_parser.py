@@ -1,3 +1,5 @@
+import time
+
 from launchpad.parsers.android.dex.dex_base_utils import DexBaseUtils
 from launchpad.parsers.android.dex.dex_field_parser import DexFieldParser
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
@@ -9,6 +11,7 @@ from launchpad.parsers.android.dex.types import (
     AnnotationsDirectory,
     ClassDefinition,
     DexFileHeader,
+    DexStats,
     Field,
     Method,
 )
@@ -22,10 +25,12 @@ class DexClassParser:
         buffer_wrapper: BufferWrapper,
         offset: int,
         dex_mapping: DexMapping | None = None,
+        stats: DexStats | None = None,
     ):
         self._header = header
         self._buffer_wrapper = buffer_wrapper
         self._offset = offset
+        self._stats = stats if stats is not None else DexStats()
         self._dex_mapping = dex_mapping
 
         # Cachable for later reuse
@@ -118,11 +123,15 @@ class DexClassParser:
         # Static values overhead
         size += self._get_static_values_overhead_size()
 
+        method_started_at = time.perf_counter()
         for method in self.get_methods():
             size += method.size
+        self._stats.parser_method_duration_ms += (time.perf_counter() - method_started_at) * 1000
 
+        field_started_at = time.perf_counter()
         for field in self.get_fields():
             size += field.size
+        self._stats.parser_field_duration_ms += (time.perf_counter() - field_started_at) * 1000
 
         return size
 
@@ -224,6 +233,7 @@ class DexClassParser:
             annotations = []
             if annotations_directory is not None:
                 for method_annotation in annotations_directory.method_annotations:
+                    self._stats.parser_method_annotation_scan_steps += 1
                     if method_annotation.method_index == method_index:
                         annotations = DexBaseUtils.get_annotation_set(
                             self._buffer_wrapper,
@@ -301,6 +311,7 @@ class DexClassParser:
             annotations = []
             if annotations_directory is not None:
                 for method_annotation in annotations_directory.method_annotations:
+                    self._stats.parser_method_annotation_scan_steps += 1
                     if method_annotation.method_index == method_index:
                         annotations = DexBaseUtils.get_annotation_set(
                             self._buffer_wrapper,
@@ -387,6 +398,7 @@ class DexClassParser:
             annotations = []
             if annotations_directory is not None:
                 for field_annotation in annotations_directory.field_annotations:
+                    self._stats.parser_field_annotation_scan_steps += 1
                     if field_annotation.field_index == field_index:
                         annotations = DexBaseUtils.get_annotation_set(
                             self._buffer_wrapper,
@@ -462,6 +474,7 @@ class DexClassParser:
             annotations = []
             if annotations_directory is not None:
                 for field_annotation in annotations_directory.field_annotations:
+                    self._stats.parser_field_annotation_scan_steps += 1
                     if field_annotation.field_index == field_index:
                         annotations = DexBaseUtils.get_annotation_set(
                             self._buffer_wrapper,
