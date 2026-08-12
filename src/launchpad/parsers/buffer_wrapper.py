@@ -27,7 +27,7 @@ def group(name: str):
 class BufferWrapper:
     """Wrapper for binary buffer parsing with cursor tracking and debugging."""
 
-    __slots__ = "cursor", "buffer", "debug"
+    __slots__ = "cursor", "buffer", "debug", "cache"
 
     def __init__(self, buffer: bytes, debug: bool = False) -> None:
         """Initialize buffer wrapper.
@@ -39,6 +39,7 @@ class BufferWrapper:
         self.buffer = buffer
         self.cursor = 0
         self.debug = debug
+        self.cache: object | None = None
 
     def seek(self, offset: int) -> None:
         """Set cursor position.
