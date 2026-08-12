@@ -1,3 +1,7 @@
+import typing
+
+from dataclasses import dataclass, field
+
 from launchpad.parsers.android.dex.dex_field_parser import DexFieldParser
 from launchpad.parsers.android.dex.dex_method_parser import DexMethodParser
 from launchpad.parsers.android.dex.types import (
@@ -22,7 +26,31 @@ from launchpad.utils import logging
 logger = logging.get_logger(__name__)
 
 
+@dataclass(slots=True)
+class _DexLookupCache:
+    """Memoized DEX lookups scoped to one buffer.
+
+    Strings, type names, and prototypes map their table indices to parsed values.
+    Type lists map their byte offsets to resolved type names because they have no index table.
+    Cached values are canonical for the buffer and may be shared by parsed results;
+    callers should treat them as read-only.
+    """
+
+    strings: dict[int, str] = field(default_factory=dict)
+    type_names: dict[int, str] = field(default_factory=dict)
+    prototypes: dict[int, Prototype] = field(default_factory=dict)
+    type_lists: dict[int, list[str]] = field(default_factory=dict)
+
+
 class DexBaseUtils:
+    @staticmethod
+    def _lookup_cache(buffer_wrapper: BufferWrapper) -> _DexLookupCache:
+        cache = buffer_wrapper.cache
+        if cache is None:
+            cache = _DexLookupCache()
+            buffer_wrapper.cache = cache
+        return typing.cast(_DexLookupCache, cache)
+
     @staticmethod
     def get_header(buffer_wrapper: BufferWrapper) -> DexFileHeader:
         """Read DEX file header.
@@ -270,7 +298,7 @@ class DexBaseUtils:
                 value = buffer_wrapper.read_sized_double(value_arg + 1)
             case EncodedValueType.METHOD_TYPE:
                 proto_index = buffer_wrapper.read_sized_uint(value_arg + 1)
-                value = DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
+                value = DexBaseUtils.get_prototype(buffer_wrapper, header, proto_index)
             case EncodedValueType.METHOD_HANDLE:
                 handle_type = buffer_wrapper.read_u16()
                 buffer_wrapper.read_u16()  # unused
@@ -314,41 +342,6 @@ class DexBaseUtils:
             type=EncodedValueType(value_type),
             offset=start_offset,
             size=size,
-        )
-
-    @staticmethod
-    def get_encoded_method_prototype(
-        buffer_wrapper: BufferWrapper, header: DexFileHeader, proto_index: int
-    ) -> Prototype:
-        """Get method prototype.
-
-        https://source.android.com/docs/core/runtime/dex-format#proto-id-item
-
-        Args:
-            proto_index: Prototype index
-
-        Returns:
-            Method prototype
-        """
-        cursor = buffer_wrapper.cursor
-
-        buffer_wrapper.seek(header.proto_ids_off + proto_index * 12)  # Each proto_id_item is 12 bytes
-
-        shorty_idx = buffer_wrapper.read_u32()
-        return_type_idx = buffer_wrapper.read_u32()
-        parameters_off = buffer_wrapper.read_u32()
-
-        shorty_descriptor = DexBaseUtils.get_string(buffer_wrapper, header, shorty_idx)
-        return_type = DexBaseUtils.get_type_name(buffer_wrapper, header, return_type_idx)
-        parameters: list[str] = []
-        if parameters_off != 0:
-            parameters = DexBaseUtils.get_type_list(buffer_wrapper, header, parameters_off)
-
-        buffer_wrapper.seek(cursor)
-        return Prototype(
-            shorty_descriptor=shorty_descriptor,
-            return_type=return_type,
-            parameters=parameters,
         )
 
     @staticmethod
@@ -402,7 +395,7 @@ class DexBaseUtils:
         name_index = buffer_wrapper.read_u32()
 
         class_signature = DexBaseUtils.get_type_name(buffer_wrapper, header, class_index)
-        prototype = DexBaseUtils.get_encoded_method_prototype(buffer_wrapper, header, proto_index)
+        prototype = DexBaseUtils.get_prototype(buffer_wrapper, header, proto_index)
         name = DexBaseUtils.get_string(buffer_wrapper, header, name_index)
 
         method_parser = DexMethodParser(
@@ -473,8 +466,11 @@ class DexBaseUtils:
         Returns:
             List of type names
         """
-        cursor = buffer_wrapper.cursor
+        cache = DexBaseUtils._lookup_cache(buffer_wrapper).type_lists
+        if (cached := cache.get(type_list_offset)) is not None:
+            return cached
 
+        cursor = buffer_wrapper.cursor
         buffer_wrapper.seek(type_list_offset)
 
         size = buffer_wrapper.read_u32()
@@ -484,6 +480,7 @@ class DexBaseUtils:
             types.append(DexBaseUtils.get_type_name(buffer_wrapper, header, type_index))
 
         buffer_wrapper.seek(cursor)
+        cache[type_list_offset] = types
         return types
 
     @staticmethod
@@ -498,27 +495,38 @@ class DexBaseUtils:
         Returns:
             Type name
         """
-        cursor = buffer_wrapper.cursor
+        cache = DexBaseUtils._lookup_cache(buffer_wrapper).type_names
+        if (cached := cache.get(type_index)) is not None:
+            return cached
 
+        cursor = buffer_wrapper.cursor
         buffer_wrapper.seek(header.type_ids_off + type_index * 4)  # Each type_id_item is 4 bytes
 
         string_index = buffer_wrapper.read_u32()
         string = DexBaseUtils.get_string(buffer_wrapper, header, string_index)
 
         buffer_wrapper.seek(cursor)
+        cache[type_index] = string
         return string
 
     @staticmethod
     def get_prototype(buffer_wrapper: BufferWrapper, header: DexFileHeader, proto_index: int) -> Prototype:
-        """Get proto name by index.
+        """Parse a method prototype by index.
 
         https://source.android.com/docs/core/runtime/dex-format#proto-id-item
 
-        Returns a string representation of the prototype, e.g. (IILjava/lang/String;)V
-        """
-        cursor = buffer_wrapper.cursor
+        Args:
+            proto_index: Prototype index
 
-        buffer_wrapper.seek(header.proto_ids_off + proto_index * 12)
+        Returns:
+            Parsed method prototype
+        """
+        cache = DexBaseUtils._lookup_cache(buffer_wrapper).prototypes
+        if (cached := cache.get(proto_index)) is not None:
+            return cached
+
+        cursor = buffer_wrapper.cursor
+        buffer_wrapper.seek(header.proto_ids_off + proto_index * 12)  # Each proto_id_item is 12 bytes
         shorty_idx = buffer_wrapper.read_u32()
         return_type_idx = buffer_wrapper.read_u32()
         parameters_off = buffer_wrapper.read_u32()
@@ -531,11 +539,13 @@ class DexBaseUtils:
             parameters = DexBaseUtils.get_type_list(buffer_wrapper, header, parameters_off)
 
         buffer_wrapper.seek(cursor)
-        return Prototype(
+        prototype = Prototype(
             shorty_descriptor=shorty_descriptor,
             return_type=return_type,
             parameters=parameters,
         )
+        cache[proto_index] = prototype
+        return prototype
 
     @staticmethod
     def get_string(buffer_wrapper: BufferWrapper, header: DexFileHeader, string_index: int) -> str:
@@ -552,8 +562,11 @@ class DexBaseUtils:
         Returns:
             String value
         """
-        cursor = buffer_wrapper.cursor
+        cache = DexBaseUtils._lookup_cache(buffer_wrapper).strings
+        if (cached := cache.get(string_index)) is not None:
+            return cached
 
+        cursor = buffer_wrapper.cursor
         buffer_wrapper.seek(header.string_ids_off + string_index * 4)  # Each string_id_item is 4 bytes
         buffer_wrapper.seek(buffer_wrapper.read_u32())  # string data offset
 
@@ -561,6 +574,7 @@ class DexBaseUtils:
         string = buffer_wrapper.read_string_with_length(string_length)
 
         buffer_wrapper.seek(cursor)
+        cache[string_index] = string
         return string
 
     @staticmethod
