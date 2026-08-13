@@ -675,11 +675,12 @@ def _parse_build_number(build: str) -> int | None:
     """Parse a raw build identifier (e.g. CFBundleVersion) into a sortable int.
 
     Plain integer builds (the common case, e.g. Android versionCode) pass through
-    unchanged. Apple's CFBundleVersion also allows up to three dot-separated
-    non-negative integers (e.g. "1.2.3"); those are packed into a single int by
+    unchanged. Apple's CFBundleVersion also allows dot-separated non-negative
+    integers (e.g. "1.2.3"); those are packed into a single int by
     zero-padding each component, which preserves correct ordering as long as no
-    component reaches 10**_BUILD_NUMBER_COMPONENT_WIDTH. Anything else
-    (non-numeric, malformed) returns None, same as today.
+    component reaches 10**_BUILD_NUMBER_COMPONENT_WIDTH. Per the CFBundleVersion
+    spec, more than three groups are accepted and groups beyond the third are
+    dropped. Anything else (non-numeric, malformed) returns None, same as today.
 
     Known limitation: plain-integer values are left small while packed dotted
     values are much larger, so if the same app_id/build_version ever has builds
@@ -695,8 +696,12 @@ def _parse_build_number(build: str) -> int | None:
         return int(build)
 
     parts = build.split(".")
-    if 2 <= len(parts) <= 3 and all(p.isdigit() and len(p) <= _BUILD_NUMBER_COMPONENT_WIDTH for p in parts):
-        parts += ["0"] * (3 - len(parts))
-        return sum(int(part) * 10 ** (_BUILD_NUMBER_COMPONENT_WIDTH * (2 - i)) for i, part in enumerate(parts))
-
-    return None
+    if not all(p.isdigit() for p in parts):
+        return None
+    # CFBundleVersion allows more than three groups; groups beyond the third
+    # are dropped.
+    parts = parts[:3]
+    if not (2 <= len(parts) and all(len(p) <= _BUILD_NUMBER_COMPONENT_WIDTH for p in parts)):
+        return None
+    parts += ["0"] * (3 - len(parts))
+    return sum(int(part) * 10 ** (_BUILD_NUMBER_COMPONENT_WIDTH * (2 - i)) for i, part in enumerate(parts))
