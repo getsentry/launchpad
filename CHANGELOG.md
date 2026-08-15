@@ -8,6 +8,22 @@
 
 - (security) Add SafeDirectory to enforce path traversal checks by @runningcode in [#623](https://github.com/getsentry/launchpad/pull/623)
 
+## 26.8.0
+
+### Bug Fixes 🐛
+
+- (deps) Bump Pillow to 12.3.0 by @jamieQ in [#650](https://github.com/getsentry/launchpad/pull/650)
+- (preprod) Accept CFBundleVersion groups beyond the third by @trevor-e in [#657](https://github.com/getsentry/launchpad/pull/657)
+- Clean up bundletool temporary files by @jamieQ in [#655](https://github.com/getsentry/launchpad/pull/655)
+
+### Internal Changes 🔧
+
+- (android) Cache DEX lookup tables by @jamieQ in [#656](https://github.com/getsentry/launchpad/pull/656)
+- Record and collect some DEX processing stats by @jamieQ in [#654](https://github.com/getsentry/launchpad/pull/654)
+- Fix Android AAB cleanup and mapping cache by @jamieQ in [#653](https://github.com/getsentry/launchpad/pull/653)
+- Add more spans to investigate long processing times by @jamieQ in [#652](https://github.com/getsentry/launchpad/pull/652)
+- Replace curl-pipe-bash with action-setup-cli for Sentry CLI setup by @oioki in [#651](https://github.com/getsentry/launchpad/pull/651)
+
 ## 26.7.2
 
 ### Internal Changes 🔧
