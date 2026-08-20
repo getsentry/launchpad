@@ -8,6 +8,7 @@ from launchpad.artifacts.android.zipped_aab import ZippedAAB
 from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.artifacts.elf import ELFArtifact
 
 
 def test_factory_creates_aab(hn_aab: Path) -> None:
@@ -38,6 +39,14 @@ def test_factory_creates_xcarchive(hackernews_xcarchive: Path) -> None:
     """Test that factory creates ZippedXCArchive for .xcarchive.zip files."""
     artifact = ArtifactFactory.from_path(hackernews_xcarchive)
     assert isinstance(artifact, ZippedXCArchive)
+
+
+def test_factory_creates_elf_without_extension(elf_sample: Path, tmp_path: Path) -> None:
+    input_path = tmp_path / "program"
+    input_path.write_bytes(elf_sample.read_bytes())
+
+    artifact = ArtifactFactory.from_path(input_path)
+    assert isinstance(artifact, ELFArtifact)
 
 
 def test_factory_raises_file_not_found(tmp_path: Path) -> None:

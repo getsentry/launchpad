@@ -1,6 +1,6 @@
 # Launchpad
 
-A service for analyzing iOS and Android apps.
+A service for analyzing iOS and Android apps and standalone ELF binaries.
 
 [![codecov](https://codecov.io/gh/getsentry/launchpad/graph/badge.svg?token=iF5K92yaUu)](https://codecov.io/gh/getsentry/launchpad)
 
@@ -44,6 +44,11 @@ launchpad size path/to/app.aab
 launchpad size path/to/zipped_aab.zip
 launchpad size path/to/app.apk
 
+# ELF analysis with automatic format detection
+launchpad size path/to/executable
+launchpad size path/to/libexample.so
+launchpad size path/to/libexample.so --debug-file path/to/libexample.so.debug
+
 # Skip time-consuming analysis for faster results
 launchpad size path/to/app.xcarchive.zip --skip-swift-metadata --skip-symbols
 
@@ -67,6 +72,8 @@ Options:
   --format [json|table]      Output format for results.  [default: json]
   --working-dir PATH         Working directory for temporary files (default:
                              system temp).
+  --debug-file FILE          Separate ELF debug file. Embedded debug data is
+                             used by default.
   --skip-swift-metadata      Skip Swift metadata parsing for faster analysis.
   --skip-symbols             Skip symbol extraction and analysis.
   --skip-component-analysis  Skip detailed binary component analysis for

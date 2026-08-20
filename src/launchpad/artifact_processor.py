@@ -32,6 +32,7 @@ from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact, Artifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.artifacts.elf import ELFArtifact
 from launchpad.constants import (
     ArtifactType,
     InstallableAppErrorCode,
@@ -247,7 +248,10 @@ class ArtifactProcessor:
 
     def _parse_artifact(self, organization_id: str, project_id: str, artifact_id: str, path: Path) -> Artifact:
         try:
-            return ArtifactFactory.from_path(path)
+            artifact = ArtifactFactory.from_path(path)
+            if isinstance(artifact, ELFArtifact):
+                raise NotImplementedError("ELF files are not supported by the app artifact worker")
+            return artifact
         except Exception as e:
             logger.exception("Failed to parse artifact")
             self._update_artifact_error_from_exception(
