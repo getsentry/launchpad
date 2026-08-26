@@ -170,10 +170,6 @@ class Bundletool:
         with tempfile.TemporaryDirectory(prefix="bundletool-") as temp_dir:
             temp_dir_path = Path(temp_dir)
             temp_apks_path = temp_dir_path / "apks.apks"
-            device_spec_path = temp_dir_path / "device-spec.json"
-            with open(device_spec_path, "w", encoding="utf-8") as device_spec_file:
-                json.dump(device_spec.model_dump(by_alias=True), device_spec_file)
-
             build_apks_command = [
                 "build-apks",
                 f"--bundle={bundle_path}",
@@ -182,10 +178,6 @@ class Bundletool:
 
             if universal_apk:
                 build_apks_command.append("--mode=universal")
-            else:
-                # Restrict bundletool to APKs matching the target device instead
-                # of generating every possible split before extract-apks filters them.
-                build_apks_command.append(f"--device-spec={device_spec_path}")
 
             # Generate keystore and sign APKs if requested
             if sign_apks:
@@ -202,6 +194,10 @@ class Bundletool:
                 )
 
                 logger.debug("APKs will be signed with generated keystore")
+
+            device_spec_path = temp_dir_path / "device-spec.json"
+            with open(device_spec_path, "w", encoding="utf-8") as device_spec_file:
+                json.dump(device_spec.model_dump(by_alias=True), device_spec_file)
 
             self._run_command(build_apks_command)
 
