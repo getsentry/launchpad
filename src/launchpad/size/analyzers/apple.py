@@ -446,7 +446,13 @@ class AppleAppAnalyzer:
         self, insight_class: type, insights_input: InsightsInput, insight_name: str
     ) -> Any:
         with sentry_sdk.start_span(op="insight", description=f"apple.insights.{insight_name}"):
-            return insight_class().generate(insights_input)
+            started = time.monotonic()
+            result = insight_class().generate(insights_input)
+            logger.info(
+                "size.apple.insight_completed",
+                extra={"insight": insight_name, "elapsed_s": round(time.monotonic() - started, 3)},
+            )
+            return result
 
     @sentry_sdk.trace
     def _analyze_binary(

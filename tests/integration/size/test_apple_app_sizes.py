@@ -2,6 +2,7 @@ import plistlib
 
 from pathlib import Path
 from typing import Callable, cast
+from unittest.mock import patch
 
 import pytest
 
@@ -72,6 +73,24 @@ def create_app_clip() -> Callable[[ZippedXCArchive, str, str, dict[str, int]], P
 
 class TestAppleAppSizes:
     """Test Apple app sizes functionality."""
+
+    def test_generate_insight_logs_timing(self) -> None:
+        """Each insight logs its wall-clock duration so slow phases are visible."""
+
+        class _DummyInsight:
+            def generate(self, _input: object) -> str:
+                return "ok"
+
+        analyzer = AppleAppAnalyzer()
+        with patch("launchpad.size.analyzers.apple.logger") as mock_logger:
+            result = analyzer._generate_insight_with_tracing(_DummyInsight, cast(object, None), "dummy")
+
+        assert result == "ok"
+        mock_logger.info.assert_called_once()
+        args, kwargs = mock_logger.info.call_args
+        assert args[0] == "size.apple.insight_completed"
+        assert kwargs["extra"]["insight"] == "dummy"
+        assert "elapsed_s" in kwargs["extra"]
 
     def test_apple_app_sizes(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap structure matches reference report."""
