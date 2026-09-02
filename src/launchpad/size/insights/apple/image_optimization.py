@@ -113,16 +113,21 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
                 continue
             for f in group:
                 size_delta = f.size - rep_result.current_size
-                scaled = rep_result.model_copy(
-                    update={
-                        "file_path": f.path,
-                        "current_size": f.size,
-                        "minify_savings": max(0, rep_result.minify_savings + size_delta),
-                        "conversion_savings": max(0, rep_result.conversion_savings + size_delta),
-                        "idiom": f.idiom,
-                        "colorspace": f.colorspace,
-                    }
-                )
+                minify_savings = max(0, rep_result.minify_savings + size_delta)
+                conversion_savings = max(0, rep_result.conversion_savings + size_delta)
+                update: dict[str, object] = {
+                    "file_path": f.path,
+                    "current_size": f.size,
+                    "minify_savings": minify_savings,
+                    "conversion_savings": conversion_savings,
+                    "idiom": f.idiom,
+                    "colorspace": f.colorspace,
+                }
+                if rep_result.minified_size is not None:
+                    update["minified_size"] = f.size - minify_savings
+                if rep_result.heic_size is not None:
+                    update["heic_size"] = f.size - conversion_savings
+                scaled = rep_result.model_copy(update=update)
                 if scaled.potential_savings >= self.MIN_SAVINGS_THRESHOLD:
                     results.append(scaled)
 

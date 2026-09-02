@@ -472,8 +472,10 @@ class TestImageOptimizationInsightIntegration:
         for f in by_path.values():
             assert f.potential_savings <= f.current_size
             if f.minified_size is not None:
+                assert f.minified_size <= f.current_size
                 assert f.minify_savings == max(0, f.current_size - f.minified_size)
             if f.heic_size is not None:
+                assert f.heic_size <= f.current_size
                 assert f.conversion_savings == max(0, f.current_size - f.heic_size)
         assert by_path["catalog/dup.png"].potential_savings < by_path["loose/dup.png"].potential_savings
 
