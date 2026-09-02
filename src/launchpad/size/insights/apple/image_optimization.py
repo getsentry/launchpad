@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import io
 import logging
-import time
+import os
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import pillow_heif  # type: ignore
 
@@ -46,7 +48,7 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
     MIN_SAVINGS_THRESHOLD = 4096
     TARGET_JPEG_QUALITY = 85
     TARGET_HEIC_QUALITY = 85
-    _MAX_WORKERS = 4
+    _MAX_WORKERS = min(8, (os.cpu_count() or 4))
     _TIMEOUT_SECONDS = 240
 
     @abstractmethod
@@ -75,31 +77,56 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             return None
         files.sort(key=lambda f: f.size, reverse=True)
 
-        results: List[OptimizableImageFile] = []
+        # Byte-identical images produce identical encodes, so analyze each unique
+        # content hash once and fan the result back out to every duplicate path.
+        groups: Dict[str, List[FileInfo]] = defaultdict(list)
+        for f in files:
+            groups[f.hash].append(f)
+        representatives = [self._pick_representative(group) for group in groups.values()]
+
+        analyzed: Dict[str, OptimizableImageFile | None] = {}
         timed_out = False
         completed = 0
-        deadline = time.monotonic() + self._TIMEOUT_SECONDS
-        with ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(files))) as executor:
-            future_to_file = {executor.submit(self._analyze_image_optimization, f): f for f in files}
-            for future in as_completed(future_to_file):
+        executor = ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(representatives)))
+        future_to_rep = {executor.submit(self._analyze_image_optimization, rep): rep for rep in representatives}
+        try:
+            # as_completed enforces a hard wall-clock budget even if worker threads
+            # stall inside a slow encode (they cannot be interrupted mid-encode).
+            for future in as_completed(future_to_rep, timeout=self._TIMEOUT_SECONDS):
                 completed += 1
+                rep = future_to_rep[future]
                 try:
-                    result = future.result()
-                    if result and result.potential_savings >= self.MIN_SAVINGS_THRESHOLD:
-                        results.append(result)
+                    analyzed[rep.hash] = future.result()
                 except Exception:  # pragma: no cover
                     logger.exception("Failed to analyze image in thread pool")
-                if completed < len(files) and time.monotonic() >= deadline:
-                    timed_out = True
-                    logger.warning(
-                        "size.insight.image_optimization.timeout | completed=%d/%d timeout=%ds",
-                        completed,
-                        len(files),
-                        self._TIMEOUT_SECONDS,
+                    analyzed[rep.hash] = None
+        except FuturesTimeoutError:
+            timed_out = True
+            logger.warning(
+                "size.insight.image_optimization.timeout | completed=%d/%d timeout=%ds",
+                completed,
+                len(representatives),
+                self._TIMEOUT_SECONDS,
+            )
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        results: List[OptimizableImageFile] = []
+        for content_hash, group in groups.items():
+            rep_result = analyzed.get(content_hash)
+            if rep_result is None:
+                continue
+            for f in group:
+                results.append(
+                    rep_result.model_copy(
+                        update={
+                            "file_path": f.path,
+                            "current_size": f.size,
+                            "idiom": f.idiom,
+                            "colorspace": f.colorspace,
+                        }
                     )
-                    for fut in future_to_file:
-                        fut.cancel()
-                    break
+                )
 
         if not results and not timed_out:
             return None
@@ -112,6 +139,12 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             total_savings=total_savings,
             timed_out=timed_out,
         )
+
+    def _pick_representative(self, group: List[FileInfo]) -> FileInfo:
+        for f in group:
+            if f.full_path is not None and f.size > 0:
+                return f
+        return group[0]
 
     def _analyze_image_optimization(
         self,

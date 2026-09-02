@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import tempfile
+import time
 
 from pathlib import Path
 from typing import Any, Dict
+from unittest.mock import patch
 
 import pytest
 
@@ -389,3 +391,92 @@ class TestImageOptimizationInsightIntegration:
 
         result = ImageOptimizationInsight().generate(small_input)
         assert result is None
+
+    def _input_from_files(self, files: list[FileInfo], app_info: AppleAppInfo) -> InsightsInput:
+        return InsightsInput(
+            app_info=app_info,
+            file_analysis=FileAnalysis(items=files),
+            binary_analysis=[],
+            hermes_reports={},
+        )
+
+    def test_deduplicates_identical_images_by_hash(self, insights_input: InsightsInput) -> None:
+        """Identical images are encoded once but every duplicate path is still reported."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            img = Image.new("RGBA", (1000, 1000), (255, 0, 0, 128))
+
+            files: list[FileInfo] = []
+            paths = ["a/dup.png", "b/dup.png", "c/dup.png"]
+            for rel in paths:
+                p = temp_path / rel.replace("/", "_")
+                img.save(p, format="PNG", optimize=False, compress_level=0)
+                files.append(
+                    FileInfo(
+                        path=rel,
+                        full_path=p,
+                        size=p.stat().st_size,
+                        file_type="png",
+                        hash=calculate_file_hash(p),
+                        treemap_type=TreemapType.ASSETS,
+                        children=[],
+                        is_dir=False,
+                    )
+                )
+
+            # All three share one content hash.
+            assert len({f.hash for f in files}) == 1
+
+            test_input = self._input_from_files(files, insights_input.app_info)
+            with patch.object(
+                ImageOptimizationInsight,
+                "_analyze_image_optimization",
+                autospec=True,
+                side_effect=ImageOptimizationInsight._analyze_image_optimization,
+            ) as spy:
+                result = ImageOptimizationInsight().generate(test_input)
+
+        assert result is not None
+        # Encoded once (single unique hash), reported for all three paths.
+        assert spy.call_count == 1
+        assert {f.file_path for f in result.optimizable_files} == set(paths)
+        savings = {f.potential_savings for f in result.optimizable_files}
+        assert len(savings) == 1 and savings.pop() > 0
+
+    def test_enforces_wall_clock_timeout(self, insights_input: InsightsInput, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A stalled encode cannot blow past the timeout budget."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            files: list[FileInfo] = []
+            for i in range(3):
+                p = temp_path / f"img_{i}.png"
+                Image.new("RGB", (800 + i, 800 + i), (i * 10, 0, 0)).save(p, format="PNG", compress_level=0)
+                files.append(
+                    FileInfo(
+                        path=f"img_{i}.png",
+                        full_path=p,
+                        size=p.stat().st_size,
+                        file_type="png",
+                        hash=calculate_file_hash(p),
+                        treemap_type=TreemapType.ASSETS,
+                        children=[],
+                        is_dir=False,
+                    )
+                )
+
+            monkeypatch.setattr(ImageOptimizationInsight, "_TIMEOUT_SECONDS", 0.1)
+
+            def _slow(*_args: Any, **_kwargs: Any) -> None:
+                time.sleep(5)
+
+            monkeypatch.setattr(ImageOptimizationInsight, "_analyze_image_optimization", _slow)
+
+            test_input = self._input_from_files(files, insights_input.app_info)
+            started = time.monotonic()
+            result = ImageOptimizationInsight().generate(test_input)
+            elapsed = time.monotonic() - started
+
+        assert result is not None
+        assert result.timed_out is True
+        # Returned promptly rather than waiting on the 5s stalled encodes.
+        assert elapsed < 4
