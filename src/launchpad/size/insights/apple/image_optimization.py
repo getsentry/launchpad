@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import io
 import logging
-import os
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -48,7 +47,7 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
     MIN_SAVINGS_THRESHOLD = 4096
     TARGET_JPEG_QUALITY = 85
     TARGET_HEIC_QUALITY = 85
-    _MAX_WORKERS = min(8, (os.cpu_count() or 4))
+    _MAX_WORKERS = 4
     _TIMEOUT_SECONDS = 240
 
     @abstractmethod
