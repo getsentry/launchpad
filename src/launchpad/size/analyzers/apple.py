@@ -76,6 +76,8 @@ def _binary_worker_init() -> None:
         libc = ctypes.CDLL(None, use_errno=True)
         libc.prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong]
         libc.prctl.restype = ctypes.c_int
+        # Have the kernel SIGKILL this worker if the parent dies, so a worker wedged
+        # in a non-returning LIEF call can't orphan when parent-side cleanup never runs.
         PR_SET_PDEATHSIG = 1
         libc.prctl(PR_SET_PDEATHSIG, signal.SIGKILL, 0, 0, 0)
     except Exception:
