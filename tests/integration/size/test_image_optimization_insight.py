@@ -17,6 +17,7 @@ from launchpad.size.insights.apple.image_optimization import ImageOptimizationIn
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import FileAnalysis, FileInfo
+from launchpad.size.models.insights import OptimizableImageFile
 from launchpad.size.models.treemap import TreemapType
 from launchpad.utils.file_utils import calculate_file_hash
 
@@ -475,6 +476,41 @@ class TestImageOptimizationInsightIntegration:
             if f.heic_size is not None:
                 assert f.conversion_savings == max(0, f.current_size - f.heic_size)
         assert by_path["catalog/dup.png"].potential_savings < by_path["loose/dup.png"].potential_savings
+
+    def test_dedup_drops_duplicates_scaled_below_threshold(
+        self, insights_input: InsightsInput, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A duplicate whose scaled savings fall below MIN_SAVINGS_THRESHOLD is excluded."""
+        rep = FileInfo(
+            path="loose/dup.png",
+            full_path=Path("/nonexistent/loose_dup.png"),
+            size=20000,
+            file_type="png",
+            hash="sharedhash",
+            treemap_type=TreemapType.ASSETS,
+            children=[],
+            is_dir=False,
+        )
+        threshold = ImageOptimizationInsight().MIN_SAVINGS_THRESHOLD
+        smaller = rep.model_copy(update={"path": "catalog/dup.png", "size": 20000 - (threshold // 8)})
+
+        def _fake(_self: Any, file_info: FileInfo) -> OptimizableImageFile:
+            return OptimizableImageFile(
+                file_path=file_info.path,
+                current_size=file_info.size,
+                minify_savings=threshold + 100,
+                minified_size=file_info.size - (threshold + 100),
+            )
+
+        monkeypatch.setattr(ImageOptimizationInsight, "_analyze_image_optimization", _fake)
+
+        test_input = self._input_from_files([rep, smaller], insights_input.app_info)
+        result = ImageOptimizationInsight().generate(test_input)
+
+        assert result is not None
+        by_path = {f.file_path: f for f in result.optimizable_files}
+        assert set(by_path) == {"loose/dup.png"}
+        assert by_path["loose/dup.png"].potential_savings >= threshold
 
     def test_enforces_wall_clock_timeout(self, insights_input: InsightsInput, monkeypatch: pytest.MonkeyPatch) -> None:
         """A stalled encode cannot blow past the timeout budget."""
