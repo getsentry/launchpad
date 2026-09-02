@@ -117,11 +117,16 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             if rep_result is None:
                 continue
             for f in group:
+                # Savings were measured against the representative's size; shift them to
+                # each path's own size so current_size and savings stay consistent.
+                size_delta = f.size - rep_result.current_size
                 results.append(
                     rep_result.model_copy(
                         update={
                             "file_path": f.path,
                             "current_size": f.size,
+                            "minify_savings": max(0, rep_result.minify_savings + size_delta),
+                            "conversion_savings": max(0, rep_result.conversion_savings + size_delta),
                             "idiom": f.idiom,
                             "colorspace": f.colorspace,
                         }

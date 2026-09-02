@@ -443,6 +443,44 @@ class TestImageOptimizationInsightIntegration:
         savings = {f.potential_savings for f in result.optimizable_files}
         assert len(savings) == 1 and savings.pop() > 0
 
+    def test_dedup_scales_savings_to_each_paths_size(self, insights_input: InsightsInput) -> None:
+        """Duplicates sharing a hash but differing in size get savings scaled to their own size."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            p = temp_path / "dup.png"
+            Image.new("RGBA", (1000, 1000), (255, 0, 0, 128)).save(p, format="PNG", optimize=False, compress_level=0)
+            content_hash = calculate_file_hash(p)
+            real_size = p.stat().st_size
+
+            # Same content (one hash) but two different reported sizes, as happens when
+            # the same image ships both loose (block-rounded) and in a catalog (element.size).
+            rep = FileInfo(
+                path="loose/dup.png",
+                full_path=p,
+                size=real_size,
+                file_type="png",
+                hash=content_hash,
+                treemap_type=TreemapType.ASSETS,
+                children=[],
+                is_dir=False,
+            )
+            smaller = rep.model_copy(update={"path": "catalog/dup.png", "size": real_size // 2})
+
+            test_input = self._input_from_files([rep, smaller], insights_input.app_info)
+            result = ImageOptimizationInsight().generate(test_input)
+
+        assert result is not None
+        by_path = {f.file_path: f for f in result.optimizable_files}
+        assert set(by_path) == {"loose/dup.png", "catalog/dup.png"}
+        for f in by_path.values():
+            assert f.potential_savings <= f.current_size
+            if f.minified_size is not None:
+                assert f.minify_savings == max(0, f.current_size - f.minified_size)
+            if f.heic_size is not None:
+                assert f.conversion_savings == max(0, f.current_size - f.heic_size)
+        # The smaller-size path reports strictly smaller savings than the larger one.
+        assert by_path["catalog/dup.png"].potential_savings < by_path["loose/dup.png"].potential_savings
+
     def test_enforces_wall_clock_timeout(self, insights_input: InsightsInput, monkeypatch: pytest.MonkeyPatch) -> None:
         """A stalled encode cannot blow past the timeout budget."""
         with tempfile.TemporaryDirectory() as temp_dir:
