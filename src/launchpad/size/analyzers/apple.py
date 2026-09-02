@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import ctypes
 import gc
 import os
+import signal
+import sys
 import tempfile
 import time
 
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -62,6 +67,28 @@ from ..models.apple import (
 )
 
 logger = get_logger(__name__)
+
+
+def _binary_worker_init() -> None:
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong]
+        libc.prctl.restype = ctypes.c_int
+        PR_SET_PDEATHSIG = 1
+        libc.prctl(PR_SET_PDEATHSIG, signal.SIGKILL, 0, 0, 0)
+    except Exception:
+        logger.debug("Could not set PR_SET_PDEATHSIG for binary worker", exc_info=True)
+
+
+def _force_kill_pool(executor: ProcessPoolExecutor) -> None:
+    for proc in list(getattr(executor, "_processes", {}).values()):
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    executor.shutdown(wait=False, cancel_futures=True)
 
 
 class AppleAppAnalyzer:
@@ -155,37 +182,33 @@ class AppleAppAnalyzer:
             binaries = artifact.get_all_binary_paths()
             logger.debug(f"Found {len(binaries)} binaries to analyze")
 
-            lief_cache = artifact.get_lief_cache()
+            extract_dir = artifact.get_extract_dir()
+            workers = self._binary_analysis_worker_count(len(binaries))
             for binary_info in binaries:
-                logger.info(
-                    "size.apple.binary_analysis_started",
-                    extra={
-                        "event": "size.binary_analysis_started",
-                        "binary_name": binary_info.name,
-                        "binary_path": str(binary_info.path.relative_to(app_bundle_path)),
-                        "has_dsym": binary_info.dsym_path is not None,
-                    },
-                )
-                if binary_info.dsym_path:
-                    logger.debug(
-                        f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(artifact.get_extract_dir())}"
-                    )
-                binary = self._analyze_binary(binary_info, app_bundle_path, lief_cache)
+                self._log_binary_started(binary_info, app_bundle_path, extract_dir)
+
+            if workers > 1:
+                logger.debug(f"Analyzing binaries in parallel with {workers} processes")
+                analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path, lief_cache=None)
+                executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
+                try:
+                    results = list(executor.map(analyze, binaries))
+                    executor.shutdown(wait=True)
+                except BaseException:
+                    _force_kill_pool(executor)
+                    raise
+            else:
+                lief_cache = artifact.get_lief_cache()
+                results = []
+                for binary_info in binaries:
+                    results.append(self._analyze_binary(binary_info, app_bundle_path, lief_cache))
+                    gc.collect()
+
+            for binary_info, binary in zip(binaries, results):
                 if binary is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
-
-                logger.info(
-                    "size.apple.binary_analysis_completed",
-                    extra={
-                        "event": "size.binary_analysis_completed",
-                        "binary_name": binary_info.name,
-                        "symbol_count": (len(binary.symbol_info.symbol_sizes) if binary.symbol_info else 0),
-                        "swift_types_count": (len(binary.symbol_info.swift_type_groups) if binary.symbol_info else 0),
-                        "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),
-                    },
-                )
-                gc.collect()
+                    self._log_binary_completed(binary_info, binary)
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
@@ -453,6 +476,44 @@ class AppleAppAnalyzer:
                 extra={"insight": insight_name, "elapsed_s": round(time.monotonic() - started, 3)},
             )
             return result
+
+    def _binary_analysis_worker_count(self, num_binaries: int) -> int:
+        if num_binaries <= 1:
+            return 1
+        override = os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS")
+        if override:
+            try:
+                configured = int(override)
+            except ValueError:
+                configured = 0
+            if configured >= 1:
+                return min(configured, num_binaries)
+        return min(8, os.cpu_count() or 1, num_binaries)
+
+    def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> None:
+        logger.info(
+            "size.apple.binary_analysis_started",
+            extra={
+                "event": "size.binary_analysis_started",
+                "binary_name": binary_info.name,
+                "binary_path": str(binary_info.path.relative_to(app_bundle_path)),
+                "has_dsym": binary_info.dsym_path is not None,
+            },
+        )
+        if binary_info.dsym_path:
+            logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(extract_dir)}")
+
+    def _log_binary_completed(self, binary_info: BinaryInfo, binary: MachOBinaryAnalysis) -> None:
+        logger.info(
+            "size.apple.binary_analysis_completed",
+            extra={
+                "event": "size.binary_analysis_completed",
+                "binary_name": binary_info.name,
+                "symbol_count": (len(binary.symbol_info.symbol_sizes) if binary.symbol_info else 0),
+                "swift_types_count": (len(binary.symbol_info.swift_type_groups) if binary.symbol_info else 0),
+                "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),
+            },
+        )
 
     @sentry_sdk.trace
     def _analyze_binary(

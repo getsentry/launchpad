@@ -1,5 +1,9 @@
+import multiprocessing as mp
 import plistlib
+import signal
+import time
 
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Callable, cast
 from unittest.mock import patch
@@ -9,8 +13,15 @@ import pytest
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
-from launchpad.size.analyzers.apple import AppleAppAnalyzer
+from launchpad.size.analyzers.apple import AppleAppAnalyzer, _force_kill_pool
 from launchpad.size.models.common import ComponentType
+
+
+def _sigterm_ignoring_busy_loop(*_args: object) -> None:
+    """Models a worker wedged in a native call: SIGTERM is ignored, spins forever."""
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    while True:
+        pass
 
 
 @pytest.fixture
@@ -91,6 +102,66 @@ class TestAppleAppSizes:
         assert args[0] == "size.apple.insight_completed"
         assert kwargs["extra"]["insight"] == "dummy"
         assert "elapsed_s" in kwargs["extra"]
+
+    def test_binary_worker_count(self) -> None:
+        analyzer = AppleAppAnalyzer()
+        assert analyzer._binary_analysis_worker_count(1) == 1
+        assert analyzer._binary_analysis_worker_count(0) == 1
+        assert analyzer._binary_analysis_worker_count(100) >= 1
+        assert analyzer._binary_analysis_worker_count(100) <= 8
+
+    def test_binary_worker_count_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        analyzer = AppleAppAnalyzer()
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "3")
+        assert analyzer._binary_analysis_worker_count(100) == 3
+        assert analyzer._binary_analysis_worker_count(2) == 2  # capped at num binaries
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "1")
+        assert analyzer._binary_analysis_worker_count(100) == 1
+
+    def test_parallel_binary_analysis_matches_serial(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Toggling the worker count must not change analysis output."""
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "1")
+        serial = AppleAppAnalyzer(skip_treemap=False).analyze(
+            cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+        )
+
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4")
+        parallel = AppleAppAnalyzer(skip_treemap=False).analyze(
+            cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+        )
+
+        assert serial.install_size == parallel.install_size
+        assert serial.download_size == parallel.download_size
+        assert serial.treemap is not None and parallel.treemap is not None
+        assert serial.treemap.model_dump_json() == parallel.treemap.model_dump_json()
+
+    def test_force_kill_pool_kills_sigterm_ignoring_worker(self) -> None:
+        """Cleanup must SIGKILL workers that ignore SIGTERM (e.g. wedged in LIEF)."""
+        ctx = mp.get_context("fork")
+        executor = ProcessPoolExecutor(max_workers=2, mp_context=ctx)
+        try:
+            executor.submit(_sigterm_ignoring_busy_loop)
+            executor.submit(_sigterm_ignoring_busy_loop)
+
+            deadline = time.monotonic() + 10
+            while len(getattr(executor, "_processes", {})) < 2 and time.monotonic() < deadline:
+                time.sleep(0.05)
+            procs = list(executor._processes.values())
+            assert len(procs) == 2 and all(p.is_alive() for p in procs)
+
+            _force_kill_pool(executor)
+
+            for p in procs:
+                p.join(timeout=5)
+                assert not p.is_alive()
+                assert p.exitcode == -signal.SIGKILL
+        finally:
+            for p in list((getattr(executor, "_processes", None) or {}).values()):
+                if p.is_alive():
+                    p.kill()
+            executor.shutdown(wait=False, cancel_futures=True)
 
     def test_apple_app_sizes(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap structure matches reference report."""
