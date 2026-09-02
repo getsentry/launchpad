@@ -78,7 +78,11 @@ def _force_kill_pool(executor: ProcessPoolExecutor) -> None:
             proc.kill()
         except Exception:
             pass
-    executor.shutdown(wait=False, cancel_futures=True)
+    # Best-effort cleanup: never raise, or we'd mask the exception being re-raised at the call site.
+    try:
+        executor.shutdown(wait=False, cancel_futures=True)
+    except Exception:
+        logger.debug("executor.shutdown during force-kill raised", exc_info=True)
 
 
 class AppleAppAnalyzer:
