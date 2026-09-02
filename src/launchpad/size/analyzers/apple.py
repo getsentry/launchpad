@@ -85,6 +85,13 @@ def _force_kill_pool(executor: ProcessPoolExecutor) -> None:
         logger.debug("executor.shutdown during force-kill raised", exc_info=True)
 
 
+def _run_and_time(analyze: Any, binary_info: BinaryInfo) -> Tuple[Any, float]:
+    # Time each binary inside the worker that runs it, so per-binary duration survives even
+    # though the parent emits the completed logs in a batch after all results return.
+    start = time.monotonic()
+    return analyze(binary_info), time.monotonic() - start
+
+
 class AppleAppAnalyzer:
     """Analyzer for Apple app bundles (.xcarchive directories)."""
 
@@ -189,7 +196,7 @@ class AppleAppAnalyzer:
                 analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path, lief_cache=None)
                 executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
                 try:
-                    results = list(executor.map(analyze, binaries))
+                    results = list(executor.map(partial(_run_and_time, analyze), binaries))
                     executor.shutdown(wait=True)
                 except BaseException:
                     _force_kill_pool(executor)
@@ -198,14 +205,16 @@ class AppleAppAnalyzer:
                 lief_cache = artifact.get_lief_cache()
                 results = []
                 for binary_info in binaries:
-                    results.append(self._analyze_binary(binary_info, app_bundle_path, lief_cache))
+                    start = time.monotonic()
+                    result = self._analyze_binary(binary_info, app_bundle_path, lief_cache)
+                    results.append((result, time.monotonic() - start))
                     gc.collect()
 
-            for binary_info, binary in zip(binaries, results):
+            for binary_info, (binary, elapsed) in zip(binaries, results):
                 if binary is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
-                    self._log_binary_completed(binary_info, binary)
+                    self._log_binary_completed(binary_info, binary, elapsed)
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
@@ -502,12 +511,13 @@ class AppleAppAnalyzer:
         if binary_info.dsym_path:
             logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(extract_dir)}")
 
-    def _log_binary_completed(self, binary_info: BinaryInfo, binary: MachOBinaryAnalysis) -> None:
+    def _log_binary_completed(self, binary_info: BinaryInfo, binary: MachOBinaryAnalysis, elapsed_s: float) -> None:
         logger.info(
             "size.apple.binary_analysis_completed",
             extra={
                 "event": "size.binary_analysis_completed",
                 "binary_name": binary_info.name,
+                "elapsed_s": round(elapsed_s, 3),
                 "symbol_count": (len(binary.symbol_info.symbol_sizes) if binary.symbol_info else 0),
                 "swift_types_count": (len(binary.symbol_info.swift_type_groups) if binary.symbol_info else 0),
                 "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),

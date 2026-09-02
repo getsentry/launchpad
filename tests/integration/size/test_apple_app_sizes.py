@@ -183,6 +183,19 @@ class TestAppleAppSizes:
         assert results.treemap is not None
         assert results.install_size > 0
 
+    def test_binary_completed_log_includes_elapsed(self) -> None:
+        """Per-binary duration must survive parallelization via an elapsed_s log field."""
+        from unittest.mock import Mock, patch
+
+        binary_info = Mock()
+        binary_info.name = "Foo"
+        binary = Mock(symbol_info=None)
+
+        with patch.object(apple.logger, "info") as info:
+            AppleAppAnalyzer()._log_binary_completed(binary_info, binary, 1.23456)
+
+        assert info.call_args.kwargs["extra"]["elapsed_s"] == 1.235
+
     def test_apple_app_sizes(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap structure matches reference report."""
 
