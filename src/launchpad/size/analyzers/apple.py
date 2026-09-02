@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import ctypes
 import gc
 import os
-import signal
-import sys
 import tempfile
 import time
 
@@ -73,18 +70,6 @@ def _binary_worker_init() -> None:
     # Each binary already runs in its own worker; keep per-binary demangling serial so
     # the outer pool doesn't multiply into dozens of concurrent cwl-demangle subprocesses.
     os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
-    if not sys.platform.startswith("linux"):
-        return
-    try:
-        libc = ctypes.CDLL(None, use_errno=True)
-        libc.prctl.argtypes = [ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong]
-        libc.prctl.restype = ctypes.c_int
-        # Have the kernel SIGKILL this worker if the parent dies, so a worker wedged
-        # in a non-returning LIEF call can't orphan when parent-side cleanup never runs.
-        PR_SET_PDEATHSIG = 1
-        libc.prctl(PR_SET_PDEATHSIG, signal.SIGKILL, 0, 0, 0)
-    except Exception:
-        logger.debug("Could not set PR_SET_PDEATHSIG for binary worker", exc_info=True)
 
 
 def _force_kill_pool(executor: ProcessPoolExecutor) -> None:
