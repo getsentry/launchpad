@@ -77,8 +77,6 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             return None
         files.sort(key=lambda f: f.size, reverse=True)
 
-        # Byte-identical images produce identical encodes, so analyze each unique
-        # content hash once and fan the result back out to every duplicate path.
         groups: Dict[str, List[FileInfo]] = defaultdict(list)
         for f in files:
             groups[f.hash].append(f)
@@ -90,8 +88,6 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
         executor = ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(representatives)))
         future_to_rep = {executor.submit(self._analyze_image_optimization, rep): rep for rep in representatives}
         try:
-            # as_completed enforces a hard wall-clock budget even if worker threads
-            # stall inside a slow encode (they cannot be interrupted mid-encode).
             for future in as_completed(future_to_rep, timeout=self._TIMEOUT_SECONDS):
                 completed += 1
                 rep = future_to_rep[future]
@@ -117,8 +113,6 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             if rep_result is None:
                 continue
             for f in group:
-                # Savings were measured against the representative's size; shift them to
-                # each path's own size so current_size and savings stay consistent.
                 size_delta = f.size - rep_result.current_size
                 results.append(
                     rep_result.model_copy(

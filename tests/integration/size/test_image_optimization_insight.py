@@ -424,7 +424,6 @@ class TestImageOptimizationInsightIntegration:
                     )
                 )
 
-            # All three share one content hash.
             assert len({f.hash for f in files}) == 1
 
             test_input = self._input_from_files(files, insights_input.app_info)
@@ -437,7 +436,6 @@ class TestImageOptimizationInsightIntegration:
                 result = ImageOptimizationInsight().generate(test_input)
 
         assert result is not None
-        # Encoded once (single unique hash), reported for all three paths.
         assert spy.call_count == 1
         assert {f.file_path for f in result.optimizable_files} == set(paths)
         savings = {f.potential_savings for f in result.optimizable_files}
@@ -452,8 +450,6 @@ class TestImageOptimizationInsightIntegration:
             content_hash = calculate_file_hash(p)
             real_size = p.stat().st_size
 
-            # Same content (one hash) but two different reported sizes, as happens when
-            # the same image ships both loose (block-rounded) and in a catalog (element.size).
             rep = FileInfo(
                 path="loose/dup.png",
                 full_path=p,
@@ -478,7 +474,6 @@ class TestImageOptimizationInsightIntegration:
                 assert f.minify_savings == max(0, f.current_size - f.minified_size)
             if f.heic_size is not None:
                 assert f.conversion_savings == max(0, f.current_size - f.heic_size)
-        # The smaller-size path reports strictly smaller savings than the larger one.
         assert by_path["catalog/dup.png"].potential_savings < by_path["loose/dup.png"].potential_savings
 
     def test_enforces_wall_clock_timeout(self, insights_input: InsightsInput, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -516,5 +511,4 @@ class TestImageOptimizationInsightIntegration:
 
         assert result is not None
         assert result.timed_out is True
-        # Returned promptly rather than waiting on the 5s stalled encodes.
         assert elapsed < 4
