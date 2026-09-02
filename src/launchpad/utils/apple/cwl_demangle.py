@@ -168,9 +168,7 @@ class CwlDemangler:
                 )
             except subprocess.TimeoutExpired:
                 elapsed = time.time() - start_time
-                logger.exception(
-                    "cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed}
-                )
+                logger.warning("cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
                 return {}
             except subprocess.CalledProcessError:
                 elapsed = time.time() - start_time
