@@ -70,6 +70,9 @@ logger = get_logger(__name__)
 
 
 def _binary_worker_init() -> None:
+    # Each binary already runs in its own worker; keep per-binary demangling serial so
+    # the outer pool doesn't multiply into dozens of concurrent cwl-demangle subprocesses.
+    os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
     if not sys.platform.startswith("linux"):
         return
     try:
@@ -191,6 +194,9 @@ class AppleAppAnalyzer:
 
             if workers > 1:
                 logger.debug(f"Analyzing binaries in parallel with {workers} processes")
+                # Workers re-parse from disk (lief_cache=None), so the parent's cached LIEF
+                # trees are dead weight; drop them so they don't stay resident all run.
+                artifact.get_lief_cache().clear()
                 analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path, lief_cache=None)
                 executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
                 try:
@@ -490,7 +496,9 @@ class AppleAppAnalyzer:
                 configured = 0
             if configured >= 1:
                 return min(configured, num_binaries)
-        return min(8, os.cpu_count() or 1, num_binaries)
+        # Match the worker pod's whole-core CPU request; os.cpu_count() reads node cores
+        # (no CPU limit set), which would oversubscribe. Override via the env var above.
+        return min(4, num_binaries)
 
     def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> None:
         logger.info(

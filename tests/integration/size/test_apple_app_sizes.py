@@ -1,3 +1,4 @@
+import functools
 import multiprocessing as mp
 import plistlib
 import signal
@@ -13,6 +14,7 @@ import pytest
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.size.analyzers import apple
 from launchpad.size.analyzers.apple import AppleAppAnalyzer, _force_kill_pool
 from launchpad.size.models.common import ComponentType
 
@@ -107,8 +109,8 @@ class TestAppleAppSizes:
         analyzer = AppleAppAnalyzer()
         assert analyzer._binary_analysis_worker_count(1) == 1
         assert analyzer._binary_analysis_worker_count(0) == 1
-        assert analyzer._binary_analysis_worker_count(100) >= 1
-        assert analyzer._binary_analysis_worker_count(100) <= 8
+        assert analyzer._binary_analysis_worker_count(100) == 4
+        assert analyzer._binary_analysis_worker_count(2) == 2
 
     def test_binary_worker_count_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         analyzer = AppleAppAnalyzer()
@@ -153,8 +155,10 @@ class TestAppleAppSizes:
 
             _force_kill_pool(executor)
 
+            deadline = time.monotonic() + 15
             for p in procs:
-                p.join(timeout=5)
+                while p.is_alive() and time.monotonic() < deadline:
+                    p.join(timeout=0.2)
                 assert not p.is_alive()
                 assert p.exitcode == -signal.SIGKILL
         finally:
@@ -162,6 +166,22 @@ class TestAppleAppSizes:
                 if p.is_alive():
                     p.kill()
             executor.shutdown(wait=False, cancel_futures=True)
+
+    def test_parallel_binary_analysis_under_forkserver(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Prod uses the forkserver start method, which pickles the analyzer and binaries;
+        the fork default in tests would mask a pickling regression, so exercise it here."""
+        ctx = mp.get_context("forkserver")
+        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+
+        results = AppleAppAnalyzer(skip_treemap=False).analyze(
+            cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+        )
+
+        assert results.treemap is not None
+        assert results.install_size > 0
 
     def test_apple_app_sizes(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap structure matches reference report."""
