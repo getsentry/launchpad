@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from objectstore_client import Client as ObjectstoreClient
+from taskbroker_client.worker.workerchild import ProcessingDeadlineExceeded
 
 from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig, _parse_build_number
 from launchpad.artifacts.android.aab import AAB
@@ -455,6 +456,79 @@ class TestArtifactProcessorMessageHandling:
             c[1] for c in fake_statsd.calls if c[0] == "timing" and c[1]["metric"] == "artifact.processing.duration"
         )
         assert not any(tag.startswith("organization_slug:") for tag in timing["tags"])
+
+    @staticmethod
+    def _duration_tags(fake_statsd):
+        timing = next(
+            c[1] for c in fake_statsd.calls if c[0] == "timing" and c[1]["metric"] == "artifact.processing.duration"
+        )
+        return timing["tags"]
+
+    @staticmethod
+    def _service_config():
+        return ServiceConfig(
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=[],
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
+        )
+
+    @pytest.mark.parametrize(
+        "artifact_type,expected_platform",
+        [("xcarchive", "ios"), ("aab", "android"), ("apk", "android"), ("unknown", "unknown")],
+    )
+    @patch("launchpad.artifact_processor.SentryClient")
+    @patch.object(ArtifactProcessor, "process_artifact")
+    def test_process_message_platform_on_success(
+        self, mock_process, mock_sentry_client, artifact_type, expected_platform
+    ):
+        """Successful builds map artifact_type to a platform tag (aab/apk both -> android)."""
+        mock_process.return_value = artifact_type
+        fake_statsd = FakeStatsd()
+
+        ArtifactProcessor.process_message(
+            artifact_id="a",
+            project_id="p",
+            organization_id="o",
+            service_config=self._service_config(),
+            statsd=fake_statsd,
+        )
+
+        assert f"platform:{expected_platform}" in self._duration_tags(fake_statsd)
+
+    @patch("launchpad.artifact_processor.SentryClient")
+    @patch.object(ArtifactProcessor, "process_artifact")
+    def test_process_message_platform_timeout(self, mock_process, mock_sentry_client):
+        """Builds that exceed the processing deadline are tagged platform:timeout."""
+        mock_process.side_effect = ProcessingDeadlineExceeded()
+        fake_statsd = FakeStatsd()
+
+        with pytest.raises(ProcessingDeadlineExceeded):
+            ArtifactProcessor.process_message(
+                artifact_id="a",
+                project_id="p",
+                organization_id="o",
+                service_config=self._service_config(),
+                statsd=fake_statsd,
+            )
+
+        assert "platform:timeout" in self._duration_tags(fake_statsd)
+
+    @patch("launchpad.artifact_processor.SentryClient")
+    @patch.object(ArtifactProcessor, "process_artifact")
+    def test_process_message_platform_failed(self, mock_process, mock_sentry_client):
+        """Builds that fail before type detection are tagged platform:failed."""
+        mock_process.side_effect = RuntimeError("boom")
+        fake_statsd = FakeStatsd()
+
+        ArtifactProcessor.process_message(
+            artifact_id="a",
+            project_id="p",
+            organization_id="o",
+            service_config=self._service_config(),
+            statsd=fake_statsd,
+        )
+
+        assert "platform:failed" in self._duration_tags(fake_statsd)
 
 
 class TestParseBuildNumber:

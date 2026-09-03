@@ -129,6 +129,7 @@ class ArtifactProcessor:
             return
 
         artifact_type = "unknown"
+        platform = "unknown"
         with contextlib.ExitStack() as stack:
             stack.enter_context(request_context())
             processing_start = time.monotonic()
@@ -142,6 +143,7 @@ class ArtifactProcessor:
             try:
                 artifact_type = artifact_processor.process_artifact(organization_id, project_id, artifact_id)
             except ProcessingDeadlineExceeded:
+                platform = "timeout"
                 statsd.increment("artifact.processing.failed")
                 statsd.increment("artifact.processing.timeout")
                 duration = time.time() - start_time
@@ -157,12 +159,14 @@ class ArtifactProcessor:
                 )
                 raise
             except Exception:
+                platform = "failed"
                 statsd.increment("artifact.processing.failed")
                 duration = time.time() - start_time
                 logger.exception(
                     f"Processing failed for artifact {artifact_id} (project: {project_id}, org: {organization_id}) in {duration:.2f}s"
                 )
             else:
+                platform = {"xcarchive": "ios", "aab": "android", "apk": "android"}.get(artifact_type, "unknown")
                 statsd.increment("artifact.processing.completed")
                 duration = time.time() - start_time
                 logger.info(
@@ -173,6 +177,7 @@ class ArtifactProcessor:
                     f"project_id:{project_id}",
                     f"organization_id:{organization_id}",
                     f"artifact_type:{artifact_type}",
+                    f"platform:{platform}",
                 ]
                 if organization_slug:
                     duration_tags.append(f"organization_slug:{organization_slug}")
