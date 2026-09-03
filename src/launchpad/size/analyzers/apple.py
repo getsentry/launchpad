@@ -16,12 +16,13 @@ from datetime import datetime
 from functools import partial
 from logging.handlers import QueueHandler
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, NamedTuple, Tuple
 
 import lief
 import sentry_sdk
 
 from cryptography import x509
+from sentry_sdk.utils import qualname_from_function
 
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
@@ -77,6 +78,12 @@ def _binary_worker_init(log_queue: multiprocessing.Queue[logging.LogRecord], log
     root = logging.getLogger()
     root.handlers = [QueueHandler(log_queue)]
     root.setLevel(log_level)
+
+
+class _TimedBinary(NamedTuple):
+    binary: MachOBinaryAnalysis | None
+    started_at: float
+    finished_at: float
 
 
 class _WorkerLogRelay:
@@ -232,10 +239,12 @@ class AppleAppAnalyzer:
                     results.append(analyze(binary_info))
                     gc.collect()
 
-            for binary_info, binary in zip(binaries, results):
-                if binary is not None:
-                    binary_analysis.append(binary)
-                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
+            for binary_info, timed in zip(binaries, results):
+                if workers > 0:
+                    self._record_binary_span(binary_info, timed)
+                if timed.binary is not None:
+                    binary_analysis.append(timed.binary)
+                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = timed.binary
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
@@ -511,15 +520,24 @@ class AppleAppAnalyzer:
             configured = 4
         return min(configured, num_binaries)
 
-    def _analyze_binary_logged(
-        self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path
-    ) -> MachOBinaryAnalysis | None:
+    def _analyze_binary_logged(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> _TimedBinary:
         self._log_binary_started(binary_info, app_bundle_path, extract_dir)
-        start = time.monotonic()
+        started_at = time.time()
         binary = self._analyze_binary(binary_info, app_bundle_path)
+        finished_at = time.time()
         if binary is not None:
-            self._log_binary_completed(binary_info, binary, time.monotonic() - start)
-        return binary
+            self._log_binary_completed(binary_info, binary, finished_at - started_at)
+        return _TimedBinary(binary, started_at, finished_at)
+
+    # Pool workers have no Sentry client, so rebuild the span @sentry_sdk.trace would have made.
+    def _record_binary_span(self, binary_info: BinaryInfo, timed: _TimedBinary) -> None:
+        span = sentry_sdk.start_span(
+            op="function",
+            name=qualname_from_function(self._analyze_binary),
+            start_timestamp=timed.started_at,
+        )
+        span.set_data("binary_name", binary_info.name)
+        span.finish(end_timestamp=timed.finished_at)
 
     def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> None:
         logger.info(

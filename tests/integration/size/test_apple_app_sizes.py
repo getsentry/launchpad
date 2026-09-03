@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 import multiprocessing as mp
 import os
@@ -8,10 +9,14 @@ import time
 
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Callable, cast
+from typing import Any, Callable, cast
 from unittest.mock import patch
 
 import pytest
+import sentry_sdk
+import sentry_sdk.transport
+
+from sentry_sdk.envelope import Envelope
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
@@ -20,6 +25,17 @@ from launchpad.size.analyzers import apple
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import ComponentType
 from launchpad.tracing import current_request_id, request_context
+
+
+class _CapturingTransport(sentry_sdk.transport.Transport):
+    def __init__(self) -> None:
+        super().__init__()
+        self.transactions: list[dict[str, Any]] = []
+
+    def capture_envelope(self, envelope: Envelope) -> None:
+        for item in envelope.items:
+            if item.headers.get("type") == "transaction":
+                self.transactions.append(json.loads(item.get_bytes()))
 
 
 def _log_forever(i: int) -> None:
@@ -179,6 +195,38 @@ class TestAppleAppSizes:
         assert all(r.process != os.getpid() for r in completed)
         assert all(getattr(r, "request_id", None) == request_id for r in completed)
         assert all(isinstance(getattr(r, "elapsed_s", None), float) for r in completed)
+
+    def test_parallel_binary_spans_reattach_to_parent_transaction(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Workers can't report spans, so the parent rebuilds one per binary from worker
+        timestamps; they must land on the task transaction and reflect real concurrency."""
+        ctx = mp.get_context("forkserver")
+        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+        transport = _CapturingTransport()
+        sentry_sdk.init(dsn="https://key@example.invalid/1", transport=transport, traces_sample_rate=1.0)
+        try:
+            with sentry_sdk.start_transaction(name="test"):
+                artifact = cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+                binary_count = len(artifact.get_all_binary_paths())
+                AppleAppAnalyzer(skip_treemap=False).analyze(artifact)
+            sentry_sdk.flush()
+        finally:
+            sentry_sdk.get_global_scope().set_client(None)
+
+        spans = [
+            s
+            for t in transport.transactions
+            for s in t["spans"]
+            if s["op"] == "function" and s["description"].endswith("AppleAppAnalyzer._analyze_binary")
+        ]
+        assert len(spans) == binary_count
+        assert {s["data"]["binary_name"] for s in spans} == {b.name for b in artifact.get_all_binary_paths()}
+        assert all(s["timestamp"] > s["start_timestamp"] for s in spans)
+        assert any(
+            a is not b and a["start_timestamp"] < b["start_timestamp"] < a["timestamp"] for a in spans for b in spans
+        )
 
     def test_worker_log_relay_exits_cleanly_after_killing_workers(self, caplog: pytest.LogCaptureFixture) -> None:
         """Simulates the deadline path: workers SIGKILLed mid-log must not leave the parent
