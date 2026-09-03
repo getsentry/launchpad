@@ -102,6 +102,7 @@ class ArtifactProcessor:
         artifact_id: str,
         project_id: str,
         organization_id: str,
+        organization_slug: str | None = None,
         service_config=None,
         artifact_processor=None,
         statsd=None,
@@ -168,14 +169,17 @@ class ArtifactProcessor:
                     f"Processing complete for artifact {artifact_id} (project: {project_id}, org: {organization_id}) in {duration:.2f}s"
                 )
             finally:
+                duration_tags = [
+                    f"project_id:{project_id}",
+                    f"organization_id:{organization_id}",
+                    f"artifact_type:{artifact_type}",
+                ]
+                if organization_slug:
+                    duration_tags.append(f"organization_slug:{organization_slug}")
                 statsd.timing(
                     "artifact.processing.duration",
                     time.monotonic() - processing_start,
-                    tags=[
-                        f"project_id:{project_id}",
-                        f"organization_id:{organization_id}",
-                        f"artifact_type:{artifact_type}",
-                    ],
+                    tags=duration_tags,
                 )
 
     def process_artifact(
