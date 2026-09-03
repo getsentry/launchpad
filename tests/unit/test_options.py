@@ -1,10 +1,22 @@
 from sentry_options.testing import override_options
 
+import launchpad.options as options
+
 from launchpad.options import get_option
 
 
 def test_get_option_returns_schema_default():
     assert get_option("projects.skip", ["fallback"]) == []
+
+
+def test_get_option_returns_fallback_when_init_fails(monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("init failed")
+
+    monkeypatch.setattr(options, "_init_ok", None)
+    monkeypatch.setattr(options.sentry_options, "init", boom)
+
+    assert get_option("projects.skip", ["fallback"]) == ["fallback"]
 
 
 def test_get_option_returns_overridden_value():

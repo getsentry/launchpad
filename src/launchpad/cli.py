@@ -6,7 +6,6 @@ import click
 
 from . import __version__
 from .distribution.cli import distribution_command
-from .options import init_options
 from .size.cli import app_icon_command, profile_dex_parsing_command, size_command
 from .utils.console import console
 from .utils.logging import setup_logging
@@ -20,8 +19,6 @@ def cli(ctx: click.Context, version: bool) -> None:
     if version:
         click.echo(f"Launchpad v{__version__}")
         ctx.exit()
-
-    init_options()
 
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())

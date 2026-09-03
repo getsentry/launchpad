@@ -88,7 +88,6 @@ COPY devservices/ ./devservices/
 COPY README.md .
 COPY LICENSE .
 
-# Bake sentry-options schemas into the image (read via SENTRY_OPTIONS_DIR)
 COPY sentry-options/schemas /etc/sentry-options/schemas
 
 # Copy libdispatch from the build stage
