@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 _request_id: ContextVar[str | None] = ContextVar("request_id")
+_log_fields: ContextVar[dict[str, str]] = ContextVar("log_fields")
 
 
 @contextmanager
@@ -25,13 +26,32 @@ def bind_request_id(request_id: str) -> None:
     _request_id.set(request_id)
 
 
+@contextmanager
+def log_context(**fields: str):
+    """Attach structured fields (e.g. artifact_id) to every log record emitted within the block."""
+    token = _log_fields.set({**_log_fields.get({}), **fields})
+    try:
+        yield
+    finally:
+        _log_fields.reset(token)
+
+
+def current_log_fields() -> dict[str, str]:
+    return _log_fields.get({})
+
+
+def bind_log_fields(fields: dict[str, str]) -> None:
+    _log_fields.set(fields)
+
+
 class RequestLogFilter:
-    """Logging filter that adds request_id to log records.."""
+    """Logging filter that adds request_id and log_context fields to log records."""
 
     def filter(self, record) -> bool:
+        for key, value in _log_fields.get({}).items():
+            setattr(record, key, value)
         try:
-            request_id = _request_id.get()
-            record.request_id = request_id
+            record.request_id = _request_id.get()
         except LookupError:
             pass
         return True

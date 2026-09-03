@@ -26,7 +26,7 @@ from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.analyzers import apple
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import ComponentType
-from launchpad.tracing import current_request_id, request_context
+from launchpad.tracing import current_request_id, log_context, request_context
 
 
 class _SentryIngestStub:
@@ -207,7 +207,7 @@ class TestAppleAppSizes:
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
 
-        with request_context():
+        with request_context(), log_context(artifact_id="42"):
             request_id = current_request_id()
             AppleAppAnalyzer(skip_treemap=False).analyze(
                 cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
@@ -217,11 +217,14 @@ class TestAppleAppSizes:
         completed = [d for d in lines if d["message"] == "size.apple.binary_analysis_completed"]
         assert completed
         assert all(d["request_id"] == request_id for d in completed)
+        assert all(d["artifact_id"] == "42" for d in completed)
         assert all(isinstance(d["elapsed_s"], float) for d in completed)
 
     def test_worker_logging_applies_third_party_suppression(self, capfd: pytest.CaptureFixture[str]) -> None:
         ctx = mp.get_context("spawn")
-        context = apple._WorkerContext(verbose=False, request_id=None, sentry_config=None, trace_headers={})
+        context = apple._WorkerContext(
+            verbose=False, request_id=None, log_fields={}, sentry_config=None, trace_headers={}
+        )
         with ProcessPoolExecutor(
             max_workers=1, mp_context=ctx, initializer=apple._binary_worker_init, initargs=(context,)
         ) as executor:
