@@ -17,6 +17,10 @@ def request_context():
         _request_id.reset(token)
 
 
+def current_request_id() -> str | None:
+    return _request_id.get(None)
+
+
 class RequestLogFilter:
     """Logging filter that adds request_id to log records.."""
 

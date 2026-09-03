@@ -1,5 +1,7 @@
 import functools
+import logging
 import multiprocessing as mp
+import os
 import plistlib
 
 from concurrent.futures import ProcessPoolExecutor
@@ -15,6 +17,7 @@ from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.analyzers import apple
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import ComponentType
+from launchpad.tracing import current_request_id, request_context
 
 
 @pytest.fixture
@@ -146,6 +149,28 @@ class TestAppleAppSizes:
 
         assert results.treemap is not None
         assert results.install_size > 0
+
+    def test_worker_logs_relay_to_parent_with_request_id(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Per-binary logs are emitted inside pool workers, which have no logging config of
+        their own; they must reach the parent's handlers stamped with the parent's request id."""
+        ctx = mp.get_context("forkserver")
+        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+        caplog.set_level(logging.INFO)
+
+        with request_context():
+            request_id = current_request_id()
+            AppleAppAnalyzer(skip_treemap=False).analyze(
+                cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+            )
+
+        completed = [r for r in caplog.records if r.getMessage() == "size.apple.binary_analysis_completed"]
+        assert completed
+        assert all(r.process != os.getpid() for r in completed)
+        assert all(getattr(r, "request_id", None) == request_id for r in completed)
+        assert all(isinstance(getattr(r, "elapsed_s", None), float) for r in completed)
 
     def test_binary_completed_log_includes_elapsed(self) -> None:
         """Per-binary duration must survive parallelization via an elapsed_s log field."""

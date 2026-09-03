@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import gc
+import logging
+import multiprocessing
 import os
 import tempfile
+import threading
 import time
 
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from functools import partial
+from logging.handlers import QueueHandler
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -45,6 +49,7 @@ from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.size.utils.insight_path_map import build_insight_path_map
+from launchpad.tracing import current_request_id
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
@@ -66,13 +71,36 @@ from ..models.apple import (
 logger = get_logger(__name__)
 
 
-def _binary_worker_init() -> None:
+def _binary_worker_init(log_queue: multiprocessing.Queue[logging.LogRecord | None], log_level: int) -> None:
     os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
+    root = logging.getLogger()
+    root.handlers = [QueueHandler(log_queue)]
+    root.setLevel(log_level)
 
 
-def _run_and_time(analyze: Any, binary_info: BinaryInfo) -> Tuple[Any, float]:
-    start = time.monotonic()
-    return analyze(binary_info), time.monotonic() - start
+class _WorkerLogRelay:
+    def __init__(self) -> None:
+        self.queue: multiprocessing.Queue[logging.LogRecord | None] = multiprocessing.Queue()
+        self.level = logging.getLogger().getEffectiveLevel()
+        self._request_id = current_request_id()
+        self._thread = threading.Thread(target=self._drain, name="binary-analysis-log-relay", daemon=True)
+
+    def __enter__(self) -> _WorkerLogRelay:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.queue.put(None)
+        self._thread.join(timeout=2)
+
+    def _drain(self) -> None:
+        try:
+            while (record := self.queue.get()) is not None:
+                if self._request_id is not None:
+                    record.request_id = self._request_id
+                logging.getLogger(record.name).handle(record)
+        except Exception:
+            logger.debug("Worker log relay stopped", exc_info=True)
 
 
 class AppleAppAnalyzer:
@@ -166,33 +194,37 @@ class AppleAppAnalyzer:
             binaries = artifact.get_all_binary_paths()
             logger.debug(f"Found {len(binaries)} binaries to analyze")
 
-            extract_dir = artifact.get_extract_dir()
             workers = self._binary_analysis_worker_count(len(binaries))
-            for binary_info in binaries:
-                self._log_binary_started(binary_info, app_bundle_path, extract_dir)
-
-            analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path)
+            analyze = partial(
+                self._analyze_binary_logged,
+                app_bundle_path=app_bundle_path,
+                extract_dir=artifact.get_extract_dir(),
+            )
             if workers > 0:
                 logger.debug(f"Analyzing binaries with {workers} processes")
-                executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
-                try:
-                    results = list(executor.map(partial(_run_and_time, analyze), binaries))
-                    executor.shutdown(wait=True)
-                except BaseException:
-                    executor.kill_workers()
-                    raise
+                with _WorkerLogRelay() as relay:
+                    executor = ProcessPoolExecutor(
+                        max_workers=workers,
+                        initializer=_binary_worker_init,
+                        initargs=(relay.queue, relay.level),
+                    )
+                    try:
+                        results = list(executor.map(analyze, binaries))
+                        executor.shutdown(wait=True)
+                    except BaseException:
+                        executor.kill_workers()
+                        raise
             else:
                 logger.debug("Analyzing binaries in-process")
                 results = []
                 for binary_info in binaries:
-                    results.append(_run_and_time(analyze, binary_info))
+                    results.append(analyze(binary_info))
                     gc.collect()
 
-            for binary_info, (binary, elapsed) in zip(binaries, results):
+            for binary_info, binary in zip(binaries, results):
                 if binary is not None:
                     binary_analysis.append(binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
-                    self._log_binary_completed(binary_info, binary, elapsed)
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
@@ -467,6 +499,16 @@ class AppleAppAnalyzer:
         except ValueError:
             configured = 4
         return min(configured, num_binaries)
+
+    def _analyze_binary_logged(
+        self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path
+    ) -> MachOBinaryAnalysis | None:
+        self._log_binary_started(binary_info, app_bundle_path, extract_dir)
+        start = time.monotonic()
+        binary = self._analyze_binary(binary_info, app_bundle_path)
+        if binary is not None:
+            self._log_binary_completed(binary_info, binary, time.monotonic() - start)
+        return binary
 
     def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> None:
         logger.info(
