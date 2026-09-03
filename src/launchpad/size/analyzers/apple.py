@@ -173,8 +173,7 @@ class AppleAppAnalyzer:
 
             if workers > 1:
                 logger.debug(f"Analyzing binaries in parallel with {workers} processes")
-                artifact.get_lief_cache().clear()
-                analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path, lief_cache=None)
+                analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path)
                 executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
                 try:
                     results = list(executor.map(partial(_run_and_time, analyze), binaries))
@@ -183,11 +182,10 @@ class AppleAppAnalyzer:
                     executor.kill_workers()
                     raise
             else:
-                lief_cache = artifact.get_lief_cache()
                 results = []
                 for binary_info in binaries:
                     start = time.monotonic()
-                    result = self._analyze_binary(binary_info, app_bundle_path, lief_cache)
+                    result = self._analyze_binary(binary_info, app_bundle_path)
                     results.append((result, time.monotonic() - start))
                     gc.collect()
 
@@ -502,7 +500,6 @@ class AppleAppAnalyzer:
         self,
         binary_info: BinaryInfo,
         app_bundle_path: Path,
-        lief_cache: dict[Path, lief.MachO.FatBinary] | None = None,
         skip_swift_metadata: bool = False,
     ) -> MachOBinaryAnalysis | None:
         binary_path = binary_info.path
@@ -515,18 +512,13 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        # Only binaries with dSYMs are pre-cached. Pop from cache to free memory immediately.
-        # Binaries without dSYMs will be parsed on-demand here.
-        fat_binary = lief_cache.pop(binary_path, None) if lief_cache else None
-        if fat_binary is None:
-            logger.debug(f"Binary not in LIEF cache, parsing now: {binary_path.name}")
-            with open(binary_path, "rb") as f:
-                config = lief.MachO.ParserConfig()
-                config.parse_dyld_exports = False
-                config.parse_dyld_bindings = False
-                config.parse_dyld_rebases = False
+        with open(binary_path, "rb") as f:
+            config = lief.MachO.ParserConfig()
+            config.parse_dyld_exports = False
+            config.parse_dyld_bindings = False
+            config.parse_dyld_rebases = False
 
-                fat_binary = lief.MachO.parse(f, config)  # type: ignore
+            fat_binary = lief.MachO.parse(f, config)  # type: ignore
 
         if fat_binary is None or fat_binary.size == 0:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
