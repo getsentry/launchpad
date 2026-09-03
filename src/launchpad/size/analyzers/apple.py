@@ -3,23 +3,29 @@
 from __future__ import annotations
 
 import gc
+import logging
 import os
 import tempfile
 import time
 
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
+from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import lief
 import sentry_sdk
 
 from cryptography import x509
+from sentry_sdk.utils import qualname_from_function
 
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsParser
 from launchpad.parsers.apple.macho_parser import MachOParser, get_cpu_type_name
+from launchpad.sentry_sdk_init import SentryConfig, get_sentry_config, initialize_sentry_sdk
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
@@ -43,10 +49,11 @@ from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.size.utils.insight_path_map import build_insight_path_map
+from launchpad.tracing import bind_request_id, current_request_id
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
-from launchpad.utils.logging import get_logger
+from launchpad.utils.logging import get_logger, setup_logging
 from launchpad.utils.metadata_extractor import extract_metadata_from_zip
 
 from ..models.apple import (
@@ -62,6 +69,48 @@ from ..models.apple import (
 )
 
 logger = get_logger(__name__)
+
+_DEFAULT_BINARY_ANALYSIS_WORKERS = 4
+
+
+class _WorkerContext(NamedTuple):
+    verbose: bool
+    request_id: str | None
+    sentry_config: SentryConfig | None
+    trace_headers: dict[str, str]
+
+    @classmethod
+    def capture(cls) -> _WorkerContext:
+        headers = {"sentry-trace": sentry_sdk.get_traceparent(), "baggage": sentry_sdk.get_baggage()}
+        return cls(
+            verbose=logging.getLogger().getEffectiveLevel() <= logging.DEBUG,
+            request_id=current_request_id(),
+            sentry_config=get_sentry_config() if sentry_sdk.get_client().is_active() else None,
+            trace_headers={k: v for k, v in headers.items() if v},
+        )
+
+
+def _binary_worker_init(context: _WorkerContext) -> None:
+    os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
+    setup_logging(verbose=context.verbose)
+    if context.request_id is not None:
+        bind_request_id(context.request_id)
+    if context.sentry_config is not None:
+        initialize_sentry_sdk(context.sentry_config)
+        sentry_sdk.continue_trace(context.trace_headers)
+
+
+def _analyze_and_flush(analyze: Callable[[BinaryInfo], _TimedBinary], binary_info: BinaryInfo) -> _TimedBinary:
+    try:
+        return analyze(binary_info)
+    finally:
+        sentry_sdk.flush(timeout=2)
+
+
+class _TimedBinary(NamedTuple):
+    binary: MachOBinaryAnalysis | None
+    started_at: float
+    finished_at: float
 
 
 class AppleAppAnalyzer:
@@ -155,37 +204,35 @@ class AppleAppAnalyzer:
             binaries = artifact.get_all_binary_paths()
             logger.debug(f"Found {len(binaries)} binaries to analyze")
 
-            lief_cache = artifact.get_lief_cache()
-            for binary_info in binaries:
-                logger.info(
-                    "size.apple.binary_analysis_started",
-                    extra={
-                        "event": "size.binary_analysis_started",
-                        "binary_name": binary_info.name,
-                        "binary_path": str(binary_info.path.relative_to(app_bundle_path)),
-                        "has_dsym": binary_info.dsym_path is not None,
-                    },
+            workers = self._binary_analysis_worker_count(len(binaries))
+            analyze = partial(
+                self._analyze_binary_logged,
+                app_bundle_path=app_bundle_path,
+                extract_dir=artifact.get_extract_dir(),
+            )
+            if workers > 0:
+                logger.debug(f"Analyzing binaries with {workers} processes")
+                executor = ProcessPoolExecutor(
+                    max_workers=workers,
+                    initializer=_binary_worker_init,
+                    initargs=(_WorkerContext.capture(),),
                 )
-                if binary_info.dsym_path:
-                    logger.debug(
-                        f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(artifact.get_extract_dir())}"
-                    )
-                binary = self._analyze_binary(binary_info, app_bundle_path, lief_cache)
-                if binary is not None:
-                    binary_analysis.append(binary)
-                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
+                try:
+                    results = list(executor.map(partial(_analyze_and_flush, analyze), binaries))
+                    executor.shutdown(wait=True)
+                except BaseException:
+                    executor.kill_workers()
+                    raise
+            else:
+                logger.debug("Analyzing binaries in-process")
+                results = [analyze(binary_info) for binary_info in binaries]
 
-                logger.info(
-                    "size.apple.binary_analysis_completed",
-                    extra={
-                        "event": "size.binary_analysis_completed",
-                        "binary_name": binary_info.name,
-                        "symbol_count": (len(binary.symbol_info.symbol_sizes) if binary.symbol_info else 0),
-                        "swift_types_count": (len(binary.symbol_info.swift_type_groups) if binary.symbol_info else 0),
-                        "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),
-                    },
-                )
-                gc.collect()
+            for binary_info, timed in zip(binaries, results):
+                if workers > 0:
+                    self._record_binary_span(binary_info, timed)
+                if timed.binary is not None:
+                    binary_analysis.append(timed.binary)
+                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = timed.binary
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
@@ -454,12 +501,66 @@ class AppleAppAnalyzer:
             )
             return result
 
+    def _binary_analysis_worker_count(self, num_binaries: int) -> int:
+        try:
+            configured = int(os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", _DEFAULT_BINARY_ANALYSIS_WORKERS))
+        except ValueError:
+            configured = _DEFAULT_BINARY_ANALYSIS_WORKERS
+        return min(configured, num_binaries)
+
+    def _analyze_binary_logged(
+        self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: SafeDirectory
+    ) -> _TimedBinary:
+        self._log_binary_started(binary_info, app_bundle_path, extract_dir)
+        started_at = time.time()
+        start = time.monotonic()
+        binary = self._analyze_binary(binary_info, app_bundle_path)
+        elapsed_s = time.monotonic() - start
+        gc.collect()
+        if binary is not None:
+            self._log_binary_completed(binary_info, binary, elapsed_s)
+        return _TimedBinary(binary, started_at, started_at + elapsed_s)
+
+    def _record_binary_span(self, binary_info: BinaryInfo, timed: _TimedBinary) -> None:
+        span = sentry_sdk.start_span(
+            op="function",
+            name=qualname_from_function(self._analyze_binary),
+            start_timestamp=timed.started_at,
+        )
+        span.set_data("binary_name", binary_info.name)
+        span.finish(end_timestamp=timed.finished_at)
+
+    def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: SafeDirectory) -> None:
+        logger.info(
+            "size.apple.binary_analysis_started",
+            extra={
+                "event": "size.binary_analysis_started",
+                "binary_name": binary_info.name,
+                "binary_path": str(binary_info.path.relative_to(app_bundle_path)),
+                "has_dsym": binary_info.dsym_path is not None,
+            },
+        )
+        if binary_info.dsym_path:
+            logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(extract_dir)}")
+
+    def _log_binary_completed(self, binary_info: BinaryInfo, binary: MachOBinaryAnalysis, elapsed_s: float) -> None:
+        logger.info(
+            "size.apple.binary_analysis_completed",
+            extra={
+                "event": "size.binary_analysis_completed",
+                "binary_name": binary_info.name,
+                "elapsed_s": round(elapsed_s, 3),
+                "symbol_count": (len(binary.symbol_info.symbol_sizes) if binary.symbol_info else 0),
+                "swift_types_count": (len(binary.symbol_info.swift_type_groups) if binary.symbol_info else 0),
+                "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),
+            },
+        )
+
     @sentry_sdk.trace
     def _analyze_binary(
         self,
         binary_info: BinaryInfo,
         app_bundle_path: Path,
-        lief_cache: dict[Path, lief.MachO.FatBinary] | None = None,
         skip_swift_metadata: bool = False,
     ) -> MachOBinaryAnalysis | None:
         binary_path = binary_info.path
@@ -472,18 +573,13 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        # Only binaries with dSYMs are pre-cached. Pop from cache to free memory immediately.
-        # Binaries without dSYMs will be parsed on-demand here.
-        fat_binary = lief_cache.pop(binary_path, None) if lief_cache else None
-        if fat_binary is None:
-            logger.debug(f"Binary not in LIEF cache, parsing now: {binary_path.name}")
-            with open(binary_path, "rb") as f:
-                config = lief.MachO.ParserConfig()
-                config.parse_dyld_exports = False
-                config.parse_dyld_bindings = False
-                config.parse_dyld_rebases = False
+        with open(binary_path, "rb") as f:
+            config = lief.MachO.ParserConfig()
+            config.parse_dyld_exports = False
+            config.parse_dyld_bindings = False
+            config.parse_dyld_rebases = False
 
-                fat_binary = lief.MachO.parse(f, config)  # type: ignore
+            fat_binary = lief.MachO.parse(f, config)  # type: ignore
 
         if fat_binary is None or fat_binary.size == 0:
             raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")

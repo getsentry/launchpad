@@ -73,7 +73,6 @@ class ZippedXCArchive(AppleArtifact):
         self._provisioning_profile: dict[str, Any] | None = None
         self._dsym_info: dict[str, DsymInfo] | None = None
         self._binary_uuid_cache: dict[Path, str] = {}
-        self._lief_cache: dict[Path, lief.MachO.FatBinary] = {}
 
     def get_extract_dir(self) -> SafeDirectory:
         return self._extract_dir
@@ -343,8 +342,8 @@ class ZippedXCArchive(AppleArtifact):
         watch_paths = self._discover_watch_binaries(app_bundle_path)
         all_binary_paths.extend(watch_paths)
 
-        # Phase 2: Parse and cache all binaries
-        self._parse_and_cache_all_binaries(all_binary_paths)
+        # Phase 2: Extract UUIDs from all binaries
+        self._extract_all_binary_uuids(all_binary_paths)
 
         # Phase 3: Build BinaryInfo objects using cached data
         binaries: List[BinaryInfo] = []
@@ -366,10 +365,6 @@ class ZippedXCArchive(AppleArtifact):
         )
 
         return binaries
-
-    def get_lief_cache(self) -> dict[Path, lief.MachO.FatBinary]:
-        """Get the LIEF cache of pre-parsed binaries"""
-        return self._lief_cache
 
     @sentry_sdk.trace
     def get_asset_catalog_details(self, relative_path: Path) -> List[AssetCatalogElement]:
@@ -516,11 +511,7 @@ class ZippedXCArchive(AppleArtifact):
             scale=scale,
         )
 
-    def _parse_and_cache_all_binaries(self, binary_paths: List[Path]) -> None:
-        """Parse all binaries once, extracting UUIDs and caching LIEF objects for those with dSYMs."""
-        if self._dsym_info is None:
-            self._find_dsym_files()
-
+    def _extract_all_binary_uuids(self, binary_paths: List[Path]) -> None:
         config = lief.MachO.ParserConfig()
         config.parse_dyld_exports = False
         config.parse_dyld_bindings = False
@@ -556,14 +547,8 @@ class ZippedXCArchive(AppleArtifact):
 
                 self._binary_uuid_cache[binary_path] = extracted_uuid
 
-                if extracted_uuid in self._dsym_info:
-                    self._lief_cache[binary_path] = fat_binary
-                    logger.debug(f"Cached LIEF object for {binary_path.name} (has dSYM)")
-                else:
-                    logger.debug(f"Skipped LIEF cache for {binary_path.name} (no dSYM)")
-
             except Exception:
-                logger.exception(f"Failed to parse and cache binary {binary_path}")
+                logger.exception(f"Failed to extract UUID from binary {binary_path}")
                 continue
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:

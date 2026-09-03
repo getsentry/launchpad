@@ -1,16 +1,91 @@
+import functools
+import gzip
+import http.server
+import io
+import json
+import logging
+import multiprocessing as mp
+import os
 import plistlib
+import threading
 
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
-from typing import Callable, cast
+from typing import Any, Callable, cast
 from unittest.mock import patch
 
 import pytest
+import sentry_sdk
+import sentry_sdk.transport
+
+from sentry_sdk.envelope import Envelope
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.size.analyzers import apple
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import ComponentType
+from launchpad.tracing import current_request_id, request_context
+
+
+class _SentryIngestStub:
+    """Minimal local stand-in for Sentry's envelope endpoint."""
+
+    def __init__(self) -> None:
+        self.envelopes: list[Envelope] = []
+        stub = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                if self.headers.get("Content-Encoding") == "gzip":
+                    body = gzip.decompress(body)
+                stub.envelopes.append(Envelope.deserialize_from(io.BytesIO(body)))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *_args: object) -> None:
+                pass
+
+        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.dsn = f"http://key@127.0.0.1:{self._server.server_port}/1"
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+
+    def __enter__(self) -> _SentryIngestStub:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self._server.shutdown()
+
+    def transaction_count(self) -> int:
+        return sum(1 for e in self.envelopes for item in e.items if item.headers.get("type") == "transaction")
+
+    def log_items(self) -> list[dict[str, Any]]:
+        return [
+            log
+            for envelope in self.envelopes
+            for item in envelope.items
+            if item.headers.get("type") == "log"
+            for log in json.loads(item.get_bytes())["items"]
+        ]
+
+
+class _CapturingTransport(sentry_sdk.transport.Transport):
+    def __init__(self) -> None:
+        super().__init__()
+        self.transactions: list[dict[str, Any]] = []
+
+    def capture_envelope(self, envelope: Envelope) -> None:
+        for item in envelope.items:
+            if item.headers.get("type") == "transaction":
+                self.transactions.append(json.loads(item.get_bytes()))
+
+
+def _log_suppressed_and_allowed(_: int) -> None:
+    logging.getLogger("lief").info("noisy third-party")
+    logging.getLogger("launchpad.size.analyzers.apple").info("allowed")
 
 
 @pytest.fixture
@@ -91,6 +166,131 @@ class TestAppleAppSizes:
         assert args[0] == "size.apple.insight_completed"
         assert kwargs["extra"]["insight"] == "dummy"
         assert "elapsed_s" in kwargs["extra"]
+
+    def test_binary_worker_count(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        analyzer = AppleAppAnalyzer()
+        assert analyzer._binary_analysis_worker_count(100) == 4
+        assert analyzer._binary_analysis_worker_count(2) == 2
+        assert analyzer._binary_analysis_worker_count(0) == 0
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "3")
+        assert analyzer._binary_analysis_worker_count(100) == 3
+        assert analyzer._binary_analysis_worker_count(2) == 2
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "0")
+        assert analyzer._binary_analysis_worker_count(100) == 0
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "nope")
+        assert analyzer._binary_analysis_worker_count(100) == 4
+
+    def test_parallel_binary_analysis_matches_in_process(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "0")
+        in_process = AppleAppAnalyzer(skip_treemap=False).analyze(
+            cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+        )
+
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4")
+        parallel = AppleAppAnalyzer(skip_treemap=False).analyze(
+            cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+        )
+
+        assert in_process.install_size == parallel.install_size
+        assert in_process.download_size == parallel.download_size
+        assert in_process.treemap is not None and parallel.treemap is not None
+        assert in_process.treemap.model_dump_json() == parallel.treemap.model_dump_json()
+
+    def test_worker_logs_reach_stdout_with_request_id(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+    ) -> None:
+        """Uses spawn rather than forkserver: the forkserver inherits stdout once at startup,
+        before capfd redirects it, so forkserver workers would write past the capture."""
+        ctx = mp.get_context("spawn")
+        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+
+        with request_context():
+            request_id = current_request_id()
+            AppleAppAnalyzer(skip_treemap=False).analyze(
+                cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+            )
+
+        lines = [json.loads(line) for line in capfd.readouterr().out.splitlines() if line.startswith("{")]
+        completed = [d for d in lines if d["message"] == "size.apple.binary_analysis_completed"]
+        assert completed
+        assert all(d["request_id"] == request_id for d in completed)
+        assert all(isinstance(d["elapsed_s"], float) for d in completed)
+
+    def test_worker_logging_applies_third_party_suppression(self, capfd: pytest.CaptureFixture[str]) -> None:
+        ctx = mp.get_context("spawn")
+        context = apple._WorkerContext(verbose=False, request_id=None, sentry_config=None, trace_headers={})
+        with ProcessPoolExecutor(
+            max_workers=1, mp_context=ctx, initializer=apple._binary_worker_init, initargs=(context,)
+        ) as executor:
+            executor.submit(_log_suppressed_and_allowed, 0).result()
+
+        out = capfd.readouterr().out
+        assert "allowed" in out
+        assert "noisy third-party" not in out
+
+    def test_worker_logs_are_sent_to_sentry_under_parent_trace(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Workers run their own Sentry client; their log records must arrive at the ingest
+        endpoint carrying the parent's trace id."""
+        ctx = mp.get_context("forkserver")
+        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+        with _SentryIngestStub() as stub:
+            monkeypatch.setenv("LAUNCHPAD_ENV", "integration")
+            monkeypatch.setenv("SENTRY_DSN", stub.dsn)
+            monkeypatch.setenv("SENTRY_REGION", "test")
+            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, enable_logs=True)
+            try:
+                with sentry_sdk.start_transaction(name="test") as transaction:
+                    AppleAppAnalyzer(skip_treemap=False).analyze(
+                        cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+                    )
+                sentry_sdk.flush()
+            finally:
+                sentry_sdk.get_global_scope().set_client(None)
+
+        worker_logs = [item for item in stub.log_items() if item["body"] == "size.apple.binary_analysis_completed"]
+        assert worker_logs
+        assert all(item["trace_id"] == transaction.trace_id for item in worker_logs)
+        assert all(item["attributes"]["process.pid"]["value"] != os.getpid() for item in worker_logs)
+        assert stub.transaction_count() == 1
+
+    def test_parallel_binary_spans_reattach_to_parent_transaction(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Workers can't report spans, so the parent rebuilds one per binary from worker
+        timestamps; they must land on the task transaction and reflect real concurrency."""
+        ctx = mp.get_context("forkserver")
+        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+        monkeypatch.setenv("LAUNCHPAD_ENV", "test")
+        transport = _CapturingTransport()
+        sentry_sdk.init(dsn="https://key@example.invalid/1", transport=transport, traces_sample_rate=1.0)
+        try:
+            with sentry_sdk.start_transaction(name="test"):
+                artifact = cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+                binary_count = len(artifact.get_all_binary_paths())
+                AppleAppAnalyzer(skip_treemap=False).analyze(artifact)
+            sentry_sdk.flush()
+        finally:
+            sentry_sdk.get_global_scope().set_client(None)
+
+        spans = [
+            s
+            for t in transport.transactions
+            for s in t["spans"]
+            if s["op"] == "function" and s["description"].endswith("AppleAppAnalyzer._analyze_binary")
+        ]
+        assert len(spans) == binary_count
+        assert {s["data"]["binary_name"] for s in spans} == {b.name for b in artifact.get_all_binary_paths()}
+        assert all(s["timestamp"] > s["start_timestamp"] for s in spans)
+        assert any(
+            a is not b and a["start_timestamp"] < b["start_timestamp"] < a["timestamp"] for a in spans for b in spans
+        )
 
     def test_apple_app_sizes(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap structure matches reference report."""
