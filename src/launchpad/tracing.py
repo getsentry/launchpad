@@ -21,6 +21,10 @@ def current_request_id() -> str | None:
     return _request_id.get(None)
 
 
+def bind_request_id(request_id: str) -> None:
+    _request_id.set(request_id)
+
+
 class RequestLogFilter:
     """Logging filter that adds request_id to log records.."""
 

@@ -20,9 +20,9 @@ from launchpad.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-def initialize_sentry_sdk() -> None:
+def initialize_sentry_sdk(config: SentryConfig | None = None) -> None:
     """Initialize Sentry SDK with launchpad-specific configuration."""
-    config = get_sentry_config()
+    config = config or get_sentry_config()
 
     if config.environment.lower() in ("test", "development"):
         logger.debug(f"In {config.environment} environment, skipping Sentry SDK initialization")

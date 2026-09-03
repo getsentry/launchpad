@@ -1,11 +1,13 @@
 import functools
+import gzip
+import http.server
+import io
 import json
 import logging
 import multiprocessing as mp
 import os
 import plistlib
 import threading
-import time
 
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -27,6 +29,46 @@ from launchpad.size.models.common import ComponentType
 from launchpad.tracing import current_request_id, request_context
 
 
+class _SentryIngestStub:
+    """Minimal local stand-in for Sentry's envelope endpoint."""
+
+    def __init__(self) -> None:
+        self.envelopes: list[Envelope] = []
+        stub = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self) -> None:
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                if self.headers.get("Content-Encoding") == "gzip":
+                    body = gzip.decompress(body)
+                stub.envelopes.append(Envelope.deserialize_from(io.BytesIO(body)))
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, *_args: object) -> None:
+                pass
+
+        self._server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.dsn = f"http://key@127.0.0.1:{self._server.server_port}/1"
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+
+    def __enter__(self) -> _SentryIngestStub:
+        self._thread.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self._server.shutdown()
+
+    def log_items(self) -> list[dict[str, Any]]:
+        return [
+            log
+            for envelope in self.envelopes
+            for item in envelope.items
+            if item.headers.get("type") == "log"
+            for log in json.loads(item.get_bytes())["items"]
+        ]
+
+
 class _CapturingTransport(sentry_sdk.transport.Transport):
     def __init__(self) -> None:
         super().__init__()
@@ -41,12 +83,6 @@ class _CapturingTransport(sentry_sdk.transport.Transport):
 def _log_suppressed_and_allowed(_: int) -> None:
     logging.getLogger("lief").info("noisy third-party")
     logging.getLogger("launchpad.size.analyzers.apple").info("allowed")
-
-
-def _log_forever(i: int) -> None:
-    log = logging.getLogger("launchpad.size.analyzers.apple")
-    while True:
-        log.info("tick %d", i)
 
 
 @pytest.fixture
@@ -179,15 +215,15 @@ class TestAppleAppSizes:
         assert results.treemap is not None
         assert results.install_size > 0
 
-    def test_worker_logs_relay_to_parent_with_request_id(
-        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    def test_worker_logs_reach_stdout_with_request_id(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
     ) -> None:
-        """Per-binary logs are emitted inside pool workers, which have no logging config of
-        their own; they must reach the parent's handlers stamped with the parent's request id."""
-        ctx = mp.get_context("forkserver")
+        """Pool workers configure their own logging and write to the inherited stdout, so their
+        per-binary lines must carry the parent's request id. Uses spawn rather than forkserver
+        because the forkserver inherits stdout once at startup, before capfd redirects it."""
+        ctx = mp.get_context("spawn")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
-        caplog.set_level(logging.INFO)
 
         with request_context():
             request_id = current_request_id()
@@ -195,11 +231,50 @@ class TestAppleAppSizes:
                 cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
             )
 
-        completed = [r for r in caplog.records if r.getMessage() == "size.apple.binary_analysis_completed"]
+        lines = [json.loads(line) for line in capfd.readouterr().out.splitlines() if line.startswith("{")]
+        completed = [d for d in lines if d["message"] == "size.apple.binary_analysis_completed"]
         assert completed
-        assert all(r.process != os.getpid() for r in completed)
-        assert all(getattr(r, "request_id", None) == request_id for r in completed)
-        assert all(isinstance(getattr(r, "elapsed_s", None), float) for r in completed)
+        assert all(d["request_id"] == request_id for d in completed)
+        assert all(isinstance(d["elapsed_s"], float) for d in completed)
+
+    def test_worker_logging_applies_third_party_suppression(self, capfd: pytest.CaptureFixture[str]) -> None:
+        ctx = mp.get_context("spawn")
+        context = apple._WorkerContext(verbose=False, request_id=None, sentry_config=None, trace_headers={})
+        with ProcessPoolExecutor(
+            max_workers=1, mp_context=ctx, initializer=apple._binary_worker_init, initargs=(context,)
+        ) as executor:
+            executor.submit(_log_suppressed_and_allowed, 0).result()
+
+        out = capfd.readouterr().out
+        assert "allowed" in out
+        assert "noisy third-party" not in out
+
+    def test_worker_logs_are_sent_to_sentry_under_parent_trace(
+        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Workers run their own Sentry client; their log records must arrive at the ingest
+        endpoint carrying the parent's trace id."""
+        ctx = mp.get_context("forkserver")
+        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+        with _SentryIngestStub() as stub:
+            monkeypatch.setenv("LAUNCHPAD_ENV", "integration")
+            monkeypatch.setenv("SENTRY_DSN", stub.dsn)
+            monkeypatch.setenv("SENTRY_REGION", "test")
+            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, enable_logs=True)
+            try:
+                with sentry_sdk.start_transaction(name="test") as transaction:
+                    AppleAppAnalyzer(skip_treemap=False).analyze(
+                        cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+                    )
+                sentry_sdk.flush()
+            finally:
+                sentry_sdk.get_global_scope().set_client(None)
+
+        worker_logs = [item for item in stub.log_items() if item["body"] == "size.apple.binary_analysis_completed"]
+        assert worker_logs
+        assert all(item["trace_id"] == transaction.trace_id for item in worker_logs)
+        assert all(item["attributes"]["process.pid"]["value"] != os.getpid() for item in worker_logs)
 
     def test_parallel_binary_spans_reattach_to_parent_transaction(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
@@ -232,50 +307,6 @@ class TestAppleAppSizes:
         assert any(
             a is not b and a["start_timestamp"] < b["start_timestamp"] < a["timestamp"] for a in spans for b in spans
         )
-
-    def test_worker_log_relay_honors_parent_logger_levels(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Logger.handle skips level checks, so relayed records must be gated on the parent's
-        per-logger levels or setup_logging's third-party suppression would not apply to workers."""
-        caplog.set_level(logging.INFO)
-        logging.getLogger("lief").setLevel(logging.WARNING)
-        ctx = mp.get_context("forkserver")
-        with apple._WorkerLogRelay() as relay:
-            with ProcessPoolExecutor(
-                max_workers=1,
-                mp_context=ctx,
-                initializer=apple._binary_worker_init,
-                initargs=(relay.queue, relay.level),
-            ) as executor:
-                executor.submit(_log_suppressed_and_allowed, 0).result()
-
-        messages = [r.getMessage() for r in caplog.records]
-        assert "allowed" in messages
-        assert "noisy third-party" not in messages
-
-    def test_worker_log_relay_exits_cleanly_after_killing_workers(self, caplog: pytest.LogCaptureFixture) -> None:
-        """Simulates the deadline path: workers SIGKILLed mid-log must not leave the parent
-        blocked on the shared log queue or with a feeder thread that would hang interpreter exit."""
-        caplog.set_level(logging.INFO)
-        ctx = mp.get_context("forkserver")
-        started = time.monotonic()
-        with apple._WorkerLogRelay() as relay:
-            executor = ProcessPoolExecutor(
-                max_workers=2,
-                mp_context=ctx,
-                initializer=apple._binary_worker_init,
-                initargs=(relay.queue, relay.level),
-            )
-            for i in range(2):
-                executor.submit(_log_forever, i)
-            deadline = time.monotonic() + 10
-            while not any(r.getMessage().startswith("tick") for r in caplog.records) and time.monotonic() < deadline:
-                time.sleep(0.05)
-            assert any(r.getMessage().startswith("tick") for r in caplog.records)
-            executor.kill_workers()
-
-        assert time.monotonic() - started < 15
-        assert not relay._thread.is_alive()
-        assert not any(t.name == "QueueFeederThread" for t in threading.enumerate())
 
     def test_binary_completed_log_includes_elapsed(self) -> None:
         """Per-binary duration must survive parallelization via an elapsed_s log field."""

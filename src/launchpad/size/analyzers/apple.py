@@ -4,17 +4,13 @@ from __future__ import annotations
 
 import gc
 import logging
-import multiprocessing
 import os
-import queue
 import tempfile
-import threading
 import time
 
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from functools import partial
-from logging.handlers import QueueHandler
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Tuple
 
@@ -28,6 +24,7 @@ from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchi
 from launchpad.artifacts.artifact import AppleArtifact
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsParser
 from launchpad.parsers.apple.macho_parser import MachOParser, get_cpu_type_name
+from launchpad.sentry_sdk_init import SentryConfig, get_sentry_config, initialize_sentry_sdk
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.hermes.reporter import HermesReport
 from launchpad.size.hermes.utils import make_hermes_reports
@@ -51,11 +48,11 @@ from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.size.utils.insight_path_map import build_insight_path_map
-from launchpad.tracing import current_request_id
+from launchpad.tracing import bind_request_id, current_request_id
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
-from launchpad.utils.logging import get_logger
+from launchpad.utils.logging import get_logger, setup_logging
 from launchpad.utils.metadata_extractor import extract_metadata_from_zip
 
 from ..models.apple import (
@@ -73,60 +70,45 @@ from ..models.apple import (
 logger = get_logger(__name__)
 
 
-def _binary_worker_init(log_queue: multiprocessing.Queue[logging.LogRecord], log_level: int) -> None:
+class _WorkerContext(NamedTuple):
+    verbose: bool
+    request_id: str | None
+    sentry_config: SentryConfig | None
+    trace_headers: dict[str, str]
+
+    @classmethod
+    def capture(cls) -> _WorkerContext:
+        sentry_active = sentry_sdk.get_client().is_active() and os.getenv("LAUNCHPAD_ENV") is not None
+        headers = {"sentry-trace": sentry_sdk.get_traceparent(), "baggage": sentry_sdk.get_baggage()}
+        return cls(
+            verbose=logging.getLogger().getEffectiveLevel() <= logging.DEBUG,
+            request_id=current_request_id(),
+            sentry_config=get_sentry_config() if sentry_active else None,
+            trace_headers={k: v for k, v in headers.items() if v},
+        )
+
+
+def _binary_worker_init(context: _WorkerContext) -> None:
     os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
-    root = logging.getLogger()
-    root.handlers = [QueueHandler(log_queue)]
-    root.setLevel(log_level)
+    setup_logging(verbose=context.verbose)
+    if context.request_id is not None:
+        bind_request_id(context.request_id)
+    if context.sentry_config is not None:
+        initialize_sentry_sdk(context.sentry_config)
+        sentry_sdk.continue_trace(context.trace_headers)
+
+
+def _analyze_and_flush(analyze: Any, binary_info: BinaryInfo) -> _TimedBinary:
+    try:
+        return analyze(binary_info)
+    finally:
+        sentry_sdk.flush(timeout=2)
 
 
 class _TimedBinary(NamedTuple):
     binary: MachOBinaryAnalysis | None
     started_at: float
     finished_at: float
-
-
-class _WorkerLogRelay:
-    """Only workers ever write to the queue; the parent never does, so a worker SIGKILLed
-    mid-write cannot leave the parent blocked on the queue's shared write lock."""
-
-    def __init__(self) -> None:
-        self.queue: multiprocessing.Queue[logging.LogRecord] = multiprocessing.Queue()
-        self.level = logging.getLogger().getEffectiveLevel()
-        self._request_id = current_request_id()
-        self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._drain, name="binary-analysis-log-relay", daemon=True)
-
-    def __enter__(self) -> _WorkerLogRelay:
-        self._thread.start()
-        return self
-
-    def __exit__(self, *exc: object) -> None:
-        self._stop.set()
-        self._thread.join(timeout=2)
-        if self._thread.is_alive():
-            logger.warning("Worker log relay did not stop; a worker was likely killed mid-write")
-
-    def _drain(self) -> None:
-        while True:
-            try:
-                record = self.queue.get(timeout=0.1)
-            except queue.Empty:
-                if self._stop.is_set():
-                    return
-                continue
-            except Exception:
-                logger.warning("Dropped an undecodable worker log record", exc_info=True)
-                continue
-            try:
-                target = logging.getLogger(record.name)
-                if not target.isEnabledFor(record.levelno):
-                    continue
-                if self._request_id is not None:
-                    record.request_id = self._request_id
-                target.handle(record)
-            except Exception:
-                logger.warning("Failed to relay a worker log record", exc_info=True)
 
 
 class AppleAppAnalyzer:
@@ -228,18 +210,17 @@ class AppleAppAnalyzer:
             )
             if workers > 0:
                 logger.debug(f"Analyzing binaries with {workers} processes")
-                with _WorkerLogRelay() as relay:
-                    executor = ProcessPoolExecutor(
-                        max_workers=workers,
-                        initializer=_binary_worker_init,
-                        initargs=(relay.queue, relay.level),
-                    )
-                    try:
-                        results = list(executor.map(analyze, binaries))
-                        executor.shutdown(wait=True)
-                    except BaseException:
-                        executor.kill_workers()
-                        raise
+                executor = ProcessPoolExecutor(
+                    max_workers=workers,
+                    initializer=_binary_worker_init,
+                    initargs=(_WorkerContext.capture(),),
+                )
+                try:
+                    results = list(executor.map(partial(_analyze_and_flush, analyze), binaries))
+                    executor.shutdown(wait=True)
+                except BaseException:
+                    executor.kill_workers()
+                    raise
             else:
                 logger.debug("Analyzing binaries in-process")
                 results = []
