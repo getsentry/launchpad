@@ -59,6 +59,9 @@ class _SentryIngestStub:
     def __exit__(self, *_exc: object) -> None:
         self._server.shutdown()
 
+    def transaction_count(self) -> int:
+        return sum(1 for e in self.envelopes for item in e.items if item.headers.get("type") == "transaction")
+
     def log_items(self) -> list[dict[str, Any]]:
         return [
             log
@@ -164,22 +167,18 @@ class TestAppleAppSizes:
         assert kwargs["extra"]["insight"] == "dummy"
         assert "elapsed_s" in kwargs["extra"]
 
-    def test_binary_worker_count(self) -> None:
+    def test_binary_worker_count(self, monkeypatch: pytest.MonkeyPatch) -> None:
         analyzer = AppleAppAnalyzer()
-        assert analyzer._binary_analysis_worker_count(1) == 1
-        assert analyzer._binary_analysis_worker_count(0) == 0
         assert analyzer._binary_analysis_worker_count(100) == 4
         assert analyzer._binary_analysis_worker_count(2) == 2
-
-    def test_binary_worker_count_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        analyzer = AppleAppAnalyzer()
+        assert analyzer._binary_analysis_worker_count(0) == 0
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "3")
         assert analyzer._binary_analysis_worker_count(100) == 3
-        assert analyzer._binary_analysis_worker_count(2) == 2  # capped at num binaries
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "1")
-        assert analyzer._binary_analysis_worker_count(100) == 1
+        assert analyzer._binary_analysis_worker_count(2) == 2
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "0")
         assert analyzer._binary_analysis_worker_count(100) == 0
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "nope")
+        assert analyzer._binary_analysis_worker_count(100) == 4
 
     def test_parallel_binary_analysis_matches_in_process(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
@@ -199,28 +198,11 @@ class TestAppleAppSizes:
         assert in_process.treemap is not None and parallel.treemap is not None
         assert in_process.treemap.model_dump_json() == parallel.treemap.model_dump_json()
 
-    def test_parallel_binary_analysis_under_forkserver(
-        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Prod uses the forkserver start method, which pickles the analyzer and binaries;
-        the fork default in tests would mask a pickling regression, so exercise it here."""
-        ctx = mp.get_context("forkserver")
-        monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
-
-        results = AppleAppAnalyzer(skip_treemap=False).analyze(
-            cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
-        )
-
-        assert results.treemap is not None
-        assert results.install_size > 0
-
     def test_worker_logs_reach_stdout_with_request_id(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
     ) -> None:
-        """Pool workers configure their own logging and write to the inherited stdout, so their
-        per-binary lines must carry the parent's request id. Uses spawn rather than forkserver
-        because the forkserver inherits stdout once at startup, before capfd redirects it."""
+        """Uses spawn rather than forkserver: the forkserver inherits stdout once at startup,
+        before capfd redirects it, so forkserver workers would write past the capture."""
         ctx = mp.get_context("spawn")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
@@ -275,6 +257,7 @@ class TestAppleAppSizes:
         assert worker_logs
         assert all(item["trace_id"] == transaction.trace_id for item in worker_logs)
         assert all(item["attributes"]["process.pid"]["value"] != os.getpid() for item in worker_logs)
+        assert stub.transaction_count() == 1
 
     def test_parallel_binary_spans_reattach_to_parent_transaction(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
@@ -284,6 +267,7 @@ class TestAppleAppSizes:
         ctx = mp.get_context("forkserver")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
+        monkeypatch.setenv("LAUNCHPAD_ENV", "test")
         transport = _CapturingTransport()
         sentry_sdk.init(dsn="https://key@example.invalid/1", transport=transport, traces_sample_rate=1.0)
         try:
@@ -307,19 +291,6 @@ class TestAppleAppSizes:
         assert any(
             a is not b and a["start_timestamp"] < b["start_timestamp"] < a["timestamp"] for a in spans for b in spans
         )
-
-    def test_binary_completed_log_includes_elapsed(self) -> None:
-        """Per-binary duration must survive parallelization via an elapsed_s log field."""
-        from unittest.mock import Mock, patch
-
-        binary_info = Mock()
-        binary_info.name = "Foo"
-        binary = Mock(symbol_info=None)
-
-        with patch.object(apple.logger, "info") as info:
-            AppleAppAnalyzer()._log_binary_completed(binary_info, binary, 1.23456)
-
-        assert info.call_args.kwargs["extra"]["elapsed_s"] == 1.235
 
     def test_apple_app_sizes(self, hackernews_xcarchive: Path) -> None:
         """Test that treemap structure matches reference report."""

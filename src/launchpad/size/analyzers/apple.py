@@ -12,7 +12,7 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import lief
 import sentry_sdk
@@ -22,6 +22,7 @@ from sentry_sdk.utils import qualname_from_function
 
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
+from launchpad.artifacts.providers.safe_directory import SafeDirectory
 from launchpad.parsers.apple.dwarf_relocations_parser import DwarfRelocationsParser
 from launchpad.parsers.apple.macho_parser import MachOParser, get_cpu_type_name
 from launchpad.sentry_sdk_init import SentryConfig, get_sentry_config, initialize_sentry_sdk
@@ -69,6 +70,8 @@ from ..models.apple import (
 
 logger = get_logger(__name__)
 
+_DEFAULT_BINARY_ANALYSIS_WORKERS = 4
+
 
 class _WorkerContext(NamedTuple):
     verbose: bool
@@ -78,12 +81,11 @@ class _WorkerContext(NamedTuple):
 
     @classmethod
     def capture(cls) -> _WorkerContext:
-        sentry_active = sentry_sdk.get_client().is_active() and os.getenv("LAUNCHPAD_ENV") is not None
         headers = {"sentry-trace": sentry_sdk.get_traceparent(), "baggage": sentry_sdk.get_baggage()}
         return cls(
             verbose=logging.getLogger().getEffectiveLevel() <= logging.DEBUG,
             request_id=current_request_id(),
-            sentry_config=get_sentry_config() if sentry_active else None,
+            sentry_config=get_sentry_config() if sentry_sdk.get_client().is_active() else None,
             trace_headers={k: v for k, v in headers.items() if v},
         )
 
@@ -98,7 +100,7 @@ def _binary_worker_init(context: _WorkerContext) -> None:
         sentry_sdk.continue_trace(context.trace_headers)
 
 
-def _analyze_and_flush(analyze: Any, binary_info: BinaryInfo) -> _TimedBinary:
+def _analyze_and_flush(analyze: Callable[[BinaryInfo], _TimedBinary], binary_info: BinaryInfo) -> _TimedBinary:
     try:
         return analyze(binary_info)
     finally:
@@ -223,10 +225,7 @@ class AppleAppAnalyzer:
                     raise
             else:
                 logger.debug("Analyzing binaries in-process")
-                results = []
-                for binary_info in binaries:
-                    results.append(analyze(binary_info))
-                    gc.collect()
+                results = [analyze(binary_info) for binary_info in binaries]
 
             for binary_info, timed in zip(binaries, results):
                 if workers > 0:
@@ -504,22 +503,24 @@ class AppleAppAnalyzer:
 
     def _binary_analysis_worker_count(self, num_binaries: int) -> int:
         try:
-            configured = int(os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4"))
+            configured = int(os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", _DEFAULT_BINARY_ANALYSIS_WORKERS))
         except ValueError:
-            configured = 4
+            configured = _DEFAULT_BINARY_ANALYSIS_WORKERS
         return min(configured, num_binaries)
 
-    def _analyze_binary_logged(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> _TimedBinary:
+    def _analyze_binary_logged(
+        self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: SafeDirectory
+    ) -> _TimedBinary:
         self._log_binary_started(binary_info, app_bundle_path, extract_dir)
         started_at = time.time()
         start = time.monotonic()
         binary = self._analyze_binary(binary_info, app_bundle_path)
         elapsed_s = time.monotonic() - start
+        gc.collect()
         if binary is not None:
             self._log_binary_completed(binary_info, binary, elapsed_s)
         return _TimedBinary(binary, started_at, started_at + elapsed_s)
 
-    # Pool workers have no Sentry client, so rebuild the span @sentry_sdk.trace would have made.
     def _record_binary_span(self, binary_info: BinaryInfo, timed: _TimedBinary) -> None:
         span = sentry_sdk.start_span(
             op="function",
@@ -529,7 +530,7 @@ class AppleAppAnalyzer:
         span.set_data("binary_name", binary_info.name)
         span.finish(end_timestamp=timed.finished_at)
 
-    def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> None:
+    def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: SafeDirectory) -> None:
         logger.info(
             "size.apple.binary_analysis_started",
             extra={

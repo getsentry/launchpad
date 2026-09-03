@@ -342,7 +342,7 @@ class ZippedXCArchive(AppleArtifact):
         watch_paths = self._discover_watch_binaries(app_bundle_path)
         all_binary_paths.extend(watch_paths)
 
-        # Phase 2: Parse and cache all binaries
+        # Phase 2: Extract UUIDs from all binaries
         self._extract_all_binary_uuids(all_binary_paths)
 
         # Phase 3: Build BinaryInfo objects using cached data
@@ -548,7 +548,7 @@ class ZippedXCArchive(AppleArtifact):
                 self._binary_uuid_cache[binary_path] = extracted_uuid
 
             except Exception:
-                logger.exception(f"Failed to parse and cache binary {binary_path}")
+                logger.exception(f"Failed to extract UUID from binary {binary_path}")
                 continue
 
     def _extract_binary_uuid(self, binary_path: Path) -> str | None:
