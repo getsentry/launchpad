@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import os
 import tempfile
 import time
@@ -170,15 +171,22 @@ class AppleAppAnalyzer:
             for binary_info in binaries:
                 self._log_binary_started(binary_info, app_bundle_path, extract_dir)
 
-            logger.debug(f"Analyzing binaries with {workers} processes")
             analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path)
-            executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
-            try:
-                results = list(executor.map(partial(_run_and_time, analyze), binaries))
-                executor.shutdown(wait=True)
-            except BaseException:
-                executor.kill_workers()
-                raise
+            if workers > 0:
+                logger.debug(f"Analyzing binaries with {workers} processes")
+                executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
+                try:
+                    results = list(executor.map(partial(_run_and_time, analyze), binaries))
+                    executor.shutdown(wait=True)
+                except BaseException:
+                    executor.kill_workers()
+                    raise
+            else:
+                logger.debug("Analyzing binaries in-process")
+                results = []
+                for binary_info in binaries:
+                    results.append(_run_and_time(analyze, binary_info))
+                    gc.collect()
 
             for binary_info, (binary, elapsed) in zip(binaries, results):
                 if binary is not None:
@@ -458,7 +466,7 @@ class AppleAppAnalyzer:
             configured = int(os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4"))
         except ValueError:
             configured = 4
-        return max(1, min(configured, num_binaries))
+        return min(configured, num_binaries)
 
     def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> None:
         logger.info(

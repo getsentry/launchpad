@@ -99,7 +99,7 @@ class TestAppleAppSizes:
     def test_binary_worker_count(self) -> None:
         analyzer = AppleAppAnalyzer()
         assert analyzer._binary_analysis_worker_count(1) == 1
-        assert analyzer._binary_analysis_worker_count(0) == 1
+        assert analyzer._binary_analysis_worker_count(0) == 0
         assert analyzer._binary_analysis_worker_count(100) == 4
         assert analyzer._binary_analysis_worker_count(2) == 2
 
@@ -110,24 +110,26 @@ class TestAppleAppSizes:
         assert analyzer._binary_analysis_worker_count(2) == 2  # capped at num binaries
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "1")
         assert analyzer._binary_analysis_worker_count(100) == 1
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "0")
+        assert analyzer._binary_analysis_worker_count(100) == 0
 
-    def test_binary_analysis_output_independent_of_worker_count(
+    def test_parallel_binary_analysis_matches_in_process(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "1")
-        one_worker = AppleAppAnalyzer(skip_treemap=False).analyze(
+        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "0")
+        in_process = AppleAppAnalyzer(skip_treemap=False).analyze(
             cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
         )
 
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4")
-        four_workers = AppleAppAnalyzer(skip_treemap=False).analyze(
+        parallel = AppleAppAnalyzer(skip_treemap=False).analyze(
             cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
         )
 
-        assert one_worker.install_size == four_workers.install_size
-        assert one_worker.download_size == four_workers.download_size
-        assert one_worker.treemap is not None and four_workers.treemap is not None
-        assert one_worker.treemap.model_dump_json() == four_workers.treemap.model_dump_json()
+        assert in_process.install_size == parallel.install_size
+        assert in_process.download_size == parallel.download_size
+        assert in_process.treemap is not None and parallel.treemap is not None
+        assert in_process.treemap.model_dump_json() == parallel.treemap.model_dump_json()
 
     def test_parallel_binary_analysis_under_forkserver(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
