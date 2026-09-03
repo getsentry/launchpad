@@ -91,7 +91,6 @@ class _WorkerContext(NamedTuple):
 
 
 def _binary_worker_init(context: _WorkerContext) -> None:
-    os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
     setup_logging(verbose=context.verbose)
     if context.request_id is not None:
         bind_request_id(context.request_id)
