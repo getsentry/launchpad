@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from taskbroker_client.worker import BatchPushTaskWorker, PushTaskWorker, TaskWorker
 
+from launchpad.options import init_options
 from launchpad.sentry_sdk_init import initialize_sentry_sdk
 from launchpad.utils.logging import get_logger
 
@@ -84,6 +85,7 @@ def run_worker(
     processing_pool_name: str = "launchpad",
 ) -> None:
     initialize_sentry_sdk()
+    init_options()
     config = get_worker_config()
 
     logger.info(

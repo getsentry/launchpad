@@ -4,9 +4,10 @@ from unittest.mock import Mock, patch
 import pytest
 
 from objectstore_client import Client as ObjectstoreClient
+from sentry_options.testing import override_options
 from taskbroker_client.worker.workerchild import ProcessingDeadlineExceeded
 
-from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig, _parse_build_number
+from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig, _parse_build_number, get_service_config
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import Artifact
@@ -619,3 +620,23 @@ class TestPrepareUpdateData:
 
         assert update_data["build_number"] == 9999
         assert update_data["build_number_raw"] == "9999"
+
+
+class TestGetServiceConfigProjectsToSkip:
+    def test_empty_when_no_env_and_no_option(self, monkeypatch):
+        monkeypatch.delenv("PROJECT_IDS_TO_SKIP", raising=False)
+        assert get_service_config().projects_to_skip == []
+
+    def test_env_only(self, monkeypatch):
+        monkeypatch.setenv("PROJECT_IDS_TO_SKIP", "env-1,env-2")
+        assert get_service_config().projects_to_skip == ["env-1", "env-2"]
+
+    def test_option_only(self, monkeypatch):
+        monkeypatch.delenv("PROJECT_IDS_TO_SKIP", raising=False)
+        with override_options("launchpad", {"projects.skip": ["opt-1", "opt-2"]}):
+            assert get_service_config().projects_to_skip == ["opt-1", "opt-2"]
+
+    def test_env_and_option_are_unioned_and_deduped(self, monkeypatch):
+        monkeypatch.setenv("PROJECT_IDS_TO_SKIP", "shared,env-only")
+        with override_options("launchpad", {"projects.skip": ["shared", "opt-only"]}):
+            assert get_service_config().projects_to_skip == ["shared", "env-only", "opt-only"]
