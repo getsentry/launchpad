@@ -104,21 +104,29 @@ class _WorkerLogRelay:
     def __exit__(self, *exc: object) -> None:
         self._stop.set()
         self._thread.join(timeout=2)
+        if self._thread.is_alive():
+            logger.warning("Worker log relay did not stop; a worker was likely killed mid-write")
 
     def _drain(self) -> None:
-        try:
-            while True:
-                try:
-                    record = self.queue.get(timeout=0.1)
-                except queue.Empty:
-                    if self._stop.is_set():
-                        return
+        while True:
+            try:
+                record = self.queue.get(timeout=0.1)
+            except queue.Empty:
+                if self._stop.is_set():
+                    return
+                continue
+            except Exception:
+                logger.warning("Dropped an undecodable worker log record", exc_info=True)
+                continue
+            try:
+                target = logging.getLogger(record.name)
+                if not target.isEnabledFor(record.levelno):
                     continue
                 if self._request_id is not None:
                     record.request_id = self._request_id
-                logging.getLogger(record.name).handle(record)
-        except Exception:
-            logger.debug("Worker log relay stopped", exc_info=True)
+                target.handle(record)
+            except Exception:
+                logger.warning("Failed to relay a worker log record", exc_info=True)
 
 
 class AppleAppAnalyzer:

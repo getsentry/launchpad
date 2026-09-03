@@ -38,6 +38,11 @@ class _CapturingTransport(sentry_sdk.transport.Transport):
                 self.transactions.append(json.loads(item.get_bytes()))
 
 
+def _log_suppressed_and_allowed(_: int) -> None:
+    logging.getLogger("lief").info("noisy third-party")
+    logging.getLogger("launchpad.size.analyzers.apple").info("allowed")
+
+
 def _log_forever(i: int) -> None:
     log = logging.getLogger("launchpad.size.analyzers.apple")
     while True:
@@ -227,6 +232,25 @@ class TestAppleAppSizes:
         assert any(
             a is not b and a["start_timestamp"] < b["start_timestamp"] < a["timestamp"] for a in spans for b in spans
         )
+
+    def test_worker_log_relay_honors_parent_logger_levels(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Logger.handle skips level checks, so relayed records must be gated on the parent's
+        per-logger levels or setup_logging's third-party suppression would not apply to workers."""
+        caplog.set_level(logging.INFO)
+        logging.getLogger("lief").setLevel(logging.WARNING)
+        ctx = mp.get_context("forkserver")
+        with apple._WorkerLogRelay() as relay:
+            with ProcessPoolExecutor(
+                max_workers=1,
+                mp_context=ctx,
+                initializer=apple._binary_worker_init,
+                initargs=(relay.queue, relay.level),
+            ) as executor:
+                executor.submit(_log_suppressed_and_allowed, 0).result()
+
+        messages = [r.getMessage() for r in caplog.records]
+        assert "allowed" in messages
+        assert "noisy third-party" not in messages
 
     def test_worker_log_relay_exits_cleanly_after_killing_workers(self, caplog: pytest.LogCaptureFixture) -> None:
         """Simulates the deadline path: workers SIGKILLed mid-log must not leave the parent
