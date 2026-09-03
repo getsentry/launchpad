@@ -66,7 +66,9 @@ class ServiceConfig:
 def get_service_config() -> ServiceConfig:
     sentry_base_url = os.getenv("SENTRY_BASE_URL")
     projects_to_skip_str = os.getenv("PROJECT_IDS_TO_SKIP")
-    env_projects_to_skip = projects_to_skip_str.split(",") if projects_to_skip_str else []
+    env_projects_to_skip = (
+        [p.strip() for p in projects_to_skip_str.split(",") if p.strip()] if projects_to_skip_str else []
+    )
     option_projects_to_skip = get_option("projects.skip", [])
     projects_to_skip = list(dict.fromkeys([*env_projects_to_skip, *option_projects_to_skip]))
 

@@ -631,6 +631,10 @@ class TestGetServiceConfigProjectsToSkip:
         monkeypatch.setenv("PROJECT_IDS_TO_SKIP", "env-1,env-2")
         assert get_service_config().projects_to_skip == ["env-1", "env-2"]
 
+    def test_env_values_are_stripped_and_empties_dropped(self, monkeypatch):
+        monkeypatch.setenv("PROJECT_IDS_TO_SKIP", " env-1 , env-2 ,")
+        assert get_service_config().projects_to_skip == ["env-1", "env-2"]
+
     def test_option_only(self, monkeypatch):
         monkeypatch.delenv("PROJECT_IDS_TO_SKIP", raising=False)
         with override_options("launchpad", {"projects.skip": ["opt-1", "opt-2"]}):
