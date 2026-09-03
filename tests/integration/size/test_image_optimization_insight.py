@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import tempfile
+import time
 
 from pathlib import Path
 from typing import Any, Dict
+from unittest.mock import patch
 
 import pytest
 
@@ -15,6 +17,7 @@ from launchpad.size.insights.apple.image_optimization import ImageOptimizationIn
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import FileAnalysis, FileInfo
+from launchpad.size.models.insights import OptimizableImageFile
 from launchpad.size.models.treemap import TreemapType
 from launchpad.utils.file_utils import calculate_file_hash
 
@@ -389,3 +392,161 @@ class TestImageOptimizationInsightIntegration:
 
         result = ImageOptimizationInsight().generate(small_input)
         assert result is None
+
+    def _input_from_files(self, files: list[FileInfo], app_info: AppleAppInfo) -> InsightsInput:
+        return InsightsInput(
+            app_info=app_info,
+            file_analysis=FileAnalysis(items=files),
+            binary_analysis=[],
+            hermes_reports={},
+        )
+
+    def test_deduplicates_identical_images_by_hash(self, insights_input: InsightsInput) -> None:
+        """Identical images are encoded once but every duplicate path is still reported."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            img = Image.new("RGBA", (1000, 1000), (255, 0, 0, 128))
+
+            files: list[FileInfo] = []
+            paths = ["a/dup.png", "b/dup.png", "c/dup.png"]
+            for rel in paths:
+                p = temp_path / rel.replace("/", "_")
+                img.save(p, format="PNG", optimize=False, compress_level=0)
+                files.append(
+                    FileInfo(
+                        path=rel,
+                        full_path=p,
+                        size=p.stat().st_size,
+                        file_type="png",
+                        hash=calculate_file_hash(p),
+                        treemap_type=TreemapType.ASSETS,
+                        children=[],
+                        is_dir=False,
+                    )
+                )
+
+            assert len({f.hash for f in files}) == 1
+
+            test_input = self._input_from_files(files, insights_input.app_info)
+            with patch.object(
+                ImageOptimizationInsight,
+                "_analyze_image_optimization",
+                autospec=True,
+                side_effect=ImageOptimizationInsight._analyze_image_optimization,
+            ) as spy:
+                result = ImageOptimizationInsight().generate(test_input)
+
+        assert result is not None
+        assert spy.call_count == 1
+        assert {f.file_path for f in result.optimizable_files} == set(paths)
+        savings = {f.potential_savings for f in result.optimizable_files}
+        assert len(savings) == 1 and savings.pop() > 0
+
+    def test_dedup_scales_savings_to_each_paths_size(self, insights_input: InsightsInput) -> None:
+        """Duplicates sharing a hash but differing in size get savings scaled to their own size."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            p = temp_path / "dup.png"
+            Image.new("RGBA", (1000, 1000), (255, 0, 0, 128)).save(p, format="PNG", optimize=False, compress_level=0)
+            content_hash = calculate_file_hash(p)
+            real_size = p.stat().st_size
+
+            rep = FileInfo(
+                path="loose/dup.png",
+                full_path=p,
+                size=real_size,
+                file_type="png",
+                hash=content_hash,
+                treemap_type=TreemapType.ASSETS,
+                children=[],
+                is_dir=False,
+            )
+            smaller = rep.model_copy(update={"path": "catalog/dup.png", "size": real_size // 2})
+
+            test_input = self._input_from_files([rep, smaller], insights_input.app_info)
+            result = ImageOptimizationInsight().generate(test_input)
+
+        assert result is not None
+        by_path = {f.file_path: f for f in result.optimizable_files}
+        assert set(by_path) == {"loose/dup.png", "catalog/dup.png"}
+        for f in by_path.values():
+            assert f.potential_savings <= f.current_size
+            if f.minified_size is not None:
+                assert f.minified_size <= f.current_size
+                assert f.minify_savings == max(0, f.current_size - f.minified_size)
+            if f.heic_size is not None:
+                assert f.heic_size <= f.current_size
+                assert f.conversion_savings == max(0, f.current_size - f.heic_size)
+        assert by_path["catalog/dup.png"].potential_savings < by_path["loose/dup.png"].potential_savings
+
+    def test_dedup_drops_duplicates_scaled_below_threshold(
+        self, insights_input: InsightsInput, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A duplicate whose scaled savings fall below MIN_SAVINGS_THRESHOLD is excluded."""
+        rep = FileInfo(
+            path="loose/dup.png",
+            full_path=Path("/nonexistent/loose_dup.png"),
+            size=20000,
+            file_type="png",
+            hash="sharedhash",
+            treemap_type=TreemapType.ASSETS,
+            children=[],
+            is_dir=False,
+        )
+        threshold = ImageOptimizationInsight().MIN_SAVINGS_THRESHOLD
+        smaller = rep.model_copy(update={"path": "catalog/dup.png", "size": 20000 - (threshold // 8)})
+
+        def _fake(_self: Any, file_info: FileInfo) -> OptimizableImageFile:
+            return OptimizableImageFile(
+                file_path=file_info.path,
+                current_size=file_info.size,
+                minify_savings=threshold + 100,
+                minified_size=file_info.size - (threshold + 100),
+            )
+
+        monkeypatch.setattr(ImageOptimizationInsight, "_analyze_image_optimization", _fake)
+
+        test_input = self._input_from_files([rep, smaller], insights_input.app_info)
+        result = ImageOptimizationInsight().generate(test_input)
+
+        assert result is not None
+        by_path = {f.file_path: f for f in result.optimizable_files}
+        assert set(by_path) == {"loose/dup.png"}
+        assert by_path["loose/dup.png"].potential_savings >= threshold
+
+    def test_enforces_wall_clock_timeout(self, insights_input: InsightsInput, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A stalled encode cannot blow past the timeout budget."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            files: list[FileInfo] = []
+            for i in range(3):
+                p = temp_path / f"img_{i}.png"
+                Image.new("RGB", (800 + i, 800 + i), (i * 10, 0, 0)).save(p, format="PNG", compress_level=0)
+                files.append(
+                    FileInfo(
+                        path=f"img_{i}.png",
+                        full_path=p,
+                        size=p.stat().st_size,
+                        file_type="png",
+                        hash=calculate_file_hash(p),
+                        treemap_type=TreemapType.ASSETS,
+                        children=[],
+                        is_dir=False,
+                    )
+                )
+
+            monkeypatch.setattr(ImageOptimizationInsight, "_TIMEOUT_SECONDS", 0.1)
+
+            def _slow(*_args: Any, **_kwargs: Any) -> None:
+                time.sleep(5)
+
+            monkeypatch.setattr(ImageOptimizationInsight, "_analyze_image_optimization", _slow)
+
+            test_input = self._input_from_files(files, insights_input.app_info)
+            started = time.monotonic()
+            result = ImageOptimizationInsight().generate(test_input)
+            elapsed = time.monotonic() - started
+
+        assert result is not None
+        assert result.timed_out is True
+        assert elapsed < 4

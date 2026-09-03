@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import io
 import logging
-import time
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 import pillow_heif  # type: ignore
 
@@ -75,31 +76,60 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             return None
         files.sort(key=lambda f: f.size, reverse=True)
 
-        results: List[OptimizableImageFile] = []
+        groups: Dict[str, List[FileInfo]] = defaultdict(list)
+        for f in files:
+            groups[f.hash].append(f)
+        representatives = [self._pick_representative(group) for group in groups.values()]
+
+        analyzed: Dict[str, OptimizableImageFile | None] = {}
         timed_out = False
         completed = 0
-        deadline = time.monotonic() + self._TIMEOUT_SECONDS
-        with ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(files))) as executor:
-            future_to_file = {executor.submit(self._analyze_image_optimization, f): f for f in files}
-            for future in as_completed(future_to_file):
+        executor = ThreadPoolExecutor(max_workers=min(self._MAX_WORKERS, len(representatives)))
+        future_to_rep = {executor.submit(self._analyze_image_optimization, rep): rep for rep in representatives}
+        try:
+            for future in as_completed(future_to_rep, timeout=self._TIMEOUT_SECONDS):
                 completed += 1
+                rep = future_to_rep[future]
                 try:
-                    result = future.result()
-                    if result and result.potential_savings >= self.MIN_SAVINGS_THRESHOLD:
-                        results.append(result)
+                    analyzed[rep.hash] = future.result()
                 except Exception:  # pragma: no cover
                     logger.exception("Failed to analyze image in thread pool")
-                if completed < len(files) and time.monotonic() >= deadline:
-                    timed_out = True
-                    logger.warning(
-                        "size.insight.image_optimization.timeout | completed=%d/%d timeout=%ds",
-                        completed,
-                        len(files),
-                        self._TIMEOUT_SECONDS,
-                    )
-                    for fut in future_to_file:
-                        fut.cancel()
-                    break
+                    analyzed[rep.hash] = None
+        except FuturesTimeoutError:
+            timed_out = True
+            logger.warning(
+                "size.insight.image_optimization.timeout | completed=%d/%d timeout=%ds",
+                completed,
+                len(representatives),
+                self._TIMEOUT_SECONDS,
+            )
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        results: List[OptimizableImageFile] = []
+        for content_hash, group in groups.items():
+            rep_result = analyzed.get(content_hash)
+            if rep_result is None:
+                continue
+            for f in group:
+                size_delta = f.size - rep_result.current_size
+                minify_savings = max(0, rep_result.minify_savings + size_delta)
+                conversion_savings = max(0, rep_result.conversion_savings + size_delta)
+                update: dict[str, object] = {
+                    "file_path": f.path,
+                    "current_size": f.size,
+                    "minify_savings": minify_savings,
+                    "conversion_savings": conversion_savings,
+                    "idiom": f.idiom,
+                    "colorspace": f.colorspace,
+                }
+                if rep_result.minified_size is not None:
+                    update["minified_size"] = f.size - minify_savings
+                if rep_result.heic_size is not None:
+                    update["heic_size"] = f.size - conversion_savings
+                scaled = rep_result.model_copy(update=update)
+                if scaled.potential_savings >= self.MIN_SAVINGS_THRESHOLD:
+                    results.append(scaled)
 
         if not results and not timed_out:
             return None
@@ -112,6 +142,12 @@ class BaseImageOptimizationInsight(Insight[ImageOptimizationInsightResult], ABC)
             total_savings=total_savings,
             timed_out=timed_out,
         )
+
+    def _pick_representative(self, group: List[FileInfo]) -> FileInfo:
+        for f in group:
+            if f.full_path is not None and f.size > 0:
+                return f
+        return group[0]
 
     def _analyze_image_optimization(
         self,
