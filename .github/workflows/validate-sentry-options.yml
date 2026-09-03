@@ -1,0 +1,39 @@
+name: Validate Sentry Options Schema
+
+on:
+  pull_request:
+    paths:
+      - 'sentry-options/schemas/**'
+      - 'uv.lock'
+      - '.github/workflows/validate-sentry-options.yml'
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  cli-version:
+    name: Determine sentry-options CLI version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          sparse-checkout: uv.lock
+          sparse-checkout-cone-mode: false
+      - name: Parse sentry-options version from uv.lock
+        id: version
+        run: |
+          echo -n "version=" >> "$GITHUB_OUTPUT"
+          yq -p toml -oy '.package[] | select(.name == "sentry-options") | .version' uv.lock >> "$GITHUB_OUTPUT"
+
+  validate-schema:
+    needs: cli-version
+    name: Validate Schema Evolution
+    uses: getsentry/sentry-options/.github/workflows/validate-schema.yml@2cc89b0011942ca3593f5c20e89de2baa414ed41 # 1.2.9
+    secrets: inherit
+    with:
+      schemas-path: sentry-options/schemas
+      cli-version: ${{ needs.cli-version.outputs.version }}
