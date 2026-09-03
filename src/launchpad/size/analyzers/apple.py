@@ -6,6 +6,7 @@ import gc
 import logging
 import multiprocessing
 import os
+import queue
 import tempfile
 import threading
 import time
@@ -71,7 +72,7 @@ from ..models.apple import (
 logger = get_logger(__name__)
 
 
-def _binary_worker_init(log_queue: multiprocessing.Queue[logging.LogRecord | None], log_level: int) -> None:
+def _binary_worker_init(log_queue: multiprocessing.Queue[logging.LogRecord], log_level: int) -> None:
     os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
     root = logging.getLogger()
     root.handlers = [QueueHandler(log_queue)]
@@ -79,10 +80,14 @@ def _binary_worker_init(log_queue: multiprocessing.Queue[logging.LogRecord | Non
 
 
 class _WorkerLogRelay:
+    """Only workers ever write to the queue; the parent never does, so a worker SIGKILLed
+    mid-write cannot leave the parent blocked on the queue's shared write lock."""
+
     def __init__(self) -> None:
-        self.queue: multiprocessing.Queue[logging.LogRecord | None] = multiprocessing.Queue()
+        self.queue: multiprocessing.Queue[logging.LogRecord] = multiprocessing.Queue()
         self.level = logging.getLogger().getEffectiveLevel()
         self._request_id = current_request_id()
+        self._stop = threading.Event()
         self._thread = threading.Thread(target=self._drain, name="binary-analysis-log-relay", daemon=True)
 
     def __enter__(self) -> _WorkerLogRelay:
@@ -90,12 +95,18 @@ class _WorkerLogRelay:
         return self
 
     def __exit__(self, *exc: object) -> None:
-        self.queue.put(None)
+        self._stop.set()
         self._thread.join(timeout=2)
 
     def _drain(self) -> None:
         try:
-            while (record := self.queue.get()) is not None:
+            while True:
+                try:
+                    record = self.queue.get(timeout=0.1)
+                except queue.Empty:
+                    if self._stop.is_set():
+                        return
+                    continue
                 if self._request_id is not None:
                     record.request_id = self._request_id
                 logging.getLogger(record.name).handle(record)

@@ -3,6 +3,8 @@ import logging
 import multiprocessing as mp
 import os
 import plistlib
+import threading
+import time
 
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -18,6 +20,12 @@ from launchpad.size.analyzers import apple
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import ComponentType
 from launchpad.tracing import current_request_id, request_context
+
+
+def _log_forever(i: int) -> None:
+    log = logging.getLogger("launchpad.size.analyzers.apple")
+    while True:
+        log.info("tick %d", i)
 
 
 @pytest.fixture
@@ -171,6 +179,31 @@ class TestAppleAppSizes:
         assert all(r.process != os.getpid() for r in completed)
         assert all(getattr(r, "request_id", None) == request_id for r in completed)
         assert all(isinstance(getattr(r, "elapsed_s", None), float) for r in completed)
+
+    def test_worker_log_relay_exits_cleanly_after_killing_workers(self, caplog: pytest.LogCaptureFixture) -> None:
+        """Simulates the deadline path: workers SIGKILLed mid-log must not leave the parent
+        blocked on the shared log queue or with a feeder thread that would hang interpreter exit."""
+        caplog.set_level(logging.INFO)
+        ctx = mp.get_context("forkserver")
+        started = time.monotonic()
+        with apple._WorkerLogRelay() as relay:
+            executor = ProcessPoolExecutor(
+                max_workers=2,
+                mp_context=ctx,
+                initializer=apple._binary_worker_init,
+                initargs=(relay.queue, relay.level),
+            )
+            for i in range(2):
+                executor.submit(_log_forever, i)
+            deadline = time.monotonic() + 10
+            while not any(r.getMessage().startswith("tick") for r in caplog.records) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            assert any(r.getMessage().startswith("tick") for r in caplog.records)
+            executor.kill_workers()
+
+        assert time.monotonic() - started < 15
+        assert not relay._thread.is_alive()
+        assert not any(t.name == "QueueFeederThread" for t in threading.enumerate())
 
     def test_binary_completed_log_includes_elapsed(self) -> None:
         """Per-binary duration must survive parallelization via an elapsed_s log field."""
