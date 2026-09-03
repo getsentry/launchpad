@@ -465,17 +465,11 @@ class AppleAppAnalyzer:
             return result
 
     def _binary_analysis_worker_count(self, num_binaries: int) -> int:
-        if num_binaries <= 1:
-            return 1
-        override = os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS")
-        if override:
-            try:
-                configured = int(override)
-            except ValueError:
-                configured = 0
-            if configured >= 1:
-                return min(configured, num_binaries)
-        return min(4, num_binaries)
+        try:
+            configured = int(os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4"))
+        except ValueError:
+            configured = 4
+        return max(1, min(configured, num_binaries))
 
     def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> None:
         logger.info(
