@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import gc
 import os
 import tempfile
 import time
@@ -171,23 +170,15 @@ class AppleAppAnalyzer:
             for binary_info in binaries:
                 self._log_binary_started(binary_info, app_bundle_path, extract_dir)
 
-            if workers > 1:
-                logger.debug(f"Analyzing binaries in parallel with {workers} processes")
-                analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path)
-                executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
-                try:
-                    results = list(executor.map(partial(_run_and_time, analyze), binaries))
-                    executor.shutdown(wait=True)
-                except BaseException:
-                    executor.kill_workers()
-                    raise
-            else:
-                results = []
-                for binary_info in binaries:
-                    start = time.monotonic()
-                    result = self._analyze_binary(binary_info, app_bundle_path)
-                    results.append((result, time.monotonic() - start))
-                    gc.collect()
+            logger.debug(f"Analyzing binaries with {workers} processes")
+            analyze = partial(self._analyze_binary, app_bundle_path=app_bundle_path)
+            executor = ProcessPoolExecutor(max_workers=workers, initializer=_binary_worker_init)
+            try:
+                results = list(executor.map(partial(_run_and_time, analyze), binaries))
+                executor.shutdown(wait=True)
+            except BaseException:
+                executor.kill_workers()
+                raise
 
             for binary_info, (binary, elapsed) in zip(binaries, results):
                 if binary is not None:

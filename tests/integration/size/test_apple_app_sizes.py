@@ -111,24 +111,23 @@ class TestAppleAppSizes:
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "1")
         assert analyzer._binary_analysis_worker_count(100) == 1
 
-    def test_parallel_binary_analysis_matches_serial(
+    def test_binary_analysis_output_independent_of_worker_count(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Toggling the worker count must not change analysis output."""
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "1")
-        serial = AppleAppAnalyzer(skip_treemap=False).analyze(
+        one_worker = AppleAppAnalyzer(skip_treemap=False).analyze(
             cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
         )
 
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4")
-        parallel = AppleAppAnalyzer(skip_treemap=False).analyze(
+        four_workers = AppleAppAnalyzer(skip_treemap=False).analyze(
             cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
         )
 
-        assert serial.install_size == parallel.install_size
-        assert serial.download_size == parallel.download_size
-        assert serial.treemap is not None and parallel.treemap is not None
-        assert serial.treemap.model_dump_json() == parallel.treemap.model_dump_json()
+        assert one_worker.install_size == four_workers.install_size
+        assert one_worker.download_size == four_workers.download_size
+        assert one_worker.treemap is not None and four_workers.treemap is not None
+        assert one_worker.treemap.model_dump_json() == four_workers.treemap.model_dump_json()
 
     def test_parallel_binary_analysis_under_forkserver(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
