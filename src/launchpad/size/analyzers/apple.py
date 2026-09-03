@@ -531,11 +531,12 @@ class AppleAppAnalyzer:
     def _analyze_binary_logged(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: Path) -> _TimedBinary:
         self._log_binary_started(binary_info, app_bundle_path, extract_dir)
         started_at = time.time()
+        start = time.monotonic()
         binary = self._analyze_binary(binary_info, app_bundle_path)
-        finished_at = time.time()
+        elapsed_s = time.monotonic() - start
         if binary is not None:
-            self._log_binary_completed(binary_info, binary, finished_at - started_at)
-        return _TimedBinary(binary, started_at, finished_at)
+            self._log_binary_completed(binary_info, binary, elapsed_s)
+        return _TimedBinary(binary, started_at, started_at + elapsed_s)
 
     # Pool workers have no Sentry client, so rebuild the span @sentry_sdk.trace would have made.
     def _record_binary_span(self, binary_info: BinaryInfo, timed: _TimedBinary) -> None:
