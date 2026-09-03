@@ -47,7 +47,7 @@ from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.android import AndroidAppInfo
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAppInfo
-from launchpad.tracing import request_context
+from launchpad.tracing import log_context, request_context
 from launchpad.utils.file_utils import IdPrefix, id_from_bytes
 from launchpad.utils.logging import get_logger
 from launchpad.utils.objectstore import ObjectstoreConfig, create_objectstore_client
@@ -137,6 +137,9 @@ class ArtifactProcessor:
         platform = "unknown"
         with contextlib.ExitStack() as stack:
             stack.enter_context(request_context())
+            stack.enter_context(
+                log_context(artifact_id=artifact_id, project_id=project_id, organization_id=organization_id)
+            )
             processing_start = time.monotonic()
             scope = stack.enter_context(sentry_sdk.new_scope())
             scope.set_tag("launchpad.project_id", project_id)
