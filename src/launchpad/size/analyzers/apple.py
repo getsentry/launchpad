@@ -70,18 +70,6 @@ def _binary_worker_init() -> None:
     os.environ["LAUNCHPAD_NO_PARALLEL_DEMANGLE"] = "true"
 
 
-def _force_kill_pool(executor: ProcessPoolExecutor) -> None:
-    for proc in list(getattr(executor, "_processes", {}).values()):
-        try:
-            proc.kill()
-        except Exception:
-            pass
-    try:
-        executor.shutdown(wait=False, cancel_futures=True)
-    except Exception:
-        logger.debug("executor.shutdown during force-kill raised", exc_info=True)
-
-
 def _run_and_time(analyze: Any, binary_info: BinaryInfo) -> Tuple[Any, float]:
     start = time.monotonic()
     return analyze(binary_info), time.monotonic() - start
@@ -192,7 +180,7 @@ class AppleAppAnalyzer:
                     results = list(executor.map(partial(_run_and_time, analyze), binaries))
                     executor.shutdown(wait=True)
                 except BaseException:
-                    _force_kill_pool(executor)
+                    executor.kill_workers()
                     raise
             else:
                 lief_cache = artifact.get_lief_cache()
