@@ -404,6 +404,58 @@ class TestArtifactProcessorMessageHandling:
             {"metric": "artifact.processing.completed", "value": 1, "tags": None},
         ) in calls
 
+    @patch("launchpad.artifact_processor.SentryClient")
+    @patch.object(ArtifactProcessor, "process_artifact")
+    def test_process_message_duration_includes_org_slug(self, mock_process, mock_sentry_client):
+        """The processing duration metric is tagged with organization_slug when provided."""
+        mock_process.return_value = "xcarchive"
+        fake_statsd = FakeStatsd()
+        service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=[],
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
+        )
+
+        ArtifactProcessor.process_message(
+            artifact_id="slug-test-123",
+            project_id="test-project",
+            organization_id="test-org-123",
+            organization_slug="acme-inc",
+            service_config=service_config,
+            statsd=fake_statsd,
+        )
+
+        timing = next(
+            c[1] for c in fake_statsd.calls if c[0] == "timing" and c[1]["metric"] == "artifact.processing.duration"
+        )
+        assert "organization_slug:acme-inc" in timing["tags"]
+        assert "organization_id:test-org-123" in timing["tags"]
+
+    @patch("launchpad.artifact_processor.SentryClient")
+    @patch.object(ArtifactProcessor, "process_artifact")
+    def test_process_message_duration_omits_slug_when_absent(self, mock_process, mock_sentry_client):
+        """No organization_slug tag is emitted when the slug is not provided (rollout compatibility)."""
+        mock_process.return_value = "xcarchive"
+        fake_statsd = FakeStatsd()
+        service_config = ServiceConfig(
+            sentry_base_url="http://test.sentry.io",
+            projects_to_skip=[],
+            objectstore_config=ObjectstoreConfig(objectstore_url="http://test.objectstore.io"),
+        )
+
+        ArtifactProcessor.process_message(
+            artifact_id="no-slug-123",
+            project_id="test-project",
+            organization_id="test-org-123",
+            service_config=service_config,
+            statsd=fake_statsd,
+        )
+
+        timing = next(
+            c[1] for c in fake_statsd.calls if c[0] == "timing" and c[1]["metric"] == "artifact.processing.duration"
+        )
+        assert not any(tag.startswith("organization_slug:") for tag in timing["tags"])
+
 
 class TestParseBuildNumber:
     @pytest.mark.parametrize(

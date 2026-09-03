@@ -9,9 +9,14 @@ default = app.taskregistry.create_namespace("default", processing_deadline_durat
 
 
 @default.register(name="process_artifact")
-def process_artifact(artifact_id: str, project_id: str, organization_id: str) -> None:
+def process_artifact(
+    artifact_id: str, project_id: str, organization_id: str, organization_slug: str | None = None
+) -> None:
     setup_logging()
     logger.info(f"Processing artifact {artifact_id}")
-    logger.info(f"Params: artifact_id={artifact_id}, project_id={project_id}, organization_id={organization_id}")
-    ArtifactProcessor.process_message(artifact_id, project_id, organization_id)
+    logger.info(
+        f"Params: artifact_id={artifact_id}, project_id={project_id}, "
+        f"organization_id={organization_id}, organization_slug={organization_slug}"
+    )
+    ArtifactProcessor.process_message(artifact_id, project_id, organization_id, organization_slug=organization_slug)
     logger.info(f"Processed artifact {artifact_id}")
