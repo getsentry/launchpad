@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "type": "object",
+  "properties": {
+    "projects.skip": {
+      "type": "array",
+      "default": [],
+      "items": { "type": "string" },
+      "description": "Project IDs whose artifacts are skipped during processing. Unioned with the PROJECT_IDS_TO_SKIP environment variable so values set here take effect without a redeploy."
+    }
+  }
+}

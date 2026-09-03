@@ -11,6 +11,11 @@ from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 def setup_test_environment():
     """Set up test environment variables for all tests."""
     os.environ.setdefault("LAUNCHPAD_ENV", "TEST")
+    os.environ.setdefault("SENTRY_OPTIONS_DIR", str(Path(__file__).parent.parent / "sentry-options"))
+
+    from launchpad.options import init_options
+
+    init_options()
 
 
 @pytest.fixture(scope="session")

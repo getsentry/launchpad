@@ -38,7 +38,8 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/.venv/bin:$PATH" \
     UV_PROJECT_ENVIRONMENT=/.venv \
     UV_COMPILE_BYTECODE=1 \
-    UV_NO_CACHE=1
+    UV_NO_CACHE=1 \
+    SENTRY_OPTIONS_DIR=/etc/sentry-options
 
 # Install uv
 RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.11.17'
@@ -86,6 +87,8 @@ COPY scripts/ ./scripts/
 COPY devservices/ ./devservices/
 COPY README.md .
 COPY LICENSE .
+
+COPY sentry-options/schemas /etc/sentry-options/schemas
 
 # Copy libdispatch from the build stage
 COPY --from=libdispatch-build /usr/lib/x86_64-linux-gnu/libdispatch.so* /usr/lib/x86_64-linux-gnu/
