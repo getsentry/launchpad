@@ -213,7 +213,7 @@ class AppleAppAnalyzer:
                 extract_dir=artifact.get_extract_dir(),
             )
             if workers > 0:
-                logger.debug(f"Analyzing binaries with {workers} processes")
+                logger.info("size.apple.binary_analysis_workers", extra={"workers": workers})
                 executor = ProcessPoolExecutor(
                     max_workers=workers,
                     initializer=_binary_worker_init,
