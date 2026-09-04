@@ -5,8 +5,15 @@
     "projects.skip": {
       "type": "array",
       "default": [],
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "Project IDs whose artifacts are skipped during processing. Unioned with the PROJECT_IDS_TO_SKIP environment variable so values set here take effect without a redeploy."
+    },
+    "size.binary_analysis.workers": {
+      "type": "integer",
+      "default": 4,
+      "description": "Number of worker processes for Apple per-binary analysis. 0 runs binaries in-process, one at a time."
     }
   }
 }

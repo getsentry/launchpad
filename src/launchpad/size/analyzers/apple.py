@@ -124,6 +124,7 @@ class AppleAppAnalyzer:
         skip_treemap: bool = False,
         skip_image_analysis: bool = False,
         skip_insights: bool = False,
+        binary_analysis_workers: int = _DEFAULT_BINARY_ANALYSIS_WORKERS,
     ) -> None:
         """Initialize the Apple analyzer.
 
@@ -135,8 +136,10 @@ class AppleAppAnalyzer:
             skip_treemap: Skip treemap generation for hierarchical size analysis
             skip_image_analysis: Skip image analysis for faster processing
             skip_insights: Skip insights generation for faster analysis
+            binary_analysis_workers: Processes for per-binary analysis; 0 runs binaries in-process
         """
         self.working_dir = working_dir
+        self.binary_analysis_workers = binary_analysis_workers
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
         self.skip_component_analysis = skip_component_analysis
@@ -501,11 +504,7 @@ class AppleAppAnalyzer:
             return result
 
     def _binary_analysis_worker_count(self, num_binaries: int) -> int:
-        try:
-            configured = int(os.getenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", _DEFAULT_BINARY_ANALYSIS_WORKERS))
-        except ValueError:
-            configured = _DEFAULT_BINARY_ANALYSIS_WORKERS
-        return min(configured, num_binaries)
+        return min(self.binary_analysis_workers, num_binaries)
 
     def _analyze_binary_logged(
         self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: SafeDirectory
