@@ -10,7 +10,7 @@ from taskbroker_client.worker.workerchild import ProcessingDeadlineExceeded
 from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig, _parse_build_number, get_service_config
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
-from launchpad.artifacts.artifact import Artifact
+from launchpad.artifacts.artifact import AppleArtifact, Artifact
 from launchpad.constants import (
     InstallableAppErrorCode,
     ProcessingErrorCode,
@@ -644,3 +644,16 @@ class TestGetServiceConfigProjectsToSkip:
         monkeypatch.setenv("PROJECT_IDS_TO_SKIP", "shared,env-only")
         with override_options("launchpad", {"projects.skip": ["shared", "opt-only"]}):
             assert get_service_config().projects_to_skip == ["shared", "env-only", "opt-only"]
+
+
+class TestCreateAnalyzerBinaryAnalysisWorkers:
+    def test_apple_analyzer_uses_schema_default(self):
+        processor = ArtifactProcessor(Mock(), Mock(), Mock())
+        analyzer = processor._create_analyzer(Mock(spec=AppleArtifact))
+        assert analyzer.binary_analysis_workers == 4
+
+    def test_apple_analyzer_uses_option_value(self):
+        processor = ArtifactProcessor(Mock(), Mock(), Mock())
+        with override_options("launchpad", {"size.binary_analysis.workers": 0}):
+            analyzer = processor._create_analyzer(Mock(spec=AppleArtifact))
+        assert analyzer.binary_analysis_workers == 0

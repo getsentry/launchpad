@@ -167,29 +167,20 @@ class TestAppleAppSizes:
         assert kwargs["extra"]["insight"] == "dummy"
         assert "elapsed_s" in kwargs["extra"]
 
-    def test_binary_worker_count(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        analyzer = AppleAppAnalyzer()
-        assert analyzer._binary_analysis_worker_count(100) == 4
-        assert analyzer._binary_analysis_worker_count(2) == 2
-        assert analyzer._binary_analysis_worker_count(0) == 0
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "3")
-        assert analyzer._binary_analysis_worker_count(100) == 3
-        assert analyzer._binary_analysis_worker_count(2) == 2
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "0")
-        assert analyzer._binary_analysis_worker_count(100) == 0
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "nope")
-        assert analyzer._binary_analysis_worker_count(100) == 4
+    def test_binary_worker_count(self) -> None:
+        assert AppleAppAnalyzer()._binary_analysis_worker_count(100) == 4
+        assert AppleAppAnalyzer()._binary_analysis_worker_count(2) == 2
+        assert AppleAppAnalyzer()._binary_analysis_worker_count(0) == 0
+        assert AppleAppAnalyzer(binary_analysis_workers=3)._binary_analysis_worker_count(100) == 3
+        assert AppleAppAnalyzer(binary_analysis_workers=3)._binary_analysis_worker_count(2) == 2
+        assert AppleAppAnalyzer(binary_analysis_workers=0)._binary_analysis_worker_count(100) == 0
 
-    def test_parallel_binary_analysis_matches_in_process(
-        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "0")
-        in_process = AppleAppAnalyzer(skip_treemap=False).analyze(
+    def test_parallel_binary_analysis_matches_in_process(self, hackernews_xcarchive: Path) -> None:
+        in_process = AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=0).analyze(
             cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
         )
 
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "4")
-        parallel = AppleAppAnalyzer(skip_treemap=False).analyze(
+        parallel = AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=4).analyze(
             cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
         )
 
@@ -205,11 +196,10 @@ class TestAppleAppSizes:
         before capfd redirects it, so forkserver workers would write past the capture."""
         ctx = mp.get_context("spawn")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
 
         with request_context():
             request_id = current_request_id()
-            AppleAppAnalyzer(skip_treemap=False).analyze(
+            AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(
                 cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
             )
 
@@ -238,7 +228,6 @@ class TestAppleAppSizes:
         endpoint carrying the parent's trace id."""
         ctx = mp.get_context("forkserver")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
         with _SentryIngestStub() as stub:
             monkeypatch.setenv("LAUNCHPAD_ENV", "integration")
             monkeypatch.setenv("SENTRY_DSN", stub.dsn)
@@ -246,7 +235,7 @@ class TestAppleAppSizes:
             sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, enable_logs=True)
             try:
                 with sentry_sdk.start_transaction(name="test") as transaction:
-                    AppleAppAnalyzer(skip_treemap=False).analyze(
+                    AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(
                         cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
                     )
                 sentry_sdk.flush()
@@ -266,7 +255,6 @@ class TestAppleAppSizes:
         timestamps; they must land on the task transaction and reflect real concurrency."""
         ctx = mp.get_context("forkserver")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
-        monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
         monkeypatch.setenv("LAUNCHPAD_ENV", "test")
         transport = _CapturingTransport()
         sentry_sdk.init(dsn="https://key@example.invalid/1", transport=transport, traces_sample_rate=1.0)
@@ -274,7 +262,7 @@ class TestAppleAppSizes:
             with sentry_sdk.start_transaction(name="test"):
                 artifact = cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
                 binary_count = len(artifact.get_all_binary_paths())
-                AppleAppAnalyzer(skip_treemap=False).analyze(artifact)
+                AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(artifact)
             sentry_sdk.flush()
         finally:
             sentry_sdk.get_global_scope().set_client(None)

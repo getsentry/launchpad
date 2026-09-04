@@ -278,7 +278,7 @@ class ArtifactProcessor:
         if isinstance(artifact, AndroidArtifact):
             return AndroidAnalyzer()
         elif isinstance(artifact, AppleArtifact):
-            return AppleAppAnalyzer()
+            return AppleAppAnalyzer(binary_analysis_workers=get_option("size.binary_analysis.workers", 4))
         else:
             raise ValueError(f"Unknown artifact kind {artifact}")
 
