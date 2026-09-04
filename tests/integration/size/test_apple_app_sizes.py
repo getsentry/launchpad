@@ -190,12 +190,17 @@ class TestAppleAppSizes:
         assert in_process.treemap.model_dump_json() == parallel.treemap.model_dump_json()
 
     def test_worker_logs_reach_stdout_with_request_id(
-        self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+        self,
+        hackernews_xcarchive: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capfd: pytest.CaptureFixture[str],
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Uses spawn rather than forkserver: the forkserver inherits stdout once at startup,
         before capfd redirects it, so forkserver workers would write past the capture."""
         ctx = mp.get_context("spawn")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
+        caplog.set_level(logging.INFO, logger=apple.logger.name)
 
         with request_context():
             request_id = current_request_id()
@@ -208,6 +213,8 @@ class TestAppleAppSizes:
         assert completed
         assert all(d["request_id"] == request_id for d in completed)
         assert all(isinstance(d["elapsed_s"], float) for d in completed)
+        pool = [r for r in caplog.records if r.getMessage() == "size.apple.binary_analysis_workers"]
+        assert [r.workers for r in pool] == [2]
 
     def test_worker_logging_applies_third_party_suppression(self, capfd: pytest.CaptureFixture[str]) -> None:
         ctx = mp.get_context("spawn")
