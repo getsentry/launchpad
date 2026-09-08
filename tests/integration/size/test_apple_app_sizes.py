@@ -26,7 +26,7 @@ from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.size.analyzers import apple
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
 from launchpad.size.models.common import ComponentType
-from launchpad.tracing import current_request_id, log_context, request_context
+from launchpad.tracing import current_request_id, request_context
 
 
 class _SentryIngestStub:
@@ -207,7 +207,7 @@ class TestAppleAppSizes:
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
         monkeypatch.setenv("LAUNCHPAD_BINARY_ANALYSIS_WORKERS", "2")
 
-        with request_context(), log_context(artifact_id="42"):
+        with request_context(artifact_id="42"):
             request_id = current_request_id()
             AppleAppAnalyzer(skip_treemap=False).analyze(
                 cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
