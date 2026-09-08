@@ -271,11 +271,8 @@ class TestArtifactProcessorMessageHandling:
         )
 
         started = next(r for r in caplog.records if r.getMessage().startswith("Processing artifact"))
-        assert (started.artifact_id, started.project_id, started.organization_id) == (
-            "ios-test-123",
-            "test-project-ios",
-            "test-org-123",
-        )
+        assert started.artifact_id == "ios-test-123"
+        assert not hasattr(started, "project_id")
 
         # Verify metrics were recorded
         calls = fake_statsd.calls

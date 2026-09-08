@@ -136,9 +136,7 @@ class ArtifactProcessor:
         artifact_type = "unknown"
         platform = "unknown"
         with contextlib.ExitStack() as stack:
-            stack.enter_context(
-                request_context(artifact_id=artifact_id, project_id=project_id, organization_id=organization_id)
-            )
+            stack.enter_context(request_context(artifact_id=artifact_id))
             processing_start = time.monotonic()
             scope = stack.enter_context(sentry_sdk.new_scope())
             scope.set_tag("launchpad.project_id", project_id)
