@@ -11,8 +11,52 @@ from launchpad.size.models.apple import (
     SegmentInfo,
 )
 from launchpad.size.models.common import FileInfo
-from launchpad.size.models.treemap import TreemapType
+from launchpad.size.models.treemap import TreemapElement, TreemapType
+from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
+from launchpad.size.symbols.partitioner import SymbolInfo
+from launchpad.size.symbols.types import SwiftSymbolTypeGroup
 from launchpad.size.treemap.macho_element_builder import MachOElementBuilder
+
+
+def _swift_group(module: str, type_name: str, size: int) -> SwiftSymbolTypeGroup:
+    """Build a SwiftSymbolTypeGroup with a single symbol living in __TEXT.__text."""
+    symbol = SymbolSize(
+        mangled_name=f"_{module}_{type_name}",
+        section_name="__text",
+        segment_name="__TEXT",
+        address=0,
+        size=size,
+    )
+    return SwiftSymbolTypeGroup(
+        module=module,
+        type_name=type_name,
+        components=[module, type_name],
+        symbol_count=1,
+        symbols=[symbol],
+    )
+
+
+def _create_arch_slice_with_swift_modules(
+    arch_name: str, size: int, groups: list[SwiftSymbolTypeGroup]
+) -> ArchitectureSlice:
+    """Like _create_arch_slice but attaches Swift symbol groups to the slice."""
+    arch_slice = _create_arch_slice(arch_name, size)
+    arch_slice.symbol_info = SymbolInfo(
+        symbol_sizes=[s for g in groups for s in g.symbols],
+        swift_type_groups=groups,
+        objc_type_groups=[],
+        cpp_type_groups=[],
+        other_symbols=[],
+        compiler_generated_symbols=[],
+    )
+    return arch_slice
+
+
+def _find_child(element: TreemapElement, name: str) -> TreemapElement | None:
+    for child in element.children:
+        if child.name == name:
+            return child
+    return None
 
 
 def _create_arch_slice(arch_name: str, size: int) -> ArchitectureSlice:
@@ -174,3 +218,65 @@ class TestMachOElementBuilderArchitectureHandling:
         element = builder.build_element(file_info, "UnknownBinary")
 
         assert element is None
+
+
+class TestMachOElementBuilderKnownLibraryGrouping:
+    """Tests for grouping recognized library modules under a "Libraries" node."""
+
+    def _build(self, groups: list[SwiftSymbolTypeGroup]) -> TreemapElement:
+        arch_slice = _create_arch_slice_with_swift_modules("ARM64", size=100000, groups=groups)
+        binary_analysis = _create_binary_analysis("MyApp", [arch_slice])
+        builder = MachOElementBuilder(
+            filesystem_block_size=4096,
+            binary_analysis_map={"MyApp": binary_analysis},
+        )
+        element = builder.build_element(_create_file_info("MyApp", 100000), "MyApp")
+        assert element is not None
+        return element
+
+    def test_known_library_grouped_app_module_stays_flat(self):
+        element = self._build(
+            [
+                _swift_group("Alamofire", "Session", 500),
+                _swift_group("MyApp", "ViewController", 300),
+            ]
+        )
+
+        # App module remains a direct child of the binary.
+        my_app = _find_child(element, "MyApp")
+        assert my_app is not None
+        assert my_app.size == 300
+
+        # Recognized library is moved under a "Libraries" node.
+        assert _find_child(element, "Alamofire") is None
+        libraries = _find_child(element, "Libraries")
+        assert libraries is not None
+        assert libraries.type == TreemapType.MODULES
+
+        alamofire = _find_child(libraries, "Alamofire")
+        assert alamofire is not None
+        assert alamofire.size == 500
+        assert libraries.size == 500
+
+    def test_multiple_modules_collapse_into_one_library(self):
+        element = self._build(
+            [
+                _swift_group("FirebaseCore", "App", 400),
+                _swift_group("FirebaseAnalytics", "Logger", 600),
+            ]
+        )
+
+        libraries = _find_child(element, "Libraries")
+        assert libraries is not None
+
+        firebase = _find_child(libraries, "Firebase")
+        assert firebase is not None
+        assert firebase.size == 1000
+        child_names = {c.name for c in firebase.children}
+        assert child_names == {"FirebaseCore", "FirebaseAnalytics"}
+
+    def test_no_libraries_node_when_nothing_recognized(self):
+        element = self._build([_swift_group("MyApp", "ViewController", 300)])
+
+        assert _find_child(element, "Libraries") is None
+        assert _find_child(element, "MyApp") is not None
