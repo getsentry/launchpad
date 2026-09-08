@@ -33,6 +33,23 @@ class TestCLI:
         assert "size" in result.output
         assert "INPUT_PATH" in result.output
 
+    def test_diff_help(self) -> None:
+        """Test diff command help lists both artifact arguments."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["diff", "--help"])
+
+        assert result.exit_code == 0
+        assert "BASE" in result.output
+        assert "HEAD" in result.output
+
+    def test_diff_missing_arguments(self) -> None:
+        """Test diff command fails when artifacts are not provided."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["diff"])
+
+        assert result.exit_code != 0
+        assert "Missing argument" in result.output or "Error" in result.output
+
     def test_analyze_missing_input(self) -> None:
         """Test analyze command fails with missing input."""
         runner = CliRunner()
