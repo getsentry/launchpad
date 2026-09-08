@@ -1,3 +1,5 @@
+import logging
+
 from datetime import datetime
 from unittest.mock import Mock, patch
 
@@ -18,6 +20,7 @@ from launchpad.constants import (
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
 from launchpad.size.models.android import AndroidAppInfo
+from launchpad.tracing import RequestLogFilter
 from launchpad.utils.objectstore import ObjectstoreConfig
 from launchpad.utils.statsd import FakeStatsd
 
@@ -242,8 +245,10 @@ class TestArtifactProcessorMessageHandling:
 
     @patch("launchpad.artifact_processor.SentryClient")
     @patch.object(ArtifactProcessor, "process_artifact")
-    def test_process_message_ios(self, mock_process, mock_sentry_client):
+    def test_process_message_ios(self, mock_process, mock_sentry_client, caplog):
         """Test processing iOS artifact messages."""
+        caplog.set_level(logging.INFO)
+        caplog.handler.addFilter(RequestLogFilter())
         fake_statsd = FakeStatsd()
         service_config = ServiceConfig(
             sentry_base_url="http://test.sentry.io",
@@ -264,6 +269,10 @@ class TestArtifactProcessorMessageHandling:
             "test-project-ios",
             "ios-test-123",
         )
+
+        started = next(r for r in caplog.records if r.getMessage().startswith("Processing artifact"))
+        assert started.artifact_id == "ios-test-123"
+        assert not hasattr(started, "project_id")
 
         # Verify metrics were recorded
         calls = fake_statsd.calls

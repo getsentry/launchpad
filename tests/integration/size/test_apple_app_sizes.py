@@ -202,7 +202,7 @@ class TestAppleAppSizes:
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
         caplog.set_level(logging.INFO, logger=apple.logger.name)
 
-        with request_context():
+        with request_context(artifact_id="42"):
             request_id = current_request_id()
             AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(
                 cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
@@ -212,13 +212,16 @@ class TestAppleAppSizes:
         completed = [d for d in lines if d["message"] == "size.apple.binary_analysis_completed"]
         assert completed
         assert all(d["request_id"] == request_id for d in completed)
+        assert all(d["artifact_id"] == "42" for d in completed)
         assert all(isinstance(d["elapsed_s"], float) for d in completed)
         pool = [r for r in caplog.records if r.getMessage() == "size.apple.binary_analysis_workers"]
         assert [r.workers for r in pool] == [2]
 
     def test_worker_logging_applies_third_party_suppression(self, capfd: pytest.CaptureFixture[str]) -> None:
         ctx = mp.get_context("spawn")
-        context = apple._WorkerContext(verbose=False, request_id=None, sentry_config=None, trace_headers={})
+        context = apple._WorkerContext(
+            verbose=False, request_id=None, artifact_id=None, sentry_config=None, trace_headers={}
+        )
         with ProcessPoolExecutor(
             max_workers=1, mp_context=ctx, initializer=apple._binary_worker_init, initargs=(context,)
         ) as executor:
