@@ -2,14 +2,17 @@ import json
 import time
 
 from pathlib import Path
-from typing import Any, TextIO, cast
+from typing import Any, Protocol, TextIO, cast
 
 from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.artifacts.elf import ELFArtifact
 from launchpad.size.analyzers.android import AndroidAnalyzer
 from launchpad.size.analyzers.apple import AppleAppAnalyzer
+from launchpad.size.analyzers.elf import ELFAnalyzer
 from launchpad.size.models.apple import AppleAppInfo
 from launchpad.size.models.common import BaseAnalysisResults, BaseAppInfo
+from launchpad.size.models.elf import ELFAnalysisResults
 
 
 def do_preprocess(path: Path, **flags: Any) -> BaseAppInfo | AppleAppInfo:
@@ -31,12 +34,14 @@ def do_preprocess(path: Path, **flags: Any) -> BaseAppInfo | AppleAppInfo:
         analyzer = AppleAppAnalyzer(**flags)
         return analyzer.preprocess(artifact)
     else:
-        raise ValueError(f"Unknown artifact kind {artifact}")
+        raise NotImplementedError(f"Preprocessing is not supported for {type(artifact).__name__}")
 
 
 def do_size(
-    path: Path, analyzer: AndroidAnalyzer | AppleAppAnalyzer | None = None, **flags: Any
-) -> BaseAnalysisResults:
+    path: Path,
+    analyzer: AndroidAnalyzer | AppleAppAnalyzer | ELFAnalyzer | None = None,
+    **flags: Any,
+) -> BaseAnalysisResults | ELFAnalysisResults:
     """Perform full size analysis.
 
     Args:
@@ -49,6 +54,8 @@ def do_size(
     """
     start_time = time.time()
     artifact = ArtifactFactory.from_path(path)
+    if flags.get("debug_file") is not None and not isinstance(artifact, ELFArtifact):
+        raise ValueError("--debug-file is only supported for ELF inputs")
 
     # If no analyzer provided, create one
     if analyzer is None:
@@ -56,6 +63,8 @@ def do_size(
             analyzer = AndroidAnalyzer(**flags)
         elif isinstance(artifact, AppleArtifact):
             analyzer = AppleAppAnalyzer(**flags)
+        elif isinstance(artifact, ELFArtifact):
+            analyzer = ELFAnalyzer(**flags)
         else:
             raise ValueError(f"Unknown artifact kind {artifact}")
 
@@ -67,5 +76,9 @@ def do_size(
     return results
 
 
-def write_results_as_json(results: BaseAnalysisResults, out: TextIO) -> None:
+class SerializableResults(Protocol):
+    def to_dict(self) -> dict[str, Any]: ...
+
+
+def write_results_as_json(results: SerializableResults, out: TextIO) -> None:
     json.dump(results.to_dict(), out, ensure_ascii=False, separators=(",", ":"))

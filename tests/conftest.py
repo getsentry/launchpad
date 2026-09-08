@@ -97,6 +97,16 @@ def zipped_apk(fixtures_root: Path) -> Path:
     return fixtures_root / "android" / "zipped_apk.zip"
 
 
+@pytest.fixture(scope="session")
+def elf_sample(fixtures_root: Path) -> Path:
+    return fixtures_root / "elf" / "sample.elf"
+
+
+@pytest.fixture(scope="session")
+def elf_sample_no_debug(fixtures_root: Path) -> Path:
+    return fixtures_root / "elf" / "sample-no-debug.elf"
+
+
 # Hermes fixtures
 @pytest.fixture(scope="session")
 def hermes_test_hbc(fixtures_root: Path) -> Path:
