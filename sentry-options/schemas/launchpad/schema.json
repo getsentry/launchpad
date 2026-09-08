@@ -14,6 +14,11 @@
       "type": "integer",
       "default": 4,
       "description": "Number of worker processes for Apple per-binary analysis. 0 runs binaries in-process, one at a time."
+    },
+    "size.demangle.chunk_size": {
+      "type": "integer",
+      "default": 5000,
+      "description": "Number of Swift symbols per cwl-demangle invocation. Larger chunks mean fewer process spawns; a chunk that times out is retried in smaller pieces."
     }
   }
 }

@@ -4,6 +4,8 @@ import subprocess
 from pathlib import Path
 from unittest import mock
 
+from sentry_options.testing import override_options
+
 from launchpad.utils.apple import cwl_demangle
 from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
@@ -142,6 +144,20 @@ class TestCwlDemangler:
 
         assert slow not in result
         assert set(result) == set(symbols)
+
+    def test_chunk_size_comes_from_sentry_option(self):
+        demangler = CwlDemangler()
+        for symbol in self._generate_symbols(10):
+            demangler.add_name(symbol)
+        seen: list[int] = []
+        with (
+            override_options("launchpad", {"size.demangle.chunk_size": 3}),
+            mock.patch.object(
+                demangler, "_demangle_chunk", side_effect=lambda chunk, _idx: seen.append(len(chunk)) or {}
+            ),
+        ):
+            demangler.demangle_all()
+        assert seen == [3, 3, 3, 1]
 
     def _generate_symbols(self, count: int) -> list[str]:
         """Generate valid Swift mangled symbols."""

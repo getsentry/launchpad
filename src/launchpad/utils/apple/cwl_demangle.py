@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
+from launchpad.options import get_option
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -18,8 +19,7 @@ logger = get_logger(__name__)
 # Default timeout for cwl-demangle subprocess (in seconds)
 DEFAULT_DEMANGLE_TIMEOUT = int(os.environ.get("LAUNCHPAD_DEMANGLE_TIMEOUT", "10"))
 
-# Default chunk size for batching symbols
-DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "5000"))
+DEFAULT_CHUNK_SIZE = 5000
 
 SPLIT_FACTOR = 10
 
@@ -89,8 +89,7 @@ class CwlDemangler:
         names = self.queue.copy()
         self.queue.clear()
 
-        # Process in chunks to avoid potential issues with large inputs
-        chunk_size = DEFAULT_CHUNK_SIZE
+        chunk_size = get_option("size.demangle.chunk_size", DEFAULT_CHUNK_SIZE)
         total_chunks = (len(names) + chunk_size - 1) // chunk_size
 
         chunks: List[Tuple[List[str], int]] = []
