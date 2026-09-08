@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -18,7 +19,14 @@ logger = get_logger(__name__)
 DEFAULT_DEMANGLE_TIMEOUT = int(os.environ.get("LAUNCHPAD_DEMANGLE_TIMEOUT", "10"))
 
 # Default chunk size for batching symbols
-DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "500"))
+DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "5000"))
+
+SPLIT_FACTOR = 10
+
+
+# The timeout default was tuned for 500-symbol chunks; larger chunks scale it proportionally.
+def chunk_timeout(num_symbols: int) -> float:
+    return DEFAULT_DEMANGLE_TIMEOUT * max(1, num_symbols / 500)
 
 
 @dataclass
@@ -128,6 +136,21 @@ class CwlDemangler:
 
         return results
 
+    def _demangle_after_timeout(self, chunk: List[str], chunk_idx: int, elapsed: float) -> Dict[str, CwlDemangleResult]:
+        if len(chunk) == 1:
+            logger.exception("cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
+            return {}
+
+        logger.warning(
+            "cwl-demangle chunk timed out, retrying in smaller pieces",
+            extra={"chunk_idx": chunk_idx, "chunk_len": len(chunk), "elapsed": elapsed},
+        )
+        piece = math.ceil(len(chunk) / SPLIT_FACTOR)
+        results: Dict[str, CwlDemangleResult] = {}
+        for i in range(0, len(chunk), piece):
+            results.update(self._demangle_chunk(chunk[i : i + piece], chunk_idx))
+        return results
+
     def _demangle_chunk(self, chunk: List[str], chunk_idx: int) -> Dict[str, CwlDemangleResult]:
         if not chunk:
             return {}
@@ -164,14 +187,10 @@ class CwlDemangler:
 
             try:
                 result = subprocess.run(
-                    command_parts, capture_output=True, text=True, check=True, timeout=DEFAULT_DEMANGLE_TIMEOUT
+                    command_parts, capture_output=True, text=True, check=True, timeout=chunk_timeout(len(chunk))
                 )
             except subprocess.TimeoutExpired:
-                elapsed = time.time() - start_time
-                logger.exception(
-                    "cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed}
-                )
-                return {}
+                return self._demangle_after_timeout(chunk, chunk_idx, time.time() - start_time)
             except subprocess.CalledProcessError:
                 elapsed = time.time() - start_time
                 logger.exception("cwl-demangle subprocess failed", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})

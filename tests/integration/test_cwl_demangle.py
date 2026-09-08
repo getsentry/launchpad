@@ -1,7 +1,10 @@
 import os
+import subprocess
 
+from pathlib import Path
 from unittest import mock
 
+from launchpad.utils.apple import cwl_demangle
 from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
 
@@ -114,6 +117,31 @@ class TestCwlDemangler:
             result = demangler.demangle_all()
             # Should succeed with custom timeout
             assert len(result) == 100
+
+    def test_chunk_timeout_scales_with_chunk_length(self):
+        assert cwl_demangle.chunk_timeout(1) == 10
+        assert cwl_demangle.chunk_timeout(500) == 10
+        assert cwl_demangle.chunk_timeout(5000) == 100
+
+    def test_timed_out_chunk_is_split_so_only_the_slow_symbol_is_dropped(self):
+        symbols = self._generate_symbols(50)
+        slow = "_$s4Slow6SymbolC"
+        real_run = subprocess.run
+
+        def run_with_simulated_hang(cmd, **kwargs):
+            names = Path(cmd[cmd.index("--input") + 1]).read_text().splitlines()
+            if slow in names:
+                raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+            return real_run(cmd, **kwargs)
+
+        demangler = CwlDemangler()
+        for symbol in [*symbols[:25], slow, *symbols[25:]]:
+            demangler.add_name(symbol)
+        with mock.patch.object(cwl_demangle.subprocess, "run", side_effect=run_with_simulated_hang):
+            result = demangler.demangle_all()
+
+        assert slow not in result
+        assert set(result) == set(symbols)
 
     def _generate_symbols(self, count: int) -> list[str]:
         """Generate valid Swift mangled symbols."""
