@@ -223,7 +223,7 @@ class TestAppleAppSizes:
     def test_worker_logging_applies_third_party_suppression(self, capfd: pytest.CaptureFixture[str]) -> None:
         ctx = mp.get_context("spawn")
         context = apple._WorkerContext(
-            verbose=False, request_id=None, log_fields={}, sentry_config=None, trace_headers={}
+            verbose=False, request_id=None, artifact_id=None, sentry_config=None, trace_headers={}
         )
         with ProcessPoolExecutor(
             max_workers=1, mp_context=ctx, initializer=apple._binary_worker_init, initargs=(context,)

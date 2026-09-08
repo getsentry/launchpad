@@ -49,7 +49,7 @@ from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
 from launchpad.size.utils.insight_path_map import build_insight_path_map
-from launchpad.tracing import bind_log_fields, bind_request_id, current_log_fields, current_request_id
+from launchpad.tracing import bind_artifact_id, bind_request_id, current_artifact_id, current_request_id
 from launchpad.utils.apple.apple_strip import AppleStrip
 from launchpad.utils.apple.code_signature_validator import CodeSignatureValidator
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
@@ -76,7 +76,7 @@ _DEFAULT_BINARY_ANALYSIS_WORKERS = 4
 class _WorkerContext(NamedTuple):
     verbose: bool
     request_id: str | None
-    log_fields: dict[str, str]
+    artifact_id: str | None
     sentry_config: SentryConfig | None
     trace_headers: dict[str, str]
 
@@ -86,7 +86,7 @@ class _WorkerContext(NamedTuple):
         return cls(
             verbose=logging.getLogger().getEffectiveLevel() <= logging.DEBUG,
             request_id=current_request_id(),
-            log_fields=current_log_fields(),
+            artifact_id=current_artifact_id(),
             sentry_config=get_sentry_config() if sentry_sdk.get_client().is_active() else None,
             trace_headers={k: v for k, v in headers.items() if v},
         )
@@ -97,8 +97,8 @@ def _binary_worker_init(context: _WorkerContext) -> None:
     setup_logging(verbose=context.verbose)
     if context.request_id is not None:
         bind_request_id(context.request_id)
-    if context.log_fields:
-        bind_log_fields(context.log_fields)
+    if context.artifact_id is not None:
+        bind_artifact_id(context.artifact_id)
     if context.sentry_config is not None:
         initialize_sentry_sdk(context.sentry_config)
         sentry_sdk.continue_trace(context.trace_headers)
