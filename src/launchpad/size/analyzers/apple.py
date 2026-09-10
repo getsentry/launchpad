@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import gc
 import logging
 import os
 import tempfile
@@ -518,7 +517,6 @@ class AppleAppAnalyzer:
         start = time.monotonic()
         binary = self._analyze_binary(binary_info, app_bundle_path)
         elapsed_s = time.monotonic() - start
-        gc.collect()
         if binary is not None:
             self._log_binary_completed(binary_info, binary, elapsed_s)
         return _TimedBinary(binary, started_at, started_at + elapsed_s)
