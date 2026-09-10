@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from launchpad.parsers.android.binary.android_binary_parser import AndroidBinaryParser
-from launchpad.parsers.android.binary.types import XmlAttribute, XmlNode
+from launchpad.parsers.android.binary.types import XmlAttribute, XmlCData, XmlNode
 from launchpad.utils.logging import get_logger
 
 from ..resources.binary import BinaryResourceTable
@@ -27,6 +27,15 @@ class BinaryXmlParser:
 
             # Convert the parser's XmlNode to our model's XmlNode
             def convert_node(node: Any) -> XmlNode:  # type: ignore[no-untyped-def]
+                if isinstance(node, XmlCData):
+                    return XmlNode(
+                        namespace_uri=None,
+                        node_type=node.node_type,
+                        node_name=node.node_name,
+                        attributes=[],
+                        child_nodes=[],
+                    )
+
                 attributes: list[XmlAttribute] = []
                 for attr in node.attributes:
                     value = attr.value
