@@ -87,7 +87,7 @@ class SymbolInfo:
 
     @classmethod
     @sentry_sdk.trace
-    def from_symbol_sizes(cls, symbol_sizes: List[SymbolSize]) -> "SymbolInfo":
+    def from_symbol_sizes(cls, symbol_sizes: List[SymbolSize], use_json_summary: bool = False) -> "SymbolInfo":
         with sentry_sdk.start_span(op="partition_symbols", description="Partition symbols by language"):
             swift_symbols = SwiftSymbolList()
             objc_symbols = ObjCSymbolList()
@@ -108,7 +108,9 @@ class SymbolInfo:
                     other_symbols.append(symbol)
 
         # Aggregate each partition
-        swift_type_groups = SwiftSymbolTypeAggregator().aggregate_symbols(swift_symbols)
+        swift_type_groups = SwiftSymbolTypeAggregator(use_json_summary=use_json_summary).aggregate_symbols(
+            swift_symbols
+        )
         objc_type_groups = ObjCSymbolTypeAggregator().aggregate_symbols(objc_symbols)
         cpp_type_groups = CppSymbolTypeAggregator().aggregate_symbols(cpp_symbols)
 
