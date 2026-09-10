@@ -128,6 +128,7 @@ class AppleAppAnalyzer:
         skip_image_analysis: bool = False,
         skip_insights: bool = False,
         binary_analysis_workers: int = _DEFAULT_BINARY_ANALYSIS_WORKERS,
+        use_json_summary: bool = False,
     ) -> None:
         """Initialize the Apple analyzer.
 
@@ -140,9 +141,11 @@ class AppleAppAnalyzer:
             skip_image_analysis: Skip image analysis for faster processing
             skip_insights: Skip insights generation for faster analysis
             binary_analysis_workers: Processes for per-binary analysis; 0 runs binaries in-process
+            use_json_summary: Use compact JSON output when demangling Swift symbols
         """
         self.working_dir = working_dir
         self.binary_analysis_workers = binary_analysis_workers
+        self.use_json_summary = use_json_summary
         self.skip_swift_metadata = skip_swift_metadata
         self.skip_symbols = skip_symbols
         self.skip_component_analysis = skip_component_analysis
@@ -630,7 +633,10 @@ class AppleAppAnalyzer:
                         dsym_index = dsym_arch_map[arch_slice.arch_name]
                         dsym_binary = dwarf_fat_binary.at(dsym_index)
                         slice_symbol_sizes = MachOSymbolSizes(dsym_binary).get_symbol_sizes()
-                        arch_slice.symbol_info = SymbolInfo.from_symbol_sizes(symbol_sizes=slice_symbol_sizes)
+                        arch_slice.symbol_info = SymbolInfo.from_symbol_sizes(
+                            symbol_sizes=slice_symbol_sizes,
+                            use_json_summary=self.use_json_summary,
+                        )
                         logger.debug(
                             f"Symbolicated {arch_slice.arch_name} slice with {len(slice_symbol_sizes)} symbols"
                         )

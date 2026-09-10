@@ -25,13 +25,9 @@ DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "500"))
 class CwlDemangleResult:
     """Result from cwl-demangle tool parsing."""
 
-    name: str
-    type: str
-    identifier: str
     module: str
     testName: List[str]
     typeName: str
-    description: str
     mangled: str
 
 
@@ -42,6 +38,7 @@ class CwlDemangler:
         self,
         is_type: bool = False,
         continue_on_error: bool = True,
+        use_json_summary: bool = False,
     ):
         """
         Initialize the CwlDemangler.
@@ -49,11 +46,13 @@ class CwlDemangler:
         Args:
             is_type: Whether to treat inputs as types rather than symbols
             continue_on_error: Whether to continue processing on errors
+            use_json_summary: Whether to request compact JSON output
         """
         self.is_type = is_type
         self.queue: List[str] = []
         self.continue_on_error = continue_on_error
         self.uuid = str(uuid.uuid4())
+        self.json_output_flag = "--json-summary" if use_json_summary else "--json"
 
         # Disable parallel processing if LAUNCHPAD_NO_PARALLEL_DEMANGLE=true
         env_disable = os.environ.get("LAUNCHPAD_NO_PARALLEL_DEMANGLE", "").lower() == "true"
@@ -153,7 +152,7 @@ class CwlDemangler:
                 "batch",
                 "--input",
                 temp_file.name,
-                "--json",
+                self.json_output_flag,
             ]
 
             if self.is_type:
@@ -183,13 +182,9 @@ class CwlDemangler:
                 mangled = symbol_result.get("mangled", "")
                 if mangled in chunk_set:
                     demangle_result = CwlDemangleResult(
-                        name=symbol_result["name"],
-                        type=symbol_result["type"],
-                        identifier=symbol_result["identifier"],
                         module=symbol_result["module"],
                         testName=symbol_result["testName"],
                         typeName=symbol_result["typeName"],
-                        description=symbol_result["description"],
                         mangled=mangled,
                     )
                     results[mangled] = demangle_result

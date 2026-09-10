@@ -2,6 +2,8 @@ import os
 
 from unittest import mock
 
+import pytest
+
 from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
 
 
@@ -28,9 +30,10 @@ class TestCwlDemangler:
         result = demangler.demangle_all()
         assert result == {}
 
-    def test_demangle_all_success(self):
+    @pytest.mark.parametrize("use_json_summary", [False, True])
+    def test_demangle_all_success(self, use_json_summary: bool):
         """Test successful demangling with real cwl-demangle."""
-        demangler = CwlDemangler()
+        demangler = CwlDemangler(use_json_summary=use_json_summary)
         demangler.add_name(
             "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
         )
@@ -59,6 +62,9 @@ class TestCwlDemangler:
             first_result.mangled
             == "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
         )
+        assert first_result.module == "Sentry"
+        assert first_result.typeName == "SentryOnDemandReplay"
+        assert first_result.testName == ["Sentry", "SentryOnDemandReplay", "addFrame(image,forScreen)"]
 
         second_result = result[
             "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"

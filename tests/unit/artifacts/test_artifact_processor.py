@@ -655,7 +655,7 @@ class TestGetServiceConfigProjectsToSkip:
             assert get_service_config().projects_to_skip == ["shared", "env-only", "opt-only"]
 
 
-class TestCreateAnalyzerBinaryAnalysisWorkers:
+class TestCreateAppleAnalyzerOptions:
     def test_apple_analyzer_uses_schema_default(self):
         processor = ArtifactProcessor(Mock(), Mock(), Mock())
         analyzer = processor._create_analyzer(Mock(spec=AppleArtifact))
@@ -666,3 +666,14 @@ class TestCreateAnalyzerBinaryAnalysisWorkers:
         with override_options("launchpad", {"size.binary_analysis.workers": 0}):
             analyzer = processor._create_analyzer(Mock(spec=AppleArtifact))
         assert analyzer.binary_analysis_workers == 0
+
+    def test_json_summary_uses_schema_default(self):
+        processor = ArtifactProcessor(Mock(), Mock(), Mock())
+        analyzer = processor._create_analyzer(Mock(spec=AppleArtifact))
+        assert analyzer.use_json_summary is False
+
+    def test_json_summary_uses_option_value(self):
+        processor = ArtifactProcessor(Mock(), Mock(), Mock())
+        with override_options("launchpad", {"size.swift_demangling.json_summary.enabled": True}):
+            analyzer = processor._create_analyzer(Mock(spec=AppleArtifact))
+        assert analyzer.use_json_summary is True

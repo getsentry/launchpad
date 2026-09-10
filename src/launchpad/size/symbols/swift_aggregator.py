@@ -22,8 +22,8 @@ class SwiftModuleType(NamedTuple):
 class SwiftSymbolTypeAggregator:
     """Aggregates symbols by their module/type after demangling."""
 
-    def __init__(self) -> None:
-        self.demangler = CwlDemangler()
+    def __init__(self, use_json_summary: bool = False) -> None:
+        self.demangler = CwlDemangler(use_json_summary=use_json_summary)
 
     @staticmethod
     def is_swift_symbol(mangled_name: str) -> bool:
@@ -56,7 +56,7 @@ class SwiftSymbolTypeAggregator:
                 if demangled_result:
                     # Use module and type from demangled result
                     module = demangled_result.module or "Unattributed"
-                    type_name = demangled_result.typeName or demangled_result.type or "Unattributed"
+                    type_name = demangled_result.typeName or "Unattributed"
                 else:
                     # Fallback for symbols that couldn't be demangled
                     module = "Unattributed"
