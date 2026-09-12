@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 import uuid
 
@@ -21,6 +22,13 @@ DEFAULT_DEMANGLE_TIMEOUT = int(os.environ.get("LAUNCHPAD_DEMANGLE_TIMEOUT", "10"
 # Default chunk size for batching symbols
 DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "500"))
 _MAX_PARALLEL_DEMANGLE_WORKERS = 4
+
+
+class _DemangleThreadState(threading.local):
+    def __init__(self) -> None:
+        # Maps each module-name value to the canonical string instance shared
+        # by results produced on this thread.
+        self.canonical_module_names: dict[str, str] = {}
 
 
 @dataclass(slots=True)
@@ -109,6 +117,7 @@ class CwlDemangler:
         self.continue_on_error = continue_on_error
         self.uuid = str(uuid.uuid4())
         self.json_output_flag = "--json-summary" if use_json_summary else "--json"
+        self._thread_state = _DemangleThreadState()
 
         # Disable parallel processing if LAUNCHPAD_NO_PARALLEL_DEMANGLE=true
         env_disable = os.environ.get("LAUNCHPAD_NO_PARALLEL_DEMANGLE", "").lower() == "true"
@@ -214,7 +223,9 @@ class CwlDemangler:
             logger.error("cwl-demangle binary not found in PATH")
             return {}, _DemangleChunkTelemetry(None, "failed")
 
-        chunk_set = set(chunk)
+        # Resolve JSON-decoded names back to their input string instances rather
+        # than retaining another mangled-name string for every result.
+        original_mangled_names = {mangled_name: mangled_name for mangled_name in chunk}
         results: Dict[str, CwlDemangleResult] = {}
 
         with tempfile.NamedTemporaryFile(
@@ -257,15 +268,25 @@ class CwlDemangler:
 
             batch_result = json.loads(result.stdout)
 
+            canonical_module_names = self._thread_state.canonical_module_names
+
             for symbol_result in batch_result.get("results", []):
-                mangled = symbol_result.get("mangled", "")
-                if mangled in chunk_set:
-                    demangle_result = CwlDemangleResult(
-                        module=symbol_result["module"],
-                        testName=symbol_result["testName"],
-                        typeName=symbol_result["typeName"],
-                        mangled=mangled,
-                    )
-                    results[mangled] = demangle_result
+                try:
+                    mangled_name = original_mangled_names[symbol_result.get("mangled", "")]
+                except KeyError:
+                    continue
+
+                module_name = symbol_result["module"]
+                if module_name is not None:
+                    # JSON decoding creates equivalent module strings for many results.
+                    # Retain one instance per module on each worker thread.
+                    module_name = canonical_module_names.setdefault(module_name, module_name)
+
+                results[mangled_name] = CwlDemangleResult(
+                    module=module_name,
+                    testName=symbol_result["testName"],
+                    typeName=symbol_result["typeName"],
+                    mangled=mangled_name,
+                )
 
             return results, _DemangleChunkTelemetry(subprocess_duration_s, "success")

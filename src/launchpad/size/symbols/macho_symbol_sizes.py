@@ -85,6 +85,9 @@ class MachOSymbolSizes:
 
         cached_section = None
         cached_section_va = None
+        # Reuse decoded names across symbols in the same section instead of
+        # retaining duplicate strings for every symbol.
+        section_metadata_by_range: dict[tuple[int, int], tuple[str, str | None]] = {}
 
         for idx, sym in enumerate(syms):
             start = sym.value
@@ -101,8 +104,13 @@ class MachOSymbolSizes:
                 continue
 
             max_section_addr = section.virtual_address + section.size
-            section_name = _decode_name(section.name)
-            segment_name = _decode_name(section.segment.name) if section.segment else None
+            section_range = (section.virtual_address, max_section_addr)
+            try:
+                section_name, segment_name = section_metadata_by_range[section_range]
+            except KeyError:
+                section_name = _decode_name(section.name)
+                segment_name = _decode_name(section.segment.name) if section.segment else None
+                section_metadata_by_range[section_range] = (section_name, segment_name)
 
             if idx + 1 < num_syms:
                 next_sym = syms[idx + 1]
