@@ -20,7 +20,7 @@ class CppSymbolList(list[SymbolSize]):
     pass
 
 
-@dataclass
+@dataclass(slots=True)
 class SwiftSymbolTypeGroup:
     """Represents a group of symbols with the same module/type."""
 
@@ -39,7 +39,7 @@ class SwiftSymbolTypeGroup:
         return sum(symbol.size for symbol in self.symbols)
 
 
-@dataclass
+@dataclass(slots=True)
 class ObjCSymbolTypeGroup:
     """Represents a group of Objective-C symbols by class/method."""
 
@@ -53,7 +53,7 @@ class ObjCSymbolTypeGroup:
         return sum(s.size for s in self.symbols)
 
 
-@dataclass
+@dataclass(slots=True)
 class CppSymbolTypeGroup:
     """Represents a group of C++ symbols in the same namespace."""
 

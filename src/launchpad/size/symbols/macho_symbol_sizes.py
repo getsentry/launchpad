@@ -23,7 +23,7 @@ class _SymbolSizeData(NamedTuple):
     size: int
 
 
-@dataclass
+@dataclass(slots=True)
 class SymbolSize:
     mangled_name: str
     section_name: str | None

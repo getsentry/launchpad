@@ -23,7 +23,7 @@ DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "500"))
 _MAX_PARALLEL_DEMANGLE_WORKERS = 4
 
 
-@dataclass
+@dataclass(slots=True)
 class CwlDemangleResult:
     """Result from cwl-demangle tool parsing."""
 
