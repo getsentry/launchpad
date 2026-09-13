@@ -107,7 +107,7 @@ jobs:
             exit 1
           fi
 
-          docker compose -f docker-compose.e2e.yml up -d taskbroker minio mock-sentry-api
+          docker compose -f docker-compose.e2e.yml up -d taskbroker mock-sentry-api
           echo "Waiting for mock-sentry-api to be healthy..."
           for i in {1..20}; do
             if docker compose -f docker-compose.e2e.yml ps mock-sentry-api | grep -q "healthy"; then
