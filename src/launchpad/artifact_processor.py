@@ -100,7 +100,7 @@ class ArtifactProcessor:
         self._sentry_client = sentry_client
         self._statsd = statsd
         self._objectstore_client = objectstore_client
-        self._objectstore_usecase = Usecase(name="preprod")
+        self._objectstore_usecase = Usecase(name="preprod_size")
 
     @staticmethod
     def process_message(
