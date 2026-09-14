@@ -35,7 +35,7 @@ class TestAppIconUpload:
         icon_data = b"app icon"
         artifact.get_app_icon.return_value = icon_data
 
-        icon_id = processor._process_app_icon("1", "2", "artifact-id", artifact, retention_days=30)
+        icon_id = processor._process_app_icon("1", "2", "artifact-id", artifact, retention_days=45)
 
         assert icon_id == f"icn_{hashlib.sha256(icon_data).hexdigest()[:12]}"
         assert objectstore_client.session.call_count == 1
@@ -45,7 +45,7 @@ class TestAppIconUpload:
         objectstore_client.session.return_value.put.assert_called_once_with(
             icon_data,
             key=f"1/2/{icon_id}",
-            expiration_policy=TimeToLive(delta=timedelta(days=30)),
+            expiration_policy=TimeToLive(delta=timedelta(days=45)),
         )
 
 
