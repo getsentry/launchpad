@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from launchpad.utils.apple.cwl_demangle import CwlDemangler, CwlDemangleResult
+from launchpad.utils.apple.cwl_demangle import DEFAULT_DEMANGLE_TIMEOUT, CwlDemangler, CwlDemangleResult
 
 
 class TestCwlDemangler:
@@ -31,8 +31,9 @@ class TestCwlDemangler:
         assert result == {}
 
     @pytest.mark.parametrize("use_json_summary", [False, True])
-    def test_demangle_all_success(self, use_json_summary: bool):
+    def test_demangle_all_success(self, use_json_summary: bool, caplog: pytest.LogCaptureFixture):
         """Test successful demangling with real cwl-demangle."""
+        caplog.set_level("INFO", logger="launchpad.utils.apple.cwl_demangle")
         demangler = CwlDemangler(use_json_summary=use_json_summary)
         demangler.add_name(
             "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
@@ -74,6 +75,14 @@ class TestCwlDemangler:
             second_result.mangled
             == "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
         )
+
+        completed = next(
+            record for record in caplog.records if record.getMessage() == "size.apple.swift_demangling_completed"
+        )
+        assert completed.symbol_count == 2
+        assert completed.chunk_count == 1
+        assert completed.timeout_s == DEFAULT_DEMANGLE_TIMEOUT
+        assert completed.successful_chunk_subprocess_duration_max_s > 0
 
     def test_parallel_processing(self):
         """Test demangling with 20k+ symbols (covers chunking and parallel mode)."""

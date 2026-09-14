@@ -54,6 +54,7 @@ from launchpad.utils.apple.code_signature_validator import CodeSignatureValidato
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger, setup_logging
 from launchpad.utils.metadata_extractor import extract_metadata_from_zip
+from launchpad.utils.resource_usage import get_peak_rss_bytes
 
 from ..models.apple import (
     AppleAnalysisResults,
@@ -213,6 +214,7 @@ class AppleAppAnalyzer:
             logger.debug(f"Found {len(binaries)} binaries to analyze")
 
             workers = self._binary_analysis_worker_count(len(binaries))
+            phase_started = time.monotonic()
             analyze = partial(
                 self._analyze_binary_logged,
                 app_bundle_path=app_bundle_path,
@@ -241,6 +243,16 @@ class AppleAppAnalyzer:
                 if timed.binary is not None:
                     binary_analysis.append(timed.binary)
                     binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = timed.binary
+
+            logger.info(
+                "size.apple.binary_analysis_phase_completed",
+                extra={
+                    "binary_count": len(binaries),
+                    "completed_binary_count": len(binary_analysis),
+                    "binary_analysis_workers": workers,
+                    "duration_s": round(time.monotonic() - phase_started, 3),
+                },
+            )
 
             hermes_reports = make_hermes_reports(app_bundle_path)
 
@@ -547,15 +559,24 @@ class AppleAppAnalyzer:
             logger.debug(f"Found dSYM file for {binary_info.name} at {binary_info.dsym_path.relative_to(extract_dir)}")
 
     def _log_binary_completed(self, binary_info: BinaryInfo, binary: MachOBinaryAnalysis, elapsed_s: float) -> None:
+        symbol_infos = tuple(
+            architecture.symbol_info
+            for architecture in binary.architecture_slices
+            if architecture.symbol_info is not None
+        )
         logger.info(
             "size.apple.binary_analysis_completed",
             extra={
                 "event": "size.binary_analysis_completed",
                 "binary_name": binary_info.name,
                 "elapsed_s": round(elapsed_s, 3),
-                "symbol_count": (len(binary.symbol_info.symbol_sizes) if binary.symbol_info else 0),
-                "swift_types_count": (len(binary.symbol_info.swift_type_groups) if binary.symbol_info else 0),
-                "objc_types_count": (len(binary.symbol_info.objc_type_groups) if binary.symbol_info else 0),
+                "binary_file_bytes": get_file_size(binary_info.path),
+                "dsym_file_bytes": get_file_size(binary_info.dsym_path) if binary_info.dsym_path else 0,
+                "architecture_count": len(binary.architecture_slices),
+                "symbol_count": sum(len(info.symbol_sizes) for info in symbol_infos),
+                "swift_types_count": sum(len(info.swift_type_groups) for info in symbol_infos),
+                "objc_types_count": sum(len(info.objc_type_groups) for info in symbol_infos),
+                "process_peak_rss_bytes": get_peak_rss_bytes(),
             },
         )
 

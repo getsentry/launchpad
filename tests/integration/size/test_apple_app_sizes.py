@@ -214,8 +214,16 @@ class TestAppleAppSizes:
         assert all(d["request_id"] == request_id for d in completed)
         assert all(d["artifact_id"] == "42" for d in completed)
         assert all(isinstance(d["elapsed_s"], float) for d in completed)
+        assert any(d["symbol_count"] > 0 for d in completed)
+        assert all(d["binary_file_bytes"] > 0 for d in completed)
+        assert all(d["process_peak_rss_bytes"] > 0 for d in completed)
         pool = [r for r in caplog.records if r.getMessage() == "size.apple.binary_analysis_workers"]
         assert [r.workers for r in pool] == [2]
+        phase = [r for r in caplog.records if r.getMessage() == "size.apple.binary_analysis_phase_completed"]
+        assert len(phase) == 1
+        assert phase[0].binary_analysis_workers == 2
+        assert phase[0].completed_binary_count == len(completed)
+        assert phase[0].duration_s > 0
 
     def test_worker_logging_applies_third_party_suppression(self, capfd: pytest.CaptureFixture[str]) -> None:
         ctx = mp.get_context("spawn")

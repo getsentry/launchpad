@@ -8,7 +8,8 @@ import uuid
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from math import ceil
+from typing import Dict, List, Literal, Tuple
 
 from launchpad.utils.logging import get_logger
 
@@ -19,6 +20,7 @@ DEFAULT_DEMANGLE_TIMEOUT = int(os.environ.get("LAUNCHPAD_DEMANGLE_TIMEOUT", "10"
 
 # Default chunk size for batching symbols
 DEFAULT_CHUNK_SIZE = int(os.environ.get("LAUNCHPAD_DEMANGLE_CHUNK_SIZE", "500"))
+_MAX_PARALLEL_DEMANGLE_WORKERS = 4
 
 
 @dataclass
@@ -29,6 +31,60 @@ class CwlDemangleResult:
     testName: List[str]
     typeName: str
     mangled: str
+
+
+@dataclass(frozen=True, slots=True)
+class _DemangleChunkTelemetry:
+    subprocess_duration_s: float | None
+    status: Literal["success", "failed", "timeout"]
+
+
+@dataclass(frozen=True, slots=True)
+class _DemangleTelemetry:
+    execution_mode: Literal["parallel", "sequential", "parallel-fallback"]
+    chunks: tuple[_DemangleChunkTelemetry, ...]
+
+
+def _percentile(ordered_values: list[float], percentile: float) -> float:
+    if not ordered_values:
+        return 0.0
+    return ordered_values[max(0, ceil(percentile * len(ordered_values)) - 1)]
+
+
+def _log_demangling_completed(
+    telemetry: _DemangleTelemetry,
+    *,
+    chunk_size: int,
+    symbol_count: int,
+) -> None:
+    successful_subprocess_durations: list[float] = []
+    failed_chunk_count = 0
+    timed_out_chunk_count = 0
+    for chunk in telemetry.chunks:
+        if chunk.status == "failed":
+            failed_chunk_count += 1
+        elif chunk.status == "timeout":
+            timed_out_chunk_count += 1
+        elif chunk.subprocess_duration_s is not None:
+            successful_subprocess_durations.append(chunk.subprocess_duration_s)
+
+    successful_subprocess_durations.sort()
+    max_successful_subprocess_duration = successful_subprocess_durations[-1] if successful_subprocess_durations else 0.0
+    logger.info(
+        "size.apple.swift_demangling_completed",
+        extra={
+            "execution_mode": telemetry.execution_mode,
+            "demangle_workers": _MAX_PARALLEL_DEMANGLE_WORKERS if telemetry.execution_mode != "sequential" else 1,
+            "chunk_size": chunk_size,
+            "chunk_count": len(telemetry.chunks),
+            "symbol_count": symbol_count,
+            "failed_chunk_count": failed_chunk_count,
+            "timed_out_chunk_count": timed_out_chunk_count,
+            "timeout_s": DEFAULT_DEMANGLE_TIMEOUT,
+            "successful_chunk_subprocess_duration_p95_s": round(_percentile(successful_subprocess_durations, 0.95), 3),
+            "successful_chunk_subprocess_duration_max_s": round(max_successful_subprocess_duration, 3),
+        },
+    )
 
 
 class CwlDemangler:
@@ -98,45 +154,65 @@ class CwlDemangler:
             f"of {chunk_size} ({'parallel' if do_in_parallel else 'sequential'} mode)"
         )
 
-        return self._demangle_parallel(chunks) if do_in_parallel else self._demangle_sequential(chunks)
+        if do_in_parallel:
+            results, telemetry = self._demangle_parallel(chunks)
+        else:
+            results, telemetry = self._demangle_sequential(chunks)
 
-    def _demangle_parallel(self, chunks: List[Tuple[List[str], int]]) -> Dict[str, CwlDemangleResult]:
+        _log_demangling_completed(
+            telemetry,
+            chunk_size=chunk_size,
+            symbol_count=len(names),
+        )
+        return results
+
+    def _demangle_parallel(
+        self, chunks: List[Tuple[List[str], int]]
+    ) -> tuple[Dict[str, CwlDemangleResult], _DemangleTelemetry]:
         """Demangle chunks in parallel using threads"""
         results: Dict[str, CwlDemangleResult] = {}
+        telemetry: list[_DemangleChunkTelemetry] = []
 
         try:
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=_MAX_PARALLEL_DEMANGLE_WORKERS) as executor:
                 futures = [executor.submit(self._demangle_chunk, chunk, chunk_idx) for chunk, chunk_idx in chunks]
 
             for future in futures:
-                results.update(future.result())
+                chunk_results, chunk_telemetry = future.result()
+                results.update(chunk_results)
+                telemetry.append(chunk_telemetry)
 
         except Exception:
             logger.exception("Parallel demangling failed, falling back to sequential")
-            results = self._demangle_sequential(chunks)
+            results, fallback_telemetry = self._demangle_sequential(chunks)
+            return results, _DemangleTelemetry("parallel-fallback", fallback_telemetry.chunks)
 
-        return results
+        return results, _DemangleTelemetry("parallel", tuple(telemetry))
 
-    def _demangle_sequential(self, chunks: List[Tuple[List[str], int]]) -> Dict[str, CwlDemangleResult]:
+    def _demangle_sequential(
+        self, chunks: List[Tuple[List[str], int]]
+    ) -> tuple[Dict[str, CwlDemangleResult], _DemangleTelemetry]:
         """Demangle chunks sequentially"""
         results: Dict[str, CwlDemangleResult] = {}
+        telemetry: list[_DemangleChunkTelemetry] = []
 
         for chunk, chunk_idx in chunks:
-            chunk_results = self._demangle_chunk(chunk, chunk_idx)
+            chunk_results, chunk_telemetry = self._demangle_chunk(chunk, chunk_idx)
             results.update(chunk_results)
+            telemetry.append(chunk_telemetry)
 
-        return results
+        return results, _DemangleTelemetry("sequential", tuple(telemetry))
 
-    def _demangle_chunk(self, chunk: List[str], chunk_idx: int) -> Dict[str, CwlDemangleResult]:
+    def _demangle_chunk(
+        self, chunk: List[str], chunk_idx: int
+    ) -> tuple[Dict[str, CwlDemangleResult], _DemangleChunkTelemetry]:
         if not chunk:
-            return {}
-
-        start_time = time.time()
+            return {}, _DemangleChunkTelemetry(None, "success")
 
         binary_path = shutil.which("cwl-demangle")
         if binary_path is None:
             logger.error("cwl-demangle binary not found in PATH")
-            return {}
+            return {}, _DemangleChunkTelemetry(None, "failed")
 
         chunk_set = set(chunk)
         results: Dict[str, CwlDemangleResult] = {}
@@ -161,20 +237,23 @@ class CwlDemangler:
             if self.continue_on_error:
                 command_parts.append("--continue-on-error")
 
+            subprocess_started = time.monotonic()
             try:
                 result = subprocess.run(
                     command_parts, capture_output=True, text=True, check=True, timeout=DEFAULT_DEMANGLE_TIMEOUT
                 )
             except subprocess.TimeoutExpired:
-                elapsed = time.time() - start_time
+                elapsed = time.monotonic() - subprocess_started
                 logger.exception(
                     "cwl-demangle subprocess timed out", extra={"chunk_idx": chunk_idx, "elapsed": elapsed}
                 )
-                return {}
+                return {}, _DemangleChunkTelemetry(elapsed, "timeout")
             except subprocess.CalledProcessError:
-                elapsed = time.time() - start_time
+                elapsed = time.monotonic() - subprocess_started
                 logger.exception("cwl-demangle subprocess failed", extra={"chunk_idx": chunk_idx, "elapsed": elapsed})
-                return {}
+                return {}, _DemangleChunkTelemetry(elapsed, "failed")
+
+            subprocess_duration_s = time.monotonic() - subprocess_started
 
             batch_result = json.loads(result.stdout)
 
@@ -189,4 +268,4 @@ class CwlDemangler:
                     )
                     results[mangled] = demangle_result
 
-            return results
+            return results, _DemangleChunkTelemetry(subprocess_duration_s, "success")
