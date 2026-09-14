@@ -35,12 +35,10 @@ class TestCwlDemangler:
         """Test successful demangling with real cwl-demangle."""
         caplog.set_level("INFO", logger="launchpad.utils.apple.cwl_demangle")
         demangler = CwlDemangler(use_json_summary=use_json_summary)
-        demangler.add_name(
-            "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
-        )
-        demangler.add_name(
-            "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
-        )
+        first_symbol = "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
+        second_symbol = "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
+        demangler.add_name(first_symbol)
+        demangler.add_name(second_symbol)
 
         result = demangler.demangle_all()
 
@@ -55,26 +53,17 @@ class TestCwlDemangler:
         )
 
         # Check that results are CwlDemangleResult instances
-        first_result = result[
-            "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
-        ]
+        first_result = result[first_symbol]
         assert isinstance(first_result, CwlDemangleResult)
-        assert (
-            first_result.mangled
-            == "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
-        )
+        assert first_result.mangled is first_symbol
         assert first_result.module == "Sentry"
         assert first_result.typeName == "SentryOnDemandReplay"
         assert first_result.testName == ["Sentry", "SentryOnDemandReplay", "addFrame(image,forScreen)"]
 
-        second_result = result[
-            "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
-        ]
+        second_result = result[second_symbol]
         assert isinstance(second_result, CwlDemangleResult)
-        assert (
-            second_result.mangled
-            == "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
-        )
+        assert second_result.mangled is second_symbol
+        assert first_result.module is second_result.module
 
         completed = next(
             record for record in caplog.records if record.getMessage() == "size.apple.swift_demangling_completed"
