@@ -116,6 +116,12 @@ class _TimedBinary(NamedTuple):
     finished_at: float
 
 
+class _BinaryMetadata(NamedTuple):
+    executable_size: int
+    architecture_slices: List[ArchitectureSlice]
+    strippable_symbols_size: int
+
+
 class AppleAppAnalyzer:
     """Analyzer for Apple app bundles (.xcarchive directories)."""
 
@@ -597,41 +603,9 @@ class AppleAppAnalyzer:
 
         logger.debug(f"Analyzing binary: {binary_path}")
 
-        with open(binary_path, "rb") as f:
-            config = lief.MachO.ParserConfig()
-            config.parse_dyld_exports = False
-            config.parse_dyld_bindings = False
-            config.parse_dyld_rebases = False
-
-            fat_binary = lief.MachO.parse(f, config)  # type: ignore
-
-        if fat_binary is None or fat_binary.size == 0:
-            raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
-
-        executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
-
-        # Parse all architecture slices
-        architecture_slices: List[ArchitectureSlice] = []
-
-        for slice_binary in fat_binary:
-            arch_name = get_cpu_type_name(slice_binary.header.cpu_type)
-            slice_parser = MachOParser(slice_binary)
-            architecture_slices.append(
-                ArchitectureSlice(
-                    arch_name=arch_name,
-                    size=to_nearest_block_size(slice_binary.original_size, APPLE_FILESYSTEM_BLOCK_SIZE),
-                    segments=self._extract_segments_info(slice_binary),
-                    load_commands=self._extract_load_commands_info(slice_binary),
-                    header_size=slice_parser.get_header_size(),
-                    linkedit_info=slice_parser.extract_linkedit_info(),
-                )
-            )
-
+        # Release the main binary's LIEF graph before parsing the dSYM and aggregating symbols.
+        executable_size, architecture_slices, strippable_symbols_size = self._extract_binary_metadata(binary_path)
         dwarf_relocations = None
-
-        # Test symbol removal on the main app binary (not dSYM)
-        # Uses first slice for file_type check
-        strippable_symbols_size = self._check_strip_symbols_removal(binary_path, fat_binary.at(0))
 
         if dwarf_binary_path:
             dsym_config = lief.MachO.ParserConfig()
@@ -694,6 +668,46 @@ class AppleAppAnalyzer:
             is_main_binary=is_main_binary,
             architecture_slices=architecture_slices,
             dwarf_relocations=dwarf_relocations,
+            strippable_symbols_size=strippable_symbols_size,
+        )
+
+    def _extract_binary_metadata(self, binary_path: Path) -> _BinaryMetadata:
+        with open(binary_path, "rb") as f:
+            config = lief.MachO.ParserConfig()
+            config.parse_dyld_exports = False
+            config.parse_dyld_bindings = False
+            config.parse_dyld_rebases = False
+
+            fat_binary = lief.MachO.parse(f, config)  # type: ignore
+
+        if fat_binary is None or fat_binary.size == 0:
+            raise RuntimeError(f"Failed to parse binary with LIEF: {binary_path}")
+
+        executable_size = to_nearest_block_size(get_file_size(binary_path), APPLE_FILESYSTEM_BLOCK_SIZE)
+
+        # Parse all architecture slices
+        architecture_slices: List[ArchitectureSlice] = []
+
+        for slice_binary in fat_binary:
+            arch_name = get_cpu_type_name(slice_binary.header.cpu_type)
+            slice_parser = MachOParser(slice_binary)
+            architecture_slices.append(
+                ArchitectureSlice(
+                    arch_name=arch_name,
+                    size=to_nearest_block_size(slice_binary.original_size, APPLE_FILESYSTEM_BLOCK_SIZE),
+                    segments=self._extract_segments_info(slice_binary),
+                    load_commands=self._extract_load_commands_info(slice_binary),
+                    header_size=slice_parser.get_header_size(),
+                    linkedit_info=slice_parser.extract_linkedit_info(),
+                )
+            )
+
+        # Test symbol removal on the main app binary (not dSYM)
+        # Uses first slice for file_type check
+        strippable_symbols_size = self._check_strip_symbols_removal(binary_path, fat_binary.at(0))
+        return _BinaryMetadata(
+            executable_size=executable_size,
+            architecture_slices=architecture_slices,
             strippable_symbols_size=strippable_symbols_size,
         )
 
