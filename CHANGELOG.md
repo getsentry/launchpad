@@ -8,6 +8,50 @@
 
 - (security) Add SafeDirectory to enforce path traversal checks by @runningcode in [#623](https://github.com/getsentry/launchpad/pull/623)
 
+## 26.9.0
+
+### New Features ✨
+
+#### Size
+
+- Store app icons in preprod_size by @NicoHinderling in [#684](https://github.com/getsentry/launchpad/pull/684)
+- Add Apple binary analysis telemetry by @jamieQ in [#682](https://github.com/getsentry/launchpad/pull/682)
+- Log the binary analysis pool size at INFO by @NicoHinderling in [#673](https://github.com/getsentry/launchpad/pull/673)
+- Drive binary analysis worker count from sentry-options by @NicoHinderling in [#672](https://github.com/getsentry/launchpad/pull/672)
+- Log per-insight timing in Apple analyzer by @NicoHinderling in [#665](https://github.com/getsentry/launchpad/pull/665)
+
+#### Worker
+
+- Tag processing duration with platform (ios/android/timeout/failed) by @NicoHinderling in [#667](https://github.com/getsentry/launchpad/pull/667)
+- Tag processing duration metric with organization_slug by @NicoHinderling in [#666](https://github.com/getsentry/launchpad/pull/666)
+
+#### Other
+
+- (logging) Stamp the artifact id onto every log record by @NicoHinderling in [#670](https://github.com/getsentry/launchpad/pull/670)
+- (options) Wire up sentry-options for dynamic config by @NicoHinderling in [#668](https://github.com/getsentry/launchpad/pull/668)
+
+### Bug Fixes 🐛
+
+- (size) Keep demangle parallelism inside binary analysis workers by @NicoHinderling in [#671](https://github.com/getsentry/launchpad/pull/671)
+
+### Internal Changes 🔧
+
+#### Size
+
+- Reduce overlapping LIEF object lifetimes by @jamieQ in [#680](https://github.com/getsentry/launchpad/pull/680)
+- Reduce Apple symbol analysis memory by @jamieQ in [#679](https://github.com/getsentry/launchpad/pull/679)
+- Add compact Swift demangling rollout by @jamieQ in [#677](https://github.com/getsentry/launchpad/pull/677)
+- Remove per-binary full GC by @jamieQ in [#676](https://github.com/getsentry/launchpad/pull/676)
+- Parallelize Apple binary analysis across processes by @NicoHinderling in [#663](https://github.com/getsentry/launchpad/pull/663)
+- Dedupe images in ImageOptimization insight by @NicoHinderling in [#664](https://github.com/getsentry/launchpad/pull/664)
+
+#### Other
+
+- (android) Target bundletool builds to device by @jamieQ in [#658](https://github.com/getsentry/launchpad/pull/658)
+- (claude) Disable co-author attribution by @sentry-junior in [#647](https://github.com/getsentry/launchpad/pull/647)
+- (options) Validate sentry-options schema changes on PRs by @NicoHinderling in [#669](https://github.com/getsentry/launchpad/pull/669)
+- Remove unused MinIO E2E scaffolding by @jamieQ in [#681](https://github.com/getsentry/launchpad/pull/681)
+
 ## 26.8.0
 
 ### Bug Fixes 🐛
