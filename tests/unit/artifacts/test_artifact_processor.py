@@ -1,11 +1,13 @@
+import hashlib
 import logging
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
 
 from objectstore_client import Client as ObjectstoreClient
+from objectstore_client import TimeToLive
 from sentry_options.testing import override_options
 from taskbroker_client.worker.workerchild import ProcessingDeadlineExceeded
 
@@ -23,6 +25,28 @@ from launchpad.size.models.android import AndroidAppInfo
 from launchpad.tracing import RequestLogFilter
 from launchpad.utils.objectstore import ObjectstoreConfig
 from launchpad.utils.statsd import FakeStatsd
+
+
+class TestAppIconUpload:
+    def test_uploads_icon_to_preprod_size(self):
+        objectstore_client = Mock(spec=ObjectstoreClient)
+        processor = ArtifactProcessor(Mock(spec=SentryClient), FakeStatsd(), objectstore_client)
+        artifact = Mock(spec=Artifact)
+        icon_data = b"app icon"
+        artifact.get_app_icon.return_value = icon_data
+
+        icon_id = processor._process_app_icon("1", "2", "artifact-id", artifact, retention_days=45)
+
+        assert icon_id == f"icn_{hashlib.sha256(icon_data).hexdigest()[:12]}"
+        assert objectstore_client.session.call_count == 1
+        session_call = objectstore_client.session.call_args
+        assert session_call.args[0].name == "preprod_size"
+        assert session_call.kwargs == {"org": "1", "project": "2"}
+        objectstore_client.session.return_value.put.assert_called_once_with(
+            icon_data,
+            key=f"1/2/{icon_id}",
+            expiration_policy=TimeToLive(delta=timedelta(days=45)),
+        )
 
 
 class TestArtifactProcessorErrorHandling:
