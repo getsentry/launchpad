@@ -280,7 +280,6 @@ class ArtifactProcessor:
         elif isinstance(artifact, AppleArtifact):
             return AppleAppAnalyzer(
                 binary_analysis_workers=get_option("size.binary_analysis.workers", 4),
-                use_json_summary=get_option("size.swift_demangling.json_summary.enabled", False),
             )
         else:
             raise ValueError(f"Unknown artifact kind {artifact}")
