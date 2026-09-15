@@ -11,6 +11,7 @@ from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.size.models.android import AndroidAnalysisResults
 from launchpad.size.models.apple import AppleAnalysisResults
 from launchpad.size.models.common import BaseAnalysisResults, FileAnalysis
+from launchpad.size.models.elf import ELFAnalysisResults
 from launchpad.size.runner import do_size, write_results_as_json
 from launchpad.utils.console import console
 from launchpad.utils.logging import setup_logging
@@ -42,6 +43,11 @@ from launchpad.utils.logging import setup_logging
     help="Working directory for temporary files (default: system temp).",
 )
 @click.option(
+    "--debug-file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Separate ELF debug file. Embedded debug data is used by default.",
+)
+@click.option(
     "--skip-swift-metadata",
     is_flag=True,
     help="Skip Swift metadata parsing for faster analysis.",
@@ -62,6 +68,7 @@ def size_command(
     output: TextIO,
     verbose: bool,
     working_dir: Path | None,
+    debug_file: Path | None,
     skip_swift_metadata: bool,
     skip_symbols: bool,
     skip_component_analysis: bool,
@@ -88,6 +95,8 @@ def size_command(
     flags["skip_treemap"] = skip_treemap
     if working_dir:
         flags["working_dir"] = working_dir
+    if debug_file:
+        flags["debug_file"] = debug_file
 
     try:
         results = do_size(input_path, **flags)
@@ -157,13 +166,29 @@ def profile_dex_parsing_command(input_path: Path, mapping_path: Path | None = No
     parser.get_class_definitions()
 
 
-def _print_results_as_table(results: BaseAnalysisResults) -> None:
+def _print_results_as_table(results: BaseAnalysisResults | ELFAnalysisResults) -> None:
     if isinstance(results, AndroidAnalysisResults):
         _print_android_table_output(results)
     elif isinstance(results, AppleAnalysisResults):
         _print_apple_table_output(results)
+    elif isinstance(results, ELFAnalysisResults):
+        _print_elf_table_output(results)
     else:
         raise ValueError(f"Unknown results kind {results}")
+
+
+def _print_elf_table_output(results: ELFAnalysisResults) -> None:
+    table = Table(title="ELF Information", show_header=True, header_style="bold magenta")
+    table.add_column("Property", style="cyan")
+    table.add_column("Value", style="white")
+    table.add_row("File", results.file_name)
+    table.add_row("Type", results.elf_type)
+    table.add_row("Architecture", f"{results.architecture} ({results.bitness}-bit)")
+    table.add_row("File size", _format_bytes(results.file_size))
+    table.add_row("Attributed", _format_bytes(results.exact_size + results.estimated_size))
+    table.add_row("Class groups", str(len(results.classes)))
+    console.print(table)
+    console.print()
 
 
 def _print_apple_table_output(results: AppleAnalysisResults) -> None:

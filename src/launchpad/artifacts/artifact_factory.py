@@ -11,6 +11,7 @@ from .android.zipped_aab import ZippedAAB
 from .android.zipped_apk import ZippedAPK
 from .apple.zipped_xcarchive import ZippedXCArchive
 from .artifact import Artifact
+from .elf import ELFArtifact
 from .providers.zip_provider import check_reasonable_zip
 
 logger = logging.getLogger(__name__)
@@ -37,9 +38,17 @@ class ArtifactFactory:
         if not path.is_file():
             raise FileNotFoundError(f"Path is not a file: {path}")
 
-        # Read only the first few bytes to check for ZIP magic bytes
         with open(path, "rb") as f:
-            magic_bytes = f.read(4)
+            magic_bytes = f.read(16)
+
+        if (
+            magic_bytes.startswith(b"\x7fELF")
+            and len(magic_bytes) == 16
+            and magic_bytes[4] in (1, 2)
+            and magic_bytes[5] in (1, 2)
+            and magic_bytes[6] == 1
+        ):
+            return ELFArtifact(path)
 
         # Check if it's a zip file by looking at magic bytes
         if magic_bytes.startswith(b"PK\x03\x04"):

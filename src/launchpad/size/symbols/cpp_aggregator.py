@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import re
-
 from collections import defaultdict
 from typing import List, NamedTuple
 
 import sentry_sdk
 
+from launchpad.size.symbols.cpp_demangler import CppDemangler
 from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import CppSymbolList, CppSymbolTypeGroup
 from launchpad.utils.logging import get_logger
@@ -27,14 +26,7 @@ class CppSymbolTypeAggregator:
     Groups by (namespace, function_name) buckets.
     """
 
-    # Simplified C++ demangling patterns
-    # Full demangling is complex and out of scope for mobile apps
-    _cpp_namespace_pattern = re.compile(
-        r"__ZN"  # Start of nested name
-        r"(?:St)?"  # Optional std:: (St)
-        r"(\d+\w+)"  # First namespace/class (length + name)
-        r"(?:\d+\w+)*"  # Additional namespaces/classes
-    )
+    _demangler = CppDemangler()
 
     @staticmethod
     def is_cpp_symbol(mangled_name: str) -> bool:
@@ -42,59 +34,55 @@ class CppSymbolTypeAggregator:
         # C++ symbols often use Itanium mangling: _Z or __Z prefix
         return mangled_name.startswith("_Z") or mangled_name.startswith("__Z")
 
-    @staticmethod
-    def _extract_namespace_and_function(mangled_name: str) -> CppNamespaceFunction:
-        # Try to extract nested name components
-        # Format: __ZN<length><name><length><name>...<length><function>E...
-        if not (mangled_name.startswith("_ZN") or mangled_name.startswith("__ZN")):
-            # Not a nested name, treat as global namespace
-            return CppNamespaceFunction(namespace="(global)", function_name=mangled_name)
+    @classmethod
+    def _extract_namespace_and_function(cls, mangled_name: str) -> CppNamespaceFunction:
+        demangled = cls._demangler.demangle(mangled_name)
+        if demangled is None:
+            return cls._legacy_nested_name(mangled_name)
 
-        # Skip the __ZN or _ZN prefix
-        rest = mangled_name[4:] if mangled_name.startswith("__ZN") else mangled_name[3:]
-
-        # Extract length-prefixed components
-        components = []
-        i = 0
-        while i < len(rest) and rest[i].isdigit():
-            # Read the length
-            length_str = ""
-            while i < len(rest) and rest[i].isdigit():
-                length_str += rest[i]
-                i += 1
-
-            if not length_str:
+        for prefix in (
+            "construction vtable for ",
+            "covariant return thunk to ",
+            "guard variable for ",
+            "non-virtual thunk to ",
+            "typeinfo name for ",
+            "typeinfo for ",
+            "virtual thunk to ",
+            "vtable for ",
+            "VTT for ",
+        ):
+            if demangled.startswith(prefix):
+                demangled = demangled[len(prefix) :]
                 break
 
-            length = int(length_str)
-            if i + length > len(rest):
-                break
-
-            # Extract the component
-            component = rest[i : i + length]
-            components.append(component)
-            i += length
-
-            # Check if we hit the end marker 'E'
-            if i < len(rest) and rest[i] == "E":
-                break
-
-        if not components:
-            return CppNamespaceFunction(namespace="(unknown)", function_name=mangled_name)
-
-        # Last component is usually the function name
-        if len(components) == 1:
-            return CppNamespaceFunction(namespace="(global)", function_name=components[0])
-
-        # Build namespace from all but last component
-        namespace = "::".join(components[:-1])
-        function_name = components[-1]
-
-        # Handle anonymous namespaces
-        if "_GLOBAL__N_" in namespace:
-            namespace = namespace.replace("_GLOBAL__N_1", "(anonymous)")
-
+        qualified_name = demangled.split("(", 1)[0]
+        if "::" not in qualified_name:
+            return CppNamespaceFunction(namespace="(global)", function_name=qualified_name)
+        namespace, function_name = qualified_name.rsplit("::", 1)
         return CppNamespaceFunction(namespace=namespace, function_name=function_name)
+
+    @staticmethod
+    def _legacy_nested_name(mangled_name: str) -> CppNamespaceFunction:
+        if not (mangled_name.startswith("_ZN") or mangled_name.startswith("__ZN")):
+            return CppNamespaceFunction(namespace="(global)", function_name=mangled_name)
+        encoded = mangled_name[4:] if mangled_name.startswith("__ZN") else mangled_name[3:]
+        components: list[str] = []
+        index = 0
+        while index < len(encoded) and encoded[index].isdigit():
+            length_end = index
+            while length_end < len(encoded) and encoded[length_end].isdigit():
+                length_end += 1
+            length = int(encoded[index:length_end])
+            component_end = length_end + length
+            if component_end > len(encoded):
+                break
+            components.append(encoded[length_end:component_end])
+            index = component_end
+        if len(components) < 2:
+            return CppNamespaceFunction(
+                namespace="(global)", function_name=components[0] if components else mangled_name
+            )
+        return CppNamespaceFunction(namespace="::".join(components[:-1]), function_name=components[-1])
 
     @sentry_sdk.trace
     def aggregate_symbols(self, symbol_sizes: CppSymbolList) -> List[CppSymbolTypeGroup]:
