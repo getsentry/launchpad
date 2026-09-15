@@ -95,7 +95,6 @@ class CwlDemangler:
         self,
         is_type: bool = False,
         continue_on_error: bool = True,
-        use_json_summary: bool = False,
     ):
         """
         Initialize the CwlDemangler.
@@ -103,13 +102,11 @@ class CwlDemangler:
         Args:
             is_type: Whether to treat inputs as types rather than symbols
             continue_on_error: Whether to continue processing on errors
-            use_json_summary: Whether to request compact JSON output
         """
         self.is_type = is_type
         self.queue: List[str] = []
         self.continue_on_error = continue_on_error
         self.uuid = str(uuid.uuid4())
-        self.json_output_flag = "--json-summary" if use_json_summary else "--json"
         # Disable parallel processing if LAUNCHPAD_NO_PARALLEL_DEMANGLE=true
         env_disable = os.environ.get("LAUNCHPAD_NO_PARALLEL_DEMANGLE", "").lower() == "true"
         self.use_parallel = not env_disable
@@ -230,7 +227,7 @@ class CwlDemangler:
                 "batch",
                 "--input",
                 temp_file.name,
-                self.json_output_flag,
+                "--json-summary",
             ]
 
             if self.is_type:

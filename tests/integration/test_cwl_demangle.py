@@ -30,11 +30,10 @@ class TestCwlDemangler:
         result = demangler.demangle_all()
         assert result == {}
 
-    @pytest.mark.parametrize("use_json_summary", [False, True])
-    def test_demangle_all_success(self, use_json_summary: bool, caplog: pytest.LogCaptureFixture):
+    def test_demangle_all_success(self, caplog: pytest.LogCaptureFixture):
         """Test successful demangling with real cwl-demangle."""
         caplog.set_level("INFO", logger="launchpad.utils.apple.cwl_demangle")
-        demangler = CwlDemangler(use_json_summary=use_json_summary)
+        demangler = CwlDemangler()
         first_symbol = "_$s6Sentry0A14OnDemandReplayC8addFrame33_70FE3B80E922CEF5576FF378226AFAE1LL5image9forScreenySo7UIImageC_SSSgtF"
         second_symbol = "_$s6Sentry0A18UserFeedbackWidgetC18RootViewControllerC6config6buttonAeA0abC13ConfigurationC_AA0abcd6ButtonF0Ctcfc"
         demangler.add_name(first_symbol)
