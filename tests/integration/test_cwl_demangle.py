@@ -10,12 +10,6 @@ from launchpad.utils.apple.cwl_demangle import DEFAULT_DEMANGLE_TIMEOUT, CwlDema
 class TestCwlDemangler:
     """Integration test cases for the CwlDemangler class."""
 
-    def test_init(self):
-        """Test CwlDemangler initialization."""
-        demangler = CwlDemangler(is_type=True)
-        assert demangler.is_type is True
-        assert demangler.queue == []
-
     def test_add_name(self):
         """Test adding names to the queue."""
         demangler = CwlDemangler()

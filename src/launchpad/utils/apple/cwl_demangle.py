@@ -91,19 +91,13 @@ def _log_demangling_completed(
 class CwlDemangler:
     """A class to demangle Swift symbol names using the cwl-demangle tool."""
 
-    def __init__(
-        self,
-        is_type: bool = False,
-        continue_on_error: bool = True,
-    ):
+    def __init__(self, continue_on_error: bool = True):
         """
         Initialize the CwlDemangler.
 
         Args:
-            is_type: Whether to treat inputs as types rather than symbols
             continue_on_error: Whether to continue processing on errors
         """
-        self.is_type = is_type
         self.queue: List[str] = []
         self.continue_on_error = continue_on_error
         self.uuid = str(uuid.uuid4())
@@ -229,9 +223,6 @@ class CwlDemangler:
                 temp_file.name,
                 "--json-summary",
             ]
-
-            if self.is_type:
-                command_parts.append("--isType")
 
             if self.continue_on_error:
                 command_parts.append("--continue-on-error")
