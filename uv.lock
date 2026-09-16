@@ -855,7 +855,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "sentry-arroyo", specifier = ">=2.38.7" },
-    { name = "sentry-options", specifier = "==1.2.9" },
+    { name = "sentry-options", specifier = "==1.2.10" },
     { name = "sentry-sdk", specifier = ">=2.36.0" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
     { name = "taskbroker-client", specifier = ">=0.20.6,<1" },
@@ -1861,14 +1861,14 @@ wheels = [
 
 [[package]]
 name = "sentry-options"
-version = "1.2.9"
+version = "1.2.10"
 source = { registry = "https://sfw.security.sentry.io/pypi/simple" }
-sdist = { url = "https://sfw.security.sentry.io/pypi/packages/01/d1/f30c6ba0f5ad585bab690ba3f533522f05448deb598828b1f58a658eca02/sentry_options-1.2.9.tar.gz", hash = "sha256:9402a112b33c401728dc93fca6fe5725662359fc4306fa242d42b8832d8481ed", size = 76867, upload-time = "2026-09-03T18:15:51.299Z" }
+sdist = { url = "https://sfw.security.sentry.io/pypi/packages/8e/2f/c990d8668bbbf9750a98287719fe2a7fcd14cb35330b25b55f0c5de9ab10/sentry_options-1.2.10.tar.gz", hash = "sha256:b28991c662d30ef35bf124cd485b4222963d84821ef5a2687fa995b39408c404", size = 78134, upload-time = "2026-09-16T00:01:01.646Z" }
 wheels = [
-    { url = "https://sfw.security.sentry.io/pypi/packages/20/bb/fb2a718338537d6e09759183ab099b7e9c71bea4e803d847d94ccbf534ca/sentry_options-1.2.9-cp311-abi3-macosx_10_12_x86_64.whl", hash = "sha256:4ec8303f61e039647680c93b4823d0930d8ff11156c525c042468045f41aa9a7", size = 2614030, upload-time = "2026-09-03T18:15:44.63Z" },
-    { url = "https://sfw.security.sentry.io/pypi/packages/8d/49/09ff1cb5b8141d303b59a452aabf5e3e44aff69ae1043b6895d705b2963f/sentry_options-1.2.9-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:d60d6cbe461b6b9ebbbc0e254ef6626e31c9a0d5f0b703fc6965a840900dcd67", size = 2486734, upload-time = "2026-09-03T18:15:46.746Z" },
-    { url = "https://sfw.security.sentry.io/pypi/packages/4b/69/5d638ecf96cad46b6082dc621ccbc1e6bb30949e7df48342416bab9583ae/sentry_options-1.2.9-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:53931472a200efd550954b565e86f0cc70d8686372f80d2f22ed55e82585e8ac", size = 2758403, upload-time = "2026-09-03T18:15:48.202Z" },
-    { url = "https://sfw.security.sentry.io/pypi/packages/1d/8e/57acd6b1e5f3e89403ba59e17a9f30148f8521f1dcd860bbfa1c4c204840/sentry_options-1.2.9-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7d493d91c09b6c4421744812050debbd70dea05087c0387efc65f8978f471c87", size = 2705490, upload-time = "2026-09-03T18:15:50.032Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/6e/89/5d94ac5e89e3480ad2b2af7d1f9e9bbd56db20b8c834ce2e3ae19789e59b/sentry_options-1.2.10-cp311-abi3-macosx_10_12_x86_64.whl", hash = "sha256:fa4a9007c7a1b9c6a40b5a5244f528a64d460ece36bb7dfe8af1e3415be11010", size = 2513909, upload-time = "2026-09-16T00:00:56.379Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/b4/d1/d051f94dd6d1657b0d9bdab55e6d6b06c2ee24b703e2969161784bc8d394/sentry_options-1.2.10-cp311-abi3-macosx_11_0_arm64.whl", hash = "sha256:4f576c554f3aaca728eab9d7beeecca3870c9e1f871c8529c088b2e6520eba00", size = 2440944, upload-time = "2026-09-16T00:00:57.766Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/f6/3f/4e8f5210001832d69804acea5cc8074fe4285785b9edc858441e40bb88ad/sentry_options-1.2.10-cp311-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7aed902882ca2b7b33e83a121702e6a3143bc1495f6e96962baf04dd48f373bd", size = 2764740, upload-time = "2026-09-16T00:00:59.22Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/b9/70/3b90af609edc4b8eb61aac8b9427df13789e1c2b583c571fe7b69dbb3a0c/sentry_options-1.2.10-cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:705edd81ce941ae9dda96e0e28c69f6f3e5fc08ac5d804425aa395c30fe32688", size = 2709949, upload-time = "2026-09-16T00:01:00.549Z" },
 ]
 
 [[package]]
