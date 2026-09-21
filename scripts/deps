@@ -105,10 +105,6 @@ class Dep:
         return self.architecture == architecture and self.system == system
 
 
-BUNDLETOOL_SHIM = """#!/bin/sh
-java -jar $(dirname "$(realpath $0)")/bundletool.jar "$@"
-"""
-
 DEPS = [
     Dep(
         "bundletool.jar",
@@ -116,7 +112,6 @@ DEPS = [
         "675786493983787ffa11550bdb7c0715679a44e1643f3ff980a529e9c822595c",
         binaries=[
             Bin(source="bundletool.jar", target="bundletool.jar"),
-            Bin(text=BUNDLETOOL_SHIM, target="bundletool"),
         ],
     ),
     Dep(
@@ -127,7 +122,6 @@ DEPS = [
         system="darwin",
         binaries=[
             Bin(source="android-release-tools/lib/apksigner.jar", target="apksigner.jar"),
-            Bin(source="android-release-tools/bin/apksigner", target="apksigner"),
         ],
     ),
     Dep(
@@ -138,7 +132,6 @@ DEPS = [
         system="linux",
         binaries=[
             Bin(source="android-release-tools/lib/apksigner.jar", target="apksigner.jar"),
-            Bin(source="android-release-tools/bin/apksigner", target="apksigner"),
         ],
     ),
     Dep(

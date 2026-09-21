@@ -7,7 +7,8 @@ from launchpad.utils.android.bundletool import Bundletool, DeviceSpec
 
 @pytest.fixture
 def bundletool(mocker) -> Bundletool:
-    mocker.patch("launchpad.utils.android.bundletool.shutil.which", return_value="/usr/local/bin/bundletool")
+    mocker.patch("launchpad.utils.android.bundletool.find_java", return_value="/usr/bin/java")
+    mocker.patch("launchpad.utils.android.bundletool.find_jar", return_value="/usr/local/bin/bundletool.jar")
     tool = Bundletool()
     mocker.patch.object(tool, "_generate_keystore", return_value=("password", "alias"))
     mocker.patch.object(tool, "_run_command")
