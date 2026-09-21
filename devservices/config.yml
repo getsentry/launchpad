@@ -35,7 +35,7 @@ services:
       LAUNCHPAD_WORKER_RPC_HOST: "host.docker.internal:50051"
       LAUNCHPAD_WORKER_CONCURRENCY: "1"
     healthcheck:
-      test: ["CMD-SHELL", "[ -f /tmp/health ]"]
+      test: ["CMD", "python3", "-c", "import os, sys; sys.exit(0 if os.path.exists('/tmp/health') else 1)"]
       interval: 10s
       timeout: 5s
       retries: 3
