@@ -1,7 +1,6 @@
 import json
 import plistlib
 import shutil
-import subprocess
 import tempfile
 import uuid
 
@@ -14,6 +13,7 @@ import sentry_sdk
 
 from launchpad.parsers.apple.crushed_png import decode_crushed_png
 from launchpad.utils.logging import get_logger
+from launchpad.utils.zip_utils import zip_directory
 
 from ..artifact import AppleArtifact
 from ..providers.exceptions import UnsafePathError
@@ -232,27 +232,14 @@ class ZippedXCArchive(AppleArtifact):
             # Copy the .app bundle into Payload (preserve symlinks, permissions, etc.)
             shutil.copytree(app_bundle_path, dest_app_path, symlinks=True)
 
-            # Create the IPA file using zip to preserve symlinks and metadata
+            # Zip the Payload directory, preserving symlinks and permissions
             try:
-                subprocess.run(
-                    [
-                        "zip",
-                        "-r",
-                        "-y",
-                        "-q",
-                        str(output_path),
-                        "Payload",
-                    ],
-                    cwd=temp_dir_path,
-                    check=True,
-                )
+                zip_directory(payload_dir, output_path, preserve_symlinks=True)
+            except OSError as e:
+                raise RuntimeError("Failed to generate IPA file") from e
 
-                logger.info(f"IPA file generated successfully: {output_path}")
-                return output_path
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError("Failed to generate IPA file with zip") from e
-            except FileNotFoundError:
-                raise RuntimeError("zip command not found. This tool is required for IPA generation.")
+            logger.info(f"IPA file generated successfully: {output_path}")
+            return output_path
 
     @sentry_sdk.trace
     def get_provisioning_profile(self) -> dict[str, Any] | None:
