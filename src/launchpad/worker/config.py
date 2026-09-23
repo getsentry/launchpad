@@ -4,7 +4,7 @@ import os
 
 from dataclasses import dataclass
 
-from taskbroker_client.worker import BatchPushTaskWorker, PushTaskWorker, TaskWorker
+from taskbroker_client.worker import PushTaskWorker, TaskWorker
 
 from launchpad.options import init_options
 from launchpad.sentry_sdk_init import initialize_sentry_sdk
@@ -96,7 +96,7 @@ def run_worker(
         assert config.rpc_host_service, (
             "LAUNCHPAD_WORKER_RPC_HOST_SERVICE environment variable is required when push mode is enabled"
         )
-        worker: PushTaskWorker | TaskWorker = BatchPushTaskWorker(
+        worker: PushTaskWorker | TaskWorker = PushTaskWorker(
             app_module="launchpad.worker.app:app",
             broker_service=config.rpc_host_service,
             max_child_task_count=config.max_child_task_count,
@@ -108,7 +108,6 @@ def run_worker(
             process_type="forkserver",
             health_check_file_path=config.health_check_file_path,
             pod_name=config.pod_name,
-            update_in_batches=True,
             push_task_timeout=config.push_timeout_sec,
         )
     else:
