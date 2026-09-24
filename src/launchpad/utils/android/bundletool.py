@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import secrets
-import shutil
 import string
 import subprocess
 import tempfile
@@ -14,6 +13,7 @@ from typing import Any, Sequence
 
 from pydantic import BaseModel, Field
 
+from ..java import find_jar, find_java, find_keytool
 from ..logging import get_logger
 
 logger = get_logger(__name__)
@@ -35,17 +35,17 @@ class BundletoolError(Exception):
 class Bundletool:
     """Wrapper around Android's bundletool CLI utility."""
 
-    bundletool_path: str
+    java_path: str
+    bundletool_jar: str
 
     def __init__(self) -> None:
         """Initialize bundletool wrapper.
 
         Raises:
-            AssertionError: If bundletool cannot be found on PATH
+            FileNotFoundError: If java or bundletool.jar cannot be found
         """
-        bundletool_path = shutil.which("bundletool")
-        assert bundletool_path is not None
-        self.bundletool_path = bundletool_path
+        self.java_path = find_java()
+        self.bundletool_jar = find_jar("bundletool.jar")
 
     def _run_command(self, command: list[str], **kwargs: Any) -> tuple[int, str, str]:
         """Run a bundletool command.
@@ -60,7 +60,7 @@ class Bundletool:
         Raises:
             BundletoolError: If command fails
         """
-        cmd = [str(self.bundletool_path)] + command
+        cmd = [self.java_path, "-jar", self.bundletool_jar, *command]
         logger.debug("Running bundletool command: %s", " ".join(cmd))
 
         try:
@@ -107,7 +107,7 @@ class Bundletool:
 
         # Keytool command to generate keystore
         keytool_cmd = [
-            "keytool",
+            find_keytool(),
             "-genkeypair",
             "-v",
             "-keystore",

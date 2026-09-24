@@ -1,8 +1,8 @@
 import os
 import plistlib
-import subprocess
 import tempfile
 import uuid
+import zipfile
 
 from pathlib import Path
 from typing import List, NamedTuple
@@ -13,6 +13,7 @@ from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import AppComponent, ComponentType
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
+from launchpad.utils.zip_utils import zip_directory
 
 logger = get_logger(__name__)
 
@@ -365,62 +366,31 @@ def _calculate_install_size(path: Path) -> int:
     return total_size
 
 
+# Info-ZIP on unix adds UT (mtime+atime) and ux (uid/gid) extra fields: 28 bytes in the
+# local header and 24 bytes in the central directory entry.
+_INFOZIP_EXTRA_FIELD_BYTES_PER_ENTRY = 52
+
+
 def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
-    temp_dir = Path(tempfile.gettempdir())
-    zip_file_path = temp_dir / f"{uuid.uuid4()}.zip"
-    zip_info_file_path = temp_dir / f"{uuid.uuid4()}.txt"
-    bundle_dir = bundle_url.parent
-    bundle_name = bundle_url.name
+    zip_file_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4()}.zip"
 
     try:
-        logger.debug(f"Creating ZIP file: zip -r {zip_file_path} {bundle_name}")
-        result = subprocess.run(
-            ["zip", "-q", "-r", str(zip_file_path), str(bundle_name)],
-            shell=False,
-            capture_output=True,
-            text=True,
-            cwd=str(bundle_dir),
-        )
-        if result.returncode != 0:
-            logger.error(f"ZIP command failed: {result.stderr}")
-            return 0
+        logger.debug(f"Creating ZIP file: {zip_file_path} from {bundle_url.name}")
+        zip_directory(bundle_url, zip_file_path, preserve_symlinks=False)
 
-        logger.debug(f"Getting ZIP info: unzip -v {zip_file_path}")
-        with open(zip_info_file_path, "w") as zip_info_file:
-            result = subprocess.run(
-                ["unzip", "-v", str(zip_file_path)],
-                shell=False,
-                stdout=zip_info_file,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-        if result.returncode != 0:
-            logger.error(f"Unzip command failed: {result.stderr}")
-            return 0
-
-        with open(zip_info_file_path, "r", encoding="utf-8", errors="replace") as f:
-            zip_info = f.read()
-
-        # Parse the last line which contains total sizes
-        lines = zip_info.strip().split("\n")
-        last_line = lines[-1]
-        # Format is typically: "--------          -------  ---                     -------"
-        # followed by: "12345678         12345678  0%                 123 files"
-        # The columns are: uncompressed_size compressed_size ratio file_count
-        parts = last_line.split()
-        if len(parts) >= 2:
-            # total_uncompressed = int(parts[0])
-            total_compressed = int(parts[1])
-        else:
-            logger.error("Could not parse ZIP info, using fallback")
-            return 0
+        with zipfile.ZipFile(zip_file_path) as zf:
+            infos = zf.infolist()
+        total_compressed = sum(info.compress_size for info in infos)
 
         # Get actual ZIP file size
         total_zip_size = os.path.getsize(zip_file_path)
 
         # Metadata size is the difference between ZIP file size and compressed content size
         # ZIP file = compressed content + metadata (headers, directory structure, etc.)
-        metadata_size = total_zip_size - total_compressed
+        # This estimate used to be produced with Info-ZIP `zip`, which also writes unix extra
+        # fields (UT + ux) into every local and central header; add those so the reported
+        # download size stays identical to what it was.
+        metadata_size = total_zip_size - total_compressed + _INFOZIP_EXTRA_FIELD_BYTES_PER_ENTRY * len(infos)
 
         if metadata_size < 0:
             logger.warning(
@@ -437,5 +407,3 @@ def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
     finally:
         if zip_file_path.exists():
             zip_file_path.unlink()
-        if zip_info_file_path.exists():
-            zip_info_file_path.unlink()
