@@ -1,6 +1,5 @@
 """Tests for file analysis functionality."""
 
-import subprocess
 import tempfile
 
 from pathlib import Path
@@ -310,18 +309,18 @@ class TestAnalyzeAppleFiles:
             assert root_dir.size == 4096
             assert root_dir.size == to_nearest_block_size(empty_bundle.stat().st_size, APPLE_FILESYSTEM_BLOCK_SIZE)
 
-    @patch("subprocess.run")
-    def test_file_type_detection_fallback(self, mock_subprocess, mock_xcarchive, temp_app_bundle):
-        """Test file type detection fallback when file command fails."""
+    def test_file_type_detection_fallback(self, mock_xcarchive, temp_app_bundle):
+        """Extensionless files get their type sniffed from magic bytes."""
         mock_xcarchive.get_app_bundle_path.return_value = temp_app_bundle
         mock_xcarchive.get_asset_catalog_details.return_value = []
 
-        unknown_file = temp_app_bundle / "unknown_file"
-        unknown_file.write_bytes(b"some binary data")
-
-        mock_subprocess.side_effect = subprocess.CalledProcessError(1, "file")
+        (temp_app_bundle / "unknown_file").write_bytes(b"\x00\x01some binary data\xff")
+        (temp_app_bundle / "macho_file").write_bytes(b"\xcf\xfa\xed\xfe" + b"\x00" * 28)
+        (temp_app_bundle / "text_file").write_text("hello world\n")
 
         result = analyze_apple_files(mock_xcarchive)
 
         files = {f.path: f for f in result.files}
         assert files["unknown_file"].file_type == "unknown"
+        assert files["macho_file"].file_type == "macho"
+        assert files["text_file"].file_type == "text"
