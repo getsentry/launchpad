@@ -1,8 +1,5 @@
 import os
 import plistlib
-import tempfile
-import uuid
-import zipfile
 
 from pathlib import Path
 from typing import List, NamedTuple
@@ -13,7 +10,6 @@ from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import AppComponent, ComponentType
 from launchpad.utils.file_utils import get_file_size, to_nearest_block_size
 from launchpad.utils.logging import get_logger
-from launchpad.utils.zip_utils import zip_directory
 
 logger = get_logger(__name__)
 
@@ -366,42 +362,18 @@ def _calculate_install_size(path: Path) -> int:
     return total_size
 
 
-# We used to build this zip with Info-ZIP's `zip`, which quietly adds a UT (timestamps) and a ux
-# (uid/gid) extra field to every entry: 28 bytes in the local header, 24 in the central directory.
-# Python's zipfile writes neither, so add them back and the sizes we report stay where they were.
-_INFOZIP_EXTRA_FIELD_BYTES_PER_ENTRY = 52
+# Per-entry bytes Info-ZIP's `zip -r` writes besides the name: local header (30), central header (46)
+# and its UT/ux extra fields (52). The name appears in both headers; the end record adds 22.
+_ZIP_ENTRY_OVERHEAD_BYTES = 30 + 46 + 52
+_ZIP_END_RECORD_BYTES = 22
 
 
 def _zip_metadata_size_for_bundle(bundle_url: Path) -> int:
-    zip_file_path = Path(tempfile.gettempdir()) / f"{uuid.uuid4()}.zip"
-
-    try:
-        logger.debug(f"Creating ZIP file: {zip_file_path} from {bundle_url.name}")
-        zip_directory(bundle_url, zip_file_path, preserve_symlinks=False)
-
-        with zipfile.ZipFile(zip_file_path) as zf:
-            infos = zf.infolist()
-        total_compressed = sum(info.compress_size for info in infos)
-
-        # Get actual ZIP file size
-        total_zip_size = os.path.getsize(zip_file_path)
-
-        # Metadata is everything that isn't payload: headers, names, central directory, EOCD.
-        # Compressed bytes sit in both terms and cancel, so the compression level can't skew this.
-        metadata_size = total_zip_size - total_compressed + _INFOZIP_EXTRA_FIELD_BYTES_PER_ENTRY * len(infos)
-
-        if metadata_size < 0:
-            logger.warning(
-                f"Negative metadata size calculated: {metadata_size}. ZIP size: {total_zip_size}, Compressed content: {total_compressed}"
-            )
-            return 0
-
-        return metadata_size
-
-    except Exception:
-        logger.exception("Error calculating ZIP metadata size")
-        return 0
-
-    finally:
-        if zip_file_path.exists():
-            zip_file_path.unlink()
+    names = []
+    for dirpath, dirnames, filenames in os.walk(bundle_url, followlinks=True):
+        real = Path(dirpath).resolve()
+        dirnames[:] = [d for d in dirnames if not real.is_relative_to(Path(dirpath, d).resolve())]
+        rel = Path(dirpath).relative_to(bundle_url.parent).as_posix()
+        names.append(f"{rel}/")
+        names.extend(f"{rel}/{f}" for f in filenames if os.path.exists(os.path.join(dirpath, f)))
+    return _ZIP_END_RECORD_BYTES + sum(_ZIP_ENTRY_OVERHEAD_BYTES + 2 * len(os.fsencode(n)) for n in names)
