@@ -23,7 +23,7 @@ def test_zip_directory_preserves_symlinks_and_permissions(tmp_path: Path) -> Non
     bundle = _make_bundle(tmp_path)
     out = tmp_path / "out.zip"
 
-    zip_directory(bundle, out, preserve_symlinks=True)
+    zip_directory(bundle, out)
 
     with zipfile.ZipFile(out) as zf:
         assert zf.testzip() is None
@@ -39,18 +39,3 @@ def test_zip_directory_preserves_symlinks_and_permissions(tmp_path: Path) -> Non
         assert zf.read(link) == b"Versions/A/Foo"
 
         assert stat.S_IMODE(infos["Test.app/Test"].external_attr >> 16) == 0o755
-
-
-def test_zip_directory_follows_symlinks_when_requested(tmp_path: Path) -> None:
-    bundle = _make_bundle(tmp_path)
-    os.symlink("does-not-exist", bundle / "dangling")
-    out = tmp_path / "out.zip"
-
-    zip_directory(bundle, out, preserve_symlinks=False)
-
-    with zipfile.ZipFile(out) as zf:
-        infos = {i.filename: i for i in zf.infolist()}
-        link = infos["Test.app/Frameworks/Foo.framework/Foo"]
-        assert stat.S_ISREG(link.external_attr >> 16)
-        assert zf.read(link) == b"binary" * 100
-        assert "Test.app/dangling" not in infos

@@ -234,7 +234,7 @@ class ZippedXCArchive(AppleArtifact):
 
             # Zip the Payload directory, preserving symlinks and permissions
             try:
-                zip_directory(payload_dir, output_path, preserve_symlinks=True)
+                zip_directory(payload_dir, output_path)
             except OSError as e:
                 raise RuntimeError("Failed to generate IPA file") from e
 

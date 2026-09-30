@@ -23,34 +23,20 @@ def _zip_info_for(arcname: str, st: os.stat_result) -> zipfile.ZipInfo:
     return info
 
 
-def zip_directory(source_dir: Path, output_path: Path, *, preserve_symlinks: bool = True) -> None:
-    """Recursively zip ``source_dir`` into ``output_path``.
-
-    Mirrors ``zip -r`` (or ``zip -r -y`` when ``preserve_symlinks`` is set): entries are
-    named relative to the parent of ``source_dir`` so the archive root is ``source_dir.name``,
-    directory entries are included, and unix permissions are preserved.
-
-    Args:
-        source_dir: Directory to archive
-        output_path: Destination ``.zip`` path (overwritten if it exists)
-        preserve_symlinks: Store symlinks as symlink entries instead of following them
-    """
+def zip_directory(source_dir: Path, output_path: Path) -> None:
+    """Zip ``source_dir`` like ``zip -r -y``: symlinks kept as links, archive root is ``source_dir.name``."""
     source_dir = Path(source_dir)
     base = source_dir.parent
 
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        _add_path(zf, source_dir, base, preserve_symlinks)
+        _add_path(zf, source_dir, base)
 
 
-def _add_path(zf: zipfile.ZipFile, path: Path, base: Path, preserve_symlinks: bool) -> None:
-    try:
-        st = path.lstat() if preserve_symlinks else path.stat()
-    except FileNotFoundError:
-        # Dangling symlink while following links; Info-ZIP skips these too
-        return
+def _add_path(zf: zipfile.ZipFile, path: Path, base: Path) -> None:
+    st = path.lstat()
     arcname = path.relative_to(base).as_posix()
 
-    if preserve_symlinks and stat.S_ISLNK(st.st_mode):
+    if stat.S_ISLNK(st.st_mode):
         info = _zip_info_for(arcname, st)
         zf.writestr(info, os.readlink(path))
         return
@@ -60,7 +46,7 @@ def _add_path(zf: zipfile.ZipFile, path: Path, base: Path, preserve_symlinks: bo
         info.external_attr |= 0x10  # MS-DOS directory flag, as Info-ZIP sets it
         zf.writestr(info, b"")
         for child in sorted(path.iterdir()):
-            _add_path(zf, child, base, preserve_symlinks)
+            _add_path(zf, child, base)
         return
 
     info = _zip_info_for(arcname, st)
