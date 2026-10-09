@@ -2,9 +2,6 @@ local gocdtasks = import 'github.com/getsentry/gocd-jsonnet/libs/gocd-tasks.libs
 
 function(region) {
   environment_variables: {
-    // k8s-deploy dispatches deployment workflows using GitHub App credentials.
-    GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
-    GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
     // SENTRY_REGION is used by the dev-infra scripts to connect to GKE
     SENTRY_REGION: region,
   },
@@ -44,6 +41,9 @@ function(region) {
             timeout: 1200,
             elastic_profile_id: 'launchpad',
             environment_variables: {
+              // k8s-deploy dispatches deployment workflows using GitHub App credentials.
+              GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
+              GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
               LABEL_SELECTOR: 'service=launchpad,env=canary',
             },
             tasks: [
@@ -64,6 +64,9 @@ function(region) {
             timeout: 1200,
             elastic_profile_id: 'launchpad',
             environment_variables: {
+              // k8s-deploy dispatches deployment workflows using GitHub App credentials.
+              GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
+              GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
               LABEL_SELECTOR: 'service=launchpad',
             },
             tasks: [
