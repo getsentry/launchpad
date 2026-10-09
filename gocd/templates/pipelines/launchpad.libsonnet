@@ -41,6 +41,9 @@ function(region) {
             timeout: 1200,
             elastic_profile_id: 'launchpad',
             environment_variables: {
+              // k8s-deploy dispatches deployment workflows using GitHub App credentials.
+              GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
+              GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
               LABEL_SELECTOR: 'service=launchpad,env=canary',
             },
             tasks: [
@@ -61,6 +64,9 @@ function(region) {
             timeout: 1200,
             elastic_profile_id: 'launchpad',
             environment_variables: {
+              // k8s-deploy dispatches deployment workflows using GitHub App credentials.
+              GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
+              GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
               LABEL_SELECTOR: 'service=launchpad',
             },
             tasks: [
