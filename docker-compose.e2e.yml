@@ -83,7 +83,7 @@ services:
       TASKWORKER_TOPIC: "taskworker-launchpad"
       SENTRY_DSN: ""
     healthcheck:
-      test: ["CMD-SHELL", "[ -f /tmp/health ]"]
+      test: ["CMD", "python3", "-c", "open('/tmp/health')"]
       interval: 10s
       timeout: 5s
       retries: 5

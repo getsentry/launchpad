@@ -8,6 +8,7 @@ from typing import Dict, List, Set, Tuple
 import sentry_sdk
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
+from launchpad.parsers.apple.macho_parser import MACHO_MAGICS
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
 from launchpad.size.models.common import FileAnalysis, FileInfo
 from launchpad.size.models.treemap import FILE_TYPE_TO_TREEMAP_TYPE, TreemapType
@@ -301,38 +302,52 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
     return result
 
 
+_ELF_MAGIC = b"\x7fELF"
+_HERMES_MAGIC = b"\xc6\x1f\xbc\x03\xc1\x03\x19\x1f"
+_TEXT_BOMS = (b"\xef\xbb\xbf", b"\xff\xfe", b"\xfe\xff")
+
+
 @sentry_sdk.trace
 def _detect_file_type(file_path: Path) -> str:
-    """Best-effort file type detection via `file` as a fallback."""
-    import subprocess
+    """Best-effort file type detection from magic bytes, for files without an extension.
 
+    Pure Python so it works in the distroless image, where ``file(1)`` is not available.
+    """
     try:
-        result = subprocess.run(["file", str(file_path)], capture_output=True, text=True, check=True)
-        file_type = result.stdout.split(":", 1)[1].strip().lower()
-        logger.debug("Detected file type for %s: %s", file_path, file_type)
-
-        if "mach-o" in file_type:
-            return "macho"
-        if "executable" in file_type:
-            return "executable"
-        if "text" in file_type:
-            return "text"
-        if "directory" in file_type:
-            return "directory"
-        if "symbolic link" in file_type:
+        if file_path.is_symlink():
             return "symlink"
-        if "hermes javascript bytecode" in file_type:
-            return "hermes"
-        if "empty" in file_type:
-            return "empty"
+        if file_path.is_dir():
+            return "directory"
 
-        return file_type
-    except subprocess.CalledProcessError as e:
+        with open(file_path, "rb") as f:
+            head = f.read(8192)
+
+        if not head:
+            return "empty"
+        if head[:4] in MACHO_MAGICS:
+            return "macho"
+        if head.startswith(_HERMES_MAGIC):
+            return "hermes"
+        if head.startswith(_ELF_MAGIC) or head.startswith(b"#!"):
+            return "executable"
+        if head.startswith(_TEXT_BOMS) or (b"\x00" not in head and _is_utf8_text(head)):
+            return "text"
+
+        return "unknown"
+    except OSError as e:
         logger.warning("Failed to detect file type for %s: %s", file_path, e)
         return "unknown"
-    except Exception as e:  # pragma: no cover – defensive
-        logger.warning("Unexpected error detecting file type for %s: %s", file_path, e)
-        return "unknown"
+
+
+def _is_utf8_text(data: bytes) -> bool:
+    # The sample may end mid-codepoint, so tolerate a truncated trailing sequence
+    for trim in range(4):
+        try:
+            data[: len(data) - trim].decode("utf-8")
+            return True
+        except UnicodeDecodeError:
+            continue
+    return False
 
 
 def _dir_size_aggregate(
