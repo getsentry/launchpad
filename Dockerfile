@@ -1,5 +1,5 @@
 # Build libdispatch for the strip binary
-FROM --platform=linux/amd64 debian:12-slim AS libdispatch-build
+FROM --platform=linux/amd64 ghcr.io/getsentry/image-mirror-library-debian:12.15-slim AS libdispatch-build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -27,7 +27,7 @@ RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
     make install
 
 # Use Python 3.14 slim image
-FROM python:3.14.4-slim-bookworm
+FROM ghcr.io/getsentry/image-mirror-library-python:3.14.4-slim-bookworm
 
 # Build argument to determine if this is a test build
 ARG TEST_BUILD=false
