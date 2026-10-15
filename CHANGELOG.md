@@ -8,6 +8,35 @@
 
 - (security) Add SafeDirectory to enforce path traversal checks by @runningcode in [#623](https://github.com/getsentry/launchpad/pull/623)
 
+## 26.10.0
+
+### Bug Fixes 🐛
+
+- (worker) Bump taskbroker-client to 0.20.26 by @evanh in [#695](https://github.com/getsentry/launchpad/pull/695)
+
+### Internal Changes 🔧
+
+#### Gocd
+
+- Make App credentials available to image deploy jobs by @joshuarli in [#699](https://github.com/getsentry/launchpad/pull/699)
+- Bump gocd-jsonnet to v3.0.10, dropping the us2 pipeline by @chazdnato in [#698](https://github.com/getsentry/launchpad/pull/698)
+
+#### Size
+
+- Remove JSON summary option schema by @jamieQ in [#687](https://github.com/getsentry/launchpad/pull/687)
+- Always use compact Swift demangler output by @jamieQ in [#686](https://github.com/getsentry/launchpad/pull/686)
+
+#### Other
+
+- Pull base images from getsentry/image-mirror by @sentry-junior in [#700](https://github.com/getsentry/launchpad/pull/700)
+- Bump js-yaml to 4.3.2 by @jamieQ in [#696](https://github.com/getsentry/launchpad/pull/696)
+- Update sentry-options to 1.2.10 by @jamieQ in [#690](https://github.com/getsentry/launchpad/pull/690)
+- Pass only required secret to sentry-options validation by @NicoHinderling in [#685](https://github.com/getsentry/launchpad/pull/685)
+
+### Other
+
+- SEC-1901: use readonly bot for schema validation by @Jeffreyhung in [#689](https://github.com/getsentry/launchpad/pull/689)
+
 ## 26.9.0
 
 ### New Features ✨
