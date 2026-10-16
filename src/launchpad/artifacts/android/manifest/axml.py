@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from launchpad.parsers.android.binary.android_binary_parser import AndroidBinaryParser
 from launchpad.parsers.android.binary.types import XmlAttribute, XmlNode
 from launchpad.utils.logging import get_logger
@@ -25,8 +23,8 @@ class BinaryXmlParser:
                 logger.error("Could not parse binary XML - no root node found")
                 return None
 
-            # Convert the parser's XmlNode to our model's XmlNode
-            def convert_node(node: Any) -> XmlNode:  # type: ignore[no-untyped-def]
+            # Normalize attribute values and retain only manifest elements.
+            def convert_node(node: XmlNode) -> XmlNode:
                 attributes: list[XmlAttribute] = []
                 for attr in node.attributes:
                     value = attr.value
@@ -63,8 +61,8 @@ class BinaryXmlParser:
                         )
                     )
 
-                # Recursively convert child nodes
-                child_nodes = [convert_node(child) for child in node.child_nodes]
+                # Recursively convert only element nodes; manifest values are stored in attributes.
+                child_nodes = [convert_node(child) for child in node.child_nodes if isinstance(child, XmlNode)]
 
                 return XmlNode(
                     namespace_uri=node.namespace_uri,
