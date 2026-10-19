@@ -41,7 +41,7 @@ dependencies = [
     "pydantic>=2.10.0,<3",
     "pyyaml>=6.0",
     "rich>=14.1.0",
-    "sentry-arroyo>=2.38.7",
+    "sentry-arroyo>=2.47.0",
     "sentry-options==1.2.10",
     "sentry-sdk>=2.36.0",
     "sortedcontainers>=2.4.0",
