@@ -8,6 +8,7 @@ from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
 from launchpad.size.symbols.partitioner import SymbolInfo
 from launchpad.size.symbols.types import SwiftSymbolTypeGroup
+from launchpad.size.treemap.known_libraries import resolve_known_library
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
 from launchpad.utils.logging import get_logger
 
@@ -131,9 +132,13 @@ class MachOElementBuilder(TreemapElementBuilder):
 
         # Add symbols if this slice has symbol_info (only primary slice will have this)
         if arch_slice.symbol_info:
+            # Swift module and ObjC class nodes are collected separately so recognized
+            # third-party libraries can be grouped under a single "Libraries" node.
+            symbol_children: List[TreemapElement] = []
+
             self._add_swift_symbols(
                 arch_slice.symbol_info,
-                binary_children,
+                symbol_children,
                 section_subtractions,
                 debit_section,
                 canonical_key,
@@ -142,13 +147,16 @@ class MachOElementBuilder(TreemapElementBuilder):
 
             self._add_objc_symbols(
                 arch_slice.symbol_info,
-                binary_children,
+                symbol_children,
                 section_subtractions,
                 debit_section,
                 canonical_key,
                 zerofill_sections_set,
             )
 
+            binary_children.extend(self._group_known_libraries(symbol_children))
+
+            # "Other Symbols" (C/C++/compiler-generated) is not a library and is not grouped.
             self._add_other_symbols(
                 arch_slice.symbol_info,
                 binary_children,
@@ -168,6 +176,60 @@ class MachOElementBuilder(TreemapElementBuilder):
         self._add_arch_slice_unmapped(arch_slice, binary_children)
 
         return binary_children
+
+    def _group_known_libraries(self, symbol_children: List[TreemapElement]) -> List[TreemapElement]:
+        """Group recognized third-party library nodes under a single "Libraries" node.
+
+        Swift module and ObjC class nodes whose names map to a known library (via
+        ``resolve_known_library``) are collected under a "Libraries" parent; everything
+        else keeps its original position and order. Sizes are preserved.
+        """
+        result: List[TreemapElement] = []
+        # Preserve first-seen order of libraries and their matched nodes.
+        library_nodes: Dict[str, List[TreemapElement]] = {}
+
+        for node in symbol_children:
+            library_name = resolve_known_library(node.name)
+            if library_name is None:
+                result.append(node)
+            else:
+                library_nodes.setdefault(library_name, []).append(node)
+
+        if not library_nodes:
+            return result
+
+        library_children: List[TreemapElement] = []
+        for library_name, nodes in library_nodes.items():
+            # Collapse the redundant "Library -> Library" case (single node, same name).
+            if len(nodes) == 1 and nodes[0].name == library_name:
+                library_children.append(nodes[0])
+                continue
+
+            library_children.append(
+                TreemapElement(
+                    name=library_name,
+                    size=sum(n.size for n in nodes),
+                    type=TreemapType.MODULES,
+                    path=None,
+                    is_dir=False,
+                    children=sorted(nodes, key=lambda n: n.size, reverse=True),
+                )
+            )
+
+        library_children.sort(key=lambda n: n.size, reverse=True)
+
+        result.append(
+            TreemapElement(
+                name="Libraries",
+                size=sum(n.size for n in library_children),
+                type=TreemapType.MODULES,
+                path=None,
+                is_dir=False,
+                children=library_children,
+            )
+        )
+
+        return result
 
     def _build_arch_slice_metadata(self, arch_slice: ArchitectureSlice) -> List[TreemapElement]:
         """Build metadata components for an architecture slice."""
