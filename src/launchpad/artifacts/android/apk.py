@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Callable, Iterator
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.parsers.android.icon.binary_xml_drawable_parser import (
@@ -40,7 +40,7 @@ class APK(AndroidArtifact):
         super().__init__(path, cleanup=cleanup)
         self._dex_mapping = dex_mapping
         self._zip_provider = ZipProvider(path)
-        with sentry_sdk.start_span(op="file.extract", description="apk.extract"):
+        with sentry_sdk.traces.start_span(name="apk.extract", attributes={"sentry.op": "file.extract"}):
             self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._manifest: AndroidManifest | None = None
         self._resource_table: BinaryResourceTable | None = None
@@ -54,7 +54,7 @@ class APK(AndroidArtifact):
         finally:
             f.close()
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
             return self._manifest
@@ -74,7 +74,7 @@ class APK(AndroidArtifact):
         self._manifest = AxmlUtils.binary_xml_to_android_manifest(manifest_buffer, binary_res_tables)
         return self._manifest
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_resource_tables(self) -> list[BinaryResourceTable]:  # type: ignore[override]
         if self._resource_table is not None:
             return [self._resource_table]
@@ -94,7 +94,7 @@ class APK(AndroidArtifact):
         self._resource_table = BinaryResourceTable(arsc_buffer)
         return [self._resource_table]
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_class_definitions(self) -> list[ClassDefinition]:
         if self._class_definitions is not None:
             return self._class_definitions
@@ -122,25 +122,25 @@ class APK(AndroidArtifact):
                 logger.error(f"Failed to read DEX file {dex_file}: {e}")
                 continue
 
-        if (span := sentry_sdk.get_current_span()) is not None:
-            span.set_data("dex_stats.file_count", dex_stats.file_count)
-            span.set_data("dex_stats.total_bytes", dex_stats.total_bytes)
-            span.set_data("dex_stats.read_duration_ms", dex_stats.read_duration_ms)
-            span.set_data("dex_stats.parser.duration_ms", dex_stats.parser_duration_ms)
-            span.set_data("dex_stats.parser.method_duration_ms", dex_stats.parser_method_duration_ms)
-            span.set_data("dex_stats.parser.field_duration_ms", dex_stats.parser_field_duration_ms)
-            span.set_data("dex_stats.parser.class_count", dex_stats.parser_class_count)
-            span.set_data("dex_stats.parser.method_count", dex_stats.parser_method_count)
-            span.set_data("dex_stats.parser.field_count", dex_stats.parser_field_count)
-            span.set_data(
+        if (span := sentry_sdk.traces.get_current_span()) is not None:
+            span.set_attribute("dex_stats.file_count", dex_stats.file_count)
+            span.set_attribute("dex_stats.total_bytes", dex_stats.total_bytes)
+            span.set_attribute("dex_stats.read_duration_ms", dex_stats.read_duration_ms)
+            span.set_attribute("dex_stats.parser.duration_ms", dex_stats.parser_duration_ms)
+            span.set_attribute("dex_stats.parser.method_duration_ms", dex_stats.parser_method_duration_ms)
+            span.set_attribute("dex_stats.parser.field_duration_ms", dex_stats.parser_field_duration_ms)
+            span.set_attribute("dex_stats.parser.class_count", dex_stats.parser_class_count)
+            span.set_attribute("dex_stats.parser.method_count", dex_stats.parser_method_count)
+            span.set_attribute("dex_stats.parser.field_count", dex_stats.parser_field_count)
+            span.set_attribute(
                 "dex_stats.parser.method_annotation_scan_steps",
                 dex_stats.parser_method_annotation_scan_steps,
             )
-            span.set_data(
+            span.set_attribute(
                 "dex_stats.parser.field_annotation_scan_steps",
                 dex_stats.parser_field_annotation_scan_steps,
             )
-            span.set_data("dex_stats.parser.mapping_present", dex_stats.parser_mapping_present)
+            span.set_attribute("dex_stats.parser.mapping_present", dex_stats.parser_mapping_present)
 
         return self._class_definitions
 
@@ -151,7 +151,7 @@ class APK(AndroidArtifact):
         apksigner = Apksigner()
         return apksigner.get_certs(self.path)
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_app_icon(self) -> bytes | None:
         manifest = self.get_manifest()
         if manifest.application is None:

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, List, NamedTuple
 
 import lief
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.parsers.apple.crushed_png import decode_crushed_png
 from launchpad.utils.logging import get_logger
@@ -77,7 +77,7 @@ class ZippedXCArchive(AppleArtifact):
     def get_extract_dir(self) -> SafeDirectory:
         return self._extract_dir
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_plist(self) -> dict[str, Any]:
         if self._plist is not None:
             return self._plist
@@ -94,7 +94,7 @@ class ZippedXCArchive(AppleArtifact):
         except Exception as e:
             raise RuntimeError("Failed to parse Info.plist") from e
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_archive_plist(self) -> dict[str, Any] | None:
         """Get the archive-level Info.plist (not the app bundle's Info.plist)."""
         if self._archive_plist is not None:
@@ -118,7 +118,7 @@ class ZippedXCArchive(AppleArtifact):
             logger.debug(f"Failed to parse archive Info.plist at {plist_path}", exc_info=True)
             return None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_app_icon(self) -> bytes | None:
         """Get the primary app icon, decoded from crushed PNG format."""
         icon_info = self.get_icon_info()
@@ -173,7 +173,7 @@ class ZippedXCArchive(AppleArtifact):
         logger.warning(f"No icon files found for CFBundleIconFiles: {icon_info.primary_icon_files}")
         return None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_icon_info(self) -> AppIconInfo:
         """Extract icon information from Info.plist."""
         plist = self.get_plist()
@@ -201,7 +201,7 @@ class ZippedXCArchive(AppleArtifact):
 
         return AppIconInfo(primary_icon_name, primary_icon_files, alternate_icon_names)
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def generate_ipa(self, output_path: Path):
         """Generate an IPA file
 
@@ -254,7 +254,7 @@ class ZippedXCArchive(AppleArtifact):
             except FileNotFoundError:
                 raise RuntimeError("zip command not found. This tool is required for IPA generation.")
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_provisioning_profile(self) -> dict[str, Any] | None:
         if self._provisioning_profile is not None:
             return self._provisioning_profile
@@ -278,7 +278,7 @@ class ZippedXCArchive(AppleArtifact):
             logger.debug(f"No embedded.mobileprovision found at {mobileprovision_path}")
             return None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_binary_path(self) -> Path | None:
         app_bundle_path = self.get_app_bundle_path()
         plist = self.get_plist()
@@ -288,7 +288,7 @@ class ZippedXCArchive(AppleArtifact):
 
         return app_bundle_path.resolve(executable_name)
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_app_bundle_path(self) -> SafeDirectory:
         """Get the path to the .app bundle."""
         if self._app_bundle_path is not None:
@@ -302,12 +302,12 @@ class ZippedXCArchive(AppleArtifact):
 
         raise FileNotFoundError(f"No .app bundle found in {self._extract_dir}")
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_main_binary_uuid(self) -> str | None:
         main_binary_path = self._get_main_binary_path()
         return self._extract_binary_uuid(main_binary_path)
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_all_binary_paths(self) -> List[BinaryInfo]:
         """Find all binaries in the app bundle and their corresponding dSYM files.
 
@@ -366,7 +366,7 @@ class ZippedXCArchive(AppleArtifact):
 
         return binaries
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_asset_catalog_details(self, relative_path: Path) -> List[AssetCatalogElement]:
         """Get the details of an asset catalog file (Assets.car) by returning the
         parsed JSON from ParsedAssets."""
@@ -580,7 +580,7 @@ class ZippedXCArchive(AppleArtifact):
             logger.exception(f"Failed to extract UUID from binary {binary_path}")
             return None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def _find_dsym_files(self) -> dict[str, DsymInfo]:
         """Find all dSYM bundles and map them by binary UUID.
 

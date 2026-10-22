@@ -15,8 +15,7 @@ from typing import Any, Callable, cast
 from unittest.mock import patch
 
 import pytest
-import sentry_sdk
-import sentry_sdk.transport
+import sentry_sdk.traces
 
 from sentry_sdk.envelope import Envelope
 
@@ -59,8 +58,14 @@ class _SentryIngestStub:
     def __exit__(self, *_exc: object) -> None:
         self._server.shutdown()
 
-    def transaction_count(self) -> int:
-        return sum(1 for e in self.envelopes for item in e.items if item.headers.get("type") == "transaction")
+    def span_items(self) -> list[dict[str, Any]]:
+        return [
+            span
+            for envelope in self.envelopes
+            for item in envelope.items
+            if item.headers.get("type") == "span"
+            for span in json.loads(item.get_bytes())["items"]
+        ]
 
     def log_items(self) -> list[dict[str, Any]]:
         return [
@@ -70,17 +75,6 @@ class _SentryIngestStub:
             if item.headers.get("type") == "log"
             for log in json.loads(item.get_bytes())["items"]
         ]
-
-
-class _CapturingTransport(sentry_sdk.transport.Transport):
-    def __init__(self) -> None:
-        super().__init__()
-        self.transactions: list[dict[str, Any]] = []
-
-    def capture_envelope(self, envelope: Envelope) -> None:
-        for item in envelope.items:
-            if item.headers.get("type") == "transaction":
-                self.transactions.append(json.loads(item.get_bytes()))
 
 
 def _log_suppressed_and_allowed(_: int) -> None:
@@ -250,9 +244,9 @@ class TestAppleAppSizes:
             monkeypatch.setenv("LAUNCHPAD_ENV", "integration")
             monkeypatch.setenv("SENTRY_DSN", stub.dsn)
             monkeypatch.setenv("SENTRY_REGION", "test")
-            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, enable_logs=True)
+            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, enable_logs=True, trace_lifecycle="stream")
             try:
-                with sentry_sdk.start_transaction(name="test") as transaction:
+                with sentry_sdk.traces.start_span(name="test") as span:
                     AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(
                         cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
                     )
@@ -262,40 +256,49 @@ class TestAppleAppSizes:
 
         worker_logs = [item for item in stub.log_items() if item["body"] == "size.apple.binary_analysis_completed"]
         assert worker_logs
-        assert all(item["trace_id"] == transaction.trace_id for item in worker_logs)
+        assert all(item["trace_id"] == span.trace_id for item in worker_logs)
         assert all(item["attributes"]["process.pid"]["value"] != os.getpid() for item in worker_logs)
-        assert stub.transaction_count() == 1
 
-    def test_parallel_binary_spans_reattach_to_parent_transaction(
+    def test_worker_binary_spans_are_streamed_under_parent_span(
         self, hackernews_xcarchive: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Workers can't report spans, so the parent rebuilds one per binary from worker
-        timestamps; they must land on the task transaction and reflect real concurrency."""
+        """Workers stream their own spans; each binary's span must join the parent trace,
+        hang off a span from the parent process and reflect real concurrency."""
         ctx = mp.get_context("forkserver")
         monkeypatch.setattr(apple, "ProcessPoolExecutor", functools.partial(ProcessPoolExecutor, mp_context=ctx))
-        monkeypatch.setenv("LAUNCHPAD_ENV", "test")
-        transport = _CapturingTransport()
-        sentry_sdk.init(dsn="https://key@example.invalid/1", transport=transport, traces_sample_rate=1.0)
-        try:
-            with sentry_sdk.start_transaction(name="test"):
-                artifact = cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
-                binary_count = len(artifact.get_all_binary_paths())
-                AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(artifact)
-            sentry_sdk.flush()
-        finally:
-            sentry_sdk.get_global_scope().set_client(None)
+        with _SentryIngestStub() as stub:
+            monkeypatch.setenv("LAUNCHPAD_ENV", "integration")
+            monkeypatch.setenv("SENTRY_DSN", stub.dsn)
+            monkeypatch.setenv("SENTRY_REGION", "test")
+            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, trace_lifecycle="stream")
+            try:
+                with sentry_sdk.traces.start_span(name="test") as span:
+                    artifact = cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))
+                    AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(artifact)
+                sentry_sdk.flush()
+            finally:
+                sentry_sdk.get_global_scope().set_client(None)
 
-        spans = [
-            s
-            for t in transport.transactions
-            for s in t["spans"]
-            if s["op"] == "function" and s["description"].endswith("AppleAppAnalyzer._analyze_binary")
-        ]
-        assert len(spans) == binary_count
-        assert {s["data"]["binary_name"] for s in spans} == {b.name for b in artifact.get_all_binary_paths()}
-        assert all(s["timestamp"] > s["start_timestamp"] for s in spans)
+        spans = stub.span_items()
+        parent_ids = {s["span_id"]: s.get("parent_span_id") for s in spans}
+
+        def descends_from_test_span(span_id: str | None) -> bool:
+            while span_id is not None and span_id != span.span_id:
+                span_id = parent_ids.get(span_id)
+            return span_id == span.span_id
+
+        binary_spans = [s for s in spans if s["name"].endswith("AppleAppAnalyzer._analyze_binary")]
+        assert {s["attributes"]["binary_name"]["value"] for s in binary_spans} == {
+            b.name for b in artifact.get_all_binary_paths()
+        }
+        assert all(s["trace_id"] == span.trace_id for s in binary_spans)
+        # A segment means the span was started in a worker process, continuing the propagated trace
+        assert all(s["is_segment"] for s in binary_spans)
+        assert all(descends_from_test_span(s["parent_span_id"]) for s in binary_spans)
         assert any(
-            a is not b and a["start_timestamp"] < b["start_timestamp"] < a["timestamp"] for a in spans for b in spans
+            a is not b and a["start_timestamp"] < b["start_timestamp"] < a["end_timestamp"]
+            for a in binary_spans
+            for b in binary_spans
         )
 
     def test_apple_app_sizes(self, hackernews_xcarchive: Path) -> None:

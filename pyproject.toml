@@ -43,7 +43,7 @@ dependencies = [
     "rich>=14.1.0",
     "sentry-arroyo>=2.47.0",
     "sentry-options==1.2.10",
-    "sentry-sdk>=2.36.0",
+    "sentry-sdk>=2.70.0",
     "sortedcontainers>=2.4.0",
     "taskbroker-client>=0.20.26,<1",
     "typing-extensions>=4.15.0",

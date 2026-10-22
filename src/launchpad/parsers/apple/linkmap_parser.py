@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from ...utils.logging import get_logger
 
@@ -96,7 +96,7 @@ class LinkmapParser:
 
         return None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def _parse(self, contents: str) -> None:
         lines = [line for line in contents.split("\n") if line.strip()]
 

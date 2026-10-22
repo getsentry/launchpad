@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Callable, List, NamedTuple
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.size.symbols.cpp_aggregator import CppSymbolTypeAggregator
 from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
@@ -86,9 +86,11 @@ class SymbolInfo:
         return False
 
     @classmethod
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def from_symbol_sizes(cls, symbol_sizes: List[SymbolSize]) -> "SymbolInfo":
-        with sentry_sdk.start_span(op="partition_symbols", description="Partition symbols by language"):
+        with sentry_sdk.traces.start_span(
+            name="Partition symbols by language", attributes={"sentry.op": "partition_symbols"}
+        ):
             swift_symbols = SwiftSymbolList()
             objc_symbols = ObjCSymbolList()
             cpp_symbols = CppSymbolList()

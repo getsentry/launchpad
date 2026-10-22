@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from .android.aab import AAB
 from .android.apk import APK
@@ -20,7 +20,7 @@ class ArtifactFactory:
     """Factory for creating artifacts from paths."""
 
     @staticmethod
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def from_path(path: Path) -> Artifact:
         """Create appropriate Artifact from file path.
 

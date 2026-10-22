@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path, PurePosixPath
 from typing import Dict, List, Set, Tuple
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.size.constants import APPLE_FILESYSTEM_BLOCK_SIZE
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 OMITTED_LEAF_NAME = "__omitted__"
 
 
-@sentry_sdk.trace
+@sentry_sdk.traces.trace
 def analyze_apple_files(
     xcarchive: ZippedXCArchive,
     max_depth: int | None = 1000,
@@ -270,7 +270,7 @@ def _hash_directories_bottom_up(
     return updated
 
 
-@sentry_sdk.trace
+@sentry_sdk.traces.trace
 def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> List[FileInfo]:
     """Analyze an asset catalog file into treemap children."""
     catalog_details = xcarchive.get_asset_catalog_details(relative_path)
@@ -301,7 +301,7 @@ def _analyze_asset_catalog(xcarchive: ZippedXCArchive, relative_path: Path) -> L
     return result
 
 
-@sentry_sdk.trace
+@sentry_sdk.traces.trace
 def _detect_file_type(file_path: Path) -> str:
     """Best-effort file type detection via `file` as a fallback."""
     import subprocess
