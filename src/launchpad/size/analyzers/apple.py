@@ -14,10 +14,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import lief
-import sentry_sdk
+import sentry_sdk.traces
 
 from cryptography import x509
-from sentry_sdk.utils import qualname_from_function
 
 from launchpad.artifacts.apple.zipped_xcarchive import BinaryInfo, ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact
@@ -100,20 +99,16 @@ def _binary_worker_init(context: _WorkerContext) -> None:
         bind_artifact_id(context.artifact_id)
     if context.sentry_config is not None:
         initialize_sentry_sdk(context.sentry_config)
-        sentry_sdk.continue_trace(context.trace_headers)
+        sentry_sdk.traces.continue_trace(context.trace_headers)
 
 
-def _analyze_and_flush(analyze: Callable[[BinaryInfo], _TimedBinary], binary_info: BinaryInfo) -> _TimedBinary:
+def _analyze_and_flush(
+    analyze: Callable[[BinaryInfo], MachOBinaryAnalysis | None], binary_info: BinaryInfo
+) -> MachOBinaryAnalysis | None:
     try:
         return analyze(binary_info)
     finally:
         sentry_sdk.flush(timeout=2)
-
-
-class _TimedBinary(NamedTuple):
-    binary: MachOBinaryAnalysis | None
-    started_at: float
-    finished_at: float
 
 
 class _BinaryMetadata(NamedTuple):
@@ -158,7 +153,7 @@ class AppleAppAnalyzer:
         self.skip_insights = skip_insights
         self.app_info: AppleAppInfo | None = None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def preprocess(self, artifact: AppleArtifact) -> AppleAppInfo:
         if not isinstance(artifact, ZippedXCArchive):
             raise NotImplementedError(f"Only ZippedXCArchive artifacts are supported, got {type(artifact)}")
@@ -166,7 +161,7 @@ class AppleAppAnalyzer:
         self.app_info = self._extract_app_info(artifact)
         return self.app_info
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def analyze(self, artifact: AppleArtifact) -> AppleAnalysisResults:
         """Analyze an Apple app bundle.
 
@@ -240,12 +235,10 @@ class AppleAppAnalyzer:
                 logger.debug("Analyzing binaries in-process")
                 results = [analyze(binary_info) for binary_info in binaries]
 
-            for binary_info, timed in zip(binaries, results):
-                if workers > 0:
-                    self._record_binary_span(binary_info, timed)
-                if timed.binary is not None:
-                    binary_analysis.append(timed.binary)
-                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = timed.binary
+            for binary_info, binary in zip(binaries, results):
+                if binary is not None:
+                    binary_analysis.append(binary)
+                    binary_analysis_map[str(binary_info.path.relative_to(app_bundle_path))] = binary
 
             logger.info(
                 "size.apple.binary_analysis_phase_completed",
@@ -362,7 +355,7 @@ class AppleAppAnalyzer:
 
         return date_value.isoformat()
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def _extract_app_info(self, xcarchive: ZippedXCArchive) -> AppleAppInfo:
         """Extract basic app information.
 
@@ -515,7 +508,7 @@ class AppleAppAnalyzer:
     def _generate_insight_with_tracing(
         self, insight_class: type, insights_input: InsightsInput, insight_name: str
     ) -> Any:
-        with sentry_sdk.start_span(op="insight", description=f"apple.insights.{insight_name}"):
+        with sentry_sdk.traces.start_span(name=f"apple.insights.{insight_name}", attributes={"sentry.op": "insight"}):
             started = time.monotonic()
             result = insight_class().generate(insights_input)
             logger.info(
@@ -529,24 +522,14 @@ class AppleAppAnalyzer:
 
     def _analyze_binary_logged(
         self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: SafeDirectory
-    ) -> _TimedBinary:
+    ) -> MachOBinaryAnalysis | None:
         self._log_binary_started(binary_info, app_bundle_path, extract_dir)
-        started_at = time.time()
         start = time.monotonic()
         binary = self._analyze_binary(binary_info, app_bundle_path)
         elapsed_s = time.monotonic() - start
         if binary is not None:
             self._log_binary_completed(binary_info, binary, elapsed_s)
-        return _TimedBinary(binary, started_at, started_at + elapsed_s)
-
-    def _record_binary_span(self, binary_info: BinaryInfo, timed: _TimedBinary) -> None:
-        span = sentry_sdk.start_span(
-            op="function",
-            name=qualname_from_function(self._analyze_binary),
-            start_timestamp=timed.started_at,
-        )
-        span.set_data("binary_name", binary_info.name)
-        span.finish(end_timestamp=timed.finished_at)
+        return binary
 
     def _log_binary_started(self, binary_info: BinaryInfo, app_bundle_path: Path, extract_dir: SafeDirectory) -> None:
         logger.info(
@@ -583,7 +566,7 @@ class AppleAppAnalyzer:
             },
         )
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def _analyze_binary(
         self,
         binary_info: BinaryInfo,
@@ -593,6 +576,9 @@ class AppleAppAnalyzer:
         binary_path = binary_info.path
         dwarf_binary_path = binary_info.dsym_path
         is_main_binary = binary_info.is_main_binary
+
+        if (span := sentry_sdk.traces.get_current_span()) is not None:
+            span.set_attribute("binary_name", binary_info.name)
 
         if not binary_path.exists():
             logger.warning(f"Binary not found: {binary_path}")
@@ -643,7 +629,7 @@ class AppleAppAnalyzer:
                 )
 
             if binary_info.relocations_path and os.getenv("LAUNCHPAD_ENV") == "development":
-                with sentry_sdk.start_span(op="parse", description="dwarf_relocations.parse"):
+                with sentry_sdk.traces.start_span(name="dwarf_relocations.parse", attributes={"sentry.op": "parse"}):
                     dwarf_relocations = DwarfRelocationsParser.parse(binary_info.relocations_path)
                 if dwarf_relocations:
                     logger.debug(
@@ -707,15 +693,19 @@ class AppleAppAnalyzer:
             strippable_symbols_size=strippable_symbols_size,
         )
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def _check_strip_symbols_removal(self, binary_path: Path, binary: lief.MachO.Binary) -> int:
         """Test actual symbol removal using AppleStrip to get real size savings."""
         try:
-            with sentry_sdk.start_span(op="measure", description="strip_symbols.get_original_size"):
+            with sentry_sdk.traces.start_span(
+                name="strip_symbols.get_original_size", attributes={"sentry.op": "measure"}
+            ):
                 original_size = binary_path.stat().st_size
 
             # Create a temporary file for the stripped output
-            with sentry_sdk.start_span(op="measure", description="strip_symbols.create_temp_output"):
+            with sentry_sdk.traces.start_span(
+                name="strip_symbols.create_temp_output", attributes={"sentry.op": "measure"}
+            ):
                 temp_file = tempfile.NamedTemporaryFile(suffix=".stripped", delete=False)
                 temp_output_path = Path(temp_file.name)
                 temp_file.close()
@@ -728,7 +718,9 @@ class AppleAppAnalyzer:
                 else:
                     strip_flags = ["-S", "-T", "-x"]
 
-                with sentry_sdk.start_span(op="process", description="strip_symbols.strip_binary"):
+                with sentry_sdk.traces.start_span(
+                    name="strip_symbols.strip_binary", attributes={"sentry.op": "process"}
+                ):
                     apple_strip = AppleStrip()
                     result = apple_strip.strip(
                         input_file=binary_path,
@@ -740,7 +732,9 @@ class AppleAppAnalyzer:
                     logger.error(f"Strip command failed for {binary_path.name} with return code {result.returncode}")
                     actual_savings = 0
                 else:
-                    with sentry_sdk.start_span(op="measure", description="strip_symbols.calculate_savings"):
+                    with sentry_sdk.traces.start_span(
+                        name="strip_symbols.calculate_savings", attributes={"sentry.op": "measure"}
+                    ):
                         stripped_size = temp_output_path.stat().st_size
                         actual_savings = max(0, original_size - stripped_size)
 

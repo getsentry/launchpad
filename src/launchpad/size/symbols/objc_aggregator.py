@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 from typing import List, NamedTuple
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import ObjCSymbolList, ObjCSymbolTypeGroup
@@ -93,7 +93,7 @@ class ObjCSymbolTypeAggregator:
             name = name.split(".", 1)[0]
         return name.strip("_") or "Unknown"
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def aggregate_symbols(self, symbol_sizes: ObjCSymbolList) -> List[ObjCSymbolTypeGroup]:
         buckets: dict[ObjCSymbol, list[SymbolSize]] = defaultdict(list)
 

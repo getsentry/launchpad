@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 from typing import List, NamedTuple
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import CppSymbolList, CppSymbolTypeGroup
@@ -96,7 +96,7 @@ class CppSymbolTypeAggregator:
 
         return CppNamespaceFunction(namespace=namespace, function_name=function_name)
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def aggregate_symbols(self, symbol_sizes: CppSymbolList) -> List[CppSymbolTypeGroup]:
         buckets: dict[CppNamespaceFunction, list[SymbolSize]] = defaultdict(list)
 

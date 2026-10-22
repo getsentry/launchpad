@@ -52,6 +52,7 @@ def initialize_sentry_sdk(config: SentryConfig | None = None) -> None:
         enable_logs=True,
         environment=config.region,
         traces_sample_rate=1.0,  # Low volume service, capture all traces for now
+        trace_lifecycle="stream",
     )
 
     logger.info(f"Sentry SDK initialized for environment: {config.region}")

@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 
@@ -24,7 +24,7 @@ class ZippedAPK(AndroidArtifact):
     def get_manifest(self) -> AndroidManifest:
         return self.get_primary_apk().get_manifest()
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_primary_apk(self) -> APK:
         if self._primary_apk is not None:
             return self._primary_apk

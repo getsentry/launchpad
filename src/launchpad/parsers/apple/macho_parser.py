@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List
 
 import lief
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.size.models.apple import LinkEditInfo
 
@@ -66,27 +66,27 @@ class MachOParser:
         except Exception:
             return False
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def extract_architectures(self) -> List[str]:
         """Extract CPU architectures from the binary."""
         return [str(self.binary.header.cpu_type)]
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def extract_linked_libraries(self) -> List[str]:
         """Extract linked dynamic libraries from the binary."""
         return [str(lib.name) for lib in self.binary.libraries]
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def extract_sections(self) -> Dict[str, int]:
         """Extract binary sections and their sizes."""
         return {str(section.name): section.size for section in self.binary.sections}
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def extract_swift_sections(self) -> List[lief.Section]:
         """Get Swift sections from the binary."""
         return [section for section in self.binary.sections if "swift" in str(section.name).lower()]
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_header_size(self) -> int:
         """Get the size of the Mach-O header."""
         # Mach-O header is typically at the beginning
@@ -95,13 +95,13 @@ class MachOParser:
         # TODO(EME-425): implement proper header size, seems hard to do with LIEF
         return header_size
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def _cpu_type_to_string(self, cpu_type: int) -> str | None:
         """Convert LIEF CPU type to string representation."""
         result = CPU_TYPE_NAMES.get(cpu_type)
         return result.lower() if result else None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_section_bytes_at_offset(self, section_name: str, offset: int, size: int) -> bytes | None:
         """Get specific bytes from a section at a given offset.
 
@@ -128,7 +128,7 @@ class MachOParser:
             logger.exception(f"Failed to get section bytes at offset for {section_name}")
             return None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_section_bytes(self, section_name: str) -> bytes | None:
         """Get raw bytes content of a specific section.
 
@@ -155,7 +155,7 @@ class MachOParser:
             logger.exception(f"Failed to get section content for {section_name}")
             return None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def is_encrypted(self) -> bool:
         """Check if the Mach-O binary is encrypted.
 
@@ -173,12 +173,12 @@ class MachOParser:
             logger.exception("Failed to check encryption status")
             return False
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def parse_swift_protocol_conformances(self) -> List[str]:
         """Parse the Swift protocol section."""
         return SwiftProtocolParser(self.binary, self).parse_swift_protocol_conformances()
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def read_indirect_pointer(self, offset: int) -> tuple[int, int]:
         """Read an indirect pointer from the binary.
 
@@ -206,12 +206,12 @@ class MachOParser:
         else:
             return (vm_address + indirect_offset, 4)  # Consumed 4 bytes
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def parse_code_signature(self) -> CodeSignInformation | None:
         """Parse the code signature information from the binary."""
         return CodeSignatureParser(self.binary, self).parse_code_signature()
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_imported_symbols(self) -> List[str]:
         if self._imported_symbols_cache is not None:
             return self._imported_symbols_cache
@@ -221,7 +221,7 @@ class MachOParser:
 
         return self._imported_symbols_cache
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def parse_objc_method_names(self) -> List[str]:
         """Parse Objective-C method names from the __objc_methname section.
 
@@ -250,7 +250,7 @@ class MachOParser:
             logger.exception("Failed to parse Objective-C method names")
             return []
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def has_swift_imageinfo(self) -> bool:
         """Check if the binary has Swift image info with non-zero Swift version.
 
@@ -278,7 +278,7 @@ class MachOParser:
             logger.exception("Could not parse __objc_imageinfo")
             return False
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def static_inits(self) -> List[lief.Symbol | str]:
         init_sec = self.get_section_bytes("__mod_init_func")
         if not init_sec:
@@ -313,7 +313,7 @@ class MachOParser:
 
         return symbols
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def extract_linkedit_info(self) -> LinkEditInfo:
         """Extract all __LINKEDIT segment component sizes from load commands."""
         symbol_table_size = 0

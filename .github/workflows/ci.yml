@@ -13,7 +13,8 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # Pinned: setup-python has no 3.14.4 build for ubuntu-26.04 (ubuntu-latest); unpin once .python-version is bumped
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -45,7 +46,8 @@ jobs:
         run: make check-deps
 
   test:
-    runs-on: ubuntu-latest
+    # Pinned: setup-python has no 3.14.4 build for ubuntu-26.04 (ubuntu-latest); unpin once .python-version is bumped
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -162,7 +164,8 @@ jobs:
         run: docker compose -f docker-compose.e2e.yml down -v
 
   build:
-    runs-on: ubuntu-latest
+    # Pinned: setup-python has no 3.14.4 build for ubuntu-26.04 (ubuntu-latest); unpin once .python-version is bumped
+    runs-on: ubuntu-24.04
     needs: [check, test, e2e]
 
     steps:
