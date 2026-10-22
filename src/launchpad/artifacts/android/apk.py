@@ -123,24 +123,22 @@ class APK(AndroidArtifact):
                 continue
 
         if (span := sentry_sdk.traces.get_current_span()) is not None:
-            span.set_attribute("dex_stats.file_count", dex_stats.file_count)
-            span.set_attribute("dex_stats.total_bytes", dex_stats.total_bytes)
-            span.set_attribute("dex_stats.read_duration_ms", dex_stats.read_duration_ms)
-            span.set_attribute("dex_stats.parser.duration_ms", dex_stats.parser_duration_ms)
-            span.set_attribute("dex_stats.parser.method_duration_ms", dex_stats.parser_method_duration_ms)
-            span.set_attribute("dex_stats.parser.field_duration_ms", dex_stats.parser_field_duration_ms)
-            span.set_attribute("dex_stats.parser.class_count", dex_stats.parser_class_count)
-            span.set_attribute("dex_stats.parser.method_count", dex_stats.parser_method_count)
-            span.set_attribute("dex_stats.parser.field_count", dex_stats.parser_field_count)
-            span.set_attribute(
-                "dex_stats.parser.method_annotation_scan_steps",
-                dex_stats.parser_method_annotation_scan_steps,
+            span.set_attributes(
+                {
+                    "dex_stats.file_count": dex_stats.file_count,
+                    "dex_stats.total_bytes": dex_stats.total_bytes,
+                    "dex_stats.read_duration_ms": dex_stats.read_duration_ms,
+                    "dex_stats.parser.duration_ms": dex_stats.parser_duration_ms,
+                    "dex_stats.parser.method_duration_ms": dex_stats.parser_method_duration_ms,
+                    "dex_stats.parser.field_duration_ms": dex_stats.parser_field_duration_ms,
+                    "dex_stats.parser.class_count": dex_stats.parser_class_count,
+                    "dex_stats.parser.method_count": dex_stats.parser_method_count,
+                    "dex_stats.parser.field_count": dex_stats.parser_field_count,
+                    "dex_stats.parser.method_annotation_scan_steps": dex_stats.parser_method_annotation_scan_steps,
+                    "dex_stats.parser.field_annotation_scan_steps": dex_stats.parser_field_annotation_scan_steps,
+                    "dex_stats.parser.mapping_present": dex_stats.parser_mapping_present,
+                }
             )
-            span.set_attribute(
-                "dex_stats.parser.field_annotation_scan_steps",
-                dex_stats.parser_field_annotation_scan_steps,
-            )
-            span.set_attribute("dex_stats.parser.mapping_present", dex_stats.parser_mapping_present)
 
         return self._class_definitions
 
