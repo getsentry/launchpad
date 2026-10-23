@@ -5,6 +5,7 @@ from objectstore_client import (
 )
 from objectstore_client import (
     Permission,
+    SecretKey,
     TokenGenerator,
 )
 
@@ -51,8 +52,7 @@ def create_objectstore_client(config: ObjectstoreConfig) -> ObjectstoreClient | 
     if config.key_id and config.key_file:
         if secret_key := _read_keyfile(config.key_file):
             token_generator = TokenGenerator(
-                config.key_id,
-                secret_key,
+                SecretKey(config.key_id, secret_key),
                 config.token_expiry_seconds,
                 TOKEN_PERMISSIONS,
             )

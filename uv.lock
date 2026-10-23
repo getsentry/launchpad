@@ -889,7 +889,7 @@ requires-dist = [
     { name = "datadog", specifier = "==0.52.1" },
     { name = "lief", specifier = "==0.17.2" },
     { name = "lzfse", specifier = ">=0.4.2" },
-    { name = "objectstore-client", specifier = ">=0.1.0" },
+    { name = "objectstore-client", specifier = ">=0.3.0" },
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "pillow-heif", specifier = ">=1.1.0" },
     { name = "protobuf", specifier = ">=5.29.5,<6" },
@@ -1256,7 +1256,7 @@ wheels = [
 
 [[package]]
 name = "objectstore-client"
-version = "0.1.10"
+version = "0.3.0"
 source = { registry = "https://sfw.security.sentry.io/pypi/simple" }
 dependencies = [
     { name = "filetype" },
@@ -1265,9 +1265,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://sfw.security.sentry.io/pypi/packages/72/47/5320fd920f39e738f6959cce427ed04da0bcf15560195b77340593968f2b/objectstore_client-0.1.10.tar.gz", hash = "sha256:b2232002bdcc76cf68cb689421957ab15216f219730ede140b235ab5ac3d2e90", size = 17606, upload-time = "2026-06-04T21:31:39.987Z" }
+sdist = { url = "https://sfw.security.sentry.io/pypi/packages/60/f5/0a64f47f9daddc9ab154a4ca536936f7d42201a8ad41b14964f460cf11b3/objectstore_client-0.3.0.tar.gz", hash = "sha256:37fe87fe420ceadfffc576d2d23e1f8be9544847c59c66f174daf32fec15a7e2", size = 29533, upload-time = "2026-10-27T10:59:07.898Z" }
 wheels = [
-    { url = "https://sfw.security.sentry.io/pypi/packages/8c/0c/e71a00f2152e0400d3ac0a764b51dc16818e1e07e03e30a173bf7582af36/objectstore_client-0.1.10-py3-none-any.whl", hash = "sha256:01235fdaab87beb27b23fb016b51571a4f01ecc46dcf5669395612aa521f4485", size = 21824, upload-time = "2026-06-04T21:31:38.826Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/65/46/c17667ce62471b3855e4a4df66b3099804d6521ec70572fa3b3361466d78/objectstore_client-0.3.0-py3-none-any.whl", hash = "sha256:a74942845c69fa58ee27acba3ae81aa978f7b5ebc246d4011cbfba262c649a02", size = 35325, upload-time = "2026-10-27T10:59:06.866Z" },
 ]
 
 [[package]]
