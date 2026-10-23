@@ -21,6 +21,18 @@ from .swift_protocol_parser import SwiftProtocolParser
 
 logger = get_logger(__name__)
 
+# The four bytes every Mach-O starts with, as they appear on disk (mach-o/loader.h,
+# mach-o/fat.h). The CIGAM ("MAGIC" backwards) spellings are the byte-swapped forms: a
+# reader hitting one knows the file's endianness is the opposite of its own.
+MACHO_MAGICS = (
+    b"\xfe\xed\xfa\xce",  # MH_MAGIC, 32-bit, big-endian
+    b"\xce\xfa\xed\xfe",  # MH_CIGAM, 32-bit, little-endian
+    b"\xfe\xed\xfa\xcf",  # MH_MAGIC_64, 64-bit, big-endian
+    b"\xcf\xfa\xed\xfe",  # MH_CIGAM_64, 64-bit, little-endian - what Apple ships today
+    b"\xca\xfe\xba\xbe",  # FAT_MAGIC, universal binary wrapping several slices
+    b"\xbe\xba\xfe\xca",  # FAT_CIGAM
+)
+
 # Mach-O CPU type constants
 CPU_TYPE_NAMES: Dict[int, str] = {
     0x0000000C: "arm",
@@ -54,15 +66,7 @@ class MachOParser:
     def is_macho_binary(file_path: Path) -> bool:
         try:
             with open(file_path, "rb") as f:
-                magic = f.read(4)
-                return magic in [
-                    b"\xfe\xed\xfa\xce",  # MH_MAGIC
-                    b"\xce\xfa\xed\xfe",  # MH_CIGAM
-                    b"\xfe\xed\xfa\xcf",  # MH_MAGIC_64
-                    b"\xcf\xfa\xed\xfe",  # MH_CIGAM_64
-                    b"\xca\xfe\xba\xbe",  # FAT_MAGIC
-                    b"\xbe\xba\xfe\xca",  # FAT_CIGAM
-                ]
+                return f.read(4) in MACHO_MAGICS
         except Exception:
             return False
 
