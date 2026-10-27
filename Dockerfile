@@ -42,7 +42,7 @@ ENV PYTHONUNBUFFERED=1 \
     SENTRY_OPTIONS_DIR=/etc/sentry-options
 
 # Install uv
-RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.11.17'
+RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.13.5'
 
 # Create app user and group
 RUN groupadd --gid 1000 app && \
