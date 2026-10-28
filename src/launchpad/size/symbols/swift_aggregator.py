@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.size.symbols.macho_symbol_sizes import SymbolSize
 from launchpad.size.symbols.types import SwiftSymbolList, SwiftSymbolTypeGroup
@@ -38,16 +38,20 @@ class SwiftSymbolTypeAggregator:
             return True
         return False
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def aggregate_symbols(self, symbol_sizes: SwiftSymbolList) -> list[SwiftSymbolTypeGroup]:
         # Demangle all Swift symbols
-        with sentry_sdk.start_span(op="demangle", description=f"cwl_demangle {len(symbol_sizes)} symbols"):
+        with sentry_sdk.traces.start_span(
+            name=f"cwl_demangle {len(symbol_sizes)} symbols", attributes={"sentry.op": "demangle"}
+        ):
             for symbol in symbol_sizes:
                 self.demangler.add_name(symbol.mangled_name)
             demangled_results = self.demangler.demangle_all()
 
         # Group symbols by module/type
-        with sentry_sdk.start_span(op="aggregate", description=f"group {len(symbol_sizes)} symbols by module/type"):
+        with sentry_sdk.traces.start_span(
+            name=f"group {len(symbol_sizes)} symbols by module/type", attributes={"sentry.op": "aggregate"}
+        ):
             type_groups: dict[SwiftModuleType, list[SymbolSize]] = {}
 
             for symbol in symbol_sizes:

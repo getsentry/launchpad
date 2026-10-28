@@ -908,7 +908,7 @@ requires-dist = [
     { name = "rich", specifier = ">=14.1.0" },
     { name = "sentry-arroyo", specifier = ">=2.47.0" },
     { name = "sentry-options", specifier = "==1.2.10" },
-    { name = "sentry-sdk", specifier = ">=2.36.0" },
+    { name = "sentry-sdk", specifier = ">=2.70.0" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
     { name = "taskbroker-client", specifier = ">=0.20.26,<1" },
     { name = "typing-extensions", specifier = ">=4.15.0" },

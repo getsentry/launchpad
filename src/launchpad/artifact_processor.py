@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterator, cast
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from objectstore_client import (
     Client as ObjectstoreClient,
@@ -138,11 +138,21 @@ class ArtifactProcessor:
         with contextlib.ExitStack() as stack:
             stack.enter_context(request_context(artifact_id=artifact_id))
             processing_start = time.monotonic()
-            scope = stack.enter_context(sentry_sdk.new_scope())
-            scope.set_tag("launchpad.project_id", project_id)
-            scope.set_tag("launchpad.organization_id", organization_id)
-            scope.set_tag("launchpad.preprod_artifact_id", artifact_id)
-            stack.enter_context(scope.start_transaction(op="subprocess", name="launchpad.process_message"))
+            scope = stack.enter_context(sentry_sdk.isolation_scope())
+            sentry_sdk.traces.new_trace()
+            artifact_attributes = {
+                "launchpad.project_id": project_id,
+                "launchpad.organization_id": organization_id,
+                "launchpad.preprod_artifact_id": artifact_id,
+            }
+            # Tags apply to errors, attributes apply to spans and logs
+            scope.set_tags(artifact_attributes)
+            scope.set_attributes(artifact_attributes)
+            stack.enter_context(
+                sentry_sdk.traces.start_span(
+                    name="launchpad.process_message", attributes={"sentry.op": "subprocess"}, parent_span=None
+                )
+            )
             statsd.increment("artifact.processing.started")
             logger.info(f"Processing artifact {artifact_id} (project: {project_id}, org: {organization_id})")
             try:

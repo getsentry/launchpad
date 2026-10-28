@@ -4,7 +4,7 @@ import time
 
 from datetime import datetime, timezone
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
@@ -68,20 +68,22 @@ class AndroidAnalyzer:
 
         return self.app_info
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def analyze(self, artifact: AndroidArtifact) -> AndroidAnalysisResults:
         start_time = time.time()
         # Use preprocessed app info if available, otherwise extract it
         if not self.app_info:
-            with sentry_sdk.start_span(op="analyze", description="android.analyze.preprocess"):
+            with sentry_sdk.traces.start_span(name="android.analyze.preprocess", attributes={"sentry.op": "analyze"}):
                 self.app_info = self.preprocess(artifact)
 
         app_info = self.app_info
 
         apks: list[APK] = []
         # Split AAB into APKs, or use the APK directly
-        with sentry_sdk.start_span(op="analyze", description="android.analyze.get_primary_apks") as span:
-            span.set_data("artifact.type", type(artifact).__name__)
+        with sentry_sdk.traces.start_span(
+            name="android.analyze.get_primary_apks", attributes={"sentry.op": "analyze"}
+        ) as span:
+            span.set_attribute("artifact.type", type(artifact).__name__)
             if isinstance(artifact, AAB):
                 apks = artifact.get_primary_apks()
             elif isinstance(artifact, ZippedAAB):
@@ -92,20 +94,22 @@ class AndroidAnalyzer:
                 apks.append(artifact)
             else:
                 raise ValueError(f"Unsupported artifact type: {type(artifact)}")
-            span.set_data("apk.count", len(apks))
+            span.set_attribute("apk.count", len(apks))
 
         logger.debug("Found %d APKs", len(apks))
 
-        with sentry_sdk.start_span(op="analyze", description="android.analyze.file_analysis"):
+        with sentry_sdk.traces.start_span(name="android.analyze.file_analysis", attributes={"sentry.op": "analyze"}):
             file_analysis = self._get_file_analysis(apks)
-        with sentry_sdk.start_span(op="analyze", description="android.analyze.class_definitions"):
+        with sentry_sdk.traces.start_span(
+            name="android.analyze.class_definitions", attributes={"sentry.op": "analyze"}
+        ):
             class_definitions = self._get_class_definitions(apks)
-        with sentry_sdk.start_span(op="analyze", description="android.analyze.hermes_reports"):
+        with sentry_sdk.traces.start_span(name="android.analyze.hermes_reports", attributes={"sentry.op": "analyze"}):
             hermes_reports = self._get_hermes_reports(apks)
 
         # Calculate download and install sizes
         logger.debug("Calculating APK download and install sizes")
-        with sentry_sdk.start_span(op="analyze", description="android.analyze.apk_sizes"):
+        with sentry_sdk.traces.start_span(name="android.analyze.apk_sizes", attributes={"sentry.op": "analyze"}):
             download_size, install_size = self._calculate_apk_sizes(apks)
 
         # Generate insights BEFORE treemap so we can tag nodes with flagged insights
@@ -142,7 +146,7 @@ class AndroidAnalyzer:
         )
 
         logger.debug("Building file treemap")
-        with sentry_sdk.start_span(op="analyze", description="android.analyze.treemap"):
+        with sentry_sdk.traces.start_span(name="android.analyze.treemap", attributes={"sentry.op": "analyze"}):
             treemap = treemap_builder.build_file_treemap(file_analysis)
 
         analysis_duration = time.time() - start_time

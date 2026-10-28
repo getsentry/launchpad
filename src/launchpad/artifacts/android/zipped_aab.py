@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from typing import Callable
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 
@@ -25,7 +25,7 @@ class ZippedAAB(AndroidArtifact):
     def get_manifest(self) -> AndroidManifest:
         return self.get_aab().get_manifest()
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_aab(self) -> AAB:
         if self._aab is not None:
             return self._aab

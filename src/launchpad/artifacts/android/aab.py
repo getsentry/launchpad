@@ -9,7 +9,7 @@ from functools import partial
 from pathlib import Path
 from typing import Callable
 
-import sentry_sdk
+import sentry_sdk.traces
 
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
 from launchpad.parsers.android.icon.proto_xml_drawable_parser import (
@@ -41,7 +41,7 @@ class AAB(AndroidArtifact):
         self._dex_mapping: DexMapping | None = None
         self._universal_apk: APK | None = None
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_manifest(self) -> AndroidManifest:
         if self._manifest is not None:
             return self._manifest
@@ -61,7 +61,7 @@ class AAB(AndroidArtifact):
         self._manifest = ProtoXmlUtils.proto_xml_to_android_manifest(manifest_buffer, proto_res_tables)
         return self._manifest
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_resource_tables(self) -> list[ProtobufResourceTable]:  # type: ignore[override]
         if self._resource_table is not None:
             return [self._resource_table]
@@ -79,7 +79,7 @@ class AAB(AndroidArtifact):
         self._resource_table = ProtobufResourceTable(arsc_buffer)
         return [self._resource_table]
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_primary_apks(self, device_spec: DeviceSpec = DeviceSpec()) -> list[APK]:
         if self._primary_apks is not None:
             return self._primary_apks
@@ -87,17 +87,19 @@ class AAB(AndroidArtifact):
         apks_dir = create_temp_directory("apks-")
         try:
             bundletool = Bundletool()
-            with sentry_sdk.start_span(op="aab", description="aab.build_primary_apks"):
+            with sentry_sdk.traces.start_span(name="aab.build_primary_apks", attributes={"sentry.op": "aab"}):
                 bundletool.build_apks(bundle_path=self.path, output_dir=apks_dir, device_spec=device_spec)
 
             apks = []
             for apk_path in apks_dir.glob("*.apk"):
                 tmp_dir = Path(tempfile.mkdtemp())
                 new_apk_path = tmp_dir / apk_path.name
-                with sentry_sdk.start_span(op="file.copy", description="aab.copy_primary_apk") as span:
-                    span.set_data("apk.size", apk_path.stat().st_size)
+                with sentry_sdk.traces.start_span(
+                    name="aab.copy_primary_apk", attributes={"sentry.op": "file.copy"}
+                ) as span:
+                    span.set_attribute("apk.size", apk_path.stat().st_size)
                     shutil.copyfile(apk_path, new_apk_path)
-                with sentry_sdk.start_span(op="aab", description="aab.initialize_primary_apk"):
+                with sentry_sdk.traces.start_span(name="aab.initialize_primary_apk", attributes={"sentry.op": "aab"}):
                     apks.append(
                         APK(
                             new_apk_path,
@@ -109,10 +111,12 @@ class AAB(AndroidArtifact):
             self._primary_apks = apks
             return apks
         finally:
-            with sentry_sdk.start_span(op="file.cleanup", description="aab.cleanup_primary_apks"):
+            with sentry_sdk.traces.start_span(
+                name="aab.cleanup_primary_apks", attributes={"sentry.op": "file.cleanup"}
+            ):
                 cleanup_directory(apks_dir)
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_universal_apk(self, apk_dir: Path, device_spec: DeviceSpec = DeviceSpec()) -> APK:
         if self._universal_apk is not None:
             return self._universal_apk
@@ -152,7 +156,7 @@ class AAB(AndroidArtifact):
         self._dex_mapping = DexMapping(dex_mapping_buffer)
         return self._dex_mapping
 
-    @sentry_sdk.trace
+    @sentry_sdk.traces.trace
     def get_app_icon(self) -> bytes | None:
         manifest = self.get_manifest()
         if manifest.application is None:
