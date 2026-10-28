@@ -20,10 +20,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Sentry CLI
-        uses: getsentry/action-setup-cli@70d7e587b84c2e78cf4d37cd33d7b74fb3729c1b # v1
-        with:
-          version: "3.4.1"
+      - name: Install Sentry CLI (nightly)
+        run: curl https://cli.sentry.dev/install -fsS | bash -s -- --version nightly
 
       - name: Unzip iOS app
         run: |
@@ -35,18 +33,20 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }}
         run: |
-          sentry-cli --log-level=debug build upload \
+          sentry build upload \
             ./HackerNews.xcarchive \
             --org sentry \
             --project launchpad-test-ios \
-            --build-configuration Release
+            --build-configuration Release \
+            --log-level debug
 
       - name: Upload Android app to Sentry
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_SENTRY_AUTH_TOKEN }}
         run: |
-          sentry-cli --log-level=debug build upload \
+          sentry build upload \
             ./tests/_fixtures/android/hn.aab \
             --org sentry \
             --project launchpad-test-android \
-            --build-configuration Release
+            --build-configuration Release \
+            --log-level debug
