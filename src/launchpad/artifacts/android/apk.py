@@ -59,12 +59,10 @@ class APK(AndroidArtifact):
         if self._manifest is not None:
             return self._manifest
 
-        manifest_files = list(self._extract_dir.rglob("AndroidManifest.xml"))
-        if len(manifest_files) > 1:
-            raise ValueError("Multiple AndroidManifest.xml files found in APK")
-
-        manifest_file = manifest_files[0] if manifest_files else None
-        if not manifest_file:
+        # Android only reads the manifest at the APK root; libraries can ship
+        # stray copies elsewhere (e.g. deeplinkdispatch/AndroidManifest.xml).
+        manifest_file = self._extract_dir / "AndroidManifest.xml"
+        if not manifest_file.is_file():
             raise ValueError("Could not find manifest in APK")
 
         with open(manifest_file, "rb") as f:
@@ -79,12 +77,8 @@ class APK(AndroidArtifact):
         if self._resource_table is not None:
             return [self._resource_table]
 
-        arsc_files = list(self._extract_dir.rglob("resources.arsc"))
-        if len(arsc_files) > 1:
-            raise ValueError("Multiple resources.arsc files found in APK")
-
-        arsc_file = arsc_files[0] if arsc_files else None
-        if not arsc_file:
+        arsc_file = self._extract_dir / "resources.arsc"
+        if not arsc_file.is_file():
             logger.warning("No resources.arsc file found in APK")
             return []
 
