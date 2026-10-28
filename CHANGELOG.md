@@ -8,6 +8,42 @@
 
 - (security) Add SafeDirectory to enforce path traversal checks by @runningcode in [#623](https://github.com/getsentry/launchpad/pull/623)
 
+## 26.10.1
+
+### New Features ✨
+
+- (tracing) Migrate to span streaming by @sentrivana in [#705](https://github.com/getsentry/launchpad/pull/705)
+
+### Bug Fixes 🐛
+
+- (android) Ignore non-element manifest children by @jamieQ in [#701](https://github.com/getsentry/launchpad/pull/701)
+- (docker) Bump python base image to 3.14.10-slim-bookworm by @sentry-junior in [#721](https://github.com/getsentry/launchpad/pull/721)
+
+### Internal Changes 🔧
+
+#### Deps
+
+- Bump pip from 26.1.2 to 26.2 by @dependabot in [#714](https://github.com/getsentry/launchpad/pull/714)
+- Bump cryptography from 48.0.0 to 50.0.0 by @dependabot in [#713](https://github.com/getsentry/launchpad/pull/713)
+- Bump anyio from 4.13.0 to 4.14.2 in /tests/e2e/mock-sentry-api by @dependabot in [#711](https://github.com/getsentry/launchpad/pull/711)
+- Bump uv to 0.13.5 by @sentry-junior in [#722](https://github.com/getsentry/launchpad/pull/722)
+- Bump grpcio to 1.84.1 by @sentry-junior in [#723](https://github.com/getsentry/launchpad/pull/723)
+- Upgrade objectstore-client to 0.3.0 by @sentry-junior in [#720](https://github.com/getsentry/launchpad/pull/720)
+- Bump urllib3 from 2.7.0 to 2.8.0 by @dependabot in [#712](https://github.com/getsentry/launchpad/pull/712)
+- Bump h2 from 4.3.0 to 4.4.1 by @dependabot in [#715](https://github.com/getsentry/launchpad/pull/715)
+- Bump multidict from 6.7.1 to 6.9.1 by @dependabot in [#716](https://github.com/getsentry/launchpad/pull/716)
+- Bump virtualenv from 21.4.2 to 21.14.9 by @dependabot in [#717](https://github.com/getsentry/launchpad/pull/717)
+- Bump aiohttp from 3.14.0 to 3.14.4 by @dependabot in [#718](https://github.com/getsentry/launchpad/pull/718)
+- Bump nltk from 3.9.4 to 3.10.4 by @dependabot in [#706](https://github.com/getsentry/launchpad/pull/706)
+- Bump starlette from 0.38.6 to 1.3.1 in /tests/e2e/mock-sentry-api by @dependabot in [#710](https://github.com/getsentry/launchpad/pull/710)
+- Bump python-multipart from 0.0.20 to 0.0.31 in /tests/e2e/mock-sentry-api by @dependabot in [#694](https://github.com/getsentry/launchpad/pull/694)
+- Bump certifi to 2026.10.19 by @sentry-junior in [#704](https://github.com/getsentry/launchpad/pull/704)
+- Bump sentry-arroyo to 2.47.0 by @sentry-junior in [#703](https://github.com/getsentry/launchpad/pull/703)
+
+#### Other
+
+- Pin Python jobs to ubuntu-24.04 by @sentry-junior in [#709](https://github.com/getsentry/launchpad/pull/709)
+
 ## 26.10.0
 
 ### Bug Fixes 🐛
