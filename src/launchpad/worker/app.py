@@ -13,11 +13,26 @@ class CustomRouter(TaskRouter):
 
 def producer_factory(topic: str) -> KafkaProducer:
     bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "127.0.0.1:9092")
+    security_parameters = {
+        "security.protocol": os.getenv("KAFKA_SECURITY_PROTOCOL", None),
+        "sasl.mechanism": os.getenv("KAFKA_SASL_MECHANISM", None),
+        "sasl.username": os.getenv("KAFKA_SASL_USERNAME", None),
+        "sasl.password": os.getenv("KAFKA_SASL_PASSWORD", None),
+        "ssl.ca.location": os.getenv("KAFKA_SSL_CA_LOCATION", None),
+        "ssl.certificate.location": os.getenv("KAFKA_SSL_CERTIFICATE_LOCATION", None),
+        "ssl.key.location": os.getenv("KAFKA_SSL_KEY_LOCATION", None),
+    }
+
     config = {
         "bootstrap.servers": bootstrap_servers,
         "compression.type": "lz4",
         "message.max.bytes": 50000000,
     }
+
+    for parameter, value in security_parameters.items():
+        if value:
+            config[parameter] = value
+
     return KafkaProducer(config)
 
 
