@@ -907,7 +907,7 @@ requires-dist = [
     { name = "sentry-options", specifier = "==1.2.10" },
     { name = "sentry-sdk", specifier = ">=2.70.0" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
-    { name = "taskbroker-client", specifier = ">=0.20.26,<1" },
+    { name = "taskbroker-client", specifier = ">=0.20.32,<1" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
     { name = "zipfile-zstd", specifier = "==0.0.4" },
 ]
@@ -2021,15 +2021,15 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "2.70.0"
+version = "2.73.0"
 source = { registry = "https://sfw.security.sentry.io/pypi/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://sfw.security.sentry.io/pypi/packages/52/0a/e37553f3106d0f7f0d4b8ad2c7b92410d131929786ffd116833d3b8164df/sentry_sdk-2.70.0.tar.gz", hash = "sha256:27e4b512f47be93136645dbe8f02d430473ee73a389ce430b2b7104baa66cf75", size = 1047234, upload-time = "2026-09-22T09:40:11.721Z" }
+sdist = { url = "https://sfw.security.sentry.io/pypi/packages/c5/3b/1e47acf2456781c26e12007379ecc154bf310b8f64d40390d78b791d55c3/sentry_sdk-2.73.0.tar.gz", hash = "sha256:4a2ab97b16e4693c325ab361c7bbbb346dbc7d0bc0150922d795a25bac8d5280", size = 1079078, upload-time = "2026-10-22T09:08:49.63Z" }
 wheels = [
-    { url = "https://sfw.security.sentry.io/pypi/packages/eb/ff/b1e56f009bfb9b8023910b533d5ebf4ec5650da49891f2b8c7f3d4815401/sentry_sdk-2.70.0-py3-none-any.whl", hash = "sha256:89600e8bb5fc5239cad5c4434217f453204f2207ad29399ea58947460b37a62e", size = 531752, upload-time = "2026-09-22T09:40:10.063Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/b2/88/cabf98d017d7b940720e514e5f8ee02e3e6f7495caf93c30735a38387ec4/sentry_sdk-2.73.0-py3-none-any.whl", hash = "sha256:0bcfa6928ea5adbb89591858b514d27adac27c7a3cccc31b20ed10e0b09eda9e", size = 549011, upload-time = "2026-10-22T09:08:47.88Z" },
 ]
 
 [package.optional-dependencies]
@@ -2097,7 +2097,7 @@ wheels = [
 
 [[package]]
 name = "taskbroker-client"
-version = "0.20.26"
+version = "0.20.32"
 source = { registry = "https://sfw.security.sentry.io/pypi/simple" }
 dependencies = [
     { name = "confluent-kafka" },
@@ -2113,9 +2113,9 @@ dependencies = [
     { name = "sentry-sdk", extra = ["http2"] },
     { name = "zstandard" },
 ]
-sdist = { url = "https://sfw.security.sentry.io/pypi/packages/29/d0/3daddcecf31946facebb8c97f5c5ea8a1fef0a42018b02283cfe333c32c3/taskbroker_client-0.20.26.tar.gz", hash = "sha256:980efab031ca29c764ae169e1f513e4404a3e49e513ae2bdb1a134a4520aec30", size = 52041, upload-time = "2026-09-23T14:32:36.54Z" }
+sdist = { url = "https://sfw.security.sentry.io/pypi/packages/19/7c/8c7d0654efd0ff578dd94d5421d44c7488fb2236092861af1ed7b5dd08a4/taskbroker_client-0.20.32.tar.gz", hash = "sha256:74cbc58e706c4053dab20cdd7200a94388c9eaf748fd526e8e61dfab88bfbb04", size = 55084, upload-time = "2026-10-28T20:32:22.158Z" }
 wheels = [
-    { url = "https://sfw.security.sentry.io/pypi/packages/50/37/1bd29987a5db29de3fb5023e9808bfc12da2be64760ad561941c82c659d5/taskbroker_client-0.20.26-py3-none-any.whl", hash = "sha256:4b4c90a913db35e466115b8f6099dbf47d6111725315f960addfcc444a2b21f1", size = 63577, upload-time = "2026-09-23T14:32:35.478Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/16/87/5f5c39a3d5d2cfd503f3410630a3b8d74b5460dade8674d6e03c40d1a09f/taskbroker_client-0.20.32-py3-none-any.whl", hash = "sha256:f519142f82ac157d99c051bf6afb8e22d5b9e327d7a894efcde1b98a267009e4", size = 65337, upload-time = "2026-10-28T20:32:21.118Z" },
 ]
 
 [[package]]
