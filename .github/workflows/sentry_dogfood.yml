@@ -20,8 +20,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install Sentry CLI (nightly)
-        run: curl https://cli.sentry.dev/install -fsS | bash -s -- --version nightly
+      - name: Install Sentry CLI (pinned nightly)
+        shell: bash
+        env:
+          SENTRY_CLI_VERSION: "0.48.0-dev.1792191634"
+          SENTRY_CLI_SHA256: "000573cae3395cd9be6b1fd08ac2c18067d5c99c129c614dececc1fc3bd29fd8"
+        run: |
+          INSTALL_DIR="${RUNNER_TEMP}/sentry-bin"
+          mkdir -p "${INSTALL_DIR}"
+          GHCR_TOKEN=$(curl -fsS "https://ghcr.io/token?scope=repository:getsentry/toolkit:pull" | jq -er '.token')
+          curl -fsSL --proto '=https' --proto-redir '=https' \
+            -H "Authorization: Bearer ${GHCR_TOKEN}" \
+            "https://ghcr.io/v2/getsentry/toolkit/blobs/sha256:${SENTRY_CLI_SHA256}" \
+            -o "${INSTALL_DIR}/sentry.gz"
+          printf '%s  %s\n' "${SENTRY_CLI_SHA256}" "${INSTALL_DIR}/sentry.gz" | shasum -a 256 -c -
+          gunzip -c "${INSTALL_DIR}/sentry.gz" > "${INSTALL_DIR}/sentry"
+          chmod +x "${INSTALL_DIR}/sentry"
+          test "$("${INSTALL_DIR}/sentry" --version)" = "${SENTRY_CLI_VERSION}"
+          echo "${INSTALL_DIR}" >> "${GITHUB_PATH}"
 
       - name: Unzip iOS app
         run: |
