@@ -2,15 +2,17 @@ import hashlib
 import logging
 
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
+import requests
 
 from objectstore_client import Client as ObjectstoreClient
 from objectstore_client import TimeToLive
 from sentry_options.testing import override_options
 from taskbroker_client.worker.workerchild import ProcessingDeadlineExceeded
 
+from launchpad.api.update_api_models import PutSizeFailed, PutSizeProcessing
 from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig, _parse_build_number, get_service_config
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
@@ -22,6 +24,7 @@ from launchpad.constants import (
 )
 from launchpad.sentry_client import SentryClient, SentryClientError
 from launchpad.size.models.android import AndroidAppInfo
+from launchpad.size.models.common import BaseAnalysisResults, FileAnalysis
 from launchpad.tracing import RequestLogFilter
 from launchpad.utils.objectstore import ObjectstoreConfig
 from launchpad.utils.statsd import FakeStatsd
@@ -56,6 +59,69 @@ class TestArtifactProcessorErrorHandling:
         mock_statsd = Mock()
         mock_objectstore_client = Mock(spec=ObjectstoreClient)
         self.processor = ArtifactProcessor(mock_sentry_client, mock_statsd, mock_objectstore_client)
+
+    @pytest.fixture
+    def analysis_results(self):
+        return BaseAnalysisResults(
+            analysis_version="1.0.0",
+            file_analysis=FileAnalysis(items=[]),
+            treemap=None,
+            download_size=0,
+            install_size=0,
+        )
+
+    def test_do_size_reports_processing_before_analysis(self, analysis_results):
+        artifact, analyzer = Mock(spec=Artifact), Mock()
+        client = self.processor._sentry_client
+        reports_at_analysis_start = []
+
+        def analyze(artifact):
+            reports_at_analysis_start.extend(client.update_size_analysis.call_args_list)
+            return analysis_results
+
+        analyzer.analyze.side_effect = analyze
+        self.processor._do_size("1", "2", "artifact-id", artifact, analyzer)
+
+        assert reports_at_analysis_start == [
+            call(org="1", project="2", artifact_id="artifact-id", data=PutSizeProcessing())
+        ]
+        analyzer.analyze.assert_called_once_with(artifact)
+        client.upload_size_analysis_file.assert_called_once()
+
+    def test_do_size_reports_failure_after_analysis_error(self):
+        analyzer = Mock()
+        analyzer.analyze.side_effect = ValueError("Invalid binary")
+        self.processor._do_size("1", "2", "artifact-id", Mock(spec=Artifact), analyzer)
+
+        reports = self.processor._sentry_client.update_size_analysis.call_args_list
+        assert len(reports) == 2
+        assert isinstance(reports[0].kwargs["data"], PutSizeProcessing)
+        assert isinstance(reports[1].kwargs["data"], PutSizeFailed)
+        self.processor._sentry_client.upload_size_analysis_file.assert_not_called()
+
+    @pytest.mark.parametrize("error", [SentryClientError(), requests.ConnectionError(), requests.Timeout()])
+    def test_do_size_continues_when_start_update_fails(self, error, caplog, analysis_results):
+        self.processor._sentry_client.update_size_analysis.side_effect = error
+        artifact, analyzer = Mock(spec=Artifact), Mock()
+        analyzer.analyze.return_value = analysis_results
+        self.processor._do_size("1", "2", "artifact-id", artifact, analyzer)
+
+        analyzer.analyze.assert_called_once_with(artifact)
+        self.processor._sentry_client.upload_size_analysis_file.assert_called_once()
+        self.processor._sentry_client.update_size_analysis.assert_called_once_with(
+            org="1", project="2", artifact_id="artifact-id", data=PutSizeProcessing()
+        )
+        assert "Failed to report size analysis start for artifact artifact-id (project: 2, org: 1)" in caplog.text
+
+    def test_do_size_propagates_deadline_during_start_update(self):
+        self.processor._sentry_client.update_size_analysis.side_effect = ProcessingDeadlineExceeded()
+        analyzer = Mock()
+        with pytest.raises(ProcessingDeadlineExceeded):
+            self.processor._do_size("1", "2", "artifact-id", Mock(spec=Artifact), analyzer)
+
+        analyzer.analyze.assert_not_called()
+        self.processor._sentry_client.upload_size_analysis_file.assert_not_called()
+        self.processor._sentry_client.update_size_analysis.assert_called_once()
 
     def test_update_artifact_error_success(self):
         """Test that _update_artifact_error successfully updates artifact with error."""

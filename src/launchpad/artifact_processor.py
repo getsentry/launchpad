@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterator, cast
 
+import requests
 import sentry_sdk.traces
 
 from objectstore_client import (
@@ -24,7 +25,7 @@ from taskbroker_client.worker.workerchild import ProcessingDeadlineExceeded
 
 from launchpad.api.update_api_models import AndroidAppInfo as AndroidAppInfoModel
 from launchpad.api.update_api_models import AppleAppInfo as AppleAppInfoModel
-from launchpad.api.update_api_models import PutSizeFailed, UpdateData
+from launchpad.api.update_api_models import PutSizeFailed, PutSizeProcessing, UpdateData
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.android.apk import APK
 from launchpad.artifacts.android.zipped_aab import ZippedAAB
@@ -431,6 +432,22 @@ class ArtifactProcessor:
         analyzer: AndroidAnalyzer | AppleAppAnalyzer,
     ):
         logger.info(f"SIZE_ANALYSIS for {artifact_id} (project: {project_id}, org: {organization_id}) started")
+        try:
+            self._sentry_client.update_size_analysis(
+                org=organization_id,
+                project=project_id,
+                artifact_id=artifact_id,
+                data=PutSizeProcessing(),
+            )
+        except SentryClientError, requests.RequestException:
+            # A failed start notification should not prevent analysis from running.
+            logger.exception(
+                "Failed to report size analysis start for artifact %s (project: %s, org: %s)",
+                artifact_id,
+                project_id,
+                organization_id,
+            )
+
         try:
             results = analyzer.analyze(cast(Any, artifact))
             self._upload_results(organization_id, project_id, artifact_id, results)
