@@ -1,7 +1,7 @@
 FROM ghcr.io/getsentry/image-mirror-library-python:3.14.10-slim-bookworm
 
 # Install uv
-RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.13.5'
+RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.13.7'
 
 ENV PATH="/.venv/bin:$PATH" \
     UV_PROJECT_ENVIRONMENT=/.venv \
