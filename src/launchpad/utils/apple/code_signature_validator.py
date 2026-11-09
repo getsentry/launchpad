@@ -86,7 +86,6 @@ class CodeSignatureValidator:
         self.plist = self.archive.get_plist()
         self.executable_name: str = self.archive.get_plist().get("CFBundleExecutable", "")
         self.app_root: SafeDirectory = self.archive.get_app_bundle_path()
-        self.macho_parser: Optional[MachOParser] = None
 
     def validate(self) -> Tuple[bool, List[str]]:
         """Validate the code signature.
@@ -126,11 +125,10 @@ class CodeSignatureValidator:
         if fat_binary is None:
             raise ValueError("Failed to parse binary")
 
-        self.macho_parser = MachOParser(fat_binary.at(0))
-        if self.macho_parser.is_encrypted():
+        macho_parser = MachOParser(fat_binary.at(0))
+        if macho_parser.is_encrypted():
             return BinaryCheckResult(valid=False)
-
-        return self._check_binary()
+        return self._check_binary(macho_parser)
 
     def _validate_info_plist(self, binary_hashes: BinaryCheckResult) -> bool:
         """Validate the Info.plist."""
@@ -254,12 +252,9 @@ class CodeSignatureValidator:
             logger.debug(f"File {file_path} is not in the files2 array")
             errors.append(f"file added: {file_path}")
 
-    def _check_binary(self) -> BinaryCheckResult:
+    def _check_binary(self, macho_parser: MachOParser) -> BinaryCheckResult:
         """Check the binary."""
-        if not self.macho_parser:
-            raise ValueError("MachO parser not initialized")
-
-        code_signature = self.macho_parser.parse_code_signature()
+        code_signature = macho_parser.parse_code_signature()
         if not code_signature:
             logger.info("No code signature found")
             return BinaryCheckResult(valid=False, error_message="No code signature found")
