@@ -42,7 +42,7 @@ from launchpad.size.insights.common.large_videos import LargeVideoFileInsight
 from launchpad.size.insights.insight import InsightsInput
 from launchpad.size.models.common import APPLE_ANALYSIS_VERSION
 from launchpad.size.models.treemap import FlaggedInsight
-from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes
+from launchpad.size.symbols.macho_symbol_sizes import MachOSymbolSizes, SymbolSize
 from launchpad.size.treemap.treemap_builder import TreemapBuilder
 from launchpad.size.utils.apple_bundle_size import calculate_bundle_sizes
 from launchpad.size.utils.file_analysis import analyze_apple_files
@@ -591,42 +591,11 @@ class AppleAppAnalyzer:
         dwarf_relocations = None
 
         if dwarf_binary_path:
-            dsym_config = lief.MachO.ParserConfig()
-            dsym_config.parse_dyld_exports = False
-            dsym_config.parse_dyld_bindings = False
-            dsym_config.parse_dyld_rebases = False
-
-            with open(dwarf_binary_path, "rb") as f:
-                dwarf_fat_binary = lief.MachO.parse(f, dsym_config)  # type: ignore
-            if dwarf_fat_binary:
-                # Build a map of architecture name -> dSYM slice index
-                dsym_arch_map: Dict[str, int] = {}
-                for i, dsym_slice in enumerate(dwarf_fat_binary):
-                    dsym_arch_name = get_cpu_type_name(dsym_slice.header.cpu_type)
-                    dsym_arch_map[dsym_arch_name] = i
-
-                # Symbolicate each architecture slice
-                for arch_slice in architecture_slices:
-                    if arch_slice.arch_name in dsym_arch_map:
-                        dsym_index = dsym_arch_map[arch_slice.arch_name]
-                        dsym_binary = dwarf_fat_binary.at(dsym_index)
-                        slice_symbol_sizes = MachOSymbolSizes(dsym_binary).get_symbol_sizes()
-                        arch_slice.symbol_info = SymbolInfo.from_symbol_sizes(
-                            symbol_sizes=slice_symbol_sizes,
-                        )
-                        logger.debug(
-                            f"Symbolicated {arch_slice.arch_name} slice with {len(slice_symbol_sizes)} symbols"
-                        )
-                    else:
-                        logger.warning(f"No dSYM slice found for architecture {arch_slice.arch_name}")
-
-            else:
-                logger.error(
-                    "size.apple.skip_symbol_analysis.dwarf_binary_parse_failed",
-                    extra={
-                        "binary_name": binary_info.name,
-                    },
-                )
+            for arch_slice, slice_symbol_sizes in self._extract_dsym_symbols(
+                dwarf_binary_path, binary_info.name, architecture_slices
+            ):
+                arch_slice.symbol_info = SymbolInfo.from_symbol_sizes(symbol_sizes=slice_symbol_sizes)
+                logger.debug(f"Symbolicated {arch_slice.arch_name} slice with {len(slice_symbol_sizes)} symbols")
 
             if binary_info.relocations_path and os.getenv("LAUNCHPAD_ENV") == "development":
                 with sentry_sdk.traces.start_span(name="dwarf_relocations.parse", attributes={"sentry.op": "parse"}):
@@ -652,6 +621,49 @@ class AppleAppAnalyzer:
             dwarf_relocations=dwarf_relocations,
             strippable_symbols_size=strippable_symbols_size,
         )
+
+    def _extract_dsym_symbols(
+        self, dwarf_binary_path: Path, binary_name: str, architecture_slices: list[ArchitectureSlice]
+    ) -> list[tuple[ArchitectureSlice, list[SymbolSize]]]:
+        """Extract symbols without retaining the native dSYM parser after return.
+
+        Return a list rather than yielding so parser references leave scope
+        when this method returns.
+        """
+        dsym_config = lief.MachO.ParserConfig()
+        dsym_config.parse_dyld_exports = False
+        dsym_config.parse_dyld_bindings = False
+        dsym_config.parse_dyld_rebases = False
+
+        with open(dwarf_binary_path, "rb") as f:
+            dwarf_fat_binary = lief.MachO.parse(f, dsym_config)  # type: ignore
+        symbols_by_arch: list[tuple[ArchitectureSlice, list[SymbolSize]]] = []
+        if dwarf_fat_binary:
+            # Build a map of architecture name -> dSYM slice index
+            dsym_arch_map: Dict[str, int] = {}
+            for i, dsym_slice in enumerate(dwarf_fat_binary):
+                dsym_arch_name = get_cpu_type_name(dsym_slice.header.cpu_type)
+                dsym_arch_map[dsym_arch_name] = i
+
+            # Extract symbols for each architecture slice
+            for arch_slice in architecture_slices:
+                if arch_slice.arch_name in dsym_arch_map:
+                    dsym_index = dsym_arch_map[arch_slice.arch_name]
+                    dsym_binary = dwarf_fat_binary.at(dsym_index)
+                    slice_symbol_sizes = MachOSymbolSizes(dsym_binary).get_symbol_sizes()
+                    symbols_by_arch.append((arch_slice, slice_symbol_sizes))
+                else:
+                    logger.warning(f"No dSYM slice found for architecture {arch_slice.arch_name}")
+
+        else:
+            logger.error(
+                "size.apple.skip_symbol_analysis.dwarf_binary_parse_failed",
+                extra={
+                    "binary_name": binary_name,
+                },
+            )
+
+        return symbols_by_arch
 
     def _extract_binary_metadata(self, binary_path: Path) -> _BinaryMetadata:
         with open(binary_path, "rb") as f:
