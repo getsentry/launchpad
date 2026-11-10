@@ -22,7 +22,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
         with:
           sparse-checkout: uv.lock
           sparse-checkout-cone-mode: false
@@ -35,7 +35,7 @@ jobs:
   validate-schema:
     needs: cli-version
     name: Validate Schema Evolution
-    uses: getsentry/sentry-options/.github/workflows/validate-schema.yml@76f95e8b788c79873929f7dac862f4b92c390d41 # 1.2.10
+    uses: getsentry/sentry-options/.github/workflows/validate-schema.yml@1a5e3a280d665ceae23d3c98bc3cd56e6d94ab0f # 1.2.17
     secrets:
       SENTRY_READONLYBOT_PRIVATE_KEY: ${{ secrets.SENTRY_READONLYBOT_PRIVATE_KEY }}
     with:
