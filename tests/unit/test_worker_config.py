@@ -31,6 +31,7 @@ class TestGetWorkerConfig:
                 pod_name="",
                 push_mode=False,
                 push_timeout_sec=5,
+                wait_for_child_exit=False,
             )
 
     def test_custom_health_check_file_path(self):
@@ -111,3 +112,16 @@ class TestGetWorkerConfig:
         ):
             config = get_worker_config()
             assert config.rpc_host_service == "localhost:50051"
+
+    def test_wait_for_child_exit_enabled(self):
+        with patch.dict(
+            os.environ,
+            {
+                "LAUNCHPAD_WORKER_RPC_HOST": "localhost:50051",
+                "LAUNCHPAD_WORKER_CONCURRENCY": "2",
+                "LAUNCHPAD_WORKER_WAIT_FOR_CHILD_EXIT": "true",
+            },
+            clear=True,
+        ):
+            config = get_worker_config()
+            assert config.wait_for_child_exit is True
