@@ -1,3 +1,5 @@
+import json
+
 from pathlib import Path
 from typing import Dict, TextIO
 
@@ -8,9 +10,11 @@ from rich.table import Table
 from launchpad.artifacts.artifact_factory import ArtifactFactory
 from launchpad.parsers.android.dex.dex_file_parser import DexFileParser
 from launchpad.parsers.android.dex.dex_mapping import DexMapping
+from launchpad.size.diff import compute_diff
 from launchpad.size.models.android import AndroidAnalysisResults
 from launchpad.size.models.apple import AppleAnalysisResults
 from launchpad.size.models.common import BaseAnalysisResults, FileAnalysis
+from launchpad.size.models.diff import SizeDiffResults
 from launchpad.size.runner import do_size, write_results_as_json
 from launchpad.utils.console import console
 from launchpad.utils.logging import setup_logging
@@ -96,6 +100,69 @@ def size_command(
         else:
             _print_results_as_table(results)
 
+    except Exception:
+        console.print_exception()
+        raise click.Abort()
+
+
+@click.command(name="diff")
+@click.argument("base_path", type=click.Path(exists=True, path_type=Path), metavar="BASE")
+@click.argument("head_path", type=click.Path(exists=True, path_type=Path), metavar="HEAD")
+@click.option(
+    "-o",
+    "--output",
+    default="-",
+    show_default=True,
+    type=click.File("w"),
+    help="Output path for the diff.",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "table"], case_sensitive=False),
+    default="table",
+    help="Output format for results.",
+    show_default=True,
+)
+@click.option(
+    "--limit",
+    type=int,
+    default=25,
+    show_default=True,
+    help="Max number of file changes to show in table output (0 for all).",
+)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging output.")
+@click.option("--quiet", "-q", is_flag=True, help="Suppress all output except errors.")
+def diff_command(
+    base_path: Path,
+    head_path: Path,
+    output: TextIO,
+    output_format: str,
+    limit: int,
+    verbose: bool,
+    quiet: bool,
+) -> None:
+    """Compare two artifacts and report the size delta from BASE to HEAD."""
+    setup_logging(verbose=verbose, quiet=quiet)
+
+    if verbose and quiet:
+        raise click.UsageError("Cannot specify both --verbose and --quiet")
+
+    if not quiet:
+        console.print("[bold blue]Size Diff[/bold blue]")
+        console.print(f"Base: [cyan]{base_path}[/cyan]")
+        console.print(f"Head: [cyan]{head_path}[/cyan]")
+        console.print()
+
+    try:
+        base_results = do_size(base_path)
+        head_results = do_size(head_path)
+        diff = compute_diff(base_results, head_results)
+
+        if output_format == "json":
+            json.dump(diff.to_dict(), output, ensure_ascii=False, separators=(",", ":"))
+        else:
+            _print_diff_as_table(diff, limit)
     except Exception:
         console.print_exception()
         raise click.Abort()
@@ -225,3 +292,62 @@ def _format_bytes(size: int) -> str:
             return f"{size_float:.1f} {unit}"
         size_float /= 1024.0
     return f"{size_float:.1f} TB"
+
+
+def _format_delta(size: int) -> str:
+    """Format a signed byte delta with a color tag (green shrink, red growth)."""
+    if size == 0:
+        return "[dim]0 B[/dim]"
+    sign = "+" if size > 0 else "-"
+    color = "red" if size > 0 else "green"
+    return f"[{color}]{sign}{_format_bytes(abs(size))}[/{color}]"
+
+
+def _print_diff_as_table(diff: SizeDiffResults, limit: int) -> None:
+    summary = Table(title=f"Size Diff: {diff.app_name}", show_header=True, header_style="bold magenta")
+    summary.add_column("Metric", style="cyan")
+    summary.add_column("Base", justify="right")
+    summary.add_column("Head", justify="right")
+    summary.add_column("Change", justify="right")
+
+    summary.add_row(
+        "Install size",
+        _format_bytes(diff.base_install_size),
+        _format_bytes(diff.head_install_size),
+        _format_delta(diff.install_size_diff),
+    )
+    summary.add_row(
+        "Download size",
+        _format_bytes(diff.base_download_size),
+        _format_bytes(diff.head_download_size),
+        _format_delta(diff.download_size_diff),
+    )
+    summary.caption = f"{diff.base_label} → {diff.head_label}"
+    console.print(summary)
+    console.print()
+
+    if diff.category_diffs:
+        category_table = Table(title="Category Changes", show_header=True, header_style="bold green")
+        category_table.add_column("Category", style="cyan")
+        category_table.add_column("Change", justify="right")
+        for category in diff.category_diffs:
+            category_table.add_row(category.category, _format_delta(category.size_diff))
+        console.print(category_table)
+        console.print()
+
+    if not diff.file_changes:
+        console.print("[dim]No file-level changes.[/dim]")
+        return
+
+    shown = diff.file_changes if limit <= 0 else diff.file_changes[:limit]
+    file_table = Table(title="File Changes", show_header=True, header_style="bold green")
+    file_table.add_column("Change", justify="right")
+    file_table.add_column("Kind")
+    file_table.add_column("Path", style="cyan", overflow="fold")
+    for change in shown:
+        file_table.add_row(_format_delta(change.size_diff), change.kind.value, change.path)
+    console.print(file_table)
+
+    hidden = len(diff.file_changes) - len(shown)
+    if hidden > 0:
+        console.print(f"[dim]... and {hidden} more file change(s). Use --limit 0 to show all.[/dim]")
