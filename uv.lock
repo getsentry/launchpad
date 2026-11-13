@@ -907,7 +907,7 @@ requires-dist = [
     { name = "sentry-options", specifier = "==1.2.10" },
     { name = "sentry-sdk", specifier = ">=2.74.0" },
     { name = "sortedcontainers", specifier = ">=2.4.0" },
-    { name = "taskbroker-client", specifier = ">=0.20.32,<1" },
+    { name = "taskbroker-client", specifier = ">=0.20.35,<1" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
     { name = "zipfile-zstd", specifier = "==0.0.4" },
 ]
@@ -2097,7 +2097,7 @@ wheels = [
 
 [[package]]
 name = "taskbroker-client"
-version = "0.20.32"
+version = "0.20.35"
 source = { registry = "https://sfw.security.sentry.io/pypi/simple" }
 dependencies = [
     { name = "confluent-kafka" },
@@ -2113,9 +2113,9 @@ dependencies = [
     { name = "sentry-sdk", extra = ["http2"] },
     { name = "zstandard" },
 ]
-sdist = { url = "https://sfw.security.sentry.io/pypi/packages/19/7c/8c7d0654efd0ff578dd94d5421d44c7488fb2236092861af1ed7b5dd08a4/taskbroker_client-0.20.32.tar.gz", hash = "sha256:74cbc58e706c4053dab20cdd7200a94388c9eaf748fd526e8e61dfab88bfbb04", size = 55084, upload-time = "2026-10-28T20:32:22.158Z" }
+sdist = { url = "https://sfw.security.sentry.io/pypi/packages/d9/da/c2c57c0a6980fc31fd0fb00c82d13c3b605e43356496629a3c43f432726a/taskbroker_client-0.20.35.tar.gz", hash = "sha256:323dfe9dfcdde9035a8037400feb3e131da19e292063611b7a4b5246bfed7088", size = 55663, upload-time = "2026-11-12T21:01:20.799Z" }
 wheels = [
-    { url = "https://sfw.security.sentry.io/pypi/packages/16/87/5f5c39a3d5d2cfd503f3410630a3b8d74b5460dade8674d6e03c40d1a09f/taskbroker_client-0.20.32-py3-none-any.whl", hash = "sha256:f519142f82ac157d99c051bf6afb8e22d5b9e327d7a894efcde1b98a267009e4", size = 65337, upload-time = "2026-10-28T20:32:21.118Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/b0/61/3a6d0103156b2527b258750f6595790c194f59ba04f953b42e7542b196a6/taskbroker_client-0.20.35-py3-none-any.whl", hash = "sha256:ef5e4eb6944e7d3f431d90db54aac0197c41c7bb44c5b5d14f20f7a642f29cd8", size = 65892, upload-time = "2026-11-12T21:01:19.673Z" },
 ]
 
 [[package]]

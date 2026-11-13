@@ -29,6 +29,7 @@ class WorkerConfig:
     pod_name: str
     push_mode: bool
     push_timeout_sec: int
+    wait_for_child_exit: bool
 
 
 def get_worker_config() -> WorkerConfig:
@@ -78,6 +79,7 @@ def get_worker_config() -> WorkerConfig:
         pod_name=pod_name,
         push_mode=push_mode,
         push_timeout_sec=push_timeout_sec,
+        wait_for_child_exit=os.getenv("LAUNCHPAD_WORKER_WAIT_FOR_CHILD_EXIT", "false") == "true",
     )
 
 
@@ -90,7 +92,8 @@ def run_worker(
 
     logger.info(
         f"Starting TaskWorker (rpc_hosts={config.rpc_hosts}, concurrency={config.concurrency}, "
-        f"max_child_task_count={config.max_child_task_count}, health_check_file_path={config.health_check_file_path})"
+        f"max_child_task_count={config.max_child_task_count}, wait_for_child_exit={config.wait_for_child_exit}, "
+        f"health_check_file_path={config.health_check_file_path})"
     )
     if config.push_mode:
         assert config.rpc_host_service, (
@@ -101,6 +104,7 @@ def run_worker(
             broker_service=config.rpc_host_service,
             max_child_task_count=config.max_child_task_count,
             concurrency=config.concurrency,
+            wait_for_child_exit=config.wait_for_child_exit,
             child_tasks_queue_maxsize=1,
             result_queue_maxsize=1,
             rebalance_after=16,
@@ -117,6 +121,7 @@ def run_worker(
             broker_hosts=config.rpc_hosts,
             max_child_task_count=config.max_child_task_count,
             concurrency=config.concurrency,
+            wait_for_child_exit=config.wait_for_child_exit,
             child_tasks_queue_maxsize=1,
             result_queue_maxsize=1,
             rebalance_after=16,
