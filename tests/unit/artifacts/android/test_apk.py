@@ -1,3 +1,6 @@
+import shutil
+import zipfile
+
 from pathlib import Path
 from unittest.mock import patch
 
@@ -53,3 +56,16 @@ class TestAPK:
         with patch.object(test_apk, "get_manifest", return_value=malicious_manifest):
             with pytest.raises(UnsafePathError):
                 test_apk.get_app_icon()
+
+    def test_get_manifest_ignores_nested_manifest_and_resources(self, hn_apk: Path, tmp_path: Path) -> None:
+        apk_path = tmp_path / "nested.apk"
+        shutil.copyfile(hn_apk, apk_path)
+        with zipfile.ZipFile(apk_path, "a") as zf:
+            zf.writestr("deeplinkdispatch/AndroidManifest.xml", b"not a real manifest")
+            zf.writestr("somelib/resources.arsc", b"not a real resource table")
+
+        manifest = APK(apk_path).get_manifest()
+
+        assert manifest.package_name == "com.emergetools.hackernews"
+        assert manifest.application is not None
+        assert manifest.application.label == "Hacker News"
