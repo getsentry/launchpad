@@ -3,10 +3,13 @@ from __future__ import annotations
 from launchpad.parsers.android.dex.types import ClassDefinition
 from launchpad.size.models.common import FileInfo
 from launchpad.size.models.treemap import TreemapElement, TreemapType
+from launchpad.size.treemap.android_known_libraries import resolve_known_library
 from launchpad.size.treemap.treemap_element_builder import TreemapElementBuilder
 from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+LIBRARIES_NODE_NAME = "Libraries"
 
 
 class DexElementBuilder(TreemapElementBuilder):
@@ -25,8 +28,8 @@ class DexElementBuilder(TreemapElementBuilder):
         # to build the treemap. This is because there could be multiple
         # DEX files in APK and we want to group them by package vs file.
 
-        root_packages = self._build_package_tree()
-        size = sum(package.size for package in root_packages)
+        children = self._build_children()
+        size = sum(child.size for child in children)
 
         return TreemapElement(
             name=display_name,
@@ -34,13 +37,49 @@ class DexElementBuilder(TreemapElementBuilder):
             type=TreemapType.DEX,
             path=file_info.path,
             is_dir=True,
-            children=root_packages,
+            children=children,
         )
 
-    def _build_package_tree(self) -> list[TreemapElement]:
-        package_tree: dict[str, dict] = {}
+    def _build_children(self) -> list[TreemapElement]:
+        """Partition classes into known third-party libraries and first-party code.
+
+        Recognized library classes are grouped under a single ``Libraries`` node
+        (keyed by canonical library name, with the matched package prefix stripped
+        from the nested hierarchy). Everything else keeps its normal package tree.
+        Sizes are preserved since each class is placed exactly once.
+        """
+        # library name -> list of (package_parts, class_name, class_def) with the
+        # matched library prefix stripped from the package path.
+        library_entries: dict[str, list[tuple[list[str], str, ClassDefinition]]] = {}
+        first_party: list[ClassDefinition] = []
 
         for class_def in self.class_definitions:
+            fqn = class_def.fqn()
+            match = resolve_known_library(fqn)
+            if match is None:
+                first_party.append(class_def)
+                continue
+
+            library_name, matched_prefix = match
+            remainder = fqn[len(matched_prefix) + 1 :] if fqn.startswith(matched_prefix + ".") else ""
+            parts = remainder.split(".") if remainder else []
+            package_parts = parts[:-1]
+            class_name = parts[-1] if parts else class_def.get_name()
+            library_entries.setdefault(library_name, []).append((package_parts, class_name, class_def))
+
+        children = self._build_package_elements(first_party)
+
+        libraries_node = self._build_libraries_node(library_entries)
+        if libraries_node is not None:
+            children.insert(0, libraries_node)
+
+        return children
+
+    def _build_package_elements(self, class_definitions: list[ClassDefinition]) -> list[TreemapElement]:
+        """Build the package hierarchy for a set of classes keyed by their FQN."""
+        root = self._new_node()
+
+        for class_def in class_definitions:
             fqn = class_def.fqn()
             parts = fqn.split(".")
 
@@ -48,54 +87,72 @@ class DexElementBuilder(TreemapElementBuilder):
                 logger.warning(f"Invalid class definition with no package: {fqn}")
                 continue
 
-            class_name = parts[-1]
-            package_parts = parts[:-1]
+            self._insert_class(root, parts[:-1], parts[-1], class_def)
 
-            # Build the package hierarchy
-            current_level = package_tree
-            for package_part in package_parts:
-                if package_part not in current_level:
-                    current_level[package_part] = {"packages": {}, "classes": {}}
-                current_level = current_level[package_part]["packages"]
+        return self._node_to_elements(root)
 
-            # Add the class to the leaf package
-            leaf_package = package_tree
-            for package_part in package_parts:
-                if package_part not in leaf_package:
-                    leaf_package[package_part] = {"packages": {}, "classes": {}}
-                if package_part == package_parts[-1]:
-                    # This is the final package, add the class here
-                    leaf_package[package_part]["classes"][class_name] = {"class_def": class_def}
-                else:
-                    # Navigate to the next level
-                    leaf_package = leaf_package[package_part]["packages"]
+    def _build_libraries_node(
+        self,
+        library_entries: dict[str, list[tuple[list[str], str, ClassDefinition]]],
+    ) -> TreemapElement | None:
+        if not library_entries:
+            return None
 
-        return self._convert_tree_to_elements(package_tree)
+        library_children: list[TreemapElement] = []
+        for library_name, entries in library_entries.items():
+            root = self._new_node()
+            for package_parts, class_name, class_def in entries:
+                self._insert_class(root, package_parts, class_name, class_def)
 
-    def _convert_tree_to_elements(self, package_tree: dict[str, dict], parent_path: str = "") -> list[TreemapElement]:
+            children = self._node_to_elements(root, parent_path=library_name)
+            library_children.append(
+                TreemapElement(
+                    name=library_name,
+                    size=sum(child.size for child in children),
+                    type=TreemapType.DEX,
+                    path=library_name,
+                    is_dir=True,
+                    children=children,
+                )
+            )
+
+        library_children.sort(key=lambda child: child.size, reverse=True)
+
+        return TreemapElement(
+            name=LIBRARIES_NODE_NAME,
+            size=sum(child.size for child in library_children),
+            type=TreemapType.DEX,
+            path=LIBRARIES_NODE_NAME,
+            is_dir=True,
+            children=library_children,
+        )
+
+    @staticmethod
+    def _new_node() -> dict:
+        return {"packages": {}, "classes": {}}
+
+    def _insert_class(
+        self,
+        root: dict,
+        package_parts: list[str],
+        class_name: str,
+        class_def: ClassDefinition,
+    ) -> None:
+        node = root
+        for part in package_parts:
+            node = node["packages"].setdefault(part, self._new_node())
+        node["classes"][class_name] = class_def
+
+    def _node_to_elements(self, node: dict, parent_path: str = "") -> list[TreemapElement]:
         elements: list[TreemapElement] = []
 
-        for name, node in package_tree.items():
-            package_path = f"{parent_path}.{name}" if parent_path else f"{name}"
-
-            # Process sub-packages
-            children = []
-            if "packages" in node:
-                children.extend(self._convert_tree_to_elements(node["packages"], package_path))
-
-            # Process classes in this package
-            if "classes" in node:
-                for class_name, class_node in node["classes"].items():
-                    class_def = class_node["class_def"]
-                    class_element = self._create_class_element(class_def)
-                    children.append(class_element)
-
-            total_size = sum(child.size for child in children)
-
+        for name, child_node in node["packages"].items():
+            package_path = f"{parent_path}.{name}" if parent_path else name
+            children = self._node_to_elements(child_node, package_path)
             elements.append(
                 TreemapElement(
                     name=name,
-                    size=total_size,
+                    size=sum(child.size for child in children),
                     type=TreemapType.DEX,
                     path=package_path,
                     is_dir=True,
@@ -103,14 +160,15 @@ class DexElementBuilder(TreemapElementBuilder):
                 )
             )
 
+        for class_def in node["classes"].values():
+            elements.append(self._create_class_element(class_def))
+
         return elements
 
     def _create_class_element(self, class_def: ClassDefinition) -> TreemapElement:
-        class_size = class_def.size
-
         return TreemapElement(
             name=class_def.get_name(),
-            size=class_size,
+            size=class_def.size,
             type=TreemapType.DEX,
             path=class_def.fqn(),
             is_dir=False,
