@@ -8,6 +8,25 @@
 
 - (security) Add SafeDirectory to enforce path traversal checks by @runningcode in [#623](https://github.com/getsentry/launchpad/pull/623)
 
+## 26.11.0
+
+### New Features ✨
+
+- (worker) Add opt-in wait for child exit during recycling by @jamieQ in [#734](https://github.com/getsentry/launchpad/pull/734)
+
+### Internal Changes 🔧
+
+#### Deps
+
+- Bump sentry-sdk to 2.74.0 by @mjq with @sentry-junior in [#730](https://github.com/getsentry/launchpad/pull/730)
+- Bump taskbroker-client to 0.20.32 by @untitaker with @sentry-junior in [#727](https://github.com/getsentry/launchpad/pull/727)
+
+#### Other
+
+- (apple) Reduce native parser lifetimes by @jamieQ in [#733](https://github.com/getsentry/launchpad/pull/733)
+- (release) Bump getsentry/craft to v3 by @BYK with @sentry-junior in [#728](https://github.com/getsentry/launchpad/pull/728)
+- Bump Python to 3.14.10 and uv to 0.13.7 by @oioki in [#731](https://github.com/getsentry/launchpad/pull/731)
+
 ## 26.10.1
 
 ### New Features ✨
