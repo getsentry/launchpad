@@ -30,6 +30,7 @@ class WorkerConfig:
     push_mode: bool
     push_timeout_sec: int
     wait_for_child_exit: bool
+    prometheus_port: int | None
 
 
 def get_worker_config() -> WorkerConfig:
@@ -70,6 +71,12 @@ def get_worker_config() -> WorkerConfig:
             f"LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC must be a valid integer, got: {os.getenv('LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC', '5')}"
         )
 
+    prometheus_port_str = os.getenv("LAUNCHPAD_WORKER_PROMETHEUS_PORT", "").strip()
+    try:
+        prometheus_port = int(prometheus_port_str) if prometheus_port_str else None
+    except ValueError:
+        raise ValueError(f"LAUNCHPAD_WORKER_PROMETHEUS_PORT must be a valid integer, got: {prometheus_port_str}")
+
     return WorkerConfig(
         rpc_hosts=rpc_hosts,
         rpc_host_service=rpc_host_service,
@@ -80,6 +87,7 @@ def get_worker_config() -> WorkerConfig:
         push_mode=push_mode,
         push_timeout_sec=push_timeout_sec,
         wait_for_child_exit=os.getenv("LAUNCHPAD_WORKER_WAIT_FOR_CHILD_EXIT", "false") == "true",
+        prometheus_port=prometheus_port,
     )
 
 
@@ -93,7 +101,7 @@ def run_worker(
     logger.info(
         f"Starting TaskWorker (rpc_hosts={config.rpc_hosts}, concurrency={config.concurrency}, "
         f"max_child_task_count={config.max_child_task_count}, wait_for_child_exit={config.wait_for_child_exit}, "
-        f"health_check_file_path={config.health_check_file_path})"
+        f"health_check_file_path={config.health_check_file_path}, prometheus_port={config.prometheus_port})"
     )
     if config.push_mode:
         assert config.rpc_host_service, (
@@ -113,9 +121,13 @@ def run_worker(
             health_check_file_path=config.health_check_file_path,
             pod_name=config.pod_name,
             push_task_timeout=config.push_timeout_sec,
+            prometheus_port=config.prometheus_port,
         )
     else:
         assert config.rpc_hosts, "LAUNCHPAD_WORKER_RPC_HOST environment variable is required when push mode is disabled"
+        if config.prometheus_port is not None:
+            # taskbroker-client only publishes occupancy from PushTaskWorker.
+            logger.warning(f"prometheus_port={config.prometheus_port} is ignored in pull mode")
         worker = TaskWorker(
             app_module="launchpad.worker.app:app",
             broker_hosts=config.rpc_hosts,
