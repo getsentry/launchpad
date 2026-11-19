@@ -68,9 +68,10 @@ function(region) {
               GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
               GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
               LABEL_SELECTOR: 'service=launchpad',
-              ARGOCD_ONLY: 'true',
-              ARGOCD_SERVICE: 'launchpad',
-            },
+            } + (if region == 's4s2' then {
+                   ARGOCD_ONLY: 'true',
+                   ARGOCD_SERVICE: 'launchpad',
+                 } else {}),
             tasks: [
               gocdtasks.script(importstr '../bash/deploy.sh'),
             ],
