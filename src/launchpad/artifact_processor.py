@@ -358,6 +358,7 @@ class ArtifactProcessor:
         session.put(
             app_icon,
             key=icon_key,
+            compress="none",
             expiration_policy=TimeToLive(delta=timedelta(days=retention_days)),
         )
         return image_id

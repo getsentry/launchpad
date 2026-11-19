@@ -896,7 +896,7 @@ requires-dist = [
     { name = "datadog", specifier = "==0.52.1" },
     { name = "lief", specifier = "==0.17.2" },
     { name = "lzfse", specifier = ">=0.4.2" },
-    { name = "objectstore-client", specifier = ">=0.3.0" },
+    { name = "objectstore-client", specifier = ">=0.3.1" },
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "pillow-heif", specifier = ">=1.1.0" },
     { name = "protobuf", specifier = ">=5.29.5,<6" },
@@ -1265,7 +1265,7 @@ wheels = [
 
 [[package]]
 name = "objectstore-client"
-version = "0.3.0"
+version = "0.3.1"
 source = { registry = "https://sfw.security.sentry.io/pypi/simple" }
 dependencies = [
     { name = "filetype" },
@@ -1274,9 +1274,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://sfw.security.sentry.io/pypi/packages/60/f5/0a64f47f9daddc9ab154a4ca536936f7d42201a8ad41b14964f460cf11b3/objectstore_client-0.3.0.tar.gz", hash = "sha256:37fe87fe420ceadfffc576d2d23e1f8be9544847c59c66f174daf32fec15a7e2", size = 29533, upload-time = "2026-10-27T10:59:07.898Z" }
+sdist = { url = "https://sfw.security.sentry.io/pypi/packages/56/27/8a1f38619e80c554b19152913cbda34393e22284e841fca731b1927cbf90/objectstore_client-0.3.1.tar.gz", hash = "sha256:7987db9d31ef20e94fc99fbd8a13aa8d5dbba349278519b9f7acf2a2cf9ab572", size = 31593, upload-time = "2026-11-19T10:26:25.677Z" }
 wheels = [
-    { url = "https://sfw.security.sentry.io/pypi/packages/65/46/c17667ce62471b3855e4a4df66b3099804d6521ec70572fa3b3361466d78/objectstore_client-0.3.0-py3-none-any.whl", hash = "sha256:a74942845c69fa58ee27acba3ae81aa978f7b5ebc246d4011cbfba262c649a02", size = 35325, upload-time = "2026-10-27T10:59:06.866Z" },
+    { url = "https://sfw.security.sentry.io/pypi/packages/81/32/167bd908220ea124ebd55daa252fa0edbfb4779839a4c31b42e6fbca77cc/objectstore_client-0.3.1-py3-none-any.whl", hash = "sha256:18238cdd8d868e1558260dc996e2b17f76d1124aea55ce77aec2e2306520f1d3", size = 37481, upload-time = "2026-11-19T10:26:24.461Z" },
 ]
 
 [[package]]

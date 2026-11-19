@@ -45,6 +45,7 @@ class TestAppIconUpload:
         objectstore_client.session.return_value.put.assert_called_once_with(
             icon_data,
             key=f"1/2/{icon_id}",
+            compress="none",
             expiration_policy=TimeToLive(delta=timedelta(days=45)),
         )
 
