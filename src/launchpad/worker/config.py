@@ -31,6 +31,15 @@ class WorkerConfig:
     push_timeout_sec: int
     wait_for_child_exit: bool
     prometheus_port: int | None
+    health_port: int | None
+
+
+def _optional_port(name: str) -> int | None:
+    value = os.getenv(name, "").strip()
+    try:
+        return int(value) if value else None
+    except ValueError:
+        raise ValueError(f"{name} must be a valid integer, got: {value}")
 
 
 def get_worker_config() -> WorkerConfig:
@@ -71,12 +80,6 @@ def get_worker_config() -> WorkerConfig:
             f"LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC must be a valid integer, got: {os.getenv('LAUNCHPAD_WORKER_PUSH_TIMEOUT_SEC', '5')}"
         )
 
-    prometheus_port_str = os.getenv("LAUNCHPAD_WORKER_PROMETHEUS_PORT", "").strip()
-    try:
-        prometheus_port = int(prometheus_port_str) if prometheus_port_str else None
-    except ValueError:
-        raise ValueError(f"LAUNCHPAD_WORKER_PROMETHEUS_PORT must be a valid integer, got: {prometheus_port_str}")
-
     return WorkerConfig(
         rpc_hosts=rpc_hosts,
         rpc_host_service=rpc_host_service,
@@ -87,7 +90,8 @@ def get_worker_config() -> WorkerConfig:
         push_mode=push_mode,
         push_timeout_sec=push_timeout_sec,
         wait_for_child_exit=os.getenv("LAUNCHPAD_WORKER_WAIT_FOR_CHILD_EXIT", "false") == "true",
-        prometheus_port=prometheus_port,
+        prometheus_port=_optional_port("LAUNCHPAD_WORKER_PROMETHEUS_PORT"),
+        health_port=_optional_port("LAUNCHPAD_WORKER_HEALTH_PORT"),
     )
 
 
@@ -122,6 +126,7 @@ def run_worker(
             pod_name=config.pod_name,
             push_task_timeout=config.push_timeout_sec,
             prometheus_port=config.prometheus_port,
+            health_port=config.health_port,
         )
     else:
         assert config.rpc_hosts, "LAUNCHPAD_WORKER_RPC_HOST environment variable is required when push mode is disabled"
