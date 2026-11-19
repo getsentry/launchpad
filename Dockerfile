@@ -1,5 +1,5 @@
 # Build libdispatch for the strip binary
-FROM --platform=linux/amd64 ghcr.io/getsentry/image-mirror-library-debian:12.15-slim AS libdispatch-build
+FROM --platform=linux/amd64 ghcr.io/getsentry/image-mirror-library-debian:13.7-slim AS libdispatch-build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -21,13 +21,17 @@ RUN git clone https://github.com/apple/swift-corelibs-libdispatch.git && \
     git checkout 731d5c61ab5437e0e9bbfca7d318519a9d34f395 && \
     # Verify the commit hash matches our expectation
     test "$(git rev-parse HEAD)" = "731d5c61ab5437e0e9bbfca7d318519a9d34f395" && \
+    # clang 19 (Debian 13) adds -Wcast-function-type-mismatch to -Wextra, and swift-5.9 builds with -Werror.
+    # Append the opt-out after libdispatch's own flags so it takes precedence.
+    echo 'add_compile_options($<$<OR:$<COMPILE_LANGUAGE:C>,$<COMPILE_LANGUAGE:CXX>>:-Wno-cast-function-type-mismatch>)' \
+        >> cmake/modules/DispatchCompilerWarnings.cmake && \
     mkdir build && cd build && \
     cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX=/usr && \
     make -j$(nproc) && \
     make install
 
 # Use Python 3.14 slim image
-FROM ghcr.io/getsentry/image-mirror-library-python:3.14.10-slim-bookworm
+FROM ghcr.io/getsentry/image-mirror-library-python:3.14.10-slim-trixie
 
 # Build argument to determine if this is a test build
 ARG TEST_BUILD=false
@@ -48,13 +52,13 @@ RUN python3 -m pip --no-cache-dir --disable-pip-version-check install 'uv==0.13.
 RUN groupadd --gid 1000 app && \
     useradd --uid 1000 --gid app --shell /bin/bash --create-home app
 
-# Install system dependencies including JDK 17 and FFmpeg
+# Install system dependencies including JRE 21 and FFmpeg
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
     git \
     build-essential \
-    openjdk-17-jre-headless \
+    openjdk-21-jre-headless \
     unzip \
     zip \
     file \
