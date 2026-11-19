@@ -31,29 +31,6 @@ function(region) {
       },
     },
     {
-      'deploy-canary': {
-        approval: {
-          type: 'success',
-        },
-        fetch_materials: true,
-        jobs: {
-          deploy: {
-            timeout: 1200,
-            elastic_profile_id: 'launchpad',
-            environment_variables: {
-              // k8s-deploy dispatches deployment workflows using GitHub App credentials.
-              GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
-              GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
-              LABEL_SELECTOR: 'service=launchpad,env=canary',
-            },
-            tasks: [
-              gocdtasks.script(importstr '../bash/deploy.sh'),
-            ],
-          },
-        },
-      },
-    },
-    {
       'deploy-primary': {
         approval: {
           type: 'success',
@@ -68,6 +45,8 @@ function(region) {
               GITHUB_APP_ID: '{{SECRET:[devinfra-github][app_id]}}',
               GITHUB_APP_PRIVATE_KEY: '{{SECRET:[devinfra-github][private_key]}}',
               LABEL_SELECTOR: 'service=launchpad',
+              ARGOCD_ONLY: 'true',
+              ARGOCD_SERVICE: 'launchpad',
             },
             tasks: [
               gocdtasks.script(importstr '../bash/deploy.sh'),
