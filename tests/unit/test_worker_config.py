@@ -34,6 +34,7 @@ class TestGetWorkerConfig:
                 push_timeout_sec=5,
                 wait_for_child_exit=False,
                 prometheus_port=None,
+                health_port=None,
             )
 
     def test_custom_health_check_file_path(self):
@@ -170,6 +171,7 @@ class TestRunWorker:
             "LAUNCHPAD_WORKER_CONCURRENCY": "2",
             "LAUNCHPAD_WORKER_PUSH_MODE": "true",
             "LAUNCHPAD_WORKER_PROMETHEUS_PORT": "9100",
+            "LAUNCHPAD_WORKER_HEALTH_PORT": "50054",
         }
         with (
             patch.dict(os.environ, env, clear=True),
@@ -181,6 +183,7 @@ class TestRunWorker:
 
         kwargs = push_worker.call_args.kwargs
         assert kwargs["prometheus_port"] == 9100
+        assert kwargs["health_port"] == 50054
         assert kwargs["processing_pool_name"] == "launchpad-push"
 
     def test_push_mode_prometheus_disabled_by_default(self):
@@ -198,6 +201,7 @@ class TestRunWorker:
                 run_worker()
 
         assert push_worker.call_args.kwargs["prometheus_port"] is None
+        assert push_worker.call_args.kwargs["health_port"] is None
 
     def test_pull_mode_ignores_prometheus_port(self):
         env = {
