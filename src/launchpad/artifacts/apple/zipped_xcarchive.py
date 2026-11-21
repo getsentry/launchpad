@@ -233,12 +233,13 @@ class ZippedXCArchive(AppleArtifact):
 
             # ZipFile.extract creates regular files with default permissions. Carry
             # only the original execute bits onto the copy made for distribution.
+            # Member names are untrusted, so key them by where they were extracted.
             with ZipFile(self.path) as archive:
-                members = {Path(entry.filename): entry for entry in archive.infolist()}
+                members = {self._extract_dir.resolve(entry.filename): entry for entry in archive.infolist()}
 
             def copy_app_file(src: str, dst: str) -> str:
                 copied = shutil.copy2(src, dst)
-                member = members.get(Path(src).relative_to(self._extract_dir.path))
+                member = members.get(Path(src))
                 if member is not None and member.create_system == 3:
                     mode = member.external_attr >> 16
                     if stat.S_IFMT(mode) in (0, stat.S_IFREG) and mode & 0o111:
