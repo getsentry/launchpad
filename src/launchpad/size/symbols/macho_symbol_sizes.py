@@ -76,6 +76,27 @@ class MachOSymbolSizes:
 
         return is_measurable
 
+    @staticmethod
+    def _is_cstring_section(section: lief.MachO.Section) -> bool:
+        """Whether the section holds NUL-terminated C string literals (``__cstring``)."""
+        return section.type == lief.MachO.Section.TYPE.CSTRING_LITERALS
+
+    @staticmethod
+    def _cstring_literal_end(section: lief.MachO.Section, start: int, end: int) -> int:
+        """Clamp ``end`` to the NUL terminator of the literal starting at ``start``.
+
+        Literals in ``__cstring`` are usually unnamed, so the distance-to-next-symbol
+        heuristic would otherwise charge every following literal to a named one.
+        """
+        # Slice the memoryview before copying so only this symbol's span is
+        # materialized, not the whole (possibly multi-MB) section per symbol.
+        rel_start = start - section.virtual_address
+        chunk = bytes(section.content[rel_start : rel_start + (end - start)])
+        nul = chunk.find(b"\x00")
+        if nul == -1:
+            return end
+        return start + nul + 1
+
     def _symbol_sizes(self, bin: lief.MachO.Binary) -> Generator[_SymbolSizeData]:
         """Yield symbol size data via the distance-to-next-symbol heuristic."""
 
@@ -128,6 +149,9 @@ class MachOSymbolSizes:
                 end = max_section_addr
                 cached_section = None
                 cached_section_va = None
+
+            if self._is_cstring_section(section):
+                end = self._cstring_literal_end(section, start, end)
 
             offset_end = bin.virtual_address_to_offset(end)
             offset_start = bin.virtual_address_to_offset(start)
