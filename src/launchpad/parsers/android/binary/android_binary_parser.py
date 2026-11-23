@@ -229,8 +229,11 @@ class AndroidBinaryParser:
     def read_package_name(self) -> str:
         """Read a package name from the buffer."""
         raw = self.buffer_wrapper.slice(PACKAGE_NAME_SIZE)
-        length = next((i for i in range(0, PACKAGE_NAME_SIZE, 2) if raw[i : i + 2] == b"\x00\x00"), 0)
-        return raw[:length].decode("utf-16le")
+        # surrogatepass so padding after the terminator can't fail the decode.
+        name, terminator, _ = raw.decode("utf-16le", errors="surrogatepass").partition("\0")
+        if not terminator:
+            raise ValueError("Package name is not NUL-terminated")
+        return name
 
     def read_package(self, header: ChunkHeader) -> ResourceTablePackage:
         """Read a package chunk from the buffer."""

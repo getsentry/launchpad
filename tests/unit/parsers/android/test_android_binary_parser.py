@@ -33,6 +33,14 @@ def test_resource_table_tolerates_last_chunk_running_past_eof():
     assert table.binary_parser.packages == []
 
 
+def test_unterminated_package_name_raises_value_error():
+    package_header = _chunk_header(0x0200, 288, 288) + struct.pack("<I", 0x7F) + "A".encode("utf-16le") * 128
+    body = struct.pack("<I", 1) + package_header
+    buffer = _chunk_header(0x0002, 12, 8 + len(body)) + body
+    with pytest.raises(ValueError, match="Package name is not NUL-terminated"):
+        BinaryResourceTable(buffer)
+
+
 def test_truncated_package_name_raises_value_error():
     package_header = _chunk_header(0x0200, 288, 288) + struct.pack("<I", 0x7F) + b"\x00" * 64
     body = struct.pack("<I", 1) + package_header
