@@ -8,6 +8,13 @@ from launchpad.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+_S8 = struct.Struct("<b")
+_U16 = struct.Struct("<H")
+_S32 = struct.Struct("<i")
+_U32 = struct.Struct("<I")
+_U32BE = struct.Struct(">I")
+_U64 = struct.Struct("<Q")
+
 
 def group(name: str):
     def decorator(wrapped):
@@ -22,6 +29,13 @@ def group(name: str):
         return wrapper
 
     return decorator
+
+
+class BufferUnderrunError(ValueError):
+    """Raised when a read would go past the end of the buffer."""
+
+    def __init__(self, cursor: int, size: int, length: int) -> None:
+        super().__init__(f"Cannot read {size} bytes at offset {cursor}: buffer is only {length} bytes")
 
 
 class BufferWrapper:
@@ -40,6 +54,22 @@ class BufferWrapper:
         self.cursor = 0
         self.debug = debug
         self.cache: object | None = None
+
+    def require(self, length: int) -> None:
+        """Raise BufferUnderrunError unless `length` bytes remain from the cursor."""
+        if length < 0 or self.cursor < 0 or self.cursor + length > len(self.buffer):
+            raise BufferUnderrunError(self.cursor, length, len(self.buffer))
+
+    def _unpack(self, fmt: struct.Struct) -> int:
+        """Unpack a fixed-size value at the cursor without advancing it."""
+        cursor = self.cursor
+        # unpack_from treats a negative offset as relative to the end of the buffer.
+        if cursor < 0:
+            raise BufferUnderrunError(cursor, fmt.size, len(self.buffer))
+        try:
+            return fmt.unpack_from(self.buffer, cursor)[0]  # type: ignore[no-any-return]
+        except struct.error:
+            raise BufferUnderrunError(cursor, fmt.size, len(self.buffer)) from None
 
     def seek(self, offset: int) -> None:
         """Set cursor position.
@@ -77,11 +107,18 @@ class BufferWrapper:
             # group() logging.
             logger.debug("=== read_u8 ===")
             logger.debug(f"cursor: {self.cursor}")
-        val = self.buffer[self.cursor]
+        cursor = self.cursor
+        # A negative index would silently read from the end of the buffer.
+        if cursor < 0:
+            raise BufferUnderrunError(cursor, 1, len(self.buffer))
+        try:
+            val = self.buffer[cursor]
+        except IndexError:
+            raise BufferUnderrunError(cursor, 1, len(self.buffer)) from None
         if self.debug:
             logger.debug(f"value: {val}")
             logger.debug("=== End read_u8 ===")
-        self.cursor += 1
+        self.cursor = cursor + 1
         return val
 
     @group("read_s8")
@@ -89,33 +126,33 @@ class BufferWrapper:
         """Read signed 8-bit integer."""
         if self.debug:
             logger.debug(f"cursor: {self.cursor}")
-        val = struct.unpack("<b", self.buffer[self.cursor : self.cursor + 1])[0]
+        val = self._unpack(_S8)
         if self.debug:
             logger.debug(f"value: {val}")
         self.cursor += 1
-        return val  # type: ignore[no-any-return]
+        return val
 
     @group("read_u16")
     def read_u16(self) -> int:
         """Read unsigned 16-bit integer (little-endian)."""
         if self.debug:
             logger.debug(f"cursor: {self.cursor}")
-        val = struct.unpack("<H", self.buffer[self.cursor : self.cursor + 2])[0]
+        val = self._unpack(_U16)
         if self.debug:
             logger.debug(f"value: {val}")
         self.cursor += 2
-        return val  # type: ignore[no-any-return]
+        return val
 
     @group("read_s32")
     def read_s32(self) -> int:
         """Read signed 32-bit integer (little-endian)."""
         if self.debug:
             logger.debug(f"cursor: {self.cursor}")
-        val = struct.unpack("<i", self.buffer[self.cursor : self.cursor + 4])[0]
+        val = self._unpack(_S32)
         if self.debug:
             logger.debug(f"value: {val}")
         self.cursor += 4
-        return val  # type: ignore[no-any-return]
+        return val
 
     def read_u32(self) -> int:
         """Read unsigned 32-bit integer (little-endian)."""
@@ -124,34 +161,34 @@ class BufferWrapper:
             # group() logging.
             logger.debug("=== read_u32 ===")
             logger.debug(f"cursor: {self.cursor}")
-        val = struct.unpack("<I", self.buffer[self.cursor : self.cursor + 4])[0]
+        val = self._unpack(_U32)
         if self.debug:
             logger.debug(f"value: {val} 0x{val:08x}")
             logger.debug("=== End read_u32 ===")
         self.cursor += 4
-        return val  # type: ignore[no-any-return]
+        return val
 
     @group("read_u32be")
     def read_u32be(self) -> int:
         """Read unsigned 32-bit integer (big-endian)."""
         if self.debug:
             logger.debug(f"cursor: {self.cursor}")
-        val = struct.unpack(">I", self.buffer[self.cursor : self.cursor + 4])[0]
+        val = self._unpack(_U32BE)
         if self.debug:
             logger.debug(f"value: {val} 0x{val:08x}")
         self.cursor += 4
-        return val  # type: ignore[no-any-return]
+        return val
 
     @group("read_u64")
     def read_u64(self) -> int:
         """Read unsigned 64-bit integer (little-endian)."""
         if self.debug:
             logger.debug(f"cursor: {self.cursor}")
-        val = struct.unpack("<Q", self.buffer[self.cursor : self.cursor + 8])[0]
+        val = self._unpack(_U64)
         if self.debug:
             logger.debug(f"value: {val} 0x{val:016x}")
         self.cursor += 8
-        return val  # type: ignore[no-any-return]
+        return val
 
     @group("read_length8")
     def read_length8(self) -> int:
@@ -181,8 +218,14 @@ class BufferWrapper:
         """
         result = 0
         shift = 0
+        # The cursor only moves forward below, so checking it once is enough.
+        if self.cursor < 0:
+            raise BufferUnderrunError(self.cursor, 1, len(self.buffer))
         while True:
-            byte = self.buffer[self.cursor]
+            try:
+                byte = self.buffer[self.cursor]
+            except IndexError:
+                raise BufferUnderrunError(self.cursor, 1, len(self.buffer)) from None
             self.cursor += 1
             result |= (byte & 0x7F) << shift
             if not (byte & 0x80):
@@ -230,9 +273,11 @@ class BufferWrapper:
             if not 1 <= size <= 8:
                 raise ValueError(f"Invalid size {size} for sized int at offset 0x{self.cursor:08x}")
 
+            self.require(size)
+
             # Read bytes and sign extend
             if size == 4:
-                val = struct.unpack("<i", self.buffer[self.cursor : self.cursor + 4])[0]
+                val = self._unpack(_S32)
             else:
                 # Read as unsigned and sign extend
                 val = 0
@@ -243,7 +288,7 @@ class BufferWrapper:
                     val |= ~((1 << (size * 8)) - 1)
 
             self.cursor += size
-            return val  # type: ignore[no-any-return]
+            return val
 
     def read_sized_uint(self, size: int) -> int:
         """Read unsigned integer of specified size.
@@ -260,6 +305,8 @@ class BufferWrapper:
         with self._debug_group(f"read_sized_uint ({size} bytes)"):
             if not 1 <= size <= 4:
                 raise ValueError(f"Invalid size {size} for sized uint at offset 0x{self.cursor:08x}")
+
+            self.require(size)
 
             # Read bytes
             val = 0
@@ -285,6 +332,8 @@ class BufferWrapper:
             if not 1 <= size <= 4:
                 raise ValueError(f"Invalid size {size} for sized float at offset 0x{self.cursor:08x}")
 
+            self.require(size)
+
             # Zero extend to 4 bytes
             bytes_val = bytearray(4)
             bytes_val[4 - size :] = self.buffer[self.cursor : self.cursor + size]
@@ -309,6 +358,8 @@ class BufferWrapper:
             if not 1 <= size <= 8:
                 raise ValueError(f"Invalid size {size} for sized double at offset 0x{self.cursor:08x}")
 
+            self.require(size)
+
             # Zero extend to 8 bytes
             bytes_val = bytearray(8)
             bytes_val[8 - size :] = self.buffer[self.cursor : self.cursor + size]
@@ -327,6 +378,7 @@ class BufferWrapper:
             Decoded string with null bytes removed
         """
         with self._debug_group(f"read_string ({length} bytes)"):
+            self.require(length)
             val = self.buffer[self.cursor : self.cursor + length].decode("utf-8", errors="replace").replace("\0", "")
             self.cursor += length
             return val
@@ -337,6 +389,7 @@ class BufferWrapper:
         Returns:
             Decoded string
         """
+        self.require(0)
         end = self.cursor
         while end < len(self.buffer) and self.buffer[end] != 0:
             end += 1
@@ -362,6 +415,7 @@ class BufferWrapper:
         Returns:
             Slice of buffer
         """
+        self.require(length)
         val = self.buffer[self.cursor : self.cursor + length]
         self.cursor += length
         return val
