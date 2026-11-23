@@ -22,6 +22,10 @@ from .types import (
     XmlNode,
 )
 
+CHUNK_HEADER_SIZE = 8
+# ResTable_package.name is a fixed char16_t[128] field.
+PACKAGE_NAME_SIZE = 256
+
 
 # Parser for Android binary files (axml, arsc)
 # Definitions: https://android.googlesource.com/platform/frameworks/base/+/56a2301/include/androidfw/ResourceTypes.h
@@ -36,12 +40,22 @@ class AndroidBinaryParser:
         self.string_pool: StringPool | None = None
         self.packages: List[ResourceTablePackage] = []
 
+    def _root_chunk_end(self, header: ChunkHeader) -> int:
+        # Bytes after the root chunk (e.g. alignment padding) are not chunks, so stop at its end.
+        return min(header.end, len(self.buffer_wrapper.buffer))
+
     def read_chunk_header(self) -> ChunkHeader:
         """Read a chunk header from the buffer."""
         start_offset = self.buffer_wrapper.cursor
         chunk_type = self.buffer_wrapper.read_u16()
         header_size = self.buffer_wrapper.read_u16()
         chunk_size = self.buffer_wrapper.read_u32()
+        # A chunk must at least cover its own header. Without this, a chunk_size of 0 makes the
+        # chunk loops in parse_xml/parse_resource_table spin forever on the same offset.
+        if header_size < CHUNK_HEADER_SIZE or chunk_size < header_size:
+            raise ValueError(
+                f"Invalid chunk at offset {start_offset}: header_size={header_size}, chunk_size={chunk_size}"
+            )
         try:
             parsed_chunk_type: ChunkType | int = ChunkType(chunk_type)
         except ValueError:
@@ -214,16 +228,12 @@ class AndroidBinaryParser:
 
     def read_package_name(self) -> str:
         """Read a package name from the buffer."""
-        offset = self.buffer_wrapper.cursor
-        length = 0
-        for i in range(offset, min(offset + 256, len(self.buffer_wrapper.buffer)), 2):
-            if self.buffer_wrapper.buffer[i] == 0 and self.buffer_wrapper.buffer[i + 1] == 0:
-                length = i - offset
-                break
-
-        value = self.buffer_wrapper.buffer[offset : offset + length].decode("utf-16le")
-        self.buffer_wrapper.cursor = offset + 256
-        return value
+        raw = self.buffer_wrapper.slice(PACKAGE_NAME_SIZE)
+        # surrogatepass so padding after the terminator can't fail the decode.
+        name, terminator, _ = raw.decode("utf-16le", errors="surrogatepass").partition("\0")
+        if not terminator:
+            raise ValueError("Package name is not NUL-terminated")
+        return name
 
     def read_package(self, header: ChunkHeader) -> ResourceTablePackage:
         """Read a package chunk from the buffer."""
@@ -499,8 +509,8 @@ class AndroidBinaryParser:
         if main_chunk_header.chunk_type != ChunkType.XML:
             raise ValueError(f"Invalid main chunk header: {main_chunk_header.chunk_type}")
 
-        while self.buffer_wrapper.cursor < len(self.buffer_wrapper.buffer):
-            start = self.buffer_wrapper.cursor
+        main_chunk_end = self._root_chunk_end(main_chunk_header)
+        while self.buffer_wrapper.cursor < main_chunk_end:
             header = self.read_chunk_header()
 
             if header.chunk_type == ChunkType.STRING_POOL:
@@ -517,15 +527,9 @@ class AndroidBinaryParser:
                 self.read_xml_element_end()
             elif header.chunk_type == ChunkType.XML_CDATA:
                 self.read_xml_cdata()
-            elif header.chunk_type == ChunkType.NULL:
-                self.buffer_wrapper.cursor = header.start_offset + header.chunk_size
-            else:
-                self.buffer_wrapper.cursor = header.start_offset + header.chunk_size
 
             # Ensure we consume the whole chunk
-            end = start + header.chunk_size
-            if self.buffer_wrapper.cursor != end:
-                self.buffer_wrapper.cursor = end
+            self.buffer_wrapper.cursor = header.end
 
         if not self.document:
             raise ValueError("No XML document found")
@@ -546,23 +550,19 @@ class AndroidBinaryParser:
             # Apps with no resources will be exactly 40 bytes
             return
 
-        while self.buffer_wrapper.cursor < len(self.buffer_wrapper.buffer):
-            start = self.buffer_wrapper.cursor
+        main_chunk_end = self._root_chunk_end(main_chunk_header)
+        while self.buffer_wrapper.cursor < main_chunk_end:
             header = self.read_chunk_header()
 
             if header.chunk_type == ChunkType.STRING_POOL:
                 self.string_pool = self.read_string_pool(header)
             elif header.chunk_type == ChunkType.TABLE_PACKAGE:
                 self.packages.append(self.read_package(header))
-            elif header.chunk_type == ChunkType.NULL:
-                self.buffer_wrapper.cursor = header.start_offset + header.chunk_size
-            else:
+            elif header.chunk_type != ChunkType.NULL:
                 raise ValueError(f"Unsupported chunk type '0x{header.chunk_type:x}'")
 
             # Ensure we consume the whole chunk
-            end = start + header.chunk_size
-            if self.buffer_wrapper.cursor != end:
-                self.buffer_wrapper.cursor = end
+            self.buffer_wrapper.cursor = header.end
 
     # https://github.com/Ayrx/axmldecoder/blob/680ec1552199666b60b0b6a479dfc63d7f4b6f82/src/xml.rs#L221
     def get_resource_string(self, resource_id: int) -> str:

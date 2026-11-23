@@ -90,6 +90,10 @@ class ChunkHeader:
     header_size: int
     chunk_size: int
 
+    @property
+    def end(self) -> int:
+        return self.start_offset + self.chunk_size
+
 
 @dataclass
 class StringPool:
