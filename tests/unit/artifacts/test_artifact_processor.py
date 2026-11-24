@@ -15,6 +15,7 @@ from launchpad.artifact_processor import ArtifactProcessor, ServiceConfig, _pars
 from launchpad.artifacts.android.aab import AAB
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AppleArtifact, Artifact
+from launchpad.artifacts.providers.exceptions import UnsafePathError
 from launchpad.constants import (
     InstallableAppErrorCode,
     ProcessingErrorCode,
@@ -232,6 +233,25 @@ class TestArtifactProcessorErrorHandling:
             ],
         )
         mock_sentry_client.upload_installable_app.assert_not_called()
+
+    def test_do_distribution_reports_unsafe_app_path(self):
+        client = Mock(spec=SentryClient)
+        self.processor._sentry_client = client
+        artifact = Mock(spec=ZippedXCArchive)
+        artifact.generate_ipa.side_effect = UnsafePathError("Symlink leaves the app bundle: /private/staging/path")
+        info = Mock(is_code_signature_valid=True, is_simulator=False)
+
+        self.processor._do_distribution("org", "project", "artifact", artifact, info)
+
+        client.update_distribution.assert_called_once_with(
+            org="org",
+            artifact_id="artifact",
+            data={
+                "error_code": InstallableAppErrorCode.PROCESSING_ERROR.value,
+                "error_message": "The app bundle contains an unsafe path and could not be packaged for distribution.",
+            },
+        )
+        client.upload_installable_app.assert_not_called()
 
     def test_do_distribution_simulator_build_reports_skip(self):
         mock_sentry_client = Mock(spec=SentryClient)

@@ -1,13 +1,18 @@
+import errno
 import json
+import os
 import plistlib
 import shutil
+import stat
 import subprocess
 import tempfile
 import uuid
 
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, NamedTuple
+from zipfile import ZipInfo
 
 import lief
 import sentry_sdk.traces
@@ -21,6 +26,9 @@ from ..providers.safe_directory import SafeDirectory
 from ..providers.zip_provider import ZipProvider
 
 logger = get_logger(__name__)
+
+_MAX_SYMLINK_TARGET_BYTES = 4096
+_ZIP_SYSTEM_UNIX = 3
 
 
 @dataclass
@@ -66,7 +74,18 @@ class ZippedXCArchive(AppleArtifact):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
         self._zip_provider = ZipProvider(path)
-        self._extract_dir = self._zip_provider.extract_to_temp_directory()
+        symlink_paths: set[Path] = set()
+
+        def record_symlink(entry: ZipInfo, extracted_path: Path) -> None:
+            unix_mode = entry.external_attr >> 16
+            if entry.create_system == _ZIP_SYSTEM_UNIX and stat.S_ISLNK(unix_mode) and not entry.is_dir():
+                symlink_paths.add(extracted_path)
+            else:
+                # A later regular entry can overwrite a symlink placeholder.
+                symlink_paths.discard(extracted_path)
+
+        self._extract_dir = self._zip_provider.extract_to_temp_directory(on_extracted=record_symlink)
+        self._symlink_paths = symlink_paths
         self._app_bundle_path: SafeDirectory | None = None
         self._plist: dict[str, Any] | None = None
         self._archive_plist: dict[str, Any] | None = None
@@ -201,6 +220,39 @@ class ZippedXCArchive(AppleArtifact):
 
         return AppIconInfo(primary_icon_name, primary_icon_files, alternate_icon_names)
 
+    def _restore_symlinks_for_ipa(self, app: SafeDirectory, destination: Path) -> None:
+        # ZIP extraction leaves link targets in regular files. Restore the signed
+        # bundle layout only in the IPA copy.
+        links = [path.relative_to(app.path) for path in self._symlink_paths if path.is_relative_to(app.path)]
+        for relative in links:
+            link = destination / relative
+            # The placeholder's contents are the path the symlink points to.
+            # Request one extra byte so we can detect an oversized target without reading the whole file.
+            with (app.path / relative).open("rb") as f:
+                target = f.read(_MAX_SYMLINK_TARGET_BYTES + 1)
+            if not target or len(target) > _MAX_SYMLINK_TARGET_BYTES or b"\0" in target or os.path.isabs(target):
+                raise UnsafePathError(f"Invalid app bundle symlink: {link}")
+            link.unlink()
+            try:
+                os.symlink(target, link)
+            except OSError as e:
+                if e.errno != errno.ENAMETOOLONG:
+                    raise
+                raise UnsafePathError(f"App bundle symlink target is too long: {link}") from e
+        # A target can itself be a link, so check containment after all links exist.
+        root = destination.resolve()
+        for relative in links:
+            link = destination / relative
+            try:
+                # Let the filesystem reject excessive link indirection before resolving in Python.
+                with suppress(FileNotFoundError):  # In-bundle links may have a missing target.
+                    link.stat()
+                resolved = Path(os.path.realpath(link, strict=os.path.ALLOW_MISSING))
+            except OSError as e:
+                raise UnsafePathError(f"Invalid app bundle symlink: {link}") from e
+            if not resolved.is_relative_to(root):
+                raise UnsafePathError(f"Symlink leaves the app bundle: {link}")
+
     @sentry_sdk.traces.trace
     def generate_ipa(self, output_path: Path):
         """Generate an IPA file
@@ -229,8 +281,9 @@ class ZippedXCArchive(AppleArtifact):
             payload_dir.mkdir()
             dest_app_path = payload_dir / app_bundle_path.name
 
-            # Copy the .app bundle into Payload (preserve symlinks, permissions, etc.)
+            # Copy the extracted .app into Payload, then restore symlinks that ZIP extraction flattened.
             shutil.copytree(app_bundle_path, dest_app_path, symlinks=True)
+            self._restore_symlinks_for_ipa(app_bundle_path, dest_app_path)
 
             # Create the IPA file using zip to preserve symlinks and metadata
             try:

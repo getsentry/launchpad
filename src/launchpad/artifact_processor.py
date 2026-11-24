@@ -32,6 +32,7 @@ from launchpad.artifacts.android.zipped_apk import ZippedAPK
 from launchpad.artifacts.apple.zipped_xcarchive import ZippedXCArchive
 from launchpad.artifacts.artifact import AndroidArtifact, AppleArtifact, Artifact
 from launchpad.artifacts.artifact_factory import ArtifactFactory
+from launchpad.artifacts.providers.exceptions import UnsafePathError
 from launchpad.constants import (
     ArtifactType,
     InstallableAppErrorCode,
@@ -395,7 +396,19 @@ class ArtifactProcessor:
             with tempfile.TemporaryDirectory() as temp_dir_str:
                 temp_dir = Path(temp_dir_str)
                 ipa_path = temp_dir / "App.ipa"
-                artifact.generate_ipa(ipa_path)
+                try:
+                    artifact.generate_ipa(ipa_path)
+                except UnsafePathError:
+                    logger.warning(
+                        f"BUILD_DISTRIBUTION failed for {artifact_id}: unsafe app bundle path", exc_info=True
+                    )
+                    self._update_distribution_error(
+                        organization_id,
+                        artifact_id,
+                        InstallableAppErrorCode.PROCESSING_ERROR,
+                        "The app bundle contains an unsafe path and could not be packaged for distribution.",
+                    )
+                    return
                 with open(ipa_path, "rb") as f:
                     self._sentry_client.upload_installable_app(organization_id, project_id, artifact_id, f)
         elif isinstance(artifact, (AAB, ZippedAAB)):
