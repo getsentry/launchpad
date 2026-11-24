@@ -1,6 +1,7 @@
 import json
 import plistlib
 import shutil
+import stat
 import subprocess
 import tempfile
 import uuid
@@ -8,6 +9,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, NamedTuple
+from zipfile import ZipFile
 
 import lief
 import sentry_sdk.traces
@@ -229,8 +231,23 @@ class ZippedXCArchive(AppleArtifact):
             payload_dir.mkdir()
             dest_app_path = payload_dir / app_bundle_path.name
 
-            # Copy the .app bundle into Payload (preserve symlinks, permissions, etc.)
-            shutil.copytree(app_bundle_path, dest_app_path, symlinks=True)
+            # ZipFile.extract creates regular files with default permissions. Carry
+            # only the original execute bits onto the copy made for distribution.
+            # Member names are untrusted, so key them by where they were extracted.
+            with ZipFile(self.path) as archive:
+                members = {self._extract_dir.resolve(entry.filename): entry for entry in archive.infolist()}
+
+            def copy_app_file(src: str, dst: str) -> str:
+                copied = shutil.copy2(src, dst)
+                member = members.get(Path(src))
+                if member is not None and member.create_system == 3:
+                    mode = member.external_attr >> 16
+                    if stat.S_IFMT(mode) in (0, stat.S_IFREG) and mode & 0o111:
+                        path = Path(copied)
+                        path.chmod(path.stat().st_mode | (mode & 0o111))
+                return copied
+
+            shutil.copytree(app_bundle_path, dest_app_path, symlinks=True, copy_function=copy_app_file)
 
             # Create the IPA file using zip to preserve symlinks and metadata
             try:
