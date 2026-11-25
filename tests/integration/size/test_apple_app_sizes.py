@@ -244,7 +244,7 @@ class TestAppleAppSizes:
             monkeypatch.setenv("LAUNCHPAD_ENV", "integration")
             monkeypatch.setenv("SENTRY_DSN", stub.dsn)
             monkeypatch.setenv("SENTRY_REGION", "test")
-            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, enable_logs=True, trace_lifecycle="stream")
+            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0)
             try:
                 with sentry_sdk.traces.start_span(name="test") as span:
                     AppleAppAnalyzer(skip_treemap=False, binary_analysis_workers=2).analyze(
@@ -270,7 +270,7 @@ class TestAppleAppSizes:
             monkeypatch.setenv("LAUNCHPAD_ENV", "integration")
             monkeypatch.setenv("SENTRY_DSN", stub.dsn)
             monkeypatch.setenv("SENTRY_REGION", "test")
-            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0, trace_lifecycle="stream")
+            sentry_sdk.init(dsn=stub.dsn, traces_sample_rate=1.0)
             try:
                 with sentry_sdk.traces.start_span(name="test") as span:
                     artifact = cast(AppleArtifact, ArtifactFactory.from_path(hackernews_xcarchive))

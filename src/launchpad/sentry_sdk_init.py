@@ -33,26 +33,28 @@ def initialize_sentry_sdk(config: SentryConfig | None = None) -> None:
         return
 
     integrations = [
-        AioHttpIntegration(transaction_style="method_and_path_pattern"),
+        AioHttpIntegration(),
         AsyncioIntegration(),
         LoggingIntegration(
-            level=logging.DEBUG,  # Capture debug and above as breadcrumbs
+            breadcrumb_level=logging.DEBUG,  # Capture debug and above as breadcrumbs
+            event_level=logging.ERROR,  # SDK 3.x no longer creates events from logs by default
         ),
         StdlibIntegration(),
-        ThreadingIntegration(propagate_hub=True),
+        ThreadingIntegration(propagate_scope=True),
     ]
 
     sentry_sdk.init(
         dsn=config.dsn,
         integrations=integrations,
-        data_collection={},
+        # SDK 3.x no longer scrubs sensitive local variables by default.
+        data_collection={"stack_frame_variables": {"mode": "denylist"}},
+        # SDK 3.x attaches stack traces to messages by default, which would regroup issues.
+        attach_stacktrace=False,
         # Release is the git sha
         release=config.release,
         # Convention is to set the Sentry environment to the region (us, de, etc).
-        enable_logs=True,
         environment=config.region,
         traces_sample_rate=1.0,  # Low volume service, capture all traces for now
-        trace_lifecycle="stream",
     )
 
     logger.info(f"Sentry SDK initialized for environment: {config.region}")
