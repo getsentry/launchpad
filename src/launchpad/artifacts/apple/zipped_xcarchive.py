@@ -1,18 +1,12 @@
-import errno
 import json
-import os
 import plistlib
 import shutil
-import stat
-import subprocess
-import tempfile
 import uuid
 
-from contextlib import suppress
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, List, NamedTuple
-from zipfile import ZipInfo
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import lief
 import sentry_sdk.traces
@@ -26,9 +20,6 @@ from ..providers.safe_directory import SafeDirectory
 from ..providers.zip_provider import ZipProvider
 
 logger = get_logger(__name__)
-
-_MAX_SYMLINK_TARGET_BYTES = 4096
-_ZIP_SYSTEM_UNIX = 3
 
 
 @dataclass
@@ -74,18 +65,7 @@ class ZippedXCArchive(AppleArtifact):
     def __init__(self, path: Path) -> None:
         super().__init__(path)
         self._zip_provider = ZipProvider(path)
-        symlink_paths: set[Path] = set()
-
-        def record_symlink(entry: ZipInfo, extracted_path: Path) -> None:
-            unix_mode = entry.external_attr >> 16
-            if entry.create_system == _ZIP_SYSTEM_UNIX and stat.S_ISLNK(unix_mode) and not entry.is_dir():
-                symlink_paths.add(extracted_path)
-            else:
-                # A later regular entry can overwrite a symlink placeholder.
-                symlink_paths.discard(extracted_path)
-
-        self._extract_dir = self._zip_provider.extract_to_temp_directory(on_extracted=record_symlink)
-        self._symlink_paths = symlink_paths
+        self._extract_dir = self._zip_provider.extract_to_temp_directory()
         self._app_bundle_path: SafeDirectory | None = None
         self._plist: dict[str, Any] | None = None
         self._archive_plist: dict[str, Any] | None = None
@@ -220,92 +200,28 @@ class ZippedXCArchive(AppleArtifact):
 
         return AppIconInfo(primary_icon_name, primary_icon_files, alternate_icon_names)
 
-    def _restore_symlinks_for_ipa(self, app: SafeDirectory, destination: Path) -> None:
-        # ZIP extraction leaves link targets in regular files. Restore the signed
-        # bundle layout only in the IPA copy.
-        links = [path.relative_to(app.path) for path in self._symlink_paths if path.is_relative_to(app.path)]
-        for relative in links:
-            link = destination / relative
-            # The placeholder's contents are the path the symlink points to.
-            # Request one extra byte so we can detect an oversized target without reading the whole file.
-            with (app.path / relative).open("rb") as f:
-                target = f.read(_MAX_SYMLINK_TARGET_BYTES + 1)
-            if not target or len(target) > _MAX_SYMLINK_TARGET_BYTES or b"\0" in target or os.path.isabs(target):
-                raise UnsafePathError(f"Invalid app bundle symlink: {link}")
-            link.unlink()
-            try:
-                os.symlink(target, link)
-            except OSError as e:
-                if e.errno != errno.ENAMETOOLONG:
-                    raise
-                raise UnsafePathError(f"App bundle symlink target is too long: {link}") from e
-        # A target can itself be a link, so check containment after all links exist.
-        root = destination.resolve()
-        for relative in links:
-            link = destination / relative
-            try:
-                # Let the filesystem reject excessive link indirection before resolving in Python.
-                with suppress(FileNotFoundError):  # In-bundle links may have a missing target.
-                    link.stat()
-                resolved = Path(os.path.realpath(link, strict=os.path.ALLOW_MISSING))
-            except OSError as e:
-                raise UnsafePathError(f"Invalid app bundle symlink: {link}") from e
-            if not resolved.is_relative_to(root):
-                raise UnsafePathError(f"Symlink leaves the app bundle: {link}")
-
     @sentry_sdk.traces.trace
-    def generate_ipa(self, output_path: Path):
-        """Generate an IPA file
+    def generate_ipa(self, output_path: Path) -> Path:
+        """Copy the selected signed app from the XCArchive into Payload/ in a Deflate ZIP."""
+        app = self.get_app_bundle_path().relative_to(self._extract_dir)
+        with ZipFile(self.path, "r") as source, ZipFile(output_path, "w") as ipa:
+            for entry in source.infolist():
+                # ZipFile.extract discards ".." components when naming the extracted file.
+                parts = entry.filename.split("/")
+                path = PurePosixPath(*(part for part in parts if part != ".."))
+                if not path.is_relative_to(app):
+                    continue
+                name = PurePosixPath("Payload") / path.relative_to(app.parent)
+                member = ZipInfo(name.as_posix() + ("/" if entry.is_dir() else ""), entry.date_time)
+                member.create_system = entry.create_system
+                member.external_attr = entry.external_attr
+                member.file_size = entry.file_size
+                member.compress_type = ZIP_DEFLATED
+                with source.open(entry, "r") as reader, ipa.open(member, "w") as writer:
+                    shutil.copyfileobj(reader, writer)
 
-        An IPA file is a zip file containing a Payload directory, with the .app bundle inside.
-
-        Args:
-            output_path: Path where the IPA file should be saved
-
-        Returns:
-            Path to the generated IPA file
-
-        Raises:
-            RuntimeError: If IPA generation fails
-        """
-
-        logger.info("Generating IPA file from XCArchive")
-
-        # Get the app bundle path
-        app_bundle_path = self.get_app_bundle_path()
-
-        # Create a temporary directory for Payload
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_dir_path = Path(temp_dir)
-            payload_dir = temp_dir_path / "Payload"
-            payload_dir.mkdir()
-            dest_app_path = payload_dir / app_bundle_path.name
-
-            # Copy the extracted .app into Payload, then restore symlinks that ZIP extraction flattened.
-            shutil.copytree(app_bundle_path, dest_app_path, symlinks=True)
-            self._restore_symlinks_for_ipa(app_bundle_path, dest_app_path)
-
-            # Create the IPA file using zip to preserve symlinks and metadata
-            try:
-                subprocess.run(
-                    [
-                        "zip",
-                        "-r",
-                        "-y",
-                        "-q",
-                        str(output_path),
-                        "Payload",
-                    ],
-                    cwd=temp_dir_path,
-                    check=True,
-                )
-
-                logger.info(f"IPA file generated successfully: {output_path}")
-                return output_path
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError("Failed to generate IPA file with zip") from e
-            except FileNotFoundError:
-                raise RuntimeError("zip command not found. This tool is required for IPA generation.")
+        logger.info(f"IPA file generated successfully: {output_path}")
+        return output_path
 
     @sentry_sdk.traces.trace
     def get_provisioning_profile(self) -> dict[str, Any] | None:

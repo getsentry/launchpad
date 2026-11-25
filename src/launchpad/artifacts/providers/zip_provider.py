@@ -1,6 +1,5 @@
 import zipfile
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import List
 
@@ -58,17 +57,10 @@ class ZipProvider:
         self.path = path
         self._temp_dirs: List[Path] = []
 
-    def extract_to_temp_directory(
-        self, *, on_extracted: Callable[[zipfile.ZipInfo, Path], None] | None = None
-    ) -> SafeDirectory:
+    def extract_to_temp_directory(self) -> SafeDirectory:
         """Extract the zip contents to a temporary directory.
+        Creates a temporary directory and extracts the zip contents to it.
         A new temporary directory is created for each call to this method.
-        Each entry's path is checked for traversal before extraction.
-        Supported ZIP compression methods include Zstandard.
-
-        Args:
-            on_extracted: Optional callback invoked after each entry is extracted.
-                Receives the entry's ZipInfo and its extracted filesystem path.
 
         Returns:
             SafeDirectory wrapping the temporary directory containing extracted files
@@ -76,16 +68,22 @@ class ZipProvider:
         temp_dir = create_temp_directory("zip-extract-")
         self._temp_dirs.append(temp_dir)
 
-        safe_dir = SafeDirectory(temp_dir)
-        with zipfile.ZipFile(self.path, "r") as zip_ref:
-            check_reasonable_zip(zip_ref)
-            for member in zip_ref.infolist():
-                safe_dir.resolve(member.filename)
-                extracted = zip_ref.extract(member, safe_dir.path)
-                if on_extracted is not None:
-                    on_extracted(member, Path(extracted))
+        self._safe_extract(str(self.path), str(temp_dir))
         logger.debug(f"Extracted zip contents to {temp_dir}")
-        return safe_dir
+
+        return SafeDirectory(temp_dir)
+
+    def _safe_extract(self, zip_path: str, extract_path: str):
+        """Extract the zip contents to a temporary directory, ensuring that the paths are safe from path traversal attacks.
+
+        Supports both standard compression methods and Zstandard compression.
+        """
+        safe_dir = SafeDirectory(Path(extract_path))
+        with zipfile.ZipFile(zip_path, "r") as zip_ref:
+            check_reasonable_zip(zip_ref)
+            for member in zip_ref.namelist():
+                safe_dir.resolve(member)
+                zip_ref.extract(member, extract_path)
 
     def __del__(self) -> None:
         """Clean up resources when object is destroyed."""
