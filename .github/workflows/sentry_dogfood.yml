@@ -30,6 +30,7 @@ jobs:
           unzip -o ./tests/_fixtures/ios/HackerNews_without_parsedassets.xcarchive.zip
           EXTRACTED_PATH=$(find . -name "*.xcarchive" -type d | head -1)
           mv "$EXTRACTED_PATH" ./HackerNews.xcarchive
+          test -L ./HackerNews.xcarchive/Products/Applications/HackerNews.app/PlugIns/HackerNewsHomeWidgetExtension.appex/Fonts_Fonts.bundle
 
       - name: Upload iOS app to Sentry
         env:
