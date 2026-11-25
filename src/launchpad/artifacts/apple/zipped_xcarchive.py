@@ -1,13 +1,12 @@
 import json
 import plistlib
 import shutil
-import subprocess
-import tempfile
 import uuid
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, List, NamedTuple
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 import lief
 import sentry_sdk.traces
@@ -202,57 +201,27 @@ class ZippedXCArchive(AppleArtifact):
         return AppIconInfo(primary_icon_name, primary_icon_files, alternate_icon_names)
 
     @sentry_sdk.traces.trace
-    def generate_ipa(self, output_path: Path):
-        """Generate an IPA file
+    def generate_ipa(self, output_path: Path) -> Path:
+        """Copy the selected signed app from the XCArchive into Payload/ in a Deflate ZIP."""
+        app = self.get_app_bundle_path().relative_to(self._extract_dir)
+        with ZipFile(self.path, "r") as source, ZipFile(output_path, "w") as ipa:
+            for entry in source.infolist():
+                # ZipFile.extract discards ".." components when naming the extracted file.
+                parts = entry.filename.split("/")
+                path = PurePosixPath(*(part for part in parts if part != ".."))
+                if not path.is_relative_to(app):
+                    continue
+                name = PurePosixPath("Payload") / path.relative_to(app.parent)
+                member = ZipInfo(name.as_posix() + ("/" if entry.is_dir() else ""), entry.date_time)
+                member.create_system = entry.create_system
+                member.external_attr = entry.external_attr
+                member.file_size = entry.file_size
+                member.compress_type = ZIP_DEFLATED
+                with source.open(entry, "r") as reader, ipa.open(member, "w") as writer:
+                    shutil.copyfileobj(reader, writer)
 
-        An IPA file is a zip file containing a Payload directory, with the .app bundle inside.
-
-        Args:
-            output_path: Path where the IPA file should be saved
-
-        Returns:
-            Path to the generated IPA file
-
-        Raises:
-            RuntimeError: If IPA generation fails
-        """
-
-        logger.info("Generating IPA file from XCArchive")
-
-        # Get the app bundle path
-        app_bundle_path = self.get_app_bundle_path()
-
-        # Create a temporary directory for Payload
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_dir_path = Path(temp_dir)
-            payload_dir = temp_dir_path / "Payload"
-            payload_dir.mkdir()
-            dest_app_path = payload_dir / app_bundle_path.name
-
-            # Copy the .app bundle into Payload (preserve symlinks, permissions, etc.)
-            shutil.copytree(app_bundle_path, dest_app_path, symlinks=True)
-
-            # Create the IPA file using zip to preserve symlinks and metadata
-            try:
-                subprocess.run(
-                    [
-                        "zip",
-                        "-r",
-                        "-y",
-                        "-q",
-                        str(output_path),
-                        "Payload",
-                    ],
-                    cwd=temp_dir_path,
-                    check=True,
-                )
-
-                logger.info(f"IPA file generated successfully: {output_path}")
-                return output_path
-            except subprocess.CalledProcessError as e:
-                raise RuntimeError("Failed to generate IPA file with zip") from e
-            except FileNotFoundError:
-                raise RuntimeError("zip command not found. This tool is required for IPA generation.")
+        logger.info(f"IPA file generated successfully: {output_path}")
+        return output_path
 
     @sentry_sdk.traces.trace
     def get_provisioning_profile(self) -> dict[str, Any] | None:
