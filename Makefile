@@ -10,7 +10,7 @@ VENV_DIR := .venv
 install-dev: ## Install all dependencies including dev tools
 	uv sync --group dev
 	$(VENV_DIR)/bin/python scripts/deps
-	$(VENV_DIR)/bin/pre-commit install
+	$(VENV_DIR)/bin/prek install --prepare-hooks -f
 
 test:
 	uv run pytest -n auto tests/unit/ tests/integration/ -v
@@ -107,7 +107,7 @@ test-artifact-size-analysis-upload:
 status:
 	@echo "Python version: $$(uv run python --version)"
 	@echo "Virtual environment: $$(if [ -d $(VENV_DIR) ]; then echo 'exists'; else echo 'missing'; fi)"
-	@echo "Pre-commit hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"
+	@echo "Prek hooks: $$(if [ -f .git/hooks/pre-commit ]; then echo 'installed'; else echo 'not installed'; fi)"
 	@echo "UV version: $$(uv --version 2>/dev/null || echo 'not installed')"
 
 
